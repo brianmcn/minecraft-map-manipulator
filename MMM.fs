@@ -17,6 +17,25 @@ type BinaryReader2(stream : System.IO.Stream) = // Big Endian
         System.Array.Reverse(a32)
         System.BitConverter.ToUInt32(a32,0)
 
+type BinaryWriter2(stream : System.IO.Stream) = // Big Endian
+    inherit System.IO.BinaryWriter(stream)
+    override __.Write(x:int) = 
+        let a = System.BitConverter.GetBytes(x)
+        System.Array.Reverse(a)
+        base.Write(a)
+    override __.Write(x:int16) = 
+        let a = System.BitConverter.GetBytes(x)
+        System.Array.Reverse(a)
+        base.Write(a)
+    override __.Write(x:int64) = 
+        let a = System.BitConverter.GetBytes(x)
+        System.Array.Reverse(a)
+        base.Write(a)
+    override __.Write(x:uint32) = 
+        let a = System.BitConverter.GetBytes(x)
+        System.Array.Reverse(a)
+        base.Write(a)
+
 type Name = string
 
 type Payload =
@@ -195,6 +214,45 @@ type RegionFile(filename) =
                     use s = new System.IO.Compression.DeflateStream(new System.IO.MemoryStream(bytes) , System.IO.Compression.CompressionMode.Decompress)
                     let nbt = NBT.Read(new BinaryReader2(s))
                     chunks.[cx,cz] <- nbt
+    member this.Write(outputFilename) =
+        let chunkOffsetTable = Array.zeroCreate 1024 : int[]
+        let timeStampInfo = Array.zeroCreate 1024 : int[]
+        let mutable nextFreeSection = 2  // sections 0 and 1 are chunk offset table and timestamp info table
+        use file = new System.IO.FileStream(outputFilename, System.IO.FileMode.CreateNew)
+        use bw = new BinaryWriter2(file)
+        for cx = 0 to 31 do
+            for cz = 0 to 31 do
+                if chunks.[cx,cz] <> End then
+                    let temp = Array.zeroCreate (1024*1024)
+                    use s = new System.IO.Compression.DeflateStream(new System.IO.MemoryStream(temp) , System.IO.Compression.CompressionMode.Compress)
+                    // TODO NBT.Write(new BinaryWriter2(s), chunks.[cx,cz])
+                    let numBytes = int s.BaseStream.Length
+                    s.Close()
+                    let numSectionsNeeded = (numBytes + 6) / 4096
+                    chunkOffsetTable.[cx+cz*32] <- (nextFreeSection <<< 8) + numSectionsNeeded
+                    timeStampInfo.[cx+cz*32] <- chunkTimestampInfos.[cx,cz]  // no-op, not updating them
+                    bw.Seek(nextFreeSection * 4096, System.IO.SeekOrigin.Begin) |> ignore
+                    nextFreeSection <- nextFreeSection + numSectionsNeeded 
+                    bw.Write(120uy) // CMF
+                    bw.Write(156uy) // FLG
+                    bw.Write(temp, 0, numBytes)  // stream
+                    bw.Write(RegionFile.ComputeAdler(temp)) // adler checksum
+        // TODO pad to 4096
+        ()
+    static member ComputeAdler(bytes : byte[]) : int =
+        (*
+                Adler-32 is composed of two sums accumulated per byte: s1 is
+                the sum of all bytes, s2 is the sum of all s1 values. Both sums
+                are done modulo 65521. s1 is initialized to 1, s2 to zero.  The
+                Adler-32 checksum is stored as s2*65536 + s1 in most-
+                significant-byte first (network) order.
+        *)
+        let mutable s1 = 1
+        let mutable s2 = 0
+        for i = 0 to bytes.Length - 1 do
+            s1 <- (s1 + int(bytes.[i])) % 65521
+            s2 <- (s2 + s1) % 65521
+        s2*65536 + s1
     member this.GetChunk(cx, cz) =
         match chunks.[cx,cz] with
         | End -> failwith "chunk not represented, NYI"
