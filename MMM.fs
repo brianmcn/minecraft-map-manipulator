@@ -50,7 +50,7 @@ type Payload =
 //    | Strings of string[]
     //| Lists
     | Compounds of NBT[][]
-//    | IntArrays of int[][]
+    | IntArrays of int[][]
     
 and NBT =
     | End
@@ -95,9 +95,10 @@ and NBT =
         | Long(n,x) -> prefix + n + " : " + (x.ToString())
         | Float(n,x) -> prefix + n + " : " + (x.ToString())
         | Double(n,x) -> prefix + n + " : " + (x.ToString())
-        | ByteArray(n,_a) -> prefix + n + " : <bytes>"
+        | ByteArray(n,a) -> prefix + n + " : <" + (if a |> Array.exists (fun b -> b <> 0uy) then "bytes>" else "all zero bytes>")
         | String(n,s) -> prefix + n + " : " + s
         | List(n,pay) -> 
+            if n = "TileTicks" then prefix + n + " : [] (NOTE: skipping data)" else
             let sb = new System.Text.StringBuilder(prefix + n + " : [] ")
             let p = "    " + prefix
             match pay with
@@ -116,6 +117,7 @@ and NBT =
                         sb.Append("\n" + p + "----") |> ignore
                     for x in c do 
                         if x <> End then sb.Append("\n" + x.ToString(p)) |> ignore
+            | IntArrays(a) -> sb.Append(a.Length.ToString() + " int arrays") |> ignore
             sb.ToString()
         | Compound(n,a) -> 
             let sb = new System.Text.StringBuilder(prefix + n + " :\n")
@@ -163,6 +165,7 @@ and NBT =
                 | 5uy -> Floats(Array.init len (fun _ -> s.ReadSingle()))
                 | 6uy -> Doubles(Array.init len (fun _ -> s.ReadDouble()))
                 | 10uy ->Compounds(Array.init len (fun _ -> readCompoundPayload()))
+                | 11uy ->IntArrays(Array.init len (fun _ -> let innerLen = s.ReadInt32() in Array.init innerLen (fun _ -> s.ReadInt32())))
                 | _ -> failwith "unimplemented list kind"
             List(n,payload)
         | 10uy ->
@@ -170,6 +173,36 @@ and NBT =
             Compound(n, readCompoundPayload())
         | 11uy -> let n = NBT.ReadName(s) in let len = s.ReadInt32() in let a = Array.init len (fun _ -> s.ReadInt32()) in IntArray(n,a)
         | _ -> failwith "bad NBT tag"
+    static member WriteName(bw : BinaryWriter2, n : string) =
+        bw.Write(int16 n.Length)
+        let a = System.Text.Encoding.UTF8.GetBytes(n)
+        bw.Write(a)
+    member this.Write(bw : BinaryWriter2) =
+        match this with
+        | End -> bw.Write(0uy)
+        | Byte(n,x) -> bw.Write(1uy); NBT.WriteName(bw,n); bw.Write(x)
+        | Short(n,x) -> bw.Write(2uy); NBT.WriteName(bw,n); bw.Write(x)
+        | Int(n,x) -> bw.Write(3uy); NBT.WriteName(bw,n); bw.Write(x)
+        | Long(n,x) -> bw.Write(4uy); NBT.WriteName(bw,n); bw.Write(x)
+        | Float(n,x) -> bw.Write(5uy); NBT.WriteName(bw,n); bw.Write(x)
+        | Double(n,x) -> bw.Write(6uy); NBT.WriteName(bw,n); bw.Write(x)
+        | ByteArray(n,a) -> bw.Write(7uy); NBT.WriteName(bw,n); bw.Write(a)
+        | String(n,x) -> bw.Write(8uy); NBT.WriteName(bw,n); NBT.WriteName(bw,x)
+        | List(n,pay) -> 
+            bw.Write(9uy); 
+            NBT.WriteName(bw,n)
+            match pay with
+            | Bytes(a) -> bw.Write(1uy); bw.Write(a.Length); bw.Write(a)
+            | Shorts(a) -> bw.Write(2uy); bw.Write(a.Length); for x in a do bw.Write(x)
+            | Ints(a) -> bw.Write(3uy); bw.Write(a.Length); for x in a do bw.Write(x)
+            | Longs(a) -> bw.Write(4uy); bw.Write(a.Length); for x in a do bw.Write(x)
+            | Floats(a) -> bw.Write(5uy); bw.Write(a.Length); for x in a do bw.Write(x)
+            | Doubles(a) -> bw.Write(6uy); bw.Write(a.Length); for x in a do bw.Write(x)
+            //| ByteArrays(a) -> bw.Write(7uy); bw.Write(a.Length); for x in a do bw.Write(x)
+            | Compounds(a) -> bw.Write(10uy); bw.Write(a.Length); for x in a do for y in x do y.Write(bw)
+            | IntArrays(a) -> bw.Write(11uy); bw.Write(a.Length); for x in a do for y in x do bw.Write(y)
+        | Compound(n,xs) -> bw.Write(10uy); NBT.WriteName(bw,n); for x in xs do x.Write(bw) // end is in-memory represented, so written out too
+        | IntArray(n,xs) -> bw.Write(11uy); NBT.WriteName(bw,n); bw.Write(xs.Length); for x in xs do bw.Write(x)
 
 type RegionFile(filename) =
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
@@ -283,6 +316,163 @@ type RegionFile(filename) =
             | _ -> None
         blocks.[i], blockData.[i], tileEntity
 
+let main2() =
+    let filename = """F:\.minecraft\saves\FindHut\region\r.0.0.mca"""
+    // I want to read chunk (10,13), which is coords (165,211) and is in the witch hut
+    let regionFile = new RegionFile(filename)
+    let nbt = regionFile.GetChunk(10, 13)
+    printfn "%s" (nbt.ToString())
+    let theChunk = match nbt with Compound(_,[|c;_|]) -> c
+    let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
+    // height of map I want to look at is 65, which is section 4
+    let s = sections |> Array.find (Array.exists (function Byte("Y",4uy) -> true | _ -> false))
+    for x in s do printfn "%s\n" (x.ToString())
+    let blockID, blockData, tileEntityOpt = regionFile.GetBlockIDAndBlockDataAndTileEntityOpt(165,65,211)
+    printfn "%A %A %A" blockID blockData tileEntityOpt  // planks at floor of hut
+
+    let structures = [ //"VILLAGES", """F:\.minecraft\saves\FindHut\data\villages.dat"""
+                       "TEMPLE", """F:\.minecraft\saves\FindHut\data\Temple.dat"""
+                       //"MINESHAFT", """F:\.minecraft\saves\FindHut\data\Mineshaft.dat"""
+                     ]
+    for name, file in structures do
+        printfn ""
+        printfn "%s" name
+        use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(file, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
+        let vnbt = NBT.Read(new BinaryReader2(s))
+        printfn "%s" (vnbt.ToString())
+
+    (* Aha, yes, temples stores the witch hut
+TEMPLE
+ :
+    data :
+        Features :
+            [10,13] :
+                id : Temple
+                ChunkX : 10
+                BB : <ints>
+                ChunkZ : 13
+                Children : []
+                    id : TeSH
+                    GD : 0
+                    HPos : 64
+                    BB : <ints>
+                    Height : 5
+                    Witch : 1
+                    Width : 7
+                    O : 2
+                    Depth : 9
+    *)
+    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\FindHut\data\Temple.dat""", System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
+    let temp = Array.zeroCreate 100000
+    let mutable N = 0
+    let mutable dun = false
+    while not dun do
+        let x = s.ReadByte()
+        if x = -1 then
+            dun <- true
+        else
+            temp.[N] <- byte x
+            N <- N + 1
+    s.Close()
+    let decompressedBytes = temp.[0..N-1]
+    let s = new System.IO.MemoryStream(decompressedBytes)
+    let nbt = NBT.Read(new BinaryReader2(s))
+    let theHut = nbt.["data"].["Features"].["[10,13]"]  // swamp hut
+    //let theHut = nbt.["data"].["Features"].["[-60,-25]"]  // desert pyramid
+    printfn "%s" (theHut.ToString())
+    let (IntArray(_n,a)) = theHut.["BB"]
+    for x in a do printf "%d  " x
+    printfn ""
+    (* 160  64  208  166  68  216 *)
+    // Aha, BB is the bounding box
+    (*
+    let (List(_n,Compounds([|c|]))) = theHut.["Children"]
+    let childBB = c |> Array.find (fun x -> x.Name = "BB")
+    let (IntArray(_n,a)) = childBB
+    for x in a do printf "%d  " x
+    printfn ""
+    (* 160  64  208  166  68  216 *)
+    *)
+    let ms = new System.IO.MemoryStream(temp)
+    nbt.Write(new BinaryWriter2(ms))
+    let p = int ms.Position 
+    ms.Close()
+    let writtenBytes = temp.[0..p-1]
+    printfn "%d %d" decompressedBytes.Length writtenBytes.Length 
+(*
+    let k =
+        let mutable i = 0
+        let mutable dun = false
+        while not dun do
+            if decompressedBytes.[i] = writtenBytes.[i] then
+                i <- i + 1
+            else
+                dun <- true
+        i
+    for b in decompressedBytes.[k-5 .. k+25] do
+        printf "%3d " b
+    printfn ""
+    printfn "-------"
+    for b in writtenBytes.[k-5 .. k+25] do
+        printf "%3d " b
+    printfn ""
+*)
+    //use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\FindHut\data\BriTemple.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
+    //nbt.Write(new BinaryWriter2(s))
+    //s.Close()
+(*
+TEMPLE
+ :
+    data :
+        Features :
+            [10,13] :
+                id : Temple
+                ChunkX : 10
+                BB : <ints>
+                ChunkZ : 13
+                Children : []
+                    id : TeSH
+                    GD : 0
+                    HPos : 64
+                    BB : <ints>
+                    Height : 5
+                    Witch : 1
+                    Width : 7
+                    O : 2
+                    Depth : 9
+*)
+    let synthetic = 
+        Compound("", [|
+            Compound("data", [|
+                Compound("Features", [|
+                    Compound("[0,0]", [|
+                        String("id", "Temple")
+                        Int("ChunkX", 0)
+                        Int("ChunkZ", 0)
+                        IntArray("BB", [| 0; 1; 0; 400; 255; 400 |])
+                        Compound("Children", [|
+                            String("id", "TeSH")
+                            Int("GD", 0) //?
+                            Int("HPos", 1)
+                            IntArray("BB", [| 0; 1; 0; 400; 255; 400 |])
+                            Int("Height", 255)
+                            Int("Width", 401)
+                            Int("Depth", 401)
+                            Int("Witch", 1) //?
+                            Int("O", 2)  //?
+                            |])
+                        |])
+                    |])
+                |])
+            |])
+    printfn "%s" (synthetic.ToString())
+    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\FindHut\data\AllWitchesTemple.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
+    synthetic.Write(new BinaryWriter2(s))
+    s.Close()
+
+
+    
+
 let main() =
     let filename = """F:\.minecraft\saves\BingoGood\region\r.0.0.mca"""
     // I want to read chunk (12,12), which is coords (192,192) and is the top left of my bingo map
@@ -320,5 +510,6 @@ let main() =
     ()
 
 printfn "hi"
-main()
+//main()
+main2()
 
