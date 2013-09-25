@@ -186,7 +186,7 @@ and NBT =
         | Long(n,x) -> bw.Write(4uy); NBT.WriteName(bw,n); bw.Write(x)
         | Float(n,x) -> bw.Write(5uy); NBT.WriteName(bw,n); bw.Write(x)
         | Double(n,x) -> bw.Write(6uy); NBT.WriteName(bw,n); bw.Write(x)
-        | ByteArray(n,a) -> bw.Write(7uy); NBT.WriteName(bw,n); bw.Write(a)
+        | ByteArray(n,a) -> bw.Write(7uy); NBT.WriteName(bw,n); bw.Write(a.Length); bw.Write(a)
         | String(n,x) -> bw.Write(8uy); NBT.WriteName(bw,n); NBT.WriteName(bw,x)
         | List(n,pay) -> 
             bw.Write(9uy); 
@@ -248,6 +248,7 @@ type RegionFile(filename) =
                     let nbt = NBT.Read(new BinaryReader2(s))
                     chunks.[cx,cz] <- nbt
     member this.Write(outputFilename) =
+        let zeros = Array.zeroCreate 4096 : byte[]
         let chunkOffsetTable = Array.zeroCreate 1024 : int[]
         let timeStampInfo = Array.zeroCreate 1024 : int[]
         let mutable nextFreeSection = 2  // sections 0 and 1 are chunk offset table and timestamp info table
@@ -256,22 +257,30 @@ type RegionFile(filename) =
         for cx = 0 to 31 do
             for cz = 0 to 31 do
                 if chunks.[cx,cz] <> End then
-                    let temp = Array.zeroCreate (1024*1024)
-                    use s = new System.IO.Compression.DeflateStream(new System.IO.MemoryStream(temp) , System.IO.Compression.CompressionMode.Compress)
-                    // TODO NBT.Write(new BinaryWriter2(s), chunks.[cx,cz])
-                    let numBytes = int s.BaseStream.Length
+                    let ms = new System.IO.MemoryStream()
+                    use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionMode.Compress, true)
+                    chunks.[cx,cz].Write(new BinaryWriter2(s))
                     s.Close()
-                    let numSectionsNeeded = (numBytes + 6) / 4096
+                    let numBytes = int ms.Length
+                    let numSectionsNeeded = 1 + ((numBytes + 11) / 4096)
                     chunkOffsetTable.[cx+cz*32] <- (nextFreeSection <<< 8) + numSectionsNeeded
                     timeStampInfo.[cx+cz*32] <- chunkTimestampInfos.[cx,cz]  // no-op, not updating them
                     bw.Seek(nextFreeSection * 4096, System.IO.SeekOrigin.Begin) |> ignore
                     nextFreeSection <- nextFreeSection + numSectionsNeeded 
+                    bw.Write(numBytes + 6) // length
+                    bw.Write(0uy) // version
                     bw.Write(120uy) // CMF
                     bw.Write(156uy) // FLG
+                    let temp = ms.ToArray()
                     bw.Write(temp, 0, numBytes)  // stream
                     bw.Write(RegionFile.ComputeAdler(temp)) // adler checksum
-        // TODO pad to 4096
-        ()
+                    let paddingLengthNeeded = 4096 - ((numBytes+11)%4096)
+                    bw.Write(zeros, 0, paddingLengthNeeded) // zero padding out to 4K
+        bw.Seek(0, System.IO.SeekOrigin.Begin) |> ignore
+        for i = 0 to 1023 do
+            bw.Write(chunkOffsetTable.[i])
+        for i = 0 to 1023 do
+            bw.Write(timeStampInfo.[i])
     static member ComputeAdler(bytes : byte[]) : int =
         (*
                 Adler-32 is composed of two sums accumulated per byte: s1 is
@@ -316,6 +325,10 @@ type RegionFile(filename) =
             | _ -> None
         blocks.[i], blockData.[i], tileEntity
 
+let readDatFile(filename : string) =
+    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
+    NBT.Read(new BinaryReader2(s))
+
 let main2() =
     let filename = """F:\.minecraft\saves\FindHut\region\r.0.0.mca"""
     // I want to read chunk (10,13), which is coords (165,211) and is in the witch hut
@@ -341,117 +354,11 @@ let main2() =
         printfn ""
         printfn "%s" name
         try
-            use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(file, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
-            let vnbt = NBT.Read(new BinaryReader2(s))
+            let vnbt = readDatFile(file)
             printfn "%s" (vnbt.ToString())
         with e -> printfn "error %A" e
     printfn "======================="
 
-    (* Aha, yes, temples stores the witch hut
-TEMPLE
- :
-    data :
-        Features :
-            [10,13] :
-                id : Temple
-                ChunkX : 10
-                BB : <ints>
-                ChunkZ : 13
-                Children : []
-                    id : TeSH
-                    GD : 0
-                    HPos : 64
-                    BB : <ints>
-                    Height : 5
-                    Witch : 1
-                    Width : 7
-                    O : 2
-                    Depth : 9
-    *)
-
-    (*
-    //use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\E&T 1_3\data\Temple.dat""", System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
-    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\FindHut\data\Temple.dat""", System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
-    let temp = Array.zeroCreate 100000
-    let mutable N = 0
-    let mutable dun = false
-    while not dun do
-        let x = s.ReadByte()
-        if x = -1 then
-            dun <- true
-        else
-            temp.[N] <- byte x
-            N <- N + 1
-    s.Close()
-    let decompressedBytes = temp.[0..N-1]
-    let s = new System.IO.MemoryStream(decompressedBytes)
-    let nbt = NBT.Read(new BinaryReader2(s))
-    let theHut = nbt.["data"].["Features"].["[10,13]"]  // swamp hut
-    //let theHut = nbt.["data"].["Features"].["[-60,-25]"]  // desert pyramid
-    printfn "%s" (theHut.ToString())
-    let (IntArray(_n,a)) = theHut.["BB"]
-    for x in a do printf "%d  " x
-    printfn ""
-    (* 160  64  208  166  68  216 *)
-    // Aha, BB is the bounding box
-    (*
-    let (List(_n,Compounds([|c|]))) = theHut.["Children"]
-    let childBB = c |> Array.find (fun x -> x.Name = "BB")
-    let (IntArray(_n,a)) = childBB
-    for x in a do printf "%d  " x
-    printfn ""
-    (* 160  64  208  166  68  216 *)
-    *)
-    let ms = new System.IO.MemoryStream(temp)
-    nbt.Write(new BinaryWriter2(ms))
-    let p = int ms.Position 
-    ms.Close()
-    let writtenBytes = temp.[0..p-1]
-    printfn "%d %d" decompressedBytes.Length writtenBytes.Length 
-    *)
-
-(*
-    let k =
-        let mutable i = 0
-        let mutable dun = false
-        while not dun do
-            if decompressedBytes.[i] = writtenBytes.[i] then
-                i <- i + 1
-            else
-                dun <- true
-        i
-    for b in decompressedBytes.[k-5 .. k+25] do
-        printf "%3d " b
-    printfn ""
-    printfn "-------"
-    for b in writtenBytes.[k-5 .. k+25] do
-        printf "%3d " b
-    printfn ""
-*)
-    //use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\FindHut\data\BriTemple.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
-    //nbt.Write(new BinaryWriter2(s))
-    //s.Close()
-(*
-TEMPLE
- :
-    data :
-        Features :
-            [10,13] :
-                id : Temple
-                ChunkX : 10
-                BB : <ints>
-                ChunkZ : 13
-                Children : []
-                    id : TeSH
-                    GD : 0
-                    HPos : 64
-                    BB : <ints>
-                    Height : 5
-                    Witch : 1
-                    Width : 7
-                    O : 2
-                    Depth : 9
-*)
     let MakeSyntheticWitchArea(lowX, lowY, lowZ, hiX, hiY, hiZ) = 
         let bb = [| lowX; lowY; lowZ; hiX; hiY; hiZ |]
         let chunkX = lowX / 16
@@ -485,79 +392,12 @@ TEMPLE
             End
             |])
 
-(*
-    let synthetic = 
-        Compound("", [|
-            Compound("data", [|
-                Compound("Features", [|
-                    Compound("[12,21]", [|
-                        String("id", "Temple")
-                        Int("ChunkX", 12)
-                        Int("ChunkZ", 21)
-                        IntArray("BB", [| 201; 54; 351; 300; 83; 450 |])
-                        List("Children", Compounds[|[|
-                            String("id", "TeSH")
-                            Int("GD", 0) //?
-                            Int("HPos", -1)
-                            IntArray("BB", [| 201; 54; 351; 300; 83; 450 |])
-                            Int("Height", 30)
-                            Int("Width", 100)
-                            Int("Depth", 100)
-                            Int("Witch", 0) //?
-                            Int("O", 1)  //?
-                            End
-                            |]|])
-                        End
-                        |])
-                    End
-                    |])
-                End
-                |])
-            End
-            |])
-    *)
     let synthetic = MakeSyntheticWitchArea(651, 54, 651, 750, 83, 750)
     printfn "%s" (synthetic.ToString())
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\data\Temple.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
     synthetic.Write(new BinaryWriter2(s))
     s.Close()
-
-    (*
-    let syntheticET = 
-        Compound("", [|
-            Compound("data", [|
-                Compound("Features", [|
-                    Compound("[33,106]", [|
-                        String("id", "Temple")
-                        Int("ChunkX", 33)
-                        IntArray("BB", [| 528; 64; 1696; 536; 68; 1702 |])
-                        Int("ChunkZ", 106)
-                        List("Children", Compounds[|[|
-                            String("id", "TeSH")
-                            Int("GD", 0) //?
-                            Int("HPos", -1)
-                            IntArray("BB", [| 528; 64; 1696; 536; 68; 1702 |])
-                            Int("Height", 5)
-                            Int("Witch", 0) //?
-                            Int("Width", 7)
-                            Int("O", 1)  //?
-                            Int("Depth", 9)
-                            End
-                            |]|])
-                        End
-                        |])
-                    End
-                    |])
-                End
-                |])
-            End
-            |])
-    printfn "%s" (syntheticET.ToString())
-    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\data\ModTemple3.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
-    syntheticET.Write(new BinaryWriter2(s))
-    s.Close()
-    *)
-    
+   
 
 let main() =
     let filename = """F:\.minecraft\saves\BingoGood\region\r.0.0.mca"""
@@ -595,7 +435,71 @@ let main() =
     printfn "should have tile entity here: %s" (match tileEntityOpt with None -> "" | Some nbt -> nbt.ToString())
     ()
 
+let diagnoseStringDiff(s1 : string, s2 : string) =
+    if s1 = s2 then printfn "same!" else
+    let mutable i = 0
+    while i < s1.Length && i < s2.Length && s1.[i] = s2.[i] do
+        i <- i + 1
+    if i = s1.Length then 
+        printfn "first ended at pos %d whereas second still has more %s" s1.Length (s2.Substring(s1.Length))
+    elif i = s2.Length then 
+        printfn "second ended at pos %d whereas first still has more %s" s2.Length (s1.Substring(s2.Length))
+    else
+        let j = i - 20
+        let j = if j < 0 then 0 else j
+        printfn "first diff at position %d" i
+        printfn ">>>>>"
+        printfn "%s" (s1.Substring(j, 40))
+        printfn "<<<<<"
+        printfn "%s" (s2.Substring(j, 40))
+
+let testReadWriteRegionFile() =
+    let filename = """F:\.minecraft\saves\BingoGood\region\r.0.0.mca"""
+    let out1 = """F:\.minecraft\saves\BingoGood\region\out1.r.0.0.mca"""
+    let out2 = """F:\.minecraft\saves\BingoGood\region\out2.r.0.0.mca"""
+    // load up orig file, show some data
+    let origFile = new RegionFile(filename)
+    let nbt = origFile.GetChunk(12, 12)
+    let origString = nbt.ToString()
+    // write out a copy
+    origFile.Write(out1)
+    // try to read in the copy, see if data same
+    let out1File = new RegionFile(out1)
+    let nbt = out1File.GetChunk(12, 12)
+    let out1String = nbt.ToString()
+    diagnoseStringDiff(origString, out1String)
+    // write out a copy
+    out1File.Write(out2)
+    // try to read in the copy, see if data same
+    let out2File = new RegionFile(out2)
+    let nbt = out2File.GetChunk(12, 12)
+    let out2String = nbt.ToString()
+    diagnoseStringDiff(origString, out2String)
+    
+
+(*
+    // finding diff in byte arrays
+    let k =
+        let mutable i = 0
+        let mutable dun = false
+        while not dun do
+            if decompressedBytes.[i] = writtenBytes.[i] then
+                i <- i + 1
+            else
+                dun <- true
+        i
+    for b in decompressedBytes.[k-5 .. k+25] do
+        printf "%3d " b
+    printfn ""
+    printfn "-------"
+    for b in writtenBytes.[k-5 .. k+25] do
+        printf "%3d " b
+    printfn ""
+*)
+    ()
+
+
 printfn "hi"
 //main()
-main2()
-
+//main2()
+testReadWriteRegionFile()
