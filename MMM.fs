@@ -125,7 +125,7 @@ and NBT =
             for x in a do
                 sb.Append(x.ToString(p) + "\n") |> ignore
             sb.ToString()
-        | IntArray(n,_a) -> prefix + n + " : <ints>"
+        | IntArray(n,a) -> prefix + n + if a.Length > 6 then " : <ints>" else (a |> Array.fold (fun s x -> s + (x.ToString()) + " ") " : [ ") + "]"
     override this.ToString() =
         this.ToString("")
     static member ReadName(s : BinaryReader2) =
@@ -199,9 +199,9 @@ and NBT =
             | Floats(a) -> bw.Write(5uy); bw.Write(a.Length); for x in a do bw.Write(x)
             | Doubles(a) -> bw.Write(6uy); bw.Write(a.Length); for x in a do bw.Write(x)
             //| ByteArrays(a) -> bw.Write(7uy); bw.Write(a.Length); for x in a do bw.Write(x)
-            | Compounds(a) -> bw.Write(10uy); bw.Write(a.Length); for x in a do for y in x do y.Write(bw)
+            | Compounds(a) -> bw.Write(10uy); bw.Write(a.Length); for x in a do (for y in x do y.Write(bw); assert(x.[x.Length-1] = End))
             | IntArrays(a) -> bw.Write(11uy); bw.Write(a.Length); for x in a do for y in x do bw.Write(y)
-        | Compound(n,xs) -> bw.Write(10uy); NBT.WriteName(bw,n); for x in xs do x.Write(bw) // end is in-memory represented, so written out too
+        | Compound(n,xs) -> bw.Write(10uy); NBT.WriteName(bw,n); for x in xs do x.Write(bw); assert(xs.[xs.Length-1] = End)
         | IntArray(n,xs) -> bw.Write(11uy); NBT.WriteName(bw,n); bw.Write(xs.Length); for x in xs do bw.Write(x)
 
 type RegionFile(filename) =
@@ -331,15 +331,21 @@ let main2() =
     printfn "%A %A %A" blockID blockData tileEntityOpt  // planks at floor of hut
 
     let structures = [ //"VILLAGES", """F:\.minecraft\saves\FindHut\data\villages.dat"""
-                       "TEMPLE", """F:\.minecraft\saves\FindHut\data\Temple.dat"""
+                       //"TEMPLE", """F:\.minecraft\saves\E&T 1_3\data\Temple.dat"""
+                       "TEMPLE", """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\data\Temple.dat"""
+                       //"TEMPLE", """F:\.minecraft\saves\FindHut\data\Temple.dat"""
                        //"MINESHAFT", """F:\.minecraft\saves\FindHut\data\Mineshaft.dat"""
                      ]
+    printfn "E&Tafterupdate"
     for name, file in structures do
         printfn ""
         printfn "%s" name
-        use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(file, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
-        let vnbt = NBT.Read(new BinaryReader2(s))
-        printfn "%s" (vnbt.ToString())
+        try
+            use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(file, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
+            let vnbt = NBT.Read(new BinaryReader2(s))
+            printfn "%s" (vnbt.ToString())
+        with e -> printfn "error %A" e
+    printfn "======================="
 
     (* Aha, yes, temples stores the witch hut
 TEMPLE
@@ -362,6 +368,9 @@ TEMPLE
                     O : 2
                     Depth : 9
     *)
+
+    (*
+    //use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\E&T 1_3\data\Temple.dat""", System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\FindHut\data\Temple.dat""", System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
     let temp = Array.zeroCreate 100000
     let mutable N = 0
@@ -399,6 +408,8 @@ TEMPLE
     ms.Close()
     let writtenBytes = temp.[0..p-1]
     printfn "%d %d" decompressedBytes.Length writtenBytes.Length 
+    *)
+
 (*
     let k =
         let mutable i = 0
@@ -441,36 +452,111 @@ TEMPLE
                     O : 2
                     Depth : 9
 *)
+    let MakeSyntheticWitchArea(lowX, lowY, lowZ, hiX, hiY, hiZ) = 
+        let bb = [| lowX; lowY; lowZ; hiX; hiY; hiZ |]
+        let chunkX = lowX / 16
+        let chunkZ = lowZ / 16
+        Compound("", [|
+            Compound("data", [|
+                Compound("Features", [|
+                    Compound(sprintf "[%d,%d]" chunkX chunkZ, [|
+                        String("id", "Temple")
+                        Int("ChunkX", chunkX)
+                        Int("ChunkZ", chunkZ)
+                        IntArray("BB", bb)
+                        List("Children", Compounds[|[|
+                            String("id", "TeSH")
+                            Int("GD", 0) //?
+                            Int("HPos", -1)
+                            IntArray("BB", bb)
+                            Int("Height", hiY - lowY + 1)
+                            Int("Width", hiX - lowX + 1)
+                            Int("Depth", hiZ - lowZ + 1)
+                            Int("Witch", 0) //?
+                            Int("O", 1)  //?
+                            End
+                            |]|])
+                        End
+                        |])
+                    End
+                    |])
+                End
+                |])
+            End
+            |])
+
+(*
     let synthetic = 
         Compound("", [|
             Compound("data", [|
                 Compound("Features", [|
-                    Compound("[0,0]", [|
+                    Compound("[12,21]", [|
                         String("id", "Temple")
-                        Int("ChunkX", 0)
-                        Int("ChunkZ", 0)
-                        IntArray("BB", [| 0; 1; 0; 400; 255; 400 |])
-                        Compound("Children", [|
+                        Int("ChunkX", 12)
+                        Int("ChunkZ", 21)
+                        IntArray("BB", [| 201; 54; 351; 300; 83; 450 |])
+                        List("Children", Compounds[|[|
                             String("id", "TeSH")
                             Int("GD", 0) //?
-                            Int("HPos", 1)
-                            IntArray("BB", [| 0; 1; 0; 400; 255; 400 |])
-                            Int("Height", 255)
-                            Int("Width", 401)
-                            Int("Depth", 401)
-                            Int("Witch", 1) //?
-                            Int("O", 2)  //?
-                            |])
+                            Int("HPos", -1)
+                            IntArray("BB", [| 201; 54; 351; 300; 83; 450 |])
+                            Int("Height", 30)
+                            Int("Width", 100)
+                            Int("Depth", 100)
+                            Int("Witch", 0) //?
+                            Int("O", 1)  //?
+                            End
+                            |]|])
+                        End
                         |])
+                    End
                     |])
+                End
                 |])
+            End
             |])
+    *)
+    let synthetic = MakeSyntheticWitchArea(651, 54, 651, 750, 83, 750)
     printfn "%s" (synthetic.ToString())
-    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""F:\.minecraft\saves\FindHut\data\AllWitchesTemple.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
+    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\data\Temple.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
     synthetic.Write(new BinaryWriter2(s))
     s.Close()
 
-
+    (*
+    let syntheticET = 
+        Compound("", [|
+            Compound("data", [|
+                Compound("Features", [|
+                    Compound("[33,106]", [|
+                        String("id", "Temple")
+                        Int("ChunkX", 33)
+                        IntArray("BB", [| 528; 64; 1696; 536; 68; 1702 |])
+                        Int("ChunkZ", 106)
+                        List("Children", Compounds[|[|
+                            String("id", "TeSH")
+                            Int("GD", 0) //?
+                            Int("HPos", -1)
+                            IntArray("BB", [| 528; 64; 1696; 536; 68; 1702 |])
+                            Int("Height", 5)
+                            Int("Witch", 0) //?
+                            Int("Width", 7)
+                            Int("O", 1)  //?
+                            Int("Depth", 9)
+                            End
+                            |]|])
+                        End
+                        |])
+                    End
+                    |])
+                End
+                |])
+            End
+            |])
+    printfn "%s" (syntheticET.ToString())
+    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\data\ModTemple3.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
+    syntheticET.Write(new BinaryWriter2(s))
+    s.Close()
+    *)
     
 
 let main() =
