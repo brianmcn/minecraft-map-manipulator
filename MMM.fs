@@ -312,7 +312,7 @@ type RegionFile(filename) =
                     bw.Seek(nextFreeSection * 4096, System.IO.SeekOrigin.Begin) |> ignore
                     nextFreeSection <- nextFreeSection + numSectionsNeeded 
                     bw.Write(numBytes + 6) // length
-                    bw.Write(0uy) // version
+                    bw.Write(2uy) // version (must be 2)
                     bw.Write(120uy) // CMF
                     bw.Write(156uy) // FLG
                     let temp = ms.ToArray()
@@ -447,13 +447,18 @@ let main() =
     let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\region\r.1.1.mca"""
     // I want to read chunk (12,12), which is coords (704,704) and is near the WWF board
     let regionFile = new RegionFile(filename)
-    //let nbt = regionFile.GetChunk(12, 12)
-    let nbt = regionFile.GetChunk(15, 15)
-//    printfn "%s" (nbt.ToString())
-    let theChunk = match nbt with Compound(_,[|c;_|]) -> c
-    printfn "%s" theChunk.Name 
-    let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
-    printfn "%d" sections.Length 
+
+    for cx = 8 to 12 do
+        for cz = 8 to 12 do
+            let nbt = regionFile.GetChunk(cx, cz)
+//            printfn "%s" (nbt.ToString())
+            let theChunk = match nbt with Compound(_,[|c;_|]) -> c
+//            printfn "%s" theChunk.Name 
+            let biomeData = match theChunk.["Biomes"] with ByteArray(_n,a) -> a
+            for i = 0 to 255 do biomeData.[i] <- 14uy // Moo
+
+//    let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
+//    printfn "%d" sections.Length 
     let copy = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\region\copy.r.1.1.mca"""
     regionFile.Write(copy)
     let copyRegionFile = new RegionFile(copy)
