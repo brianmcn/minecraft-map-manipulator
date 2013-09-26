@@ -47,7 +47,7 @@ type Payload =
     | Floats of single[]
     | Doubles of double[]
 //    | ByteArrays of byte[][]
-//    | Strings of string[]
+    | Strings of string[]
     //| Lists
     | Compounds of NBT[][]
     | IntArrays of int[][]
@@ -106,8 +106,13 @@ and NBT =
             | Shorts(a) -> sb.Append(a.Length.ToString() + " shorts") |> ignore
             | Ints(a) -> sb.Append(a.Length.ToString() + " ints") |> ignore
             | Longs(a) -> sb.Append(a.Length.ToString() + " longs") |> ignore
-            | Floats(a) -> sb.Append(a.Length.ToString() + " floats") |> ignore
+            | Floats(a) -> 
+                if a.Length > 2 then 
+                    sb.Append(a.Length.ToString() + " floats") |> ignore 
+                else 
+                    sb.Append((a |> Array.fold (fun s x -> s + (x.ToString()) + " ") " : [ ") + "]") |> ignore
             | Doubles(a) -> sb.Append(a.Length.ToString() + " doubles") |> ignore
+            | Strings(a) -> for s in a do sb.Append("\""+s+"\"  ") |> ignore
             | Compounds(a) -> 
                 let mutable first = true
                 for c in a do 
@@ -158,12 +163,14 @@ and NBT =
             let len = s.ReadInt32() 
             let payload =
                 match kind with
+                | 0uy -> assert(len=0); Compounds [||]
                 | 1uy -> Bytes(Array.init len (fun _ -> s.ReadByte()))
                 | 2uy -> Shorts(Array.init len (fun _ -> s.ReadInt16()))
                 | 3uy -> Ints(Array.init len (fun _ -> s.ReadInt32()))
                 | 4uy -> Longs(Array.init len (fun _ -> s.ReadInt64()))
                 | 5uy -> Floats(Array.init len (fun _ -> s.ReadSingle()))
                 | 6uy -> Doubles(Array.init len (fun _ -> s.ReadDouble()))
+                | 8uy -> Strings(Array.init len (fun _ -> NBT.ReadName(s)))
                 | 10uy ->Compounds(Array.init len (fun _ -> readCompoundPayload()))
                 | 11uy ->IntArrays(Array.init len (fun _ -> let innerLen = s.ReadInt32() in Array.init innerLen (fun _ -> s.ReadInt32())))
                 | _ -> failwith "unimplemented list kind"
@@ -172,10 +179,10 @@ and NBT =
             let n = NBT.ReadName(s)
             Compound(n, readCompoundPayload())
         | 11uy -> let n = NBT.ReadName(s) in let len = s.ReadInt32() in let a = Array.init len (fun _ -> s.ReadInt32()) in IntArray(n,a)
-        | _ -> failwith "bad NBT tag"
+        | bb -> failwithf "bad NBT tag: %d" bb
     static member WriteName(bw : BinaryWriter2, n : string) =
-        bw.Write(int16 n.Length)
         let a = System.Text.Encoding.UTF8.GetBytes(n)
+        bw.Write(int16 a.Length)  // not n.Length! utf encoding may change it, we need byte count!
         bw.Write(a)
     member this.Write(bw : BinaryWriter2) =
         match this with
@@ -189,7 +196,7 @@ and NBT =
         | ByteArray(n,a) -> bw.Write(7uy); NBT.WriteName(bw,n); bw.Write(a.Length); bw.Write(a)
         | String(n,x) -> bw.Write(8uy); NBT.WriteName(bw,n); NBT.WriteName(bw,x)
         | List(n,pay) -> 
-            bw.Write(9uy); 
+            bw.Write(9uy)
             NBT.WriteName(bw,n)
             match pay with
             | Bytes(a) -> bw.Write(1uy); bw.Write(a.Length); bw.Write(a)
@@ -198,11 +205,48 @@ and NBT =
             | Longs(a) -> bw.Write(4uy); bw.Write(a.Length); for x in a do bw.Write(x)
             | Floats(a) -> bw.Write(5uy); bw.Write(a.Length); for x in a do bw.Write(x)
             | Doubles(a) -> bw.Write(6uy); bw.Write(a.Length); for x in a do bw.Write(x)
+            | Strings(a) -> bw.Write(8uy); bw.Write(a.Length); for x in a do NBT.WriteName(bw,x)
             //| ByteArrays(a) -> bw.Write(7uy); bw.Write(a.Length); for x in a do bw.Write(x)
             | Compounds(a) -> bw.Write(10uy); bw.Write(a.Length); for x in a do (for y in x do y.Write(bw); assert(x.[x.Length-1] = End))
             | IntArrays(a) -> bw.Write(11uy); bw.Write(a.Length); for x in a do for y in x do bw.Write(y)
         | Compound(n,xs) -> bw.Write(10uy); NBT.WriteName(bw,n); for x in xs do x.Write(bw); assert(xs.[xs.Length-1] = End)
         | IntArray(n,xs) -> bw.Write(11uy); NBT.WriteName(bw,n); bw.Write(xs.Length); for x in xs do bw.Write(x)
+    member this.Diff(other : NBT) =
+        let rec diff(x,y,path) =
+            match x with
+            | End | Byte _ | Short _ | Int _ | Long _ | Float _ | Double _ | ByteArray _ | String _ | IntArray _ ->
+                 if LanguagePrimitives.GenericEqualityER x y then None else Some(path,x,y)  // all structural leaf nodes
+            | List(xn,_) ->
+                if x=y then None else 
+                match y with 
+                | List(yn,_) -> if xn=yn then paydiff(x,y,xn::path) else Some(path,x,y)
+                | _ -> Some(path,x,y)
+            | Compound(xn,xs) ->
+                if x=y then None else 
+                match y with 
+                | Compound(yn,ys) -> 
+                    if xn=yn && xs.Length=ys.Length then 
+                        (None,xs,ys) |||> Array.fold2 (fun s xx yy -> match s with None -> diff(xx,yy,xn::path) | s -> s) 
+                    else Some(path,x,y)
+                | _ -> Some(path,x,y)
+        and paydiff((List(_,xs) as x), (List(_,ys) as y), path) =
+            match xs with
+            | Bytes _ | Shorts _ | Ints _ | Longs _ | Floats _ | Doubles _ | Strings _ | IntArrays _ ->
+                 if LanguagePrimitives.GenericEqualityER xs ys then None else Some(path,x,y)  // all structural leaf nodes
+            | Compounds(xss) ->
+                if xs=ys then None else 
+                match ys with 
+                | Compounds(yss) -> 
+                    if xss.Length=yss.Length then 
+                        (None,xss,yss) |||> Array.fold2 (fun s xx yy -> 
+                            match s with 
+                            | None -> (None,xx,yy) |||> Array.fold2 (fun s xxx yyy -> match s with None -> diff(xxx,yyy,path) | s -> s)
+                            | s -> s) 
+                    else Some(path,x,y)
+                | _ -> Some(path,x,y)
+        match diff(this,other,[]) with
+        | None -> None
+        | Some(path,a,b) -> Some(path |> List.fold (fun s x -> ":" + x + s) "", a, b)
 
 type RegionFile(filename) =
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
@@ -400,7 +444,36 @@ let main2() =
    
 
 let main() =
-    let filename = """F:\.minecraft\saves\BingoGood\region\r.0.0.mca"""
+    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\region\r.1.1.mca"""
+    // I want to read chunk (12,12), which is coords (704,704) and is near the WWF board
+    let regionFile = new RegionFile(filename)
+    //let nbt = regionFile.GetChunk(12, 12)
+    let nbt = regionFile.GetChunk(15, 15)
+//    printfn "%s" (nbt.ToString())
+    let theChunk = match nbt with Compound(_,[|c;_|]) -> c
+    printfn "%s" theChunk.Name 
+    let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
+    printfn "%d" sections.Length 
+    let copy = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\region\copy.r.1.1.mca"""
+    regionFile.Write(copy)
+    let copyRegionFile = new RegionFile(copy)
+    printfn "DIFFS:"
+    for cx = 0 to 31 do
+        for cz = 0 to 31 do
+            let a = regionFile.GetChunk(cx,cz)
+            let b = copyRegionFile.GetChunk(cx,cz)
+            match a.Diff(b) with
+            | None -> ()
+            | Some(path,m,n) ->
+                printfn "chunk (%d,%d) differs at %s" cx cz path
+                printfn "%s" (m.ToString())
+                printfn "----"
+                printfn "%s" (n.ToString())
+    printfn "(end of DIFFS)"
+
+
+    (*
+    //let filename = """F:\.minecraft\saves\BingoGood\region\r.0.0.mca"""
     // I want to read chunk (12,12), which is coords (192,192) and is the top left of my bingo map
     let regionFile = new RegionFile(filename)
     let nbt = regionFile.GetChunk(12, 12)
@@ -433,6 +506,7 @@ let main() =
     printfn "should be dispenser (23) here: %d" blockID
     printfn "should be facing up and powered (9) here: %d" blockData
     printfn "should have tile entity here: %s" (match tileEntityOpt with None -> "" | Some nbt -> nbt.ToString())
+    *)
     ()
 
 let diagnoseStringDiff(s1 : string, s2 : string) =
@@ -500,6 +574,6 @@ let testReadWriteRegionFile() =
 
 
 printfn "hi"
-//main()
+main()
 //main2()
-testReadWriteRegionFile()
+//testReadWriteRegionFile()
