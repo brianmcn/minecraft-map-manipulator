@@ -1,3 +1,48 @@
+let BIOMES = 
+    [|0,"Ocean";1,"Plains";2,"Desert";3,"Extreme Hills";4,"Forest";5,"Taiga";6,"Swampland";7,"River";8,"Hell (Nether)";9,"Sky (End)";
+      10,"Frozen Ocean";11,"Frozen River";12,"Ice Plains";13,"Ice Mountains";14,"Mushroom Island";15,"Mushroom Island Shore";16,"Beach";17,"Desert Hills";18,"Forest Hills";19,"Taiga Hills";
+      20,"Extreme Hills Edge";21,"Jungle";22,"Jungle Hills";23,"Jungle Edge";24,"Deep Ocean";25,"Stone Beach";26,"Cold Beach";27,"Birch Forest";28,"Birch Forest Hills";29,"Roofed Forest";
+      30,"Cold Taiga";31,"Cold Taiga Hills";32,"Mega Taiga";33,"Mega Taiga Hills";34,"Extreme Hills+";35,"Savanna";36,"Savanna Plateau";37,"Mesa";38,"Mesa Plateau F";39,"Mesa Plateau";
+      129,"Sunflower Plains";
+      130,"Desert M";131,"Extreme Hills M";132,"Flower Forest";133,"Taiga M";134,"Swampland M";
+      140,"Ice Plains Spikes";141,"Ice Mountains Spikes";149,"Jungle M";
+      151,"JungleEdge M";155,"Birch Forest M";156,"Birch Forest Hills M";157,"Roofed Forest M";158,"Cold Taiga M";
+      160,"Mega Spruce Taiga";161,"Mega Spruce Taiga";162,"Extreme Hills+ M";163,"Savanna M";164,"Savanna Plateau M";165,"Mesa (Bryce)";166,"Mesa Plateau F M";167,"Mesa Plateau M";
+      -1,"(Uncalculated)"|]
+
+let ENCHANTS =
+    [|0,"Protection";1,"Fire Protection";2,"Feather Falling";3,"Blast Protection";4,"Projectile Protection";5,"Respiration";6,"Aqua Affinity";7,"Thorns";
+      16,"Sharpness";17,"Smite";18,"Bane of Arthropods";19,"Knockback";20,"Fire Aspect";21,"Looting";
+      32,"Efficiency";33,"Silk Touch";34,"Unbreaking";35,"Fortune";
+      48,"Power";49,"Punch";50,"Flame";51,"Infinity";
+      61,"Luck of the Sea";62,"Lure"|]
+
+let POTION_EFFECTS =
+    [|1,"Speed";2,"Slowness";3,"Haste";4,"Mining Fatigue";5,"Strength";6,"Instant Health";7,"Instant Damage";8,"Jump Boost";9,"Nausea";
+      10,"Regeneration";11,"Resistance";12,"Fire Resistance";13,"Water Breathing";14,"Invisibility";15,"Blindness";16,"Night vision";17,"Hunger";18,"Weakness";19,"Poison";
+      20,"Wither";21,"Health Boost";22,"Absorption";23,"Saturation"|]
+
+let WOOL_COLORS = [|0,"White";1,"Orange";2,"Magenta";3,"Light Blue";4,"Yellow";5,"Lime";6,"Pink";7,"Gray";8,"Light Gray";9,"Cyan";10,"Purple";11,"Blue";12,"Brown";13,"Green";14,"Red";15,"Black"|]
+
+let BLOCK_IDS =
+    [|0,"Air";1,"Stone";2,"Grass Block";3,"Dirt";4,"Cobblestone";5,"Wood Planks";6,"Saplings";7,"Bedrock";8,"Water";9,"Stationary water";
+      10,"Lava";11,"Stationary lava";12,"Sand";13,"Gravel";14,"Gold Ore";15,"Iron Ore";16,"Coal Ore";17,"Wood";18,"Leaves";19,"Sponge";
+      20,"Glass";21,"Lapis Lazuli Ore";22,"Lapis Lazuli Block";23,"Dispenser";24,"Sandstone";25,"Note Block";26,"Bed";27,"Powered Rail";28,"Detector Rail";29,"Sticky Piston";
+      30,"Cobweb";31,"Grass";32,"Dead Bush";33,"Piston";34,"Piston Extension";35,"Wool";36,"Block moved by Piston";37,"Dandelion";38,"Poppy";39,"Brown Mushroom";
+      40,"Red Mushroom";41,"Block of Gold";42,"Block of Iron";43,"Double Stone Slab";44,"Stone Slab";45,"Bricks";46,"TNT";47,"Bookshelf";48,"Moss Stone";49,"Obsidian";
+      50,"Torch";51,"Fire";52,"Monster Spawner";53,"Oak Wood Stairs";54,"Chest";55,"Redstone Wire";56,"Diamond Ore";57,"Block of Diamond";58,"Crafting Table";59,"Wheat";
+      60,"Farmland";61,"Furnace";62,"Burning Furnace";63,"Sign Post";64,"Wooden Door";65,"Ladders";66,"Rail";67,"Cobblestone Stairs";68,"Wall Sign";69,"Lever";
+      70,"Stone Pressure Plate";71,"Iron Door";72,"Wooden Pressure Plate";73,"Redstone Ore";74,"Glowing Redstone Ore";75,"Redstone Torch (inactive)";76,"Redstone Torch (active)";77,"Stone Button";78,"Snow";79,"Ice";
+      80,"Snow Block";81,"Cactus";82,"Clay";83,"Sugar Cane";84,"Jukebox";85,"Fence";86,"Pumpkin";87,"Netherrack";88,"Soul Sand";89,"Glowstone";
+      90,"Nether Portal";91,"Jack 'o' Lantern";92,"Cake Block";93,"Redstone Repeater (inactive)";94,"Redstone Repeater (active)";95,"Locked Chest";96,"Trapdoor";97,"Monster Egg";98,"Stone Bricks";99,"Huge Brown Mushroom";
+      100,"Huge Red Mushroom";101,"Iron Bars";102,"Glass Pane";103,"Melon";104,"Pumpkin Stem";105,"Melon Stem";106,"Vines";107,"Fence Gate";108,"Brick Stairs";109,"Stone Brick Stairs";
+      110,"Mycelium";111,"Lily Pad";112,"Nether Brick";113,"Nether Brick Fence";114,"Nether Brick Stairs";115,"Nether Wart";116,"Enchantment Table";117,"Brewing Stand";118,"Cauldron";119,"End Portal";
+      120,"End Portal Block";121,"End Stone";122,"Dragon Egg";123,"Redstone Lamp (inactive)";124,"Redstone Lamp (active)";125,"Wooden Double Slab";126,"Wooden Slab";127,"Cocoa";128,"Sandstone Stairs";129,"Emerald Ore";
+      130,"Ender Chest";131,"Tripwire Hook";132,"Tripwire";133,"Block of Emerald";134,"Spruce Wood Stairs";135,"Birch Wood Stairs";136,"Jungle Wood Stairs";137,"Command Block";138,"Beacon";139,"Cobblestone Wall";
+      140,"Flower Pot";141,"Carrots";142,"Potatoes";143,"Wooden Button";144,"Mob Head";145,"Anvil";146,"Trapped Chest";147,"Weighted Pressure Plate (Light)";148,"Weighted Pressure Plate (Heavy)";149,"Redstone Comparator (inactive)";
+      150,"Redstone Comparator (active)";151,"Daylight Sensor";152,"Block of Redstone";153,"Nether Quartz Ore";154,"Hopper";155,"Block of Quartz";156,"Quartz Stairs";157,"Activator Rail";158,"Dropper";159,"Stained Clay";
+      170,"Hay Block";171,"Carpet";172,"Hardened Clay";173,"Block of Coal";174,"Packed Ice";175,"Large Flowers"|]
+
 type BinaryReader2(stream : System.IO.Stream) = // Big Endian
     inherit System.IO.BinaryReader(stream)
     override __.ReadInt32() = 
@@ -448,6 +493,7 @@ let main() =
     // I want to read chunk (12,12), which is coords (704,704) and is near the WWF board
     let regionFile = new RegionFile(filename)
 
+    let blockIDCounts = Array.zeroCreate 256
     for cx = 8 to 12 do
         for cz = 8 to 12 do
             let nbt = regionFile.GetChunk(cx, cz)
@@ -457,8 +503,18 @@ let main() =
             let biomeData = match theChunk.["Biomes"] with ByteArray(_n,a) -> a
             for i = 0 to 255 do biomeData.[i] <- 14uy // Moo
 
-//    let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
-//    printfn "%d" sections.Length 
+            let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
+            for s in sections do
+                let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
+                for bid in blocks do
+                    blockIDCounts.[int bid] <- blockIDCounts.[int bid] + 1
+    printfn "============="
+    printfn "Block counts"
+    for i = 0 to blockIDCounts.Length-1 do
+        if blockIDCounts.[i] <> 0 then
+            printfn "%7d - %s" blockIDCounts.[i] (BLOCK_IDS |> Array.find (fun (n,_) -> n=i) |> snd)
+    printfn "============="
+
     let copy = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\region\copy.r.1.1.mca"""
     regionFile.Write(copy)
     let copyRegionFile = new RegionFile(copy)
