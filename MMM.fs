@@ -124,13 +124,14 @@ and NBT =
         | List(n,_) -> n
         | Compound(n,_) -> n
         | IntArray(n,_) -> n
-    member this.Item(s:string) =
+    member this.TryGetFromCompound(s:string) =
         match this with
-        | Compound(_n,a) ->
-            match a |> Array.tryFind (fun x -> x.Name = s) with
-            | Some x -> x
-            | None -> failwithf "tag %s not found" s
+        | Compound(_n,a) -> a |> Array.tryFind (fun x -> x.Name = s)
         | _ -> failwith "try to name-index into a non-compound"
+    member this.Item(s:string) =
+        match this.TryGetFromCompound(s) with
+        | Some x -> x
+        | None -> failwithf "tag %s not found" s
     member this.ToString(prefix) =
         match this with
         | End -> ""
@@ -293,7 +294,15 @@ and NBT =
         | None -> None
         | Some(path,a,b) -> Some(path |> List.fold (fun s x -> ":" + x + s) "", a, b)
 
+type BlockInfo(blockID:byte, blockData:byte, tileEntity:NBT option) =
+    member this.BlockID = blockID
+    member this.BlockData = blockData
+    member this.TileEntity = tileEntity
+
 type RegionFile(filename) =
+    let rx, rz =
+        let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca$""")
+        int m.Groups.[1].Value, int m.Groups.[2].Value
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
     do
@@ -336,6 +345,8 @@ type RegionFile(filename) =
                     use s = new System.IO.Compression.DeflateStream(new System.IO.MemoryStream(bytes) , System.IO.Compression.CompressionMode.Decompress)
                     let nbt = NBT.Read(new BinaryReader2(s))
                     chunks.[cx,cz] <- nbt
+    member this.RX = rx  // e.g. 1 means starts at x coord 512
+    member this.RZ = rz
     member this.Write(outputFilename) =
         let zeros = Array.zeroCreate 4096 : byte[]
         let chunkOffsetTable = Array.zeroCreate 1024 : int[]
@@ -388,14 +399,15 @@ type RegionFile(filename) =
         match chunks.[cx,cz] with
         | End -> failwith "chunk not represented, NYI"
         | c -> c
-    member this.GetBlockIDAndBlockDataAndTileEntityOpt(x, y, z) =
+    member this.GetBlockInfo(x, y, z) =
+        if x/512 <> rx || z/512 <> rz then failwith "coords outside this region"
         let theChunk = 
-            match chunks.[x/16,z/16] with
+            match chunks.[(x%512)/16,(z%512)/16] with
             | End -> failwith "chunk not represented, NYI"
             | c -> c
         let theChunk = match theChunk with Compound(_,[|c;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
-        let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))
+        let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))  // TODO cope with missing sections (air)
         let dx, dy, dz = x % 16, y % 16, z % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
@@ -408,11 +420,14 @@ type RegionFile(filename) =
         let tileEntity = 
             match theChunk.["TileEntities"] with 
             | List(_,Compounds(cs)) ->
-                cs |> Array.tryPick (fun te -> 
-                    let te = Compound("dummy",te)
-                    if te.["x"]=Int("x",x%512) && te.["y"]=Int("y",y) && te.["z"]=Int("z",z%512) then Some te else None)
+                let tes = cs |> Array.choose (fun te -> 
+                    let te = Compound("unnamedDummyToCarryAPayload",te)
+                    if te.["x"]=Int("x",x) && te.["y"]=Int("y",y) && te.["z"]=Int("z",z) then Some te else None)
+                if tes.Length = 0 then None
+                elif tes.Length = 1 then Some tes.[0]
+                else failwith "unexpected: multiple TileEntities with same xyz coords"
             | _ -> None
-        blocks.[i], blockData.[i], tileEntity
+        new BlockInfo(blocks.[i], blockData.[i], tileEntity)
 
 let readDatFile(filename : string) =
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
@@ -429,8 +444,8 @@ let main2() =
     // height of map I want to look at is 65, which is section 4
     let s = sections |> Array.find (Array.exists (function Byte("Y",4uy) -> true | _ -> false))
     for x in s do printfn "%s\n" (x.ToString())
-    let blockID, blockData, tileEntityOpt = regionFile.GetBlockIDAndBlockDataAndTileEntityOpt(165,65,211)
-    printfn "%A %A %A" blockID blockData tileEntityOpt  // planks at floor of hut
+    let bi = regionFile.GetBlockInfo(165,65,211)
+    printfn "%A %A %A" bi.BlockID bi.BlockData bi.TileEntity  // planks at floor of hut
 
     let structures = [ //"VILLAGES", """F:\.minecraft\saves\FindHut\data\villages.dat"""
                        //"TEMPLE", """F:\.minecraft\saves\E&T 1_3\data\Temple.dat"""
@@ -494,26 +509,39 @@ let main() =
     let regionFile = new RegionFile(filename)
 
     let blockIDCounts = Array.zeroCreate 256
-    for cx = 8 to 12 do
-        for cz = 8 to 12 do
+    for cx = 0 to 15 do
+        for cz = 0 to 15 do
             let nbt = regionFile.GetChunk(cx, cz)
 //            printfn "%s" (nbt.ToString())
             let theChunk = match nbt with Compound(_,[|c;_|]) -> c
 //            printfn "%s" theChunk.Name 
             let biomeData = match theChunk.["Biomes"] with ByteArray(_n,a) -> a
             for i = 0 to 255 do biomeData.[i] <- 14uy // Moo
-
+            match theChunk.TryGetFromCompound("TileEntities") with 
+            | Some te -> printfn "%s" (te.ToString())
+            | None -> ()
             let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
             for s in sections do
+                let ySection = s |> Array.pick (function Byte("Y",y) -> Some(int y) | _ -> None)
                 let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
-                for bid in blocks do
+                for i = 0 to 4095 do
+                    let bid = blocks.[i]
                     blockIDCounts.[int bid] <- blockIDCounts.[int bid] + 1
+                    if bid = 116uy then
+                        // let i = dy*256 + dz*16 + dx
+                        printfn "ench tab at (%d,%d,%d)" (regionFile.RX*512 + cx*16 + (i%16)) (ySection * 16 + (i/256)) (regionFile.RZ*512 + cz*16 + ((i%256)/16))
+
     printfn "============="
-    printfn "Block counts"
-    for i = 0 to blockIDCounts.Length-1 do
-        if blockIDCounts.[i] <> 0 then
-            printfn "%7d - %s" blockIDCounts.[i] (BLOCK_IDS |> Array.find (fun (n,_) -> n=i) |> snd)
-    printfn "============="
+    //let bi = regionFile.GetBlockInfo(686,63,648) // chest in my area
+    let bi = regionFile.GetBlockInfo(761,65,767)  // ench table
+    printfn "%A %A %A" bi.BlockID bi.BlockData bi.TileEntity  
+
+//    printfn "============="
+//    printfn "Block counts"
+//    for i = 0 to blockIDCounts.Length-1 do
+//        if blockIDCounts.[i] <> 0 then
+//            printfn "%7d - %s" blockIDCounts.[i] (BLOCK_IDS |> Array.find (fun (n,_) -> n=i) |> snd)
+//    printfn "============="
 
     let copy = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\region\copy.r.1.1.mca"""
     regionFile.Write(copy)
