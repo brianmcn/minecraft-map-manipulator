@@ -1,6 +1,6 @@
 let BIOMES = 
-    [|0,"Ocean";1,"Plains";2,"Desert";3,"Extreme Hills";4,"Forest";5,"Taiga";6,"Swampland";7,"River";8,"Hell (Nether)";9,"Sky (End)";
-      10,"Frozen Ocean";11,"Frozen River";12,"Ice Plains";13,"Ice Mountains";14,"Mushroom Island";15,"Mushroom Island Shore";16,"Beach";17,"Desert Hills";18,"Forest Hills";19,"Taiga Hills";
+    [|0,"Ocean";1,"Plains";2,"Desert";3,"Extreme Hills";4,"Forest";5,"Taiga";6,"Swampland";7,"River";8,"Hell";9,"Sky";
+      10,"Frozen Ocean";11,"FrozenRiver";12,"Ice Plains";13,"Ice Mountains";14,"MushroomIsland";15,"MushroomIslandShore";16,"Beach";17,"DesertHills";18,"ForestHills";19,"TaigaHills";
       20,"Extreme Hills Edge";21,"Jungle";22,"Jungle Hills";23,"Jungle Edge";24,"Deep Ocean";25,"Stone Beach";26,"Cold Beach";27,"Birch Forest";28,"Birch Forest Hills";29,"Roofed Forest";
       30,"Cold Taiga";31,"Cold Taiga Hills";32,"Mega Taiga";33,"Mega Taiga Hills";34,"Extreme Hills+";35,"Savanna";36,"Savanna Plateau";37,"Mesa";38,"Mesa Plateau F";39,"Mesa Plateau";
       129,"Sunflower Plains";
@@ -662,7 +662,34 @@ let testReadWriteRegionFile() =
     ()
 
 
+// Look through statistics and achievements, discover what biomes MC thinks I have explored
+let main3() =
+    let jsonSer = new System.Web.Script.Serialization.JavaScriptSerializer() // System.Web.Extensions.dll
+    let jsonObj = jsonSer.DeserializeObject(System.IO.File.ReadAllText("""F:\.minecraft\saves\E&T Season 6\stats\brianmcn.json"""))
+    let dict : System.Collections.Generic.Dictionary<string,obj> = downcast jsonObj
+    for kvp in dict do
+        if kvp.Key.StartsWith("achievement.exploreAllBiomes") then
+            let dict2 : System.Collections.Generic.Dictionary<string,obj> = downcast kvp.Value 
+            let o = dict2.["progress"]
+            let oa : obj[] = downcast o
+            let sa = new ResizeArray<string>()
+            for x in oa do
+                sa.Add(downcast x)
+            printfn "%d, %d" sa.Count BIOMES.Length 
+            let biomeSet = BIOMES |> Array.map snd |> set
+            printfn "%d" biomeSet.Count 
+            let mine = sa |> set
+            let unexplored = biomeSet - mine
+            printfn "%d" unexplored.Count 
+            for x in biomeSet do
+                printfn "%s %s" (if mine.Contains(x) then "XXX" else "   ") x
+            printfn "----"
+            for x in mine do
+                printfn "%s %s" (if biomeSet.Contains(x) then "XXX" else "   ") x
+
+
 printfn "hi"
-main()
+//main()
 //main2()
 //testReadWriteRegionFile()
+main3()
