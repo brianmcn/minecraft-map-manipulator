@@ -43,6 +43,207 @@ let BLOCK_IDS =
       150,"Redstone Comparator (active)";151,"Daylight Sensor";152,"Block of Redstone";153,"Nether Quartz Ore";154,"Hopper";155,"Block of Quartz";156,"Quartz Stairs";157,"Activator Rail";158,"Dropper";159,"Stained Clay";
       170,"Hay Block";171,"Carpet";172,"Hardened Clay";173,"Block of Coal";174,"Packed Ice";175,"Large Flowers"|]
 
+let blockIdToMinecraftName =
+    [|
+        1,"minecraft:stone"
+        2,"minecraft:grass"
+        3,"minecraft:dirt"
+        4,"minecraft:cobblestone"
+        5,"minecraft:planks"
+        6,"minecraft:sapling"
+        7,"minecraft:bedrock"
+        8,"minecraft:flowing_water"
+        9,"minecraft:water"
+        10,"minecraft:flowing_lava"
+        11,"minecraft:lava"
+        12,"minecraft:sand"
+        13,"minecraft:gravel"
+        14,"minecraft:gold_ore"
+        15,"minecraft:iron_ore"
+        16,"minecraft:coal_ore"
+        17,"minecraft:log"
+        18,"minecraft:leaves"
+        19,"minecraft:sponge"
+        20,"minecraft:glass"
+        21,"minecraft:lapis_ore"
+        22,"minecraft:lapis_block"
+        23,"minecraft:dispenser"
+        24,"minecraft:sandstone"
+        25,"minecraft:noteblock"
+        26,"minecraft:bed"
+        27,"minecraft:golden_rail"
+        28,"minecraft:detector_rail"
+        29,"minecraft:sticky_piston"
+        30,"minecraft:web"
+        31,"minecraft:tallgrass"
+        32,"minecraft:deadbush"
+        33,"minecraft:piston"
+        34,"minecraft:piston_head"
+        35,"minecraft:wool"
+        36,"minecraft:piston_extension"
+        37,"minecraft:yellow_flower"
+        38,"minecraft:red_flower"
+        39,"minecraft:brown_mushroom"
+        40,"minecraft:red_mushroom"
+        41,"minecraft:gold_block"
+        42,"minecraft:iron_block"
+        43,"minecraft:double_stone_slab"
+        44,"minecraft:stone_slab"
+        45,"minecraft:brick_block"
+        46,"minecraft:tnt"
+        47,"minecraft:bookshelf"
+        48,"minecraft:mossy_cobblestone"
+        49,"minecraft:obsidian"
+        50,"minecraft:torch"
+        51,"minecraft:fire"
+        52,"minecraft:mob_spawner"
+        53,"minecraft:oak_stairs"
+        54,"minecraft:chest"
+        55,"minecraft:redstone_wire"
+        56,"minecraft:diamond_ore"
+        57,"minecraft:diamond_block"
+        58,"minecraft:crafting_table"
+        59,"minecraft:wheat"
+        60,"minecraft:farmland"
+        61,"minecraft:furnace"
+        62,"minecraft:lit_furnace"
+        63,"minecraft:standing_sign"
+        64,"minecraft:wooden_door"
+        65,"minecraft:ladder"
+        66,"minecraft:rail"
+        67,"minecraft:stone_stairs"
+        68,"minecraft:wall_sign"
+        69,"minecraft:lever"
+        70,"minecraft:stone_pressure_plate"
+        71,"minecraft:iron_door"
+        72,"minecraft:wooden_pressure_plate"
+        73,"minecraft:redstone_ore"
+        74,"minecraft:lit_redstone_ore"
+        75,"minecraft:unlit_redstone_torch"
+        76,"minecraft:redstone_torch"
+        77,"minecraft:stone_button"
+        78,"minecraft:snow_layer"
+        79,"minecraft:ice"
+        80,"minecraft:snow"
+        81,"minecraft:cactus"
+        82,"minecraft:clay"
+        83,"minecraft:reeds"
+        84,"minecraft:jukebox"
+        85,"minecraft:fence"
+        86,"minecraft:pumpkin"
+        87,"minecraft:netherrack"
+        88,"minecraft:soul_sand"
+        89,"minecraft:glowstone"
+        90,"minecraft:portal"
+        91,"minecraft:lit_pumpkin"
+        92,"minecraft:cake"
+        93,"minecraft:unpowered_repeater"
+        94,"minecraft:powered_repeater"
+        95,"minecraft:stained_glass"
+        96,"minecraft:trapdoor"
+        97,"minecraft:monster_egg"
+        98,"minecraft:stonebrick"
+        99,"minecraft:brown_mushroom_block"
+        100,"minecraft:red_mushroom_block"
+        101,"minecraft:iron_bars"
+        102,"minecraft:glass_pane"
+        103,"minecraft:melon_block"
+        104,"minecraft:pumpkin_stem"
+        105,"minecraft:melon_stem"
+        106,"minecraft:vine"
+        107,"minecraft:fence_gate"
+        108,"minecraft:brick_stairs"
+        109,"minecraft:stone_brick_stairs"
+        110,"minecraft:mycelium"
+        111,"minecraft:waterlily"
+        112,"minecraft:nether_brick"
+        113,"minecraft:nether_brick_fence"
+        114,"minecraft:nether_brick_stairs"
+        115,"minecraft:nether_wart"
+        116,"minecraft:enchanting_table"
+        117,"minecraft:brewing_stand"
+        118,"minecraft:cauldron"
+        119,"minecraft:end_portal"
+        120,"minecraft:end_portal_frame"
+        121,"minecraft:end_stone"
+        122,"minecraft:dragon_egg"
+        123,"minecraft:redstone_lamp"
+        124,"minecraft:lit_redstone_lamp"
+        125,"minecraft:double_wooden_slab"
+        126,"minecraft:wooden_slab"
+        127,"minecraft:cocoa"
+        128,"minecraft:sandstone_stairs"
+        129,"minecraft:emerald_ore"
+        130,"minecraft:ender_chest"
+        131,"minecraft:tripwire_hook"
+        132,"minecraft:tripwire"
+        133,"minecraft:emerald_block"
+        134,"minecraft:spruce_stairs"
+        135,"minecraft:birch_stairs"
+        136,"minecraft:jungle_stairs"
+        137,"minecraft:command_block"
+        138,"minecraft:beacon"
+        139,"minecraft:cobblestone_wall"
+        140,"minecraft:flower_pot"
+        141,"minecraft:carrots"
+        142,"minecraft:potatoes"
+        143,"minecraft:wooden_button"
+        144,"minecraft:skull"
+        145,"minecraft:anvil"
+        146,"minecraft:trapped_chest"
+        147,"minecraft:light_weighted_pressure_plate"
+        148,"minecraft:heavy_weighted_pressure_plate"
+        149,"minecraft:unpowered_comparator"
+        150,"minecraft:powered_comparator"
+        151,"minecraft:daylight_detector"
+        152,"minecraft:redstone_block"
+        153,"minecraft:quartz_ore"
+        154,"minecraft:hopper"
+        155,"minecraft:quartz_block"
+        156,"minecraft:quartz_stairs"
+        157,"minecraft:activator_rail"
+        158,"minecraft:dropper"
+        159,"minecraft:stained_hardened_clay"
+        160,"minecraft:stained_glass_pane"
+        161,"minecraft:leaves2"
+        162,"minecraft:log2"
+        163,"minecraft:acacia_stairs"
+        164,"minecraft:dark_oak_stairs"
+        165,"minecraft:slime"
+        166,"minecraft:barrier"
+        167,"minecraft:iron_trapdoor"
+        168,"minecraft:prismarine"
+        169,"minecraft:sea_lantern"
+        170,"minecraft:hay_block"
+        171,"minecraft:carpet"
+        172,"minecraft:hardened_clay"
+        173,"minecraft:coal_block"
+        174,"minecraft:packed_ice"
+        175,"minecraft:large_flowers"
+        176,"minecraft:standing_banner"
+        177,"minecraft:wall_banner"
+        178,"minecraft:daylight_detector_inverted"
+        179,"minecraft:red_sandstone"
+        180,"minecraft:red_sandstone_stairs"
+        181,"minecraft:double_stone_slab2"
+        182,"minecraft:stone_slab2"
+        183,"minecraft:spruce_fence_gate"
+        184,"minecraft:birch_fence_gate"
+        185,"minecraft:jungle_fence_gate"
+        186,"minecraft:dark_oak_fence_gate"
+        187,"minecraft:acacia_fence_gate"
+        188,"minecraft:spruce_fence"
+        189,"minecraft:birch_fence"
+        190,"minecraft:jungle_fence"
+        191,"minecraft:dark_oak_fence"
+        192,"minecraft:acacia_fence"
+        193,"minecraft:spruce_door"
+        194,"minecraft:birch_door"
+        195,"minecraft:jungle_door"
+        196,"minecraft:acacia_door"
+        197,"minecraft:dark_oak_door"
+    |]
+
 let textureFilenamesToBlockIDandDataMapping =
     [|
         "bedrock",7,0
@@ -59,7 +260,7 @@ let textureFilenamesToBlockIDandDataMapping =
         "diamond_block",57,0
         "diamond_ore",56,0
         "dirt",3,0
-        "dirt_podzol_side",0,0
+        "dirt_podzol_side",3,2
         "dispenser_front_horizontal",23,3  // TODO
         "dispenser_front_vertical",23,3  // TODO
         "dropper_front_horizontal",158,3  // TODO
@@ -183,6 +384,149 @@ let textureFilenamesToBlockIDandDataMapping =
         "wool_colored_white",35,0
         "wool_colored_yellow",35,4
     |]
+
+let textureFilenamesToBlockIDandDataMappingForHeads =
+    [|
+        "bedrock",7,0
+        "bookshelf",47,0
+        "brick",45,0
+        "clay",82,0
+        "coal_block",173,0
+        "coal_ore",16,0
+        "cobblestone",4,0
+        "cobblestone_mossy",48,0
+        "command_block",137,0
+        "crafting_table_front",58,0
+        "crafting_table_side",58,0  // TODO
+        "diamond_block",57,0
+        "diamond_ore",56,0
+        "dirt",3,0
+        "dirt_podzol_side",3,2
+        "dispenser_front_horizontal",23,3  // TODO
+        "dispenser_front_vertical",23,3  // TODO
+        "dropper_front_horizontal",158,3  // TODO
+        "dropper_front_vertical",158,3  // TODO
+        "emerald_block",133,0
+        "emerald_ore",129,0
+        "end_stone",121,0
+        "furnace_front_off",61,0
+        "furnace_front_on",62,0
+        "furnace_side",61,0 // TODO
+        "glowstone",89,0
+        "gold_block",41,0
+        "gold_ore",14,0
+        "gravel",13,0
+        "hardened_clay",172,0
+        "hardened_clay_stained_black",159,15
+        "hardened_clay_stained_blue",159,11
+        "hardened_clay_stained_brown",159,12
+        "hardened_clay_stained_cyan",159,9
+        "hardened_clay_stained_gray",159,7
+        "hardened_clay_stained_green",159,13
+        "hardened_clay_stained_light_blue",159,3
+        "hardened_clay_stained_lime",159,5
+        "hardened_clay_stained_magenta",159,2
+        "hardened_clay_stained_orange",159,1
+        "hardened_clay_stained_pink",159,6
+        "hardened_clay_stained_purple",159,10
+        "hardened_clay_stained_red",159,14
+        "hardened_clay_stained_silver",159,8
+        "hardened_clay_stained_white",159,0
+        "hardened_clay_stained_yellow",159,4
+        "hay_block_side",170,0
+        "hay_block_top",170,0  // TODO
+        "ice",79,0
+        "ice_packed",174,0
+        "iron_block",42,0
+        "iron_ore",15,0
+        "jukebox_side",84,0
+        "lapis_block",22,0
+        "lapis_ore",21,0
+        "log_acacia",162,0
+        "log_acacia_top",162,8
+        "log_big_oak",162,1
+        "log_big_oak_top",162,9
+        "log_birch",17,2
+        "log_birch_top",17,10
+        "log_jungle",17,3
+        "log_jungle_top",17,11
+        "log_oak",17,0
+        "log_oak_top",17,8
+        "log_spruce",17,1
+        "log_spruce_top",17,9
+        "melon_side",103,0  
+        "melon_top",103,0  // TODO
+        "mushroom_block_inside",99,0  // TODO
+        "mushroom_block_skin_brown",99,0
+        "mushroom_block_skin_red",100,0
+        "mushroom_block_skin_stem",99,0  // TODO
+        "mycelium_side",110,0
+        "netherrack",87,0
+        "nether_brick",112,0
+        "noteblock",25,0
+        "obsidian",49,0
+        "piston_bottom",33,0  // TODO
+        "piston_side",33,0
+        "piston_top_normal",33,0 // TODO
+        "piston_top_sticky",29,0 // TODO
+        "planks_acacia",5,4
+        "planks_big_oak",5,5
+        "planks_birch",5,2
+        "planks_jungle",5,3
+        "planks_oak",5,0
+        "planks_spruce",5,1
+        "pumpkin_face_off",86,0
+        "pumpkin_face_on",91,0
+        "pumpkin_side",86,1
+        "quartz_block_chiseled",155,1
+        "quartz_block_lines",155,2
+        "quartz_block_side",155,3
+        "quartz_ore",153,0
+        "redstone_block",152,0
+        "redstone_lamp_off",123,0
+        "redstone_lamp_on",124,0
+        "redstone_ore",73,0
+        "red_sand",12,1
+        "sand",12,0
+        "sandstone_carved",24,1
+        "sandstone_normal",24,0
+        "sandstone_smooth",24,2
+        "slime",165,0
+        "snow",80,0
+        "soul_sand",88,0
+        "sponge",19,0
+        "stone",1,0
+        "stonebrick",98,0
+        "stonebrick_carved",98,3
+        "stonebrick_cracked",98,2
+        "stonebrick_mossy",98,1
+        "stone_andesite",1,5
+        "stone_andesite_smooth",1,6
+        "stone_diorite",1,3
+        "stone_diorite_smooth",1,4
+        "stone_granite",1,1
+        "stone_granite_smooth",1,2
+        "stone_slab_side",43,0
+        "stone_slab_top",43,8
+        "wool_colored_black",35,15
+        "wool_colored_blue",35,11
+        "wool_colored_brown",35,12
+        "wool_colored_cyan",35,9
+        "wool_colored_gray",35,7
+        "wool_colored_green",35,13
+        "wool_colored_light_blue",35,3
+        "wool_colored_lime",35,5
+        "wool_colored_magenta",35,2
+        "wool_colored_orange",35,1
+        "wool_colored_pink",35,6
+        "wool_colored_purple",35,10
+        "wool_colored_red",35,14
+        "wool_colored_silver",35,8
+        "wool_colored_white",35,0
+        "wool_colored_yellow",35,4
+    |]
+
+
 type BinaryReader2(stream : System.IO.Stream) = // Big Endian
     inherit System.IO.BinaryReader(stream)
     override __.ReadInt32() = 
@@ -197,6 +541,10 @@ type BinaryReader2(stream : System.IO.Stream) = // Big Endian
         let a64 = base.ReadBytes(8)
         System.Array.Reverse(a64)
         System.BitConverter.ToInt64(a64,0)
+    override __.ReadDouble() = 
+        let a64 = base.ReadBytes(8)
+        System.Array.Reverse(a64)
+        System.BitConverter.ToDouble(a64,0)
     override __.ReadUInt32() = 
         let a32 = base.ReadBytes(4)
         System.Array.Reverse(a32)
@@ -213,6 +561,10 @@ type BinaryWriter2(stream : System.IO.Stream) = // Big Endian
         System.Array.Reverse(a)
         base.Write(a)
     override __.Write(x:int64) = 
+        let a = System.BitConverter.GetBytes(x)
+        System.Array.Reverse(a)
+        base.Write(a)
+    override __.Write(x:double) = 
         let a = System.BitConverter.GetBytes(x)
         System.Array.Reverse(a)
         base.Write(a)
@@ -297,7 +649,11 @@ and NBT =
                     sb.Append(a.Length.ToString() + " floats") |> ignore 
                 else 
                     sb.Append((a |> Array.fold (fun s x -> s + (x.ToString()) + " ") " : [ ") + "]") |> ignore
-            | Doubles(a) -> sb.Append(a.Length.ToString() + " doubles") |> ignore
+            | Doubles(a) -> 
+                if n = "Pos" && a.Length = 3 then
+                    sb.Append(a.[0].ToString("F") + "," + a.[1].ToString("F") + "," + a.[2].ToString("F") ) |> ignore
+                else
+                    sb.Append(a.Length.ToString() + " doubles") |> ignore
             | Strings(a) -> for s in a do sb.Append("\""+s+"\"  ") |> ignore
             | Compounds(a) -> 
                 let mutable first = true
@@ -540,22 +896,24 @@ type RegionFile(filename) =
         | End -> failwith "chunk not represented, NYI"
         | c -> c
     member this.GetBlockInfo(x, y, z) =
-        if x/512 <> rx || z/512 <> rz then failwith "coords outside this region"
+        let xxxx = if x < 0 then x - 512 else x
+        let zzzz = if z < 0 then z - 512 else z
+        if xxxx/512 <> rx || zzzz/512 <> rz then failwith "coords outside this region"
         let theChunk = 
-            match chunks.[(x%512)/16,(z%512)/16] with
+            match chunks.[((x+51200)%512)/16,((z+51200)%512)/16] with
             | End -> failwith "chunk not represented, NYI"
             | c -> c
         let theChunk = match theChunk with Compound(_,[|c;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
         let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))  // TODO cope with missing sections (air)
-        let dx, dy, dz = x % 16, y % 16, z % 16
+        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
         let blocks = theSection |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
         // BlockData
         let blockData = theSection |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
         // expand 2048 half-bytes into 4096 for convenience of same indexing
-        let blockData = Array.init 4096 (fun x -> if x%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
+        let blockData = Array.init 4096 (fun x -> if (x+51200)%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
         // TileEntities
         let tileEntity = 
             match theChunk.["TileEntities"] with 
@@ -569,16 +927,18 @@ type RegionFile(filename) =
             | _ -> None
         new BlockInfo(blocks.[i], blockData.[i], tileEntity)
     member this.SetBlockIDAndDamage(x, y, z, blockID, damage) =
-        if x/512 <> rx || z/512 <> rz then failwith "coords outside this region"
+        if (x+5120)/512 <> rx+10 || (z+5120)/512 <> rz+10 then failwith "coords outside this region"
         if damage > 15uy then failwith "invalid blockData"
         let theChunk = 
-            match chunks.[(x%512)/16,(z%512)/16] with
+            let xx = ((x+5120)%512)/16
+            let zz = ((z+5120)%512)/16
+            match chunks.[xx,zz] with
             | End -> failwith "chunk not represented, NYI"
             | c -> c
         let theChunk = match theChunk with Compound(_,[|c;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
         let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))  // TODO cope with missing sections (air)
-        let dx, dy, dz = x % 16, y % 16, z % 16
+        let dx, dy, dz = (x+5120) % 16, y % 16, (z+5120) % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
         let blocks = theSection |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
@@ -671,12 +1031,11 @@ let main2() =
     synthetic.Write(new BinaryWriter2(s))
     s.Close()
    
-let main4() =
-    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\mmrr\region\r.0.0.mca"""
-    let regionFile = new RegionFile(filename)
-    for cx = 1 to 1 do
-        for cz = 9 to 9 do
-            let nbt = regionFile.GetChunk(cx, cz)
+let dumpChunkInfo(regionFileName,cx,cX,cz,cZ) =
+    let regionFile = new RegionFile(regionFileName)
+    for x = cx to cX do
+        for z = cz to cZ do
+            let nbt = regionFile.GetChunk(x, z)
             let theChunk = match nbt with Compound(_,[|c;_|]) -> c
             printfn "%s" (theChunk.ToString())
             //System.Console.ReadKey() |> ignore
@@ -701,10 +1060,10 @@ let killAllEntities() =
 
 let main() =
     let aaa = ResizeArray()
-    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Fractal11\region\r.0.0.mca"""
-                     """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Fractal11\region\r.0.-1.mca"""
-                     """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Fractal11\region\r.-1.0.mca"""
-                     """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Fractal11\region\r.-1.-1.mca"""
+    let uuidStuff = ResizeArray()
+//    for filename in ["""C:\Users\brianmcn\Desktop\bugged.r.0.0.mca"""
+//    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOV2_3test45\region\r.0.0.mca"""
+    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling34\region\r.-2.2.mca"""
                      ] do
         let regionFile = new RegionFile(filename)
         let blockIDCounts = Array.zeroCreate 256
@@ -720,7 +1079,21 @@ let main() =
                     match theChunk.TryGetFromCompound("Entities") with 
                     | None -> ()
                     | Some e -> 
-                        () //printfn "%s" (e.ToString())
+                        match e with
+                        | NBT.List(_,Compounds(nbtarrarr)) ->
+                            for ent in nbtarrarr do
+                                let mutable l = 0L
+                                let mutable m = 0L
+                                let mutable s = ""
+                                for nv in ent do
+                                    match nv with
+                                    | Long("UUIDLeast",x) -> l <- x
+                                    | Long("UUIDMost",x) -> m <- x
+                                    | String("id",n) -> s <- n
+                                    | _ -> ()
+                                if l <> 0L then
+                                    uuidStuff.Add( (s,l,m) )   
+                        //printfn "%s" (e.ToString())
                     match theChunk.TryGetFromCompound("TileEntities") with 
                     | None -> ()
                     | Some te -> 
@@ -754,17 +1127,23 @@ let main() =
                     else
                         printfn "%A" e.Message 
 
+    let uuidStuff = uuidStuff (* |> Seq.filter (fun (s,l,m) -> s = "MinecartRideable") *) |> Seq.toArray
+    uuidStuff |> Array.sortInPlaceBy (fun (s,l,m) -> s,m)
+    //printfn "%A" uuidStuff
+
         
-    printfn "There are %d command blocks" aaa.Count 
+    //printfn "There are %d command blocks" aaa.Count 
     let aaa = aaa.ToArray() |> Array.map (fun (s,x,y,z) -> let s = (if s.StartsWith("/") then s.Substring(1) else s) in s,x,y,z)
     //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say") || comm.StartsWith("tellraw"))
     //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say"))
-    let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("olfy"))
-    let aaa = aaa |> Array.sortBy (fun (s,x,y,z) -> s.Split([|' '|]).[0],y,x,z) 
+    let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains(""))
+    let aaa = aaa |> Array.filter (fun (_,x,y,z) -> x>= -846 && x<= -802 && y=67 && z>=1400 && z<=1480)
+    //let aaa = aaa |> Array.sortBy (fun (s,x,y,z) -> s.Split([|' '|]).[0],y,z,x) 
+    let aaa = aaa |> Array.sortBy (fun (_s,x,y,z) -> y,z,x) 
     for (comm,x,y,z) in aaa do
-        printfn "%3d,%3d,%3d   %s" x y z comm
+        printfn "%5d,%5d,%5d : %s" x y z comm
 
-    printfn "============="
+//    printfn "============="
 //    let bi = regionFile.GetBlockInfo(761,65,767)  // ench table
 //    printfn "%A %A %A" bi.BlockID bi.BlockData bi.TileEntity  
 
@@ -896,9 +1275,9 @@ let testReadWriteRegionFile() =
 
 
 // Look through statistics and achievements, discover what biomes MC thinks I have explored
-let main3() =
+let checkExploredBiomes() =
     let jsonSer = new System.Web.Script.Serialization.JavaScriptSerializer() // System.Web.Extensions.dll
-    let jsonObj = jsonSer.DeserializeObject(System.IO.File.ReadAllText("""F:\.minecraft\saves\E&T Season 6\stats\brianmcn.json"""))
+    let jsonObj = jsonSer.DeserializeObject(System.IO.File.ReadAllText("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Advtime\stats\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.json"""))
     let dict : System.Collections.Generic.Dictionary<string,obj> = downcast jsonObj
     for kvp in dict do
         if kvp.Key.StartsWith("achievement.exploreAllBiomes") then
@@ -908,7 +1287,7 @@ let main3() =
             let sa = new ResizeArray<string>()
             for x in oa do
                 sa.Add(downcast x)
-            printfn "%d, %d" sa.Count BIOMES.Length 
+            printfn "have %d, need %d" sa.Count BIOMES.Length 
             let biomeSet = BIOMES |> Array.map snd |> set
             printfn "%d" biomeSet.Count 
             let mine = sa |> set
@@ -945,7 +1324,7 @@ let renamer() =
 
 
 let placeCertainBlocksInTheWorld() =
-    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Binary2\region\r.0.0.mca"""
+    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Photo\region\r.0.-2.mca"""
     let regionFile = new RegionFile(filename)
     printfn "%A" (PhotoToMinecraft.finalBmp = null)
     let maxHeight = 60 + PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1
@@ -953,20 +1332,116 @@ let placeCertainBlocksInTheWorld() =
         for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
             let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
             let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
-            regionFile.SetBlockIDAndDamage(10+x, maxHeight - y, 50, byte bid, byte dmg)
+            regionFile.SetBlockIDAndDamage( 400, maxHeight - y, -670 + x, byte bid, byte dmg)
     //let bi = regionFile.GetBlockInfo(1, 50, 1)
     //printfn "%s" (bi.ToString())
     regionFile.Write(filename+".new")
 
+let writeCommandBlocksFromATextFileIntoARegionFile(regionFilename,commandTextFilename) =
+    let lines = System.IO.File.ReadAllLines(commandTextFilename)
+    let regionFile = new RegionFile(regionFilename)
+    let regex = System.Text.RegularExpressions.Regex(" *(-?\d+), *(-?\d+), *(-?\d+) : (.*)")
+    for line in lines do
+        let matches = regex.Match(line)
+        //for m in matches.Groups do
+        //    printfn "|%s|" m.Value
+        //printfn ""
+        let x = System.Int32.Parse(matches.Groups.[1].Value)
+        let y = System.Int32.Parse(matches.Groups.[2].Value)
+        let z = System.Int32.Parse(matches.Groups.[3].Value)
+        let comm = matches.Groups.[4].Value
+                    //let te = Compound("unnamedDummyToCarryAPayload",te)
+                    //if te.["x"]=Int("x",x) && te.["y"]=Int("y",y) && te.["z"]=Int("z",z) then Some te else None)
+        let bi = regionFile.GetBlockInfo(x,y,z)
+        match bi.TileEntity with
+        | Some(Compound(_,nbts)) ->
+            //for nbt in nbts do
+            //    printfn "%A" nbt
+            let i = nbts |> Array.findIndex(function String("Command",_) -> true | _ -> false)
+            nbts.[i] <- String("Command",comm)
+        ()
+    regionFile.Write(regionFilename+".new")
+
+let dumpPlayerDat() =
+    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\14w25a\data\Monument.dat"""
+    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
+    let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\w26b1\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
+    let nbt = readDatFile(file)
+    printfn "%s" (nbt.ToString())
+
+let makeArmorStand(x,y,z,headBlock,headDamage) =
+            [|
+                NBT.String("id","ArmorStand")
+                NBT.Byte("NoGravity",1uy)
+                NBT.Byte("Invisible",1uy)
+                NBT.List("Pos",Payload.Doubles [|x;y;z|])
+                NBT.List("Equipment",Payload.Compounds [|
+                                [|NBT.End|];[|NBT.End|];[|NBT.End|];[|NBT.End|];
+                                [|
+                                    NBT.String("id",headBlock)
+                                    NBT.Short("Damage",headDamage)
+                                    NBT.End
+                                |]
+                            |])
+                NBT.End
+            |], (int x, int z)
+
+let placeCertainEntitiesInTheWorld() =
+    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks03\region\r.0.0.mca"""
+    let regionFile = new RegionFile(filename)
+    let HEADSIZE = 0.625
+    
+    (*
+    let entities = [|
+        makeArmorStand(105.0, 64.50, 84.0, "minecraft:stained_hardened_clay", 14s)
+        makeArmorStand(105.65, 64.50, 84.0, "minecraft:stained_hardened_clay", 13s)
+        makeArmorStand(119.0, 64.50, 84.0, "minecraft:stained_hardened_clay", 14s)
+        makeArmorStand(119.65, 64.50, 84.0, "minecraft:stained_hardened_clay", 13s)
+        makeArmorStand(119.0, 64.50, 104.0, "minecraft:stained_hardened_clay", 14s)
+        makeArmorStand(119.65, 64.50, 104.0, "minecraft:stained_hardened_clay", 13s)
+        |]
+    *)
+
+    let entities = ResizeArray()
+    let maxHeight = 60.0 + float(PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1)*HEADSIZE
+    for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
+        for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
+            let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
+            let (_,bid,dmg) = textureFilenamesToBlockIDandDataMappingForHeads |> Array.find (fun (n,_,_) -> n = filename)
+            let (_,mid) = blockIdToMinecraftName |> Array.find (fun (n,s) -> n = bid)
+            if y=21 && x=19 then
+                printfn ""
+            entities.Add( makeArmorStand(105.0 + HEADSIZE*(float x), maxHeight - (float y)*HEADSIZE, 84.0, mid, int16 dmg))
+
+    for cx = 0 to 15 do
+        for cz = 0 to 15 do
+            let nbt = regionFile.GetChunk(cx, cz)
+            match nbt with 
+            Compound(_,[|theChunk;_|]) ->
+                match theChunk.TryGetFromCompound("Entities") with 
+                | None -> ()
+                | Some _ -> 
+                    match theChunk with 
+                    Compound(cname,a) ->
+                        let i = a |> Array.findIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
+                        let es = entities |> Seq.choose (fun (e,(x,z)) -> if x/16=cx && z/16=cz then Some e else None) |> Seq.toArray 
+                        a.[i] <- NBT.List("Entities",Compounds es)
+    regionFile.Write(filename+".new")
+
+
 
 [<System.STAThread()>]  
 do   
-    printfn "hi"
-    placeCertainBlocksInTheWorld()
+    //printfn "hi"
+    //placeCertainBlocksInTheWorld()
     //renamer()
     //main()
     //killAllEntities()
     //main2()
     //testReadWriteRegionFile()
-    //main3()
-    //main4()
+    //checkExploredBiomes()
+    //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks03\region\r.0.0.mca""", 6, 6, 5, 5)
+    placeCertainEntitiesInTheWorld()
+    //dumpPlayerDat()
+    //writeCommandBlocksFromATextFileIntoARegionFile("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling19\region\r.-2.2.mca""", """C:\Users\brianmcn\Desktop\pbcomm.txt""")
+    ()
