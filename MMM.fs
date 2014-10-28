@@ -573,6 +573,8 @@ type BinaryWriter2(stream : System.IO.Stream) = // Big Endian
         System.Array.Reverse(a)
         base.Write(a)
 
+let END_NAME = "--End--"
+
 type Name = string
 
 type Payload =
@@ -604,7 +606,7 @@ and NBT =
     | IntArray of Name * int[] // int32 before data shows num elements
     member this.Name =
         match this with
-        | End -> "End"
+        | End -> END_NAME
         | Byte(n,_) -> n
         | Short(n,_) -> n
         | Int(n,_) -> n
@@ -1058,12 +1060,15 @@ let killAllEntities() =
                         a.[i] <- NBT.List("Entities",Compounds[||])
     regionFile.Write(filename+".new")
 
-let main() =
+let dumpSomeCommandBlocks() =
     let aaa = ResizeArray()
+    let hop = ResizeArray()
     let uuidStuff = ResizeArray()
 //    for filename in ["""C:\Users\brianmcn\Desktop\bugged.r.0.0.mca"""
-//    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOV2_3test45\region\r.0.0.mca"""
-    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling34\region\r.-2.2.mca"""
+    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update47\region\r.0.0.mca"""
+//    for filename in ["""C:\Users\brianmcn\Desktop\pre3failure\pre3failure\region\r.0.0.mca"""
+//    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4test01\region\r.0.0.mca"""
+//    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling34\region\r.-2.2.mca"""
                      ] do
         let regionFile = new RegionFile(filename)
         let blockIDCounts = Array.zeroCreate 256
@@ -1091,7 +1096,8 @@ let main() =
                                     | Long("UUIDMost",x) -> m <- x
                                     | String("id",n) -> s <- n
                                     | _ -> ()
-                                if l <> 0L then
+                                //if l <> 0L then
+                                if s="Ozelot" then
                                     uuidStuff.Add( (s,l,m) )   
                         //printfn "%s" (e.ToString())
                     match theChunk.TryGetFromCompound("TileEntities") with 
@@ -1100,6 +1106,11 @@ let main() =
                         //printfn "%s" (te.ToString())
                         match te with List(_,Compounds(tes)) ->
                         for t in tes do
+                            if t |> Array.exists (function String("id","Hopper") -> true | _ -> false) then
+                                let x = t |> Array.pick (function Int("x",i) -> Some(int i) | _ -> None)
+                                let y = t |> Array.pick (function Int("y",i) -> Some(int i) | _ -> None)
+                                let z = t |> Array.pick (function Int("z",i) -> Some(int i) | _ -> None)
+                                hop.Add( (x,y,z) )
                             if t |> Array.exists (function String("Command",s) -> true | _ -> false) then
                                 let comm = t |> Array.pick (function String("Command",s) -> Some(string s) | _ -> None)
                                 let x = t |> Array.pick (function Int("x",i) -> Some(int i) | _ -> None)
@@ -1129,15 +1140,21 @@ let main() =
 
     let uuidStuff = uuidStuff (* |> Seq.filter (fun (s,l,m) -> s = "MinecartRideable") *) |> Seq.toArray
     uuidStuff |> Array.sortInPlaceBy (fun (s,l,m) -> s,m)
-    //printfn "%A" uuidStuff
+    printfn "%A" uuidStuff
+
+    printfn "There are %d hoppers" hop.Count 
+    for (x,y,z) in hop do
+        printfn "%5d,%5d,%5d" x y z
 
         
-    //printfn "There are %d command blocks" aaa.Count 
+    printfn "There are %d command blocks" aaa.Count 
     let aaa = aaa.ToArray() |> Array.map (fun (s,x,y,z) -> let s = (if s.StartsWith("/") then s.Substring(1) else s) in s,x,y,z)
     //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say") || comm.StartsWith("tellraw"))
     //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say"))
-    let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains(""))
-    let aaa = aaa |> Array.filter (fun (_,x,y,z) -> x>= -846 && x<= -802 && y=67 && z>=1400 && z<=1480)
+    let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("stats"))
+    //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("kill"))
+    //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("0001"))
+    //let aaa = aaa |> Array.filter (fun (_,x,y,z) -> x>= -846 && x<= -802 && y=67 && z>=1400 && z<=1480)
     //let aaa = aaa |> Array.sortBy (fun (s,x,y,z) -> s.Split([|' '|]).[0],y,z,x) 
     let aaa = aaa |> Array.sortBy (fun (_s,x,y,z) -> y,z,x) 
     for (comm,x,y,z) in aaa do
@@ -1387,7 +1404,7 @@ let makeArmorStand(x,y,z,headBlock,headDamage) =
             |], (int x, int z)
 
 let placeCertainEntitiesInTheWorld() =
-    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks03\region\r.0.0.mca"""
+    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks05\region\r.0.0.mca"""
     let regionFile = new RegionFile(filename)
     let HEADSIZE = 0.625
     
@@ -1428,20 +1445,220 @@ let placeCertainEntitiesInTheWorld() =
                         a.[i] <- NBT.List("Entities",Compounds es)
     regionFile.Write(filename+".new")
 
+//////////////////////////////////////////////////////////////////
 
+(*
+type Payload =
+    | Bytes of byte[]
+    | Shorts of int16[]
+    | Ints of int[]
+    | Longs of int64[]
+    | Floats of single[]
+    | Doubles of double[]
+    | Strings of string[]
+    | Compounds of NBT[][]
+    | IntArrays of int[][]
+and NBT =
+    | End
+    | Byte of Name * byte
+    | Short of Name * int16
+    | Int of Name * int
+    | Long of Name * int64
+    | Float of Name * single
+    | Double of Name * double
+    | ByteArray of Name * byte[]
+    | String of Name * string // int16 length beforehand
+    | List of Name * Payload // (name,kind,num,a)
+    | Compound of Name * NBT[]
+    | IntArray of Name * int[] // int32 before data shows num elements
+*)
+
+let SimpleDisplay nbt =
+    match nbt with
+    | End -> failwith "bad SimpleDisplay"
+    | Byte(_,x) -> "<byte> " + x.ToString()
+    | Short(_,x) -> "<short> " + x.ToString()
+    | Int(_,x) -> "<int> " + x.ToString()
+    | Long(_,x) -> "<long> " + x.ToString()
+    | Float(_,x) -> "<float> " + x.ToString()
+    | Double(_,x) -> "<double> " + x.ToString()
+    | ByteArray(_,_) -> "<byte array>"
+    | String(_,x) -> x
+    | List(_,_) -> null
+    | Compound(_,_) -> null
+    | IntArray(_,_) -> "<int array>"
+   
+
+open System
+open System.Windows
+open System.Windows.Controls
+open System.Windows.Input
+open System.Windows.Media
+
+// each node is either
+//  - same in both (white)
+//  - added (yellow)
+//  - removed (red)
+//  - same name, diff value (...)
+// will need good canonical sort for list of compounds (e.g. id/uuids for entities, x/y/z for tileentities, etc)
+
+let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewItem) =
+    let hasDiff = ref false
+    let xnames = x |> Array.map (fun z -> z.Name) |> set
+    let ynames = y |> Array.map (fun z -> z.Name) |> set
+    let names = (Set.union xnames ynames).Remove(END_NAME)
+    for n in names do
+        if xnames.Contains(n) then
+            let xpn = xp.[n]
+            let xd = SimpleDisplay(xpn)
+            if ynames.Contains(n) then
+                let ypn = yp.[n]
+                let yd = SimpleDisplay(ypn)
+                if xd = yd then
+                    if xd <> null then
+                        if xpn = ypn then
+                            tvp.Items.Add(new TreeViewItem(Header=n+": "+xd)) |> ignore
+                        else // diff byte arrays
+                            tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
+                            tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
+                            hasDiff := true
+                    else // same name compound/list
+                        let tvi = new TreeViewItem(Header=n)
+                        match xpn, ypn with
+                        | Compound _, Compound _ ->
+                            if MakeTreeDiff xpn ypn tvi then
+                                tvi.Background <- Brushes.Orange
+                                hasDiff := true
+                        | List(_,xpay), List(_,ypay) ->
+                            match xpay, ypay with
+                            | Bytes xx, Bytes yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Shorts xx, Shorts yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Ints xx, Ints yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Longs xx, Longs yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Floats xx, Floats yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Doubles xx, Doubles yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Strings xx, Strings yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | IntArrays xx, IntArrays yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Compounds xx, Compounds yy ->
+                                // This is the hard part.  Need to be 'smart' about how to compare/merge/display
+                                let ya = ResizeArray yy
+                                for x in xx do
+                                    let tvj = new TreeViewItem(Header=".")
+                                    let BODY(i) =
+                                        if i = -1 then
+                                            MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
+                                            tvj.Background <- Brushes.Red
+                                            tvi.Background <- Brushes.Orange
+                                            hasDiff := true
+                                        else
+                                            let y = ya.[i]
+                                            ya.RemoveAt(i)
+                                            if MakeTreeDiff (Compound("",x)) (Compound("",y)) tvj then
+                                                tvj.Background <- Brushes.Orange
+                                                tvi.Background <- Brushes.Orange
+                                                hasDiff := true
+                                    if x |> Array.exists (fun e -> e.Name="UUIDLeast") &&
+                                       x |> Array.exists (fun e -> e.Name="UUIDMost") then
+                                        let xuuidl = x |> Seq.pick (function (Long("UUIDLeast",v)) -> Some v | _ -> None)
+                                        let xuuidm = x |> Seq.pick (function (Long("UUIDMost",v)) -> Some v | _ -> None)
+                                        let i = ya.FindIndex(fun ee -> 
+                                                    ee |> Array.exists (function (Long("UUIDLeast",v)) -> v=xuuidl | _ -> false) &&
+                                                    ee |> Array.exists (function (Long("UUIDMost",v)) -> v=xuuidm | _ -> false))
+                                        BODY(i)
+                                    elif x |> Array.exists (fun e -> e.Name="x") &&
+                                       x |> Array.exists (fun e -> e.Name="y") &&
+                                       x |> Array.exists (fun e -> e.Name="z") then
+                                        let ix = x |> Seq.pick (function (Int("x",v)) -> Some v | _ -> None)
+                                        let iy = x |> Seq.pick (function (Int("y",v)) -> Some v | _ -> None)
+                                        let iz = x |> Seq.pick (function (Int("z",v)) -> Some v | _ -> None)
+                                        let i = ya.FindIndex(fun ee -> 
+                                                    ee |> Array.exists (function (Int("x",v)) -> v=ix | _ -> false) &&
+                                                    ee |> Array.exists (function (Int("y",v)) -> v=iy | _ -> false) &&
+                                                    ee |> Array.exists (function (Int("z",v)) -> v=iz | _ -> false))
+                                        BODY(i)
+                                    // TODO other kinds of heuristic matches?
+                                    else
+                                        // TODO exact matches?
+                                        MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
+                                        tvj.Background <- Brushes.Red
+                                        tvi.Background <- Brushes.Orange
+                                        hasDiff := true
+                                    tvi.Items.Add(tvj) |> ignore
+                                for y in ya do
+                                    let tvj = new TreeViewItem(Header=".")
+                                    MakeTreeDiff (Compound("",[||])) (Compound("",y)) tvj |> ignore
+                                    tvj.Background <- Brushes.Yellow
+                                    tvi.Background <- Brushes.Orange
+                                    hasDiff := true
+                                    tvi.Items.Add(tvj) |> ignore
+                            | _ -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                        | _ -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                        tvp.Items.Add(tvi) |> ignore
+                else // completely different (atoms of diff values, or diff types)
+                    // TODO what best display?
+                    tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
+                    tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
+                    hasDiff := true
+            else // only x
+                // TODO what best display?
+                tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
+                hasDiff := true
+        else // only y
+            let yd = SimpleDisplay(yp.[n])
+            // TODO what best display?
+            tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
+            hasDiff := true
+    !hasDiff
+
+let TestTreeView() =
+    let tv = new TreeView()
+    let n = new TreeViewItem(Header="Top")
+    n.Background <- Brushes.Blue 
+    n.Items.Add(new TreeViewItem(Header="Mid")) |> ignore
+    tv.Items.Add(n) |> ignore
+    let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
+    let app = new Application()
+    app.Run(window) |> ignore
+
+let diffChunk(regionFile1,regionFile2,cx,cz) =
+    let tv = new TreeView()
+    let n = new TreeViewItem(Header="Chunk "+cx.ToString()+","+cz.ToString())
+    tv.Items.Add(n) |> ignore
+    let r1 = new RegionFile(regionFile1)
+    let r2 = new RegionFile(regionFile2)
+    let c1 = r1.GetChunk(cx,cz)
+    let c2 = r2.GetChunk(cx,cz)
+    if MakeTreeDiff c1 c2 n then
+        n.Background <- Brushes.Orange 
+    let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
+    let app = new Application()
+    app.Run(window) |> ignore
+
+
+////////////////////////////////////////////////////
 
 [<System.STAThread()>]  
 do   
     //printfn "hi"
     //placeCertainBlocksInTheWorld()
     //renamer()
-    //main()
+    //dumpSomeCommandBlocks()
+    //TestTreeView()
+(*
+    diffChunk("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update46\region\r.0.0.mca""",
+              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update47\region\r.0.0.mca""",
+              8, 8)
+*)
+    diffChunk("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\TryToReproduceBug4\region\r.0.0.mca""",
+              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\TryToReproduceBug5\region\r.0.0.mca""",
+              8, 8)
+
     //killAllEntities()
     //main2()
     //testReadWriteRegionFile()
     //checkExploredBiomes()
-    //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks03\region\r.0.0.mca""", 6, 6, 5, 5)
-    placeCertainEntitiesInTheWorld()
+    //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks03\region\r.0.0.mca""", 6, 6, 6, 6)
+    //placeCertainEntitiesInTheWorld()
     //dumpPlayerDat()
     //writeCommandBlocksFromATextFileIntoARegionFile("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling19\region\r.-2.2.mca""", """C:\Users\brianmcn\Desktop\pbcomm.txt""")
     ()
