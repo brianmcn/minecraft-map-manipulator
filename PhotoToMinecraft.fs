@@ -8,9 +8,15 @@ open System.Windows.Media
 open System.Windows.Media.Imaging 
 open System.Threading 
 
-let blocksDir = """C:\Users\brianmcn\Desktop\MCjustblocks"""
+//let blocksDir = """C:\Users\brianmcn\Desktop\MCjustblocks"""
+//let blocksDirSuffix = ".png"
+let blocksDir = """C:\Users\brianmcn\Desktop\MCjustMapSolidColors"""
+let blocksDirSuffix = ".bmp"
 //let targetImage = """C:\Users\brianmcn\Desktop\charliebrown.jpg"""
-let targetImage = """C:\Users\brianmcn\Desktop\KurtBrianPic.jpg"""
+//let targetImage = """C:\Users\brianmcn\Desktop\KurtBrianPic.jpg"""
+let targetImage = """C:\Users\brianmcn\Desktop\dontpanic_1024.jpg"""
+//let targetImage = """C:\Users\brianmcn\Desktop\pi.png"""
+//let targetImage = """C:\Users\brianmcn\Desktop\brian_and_mooshrooms_by_terra_wah-d5k8rgb.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\TSMS.jpg"""
 
 let blockColors = ResizeArray()
@@ -20,9 +26,21 @@ let getColor(_,_,c) = c
 
 let dist(c1:System.Drawing.Color, c2:System.Drawing.Color) =
     let a = int64 (c1.A - c2.A)
-    let r = int64 (int c1.R - int c2.R)
-    let g = int64 (int c1.G - int c2.G)
-    let b = int64 (int c1.B - int c2.B)
+    let scaleBrightness = true
+    let s = 
+        if scaleBrightness then
+            let K = 80
+            let m1 = int c1.R + int c1.G + int c1.B + K
+            let m2 = int c2.R + int c2.G + int c2.B + K
+            let s = float m1 / float m2
+            if s < 0.5 then 0.5
+            elif s > 2.0 then 2.0
+            else s
+        else 
+            1.0
+    let r = int64 (float c1.R - float c2.R * s)
+    let g = int64 (float c1.G - float c2.G * s)
+    let b = int64 (float c1.B - float c2.B * s)
     //a*a+r*r+g*g+b*b
     r*r+g*g+b*b
     //abs(r) + abs(g) + abs(b)
@@ -121,7 +139,7 @@ let computeAverageColorOfSection(x1, x2, y1, y2, targetBmp:System.Drawing.Bitmap
     *)
 
 let SHOWMIDDLE = true
-let SHOWRIGHT = true
+let SHOWRIGHT = false
 
 let mutable pictureBlockFilenames : string[,] = null
 
@@ -219,7 +237,7 @@ let grid = // do essential computations, even as a library
         let mutable i = 0
         for file in Directory.EnumerateFiles(blocksDir) do
             printfn "%s" (Path.GetFileNameWithoutExtension file)
-            if Path.GetExtension(file).ToLower() = ".png" && not(isBlacklisted(Path.GetFileNameWithoutExtension file)) then
+            if Path.GetExtension(file).ToLower() = blocksDirSuffix && not(isBlacklisted(Path.GetFileNameWithoutExtension file)) then
                 let name = Path.GetFileNameWithoutExtension file
                 let bmp = new Bitmap(file)
                 grid.RowDefinitions.Add(new RowDefinition())
@@ -252,11 +270,62 @@ let grid = // do essential computations, even as a library
         grid
 
 //let finalBmp = computeMinecraft(86,48)
-let finalBmp = computeMinecraft(55,30)
+//let finalBmp = computeMinecraft(55,30)
+let finalBmp = computeMinecraft(128,128)
+//let finalBmp = computeMinecraft(64,64)
+
+let MakeSolidColorBMP(r,g,b) =
+    //let mapColorDir = """C:\Users\brianmcn\Desktop\MCjustMapSolidColors"""
+    let mapColorDir = """C:\Users\brianmcn\Desktop\MCjustMapSolidColors"""
+    let bmp = new Bitmap(16,16)
+    let c = System.Drawing.Color.FromArgb(r, g, b)
+    for x = 0 to 15 do
+        for y = 0 to 15 do
+            bmp.SetPixel(x,y,c)
+    let file = System.IO.Path.Combine(mapColorDir, sprintf "%03d%03d%03d.bmp" r g b)
+    bmp.Save(file)
+
+let MakeMapColors() =
+    MakeSolidColorBMP(127,178,56)
+    MakeSolidColorBMP(247,233,163)
+    MakeSolidColorBMP(167,167,167)
+    MakeSolidColorBMP(255,0,0)
+    MakeSolidColorBMP(160,160,255)
+    MakeSolidColorBMP(167,167,167)
+    MakeSolidColorBMP(0,124,0)
+    MakeSolidColorBMP(255,255,255)
+    MakeSolidColorBMP(164,168,184)
+    MakeSolidColorBMP(183,106,47)
+    MakeSolidColorBMP(112,112,112)
+    MakeSolidColorBMP(64,64,255)
+    MakeSolidColorBMP(104,83,50)
+    MakeSolidColorBMP(255,252,245)
+    MakeSolidColorBMP(216,127,51)
+    MakeSolidColorBMP(178,76,216)
+    MakeSolidColorBMP(102,153,216)
+    MakeSolidColorBMP(229,229,51)
+    MakeSolidColorBMP(127,204,25)
+    MakeSolidColorBMP(242,127,165)
+    MakeSolidColorBMP(76,76,76)
+    MakeSolidColorBMP(153,153,153)
+    MakeSolidColorBMP(76,127,153)
+    MakeSolidColorBMP(127,63,178)
+    MakeSolidColorBMP(51,76,178)
+    MakeSolidColorBMP(102,76,51)
+    MakeSolidColorBMP(102,127,51)
+    MakeSolidColorBMP(153,51,51)
+    MakeSolidColorBMP(25,25,25)
+    MakeSolidColorBMP(250,238,77)
+    MakeSolidColorBMP(92,219,213)
+    MakeSolidColorBMP(74,128,255)
+    MakeSolidColorBMP(0,217,58)
+    MakeSolidColorBMP(21,20,31)
+    MakeSolidColorBMP(112,2,0)
 
 type MyWPFWindow() as this =  
     inherit Window()    
     do 
+        //MakeMapColors()
         let sv = new ScrollViewer()
         sv.VerticalScrollBarVisibility <- ScrollBarVisibility.Visible 
         sv.Content <- grid
@@ -266,7 +335,7 @@ type MyWPFWindow() as this =
             this.Height <- 500.0
             this.Content <- sv
         else
-            let SCALE = 1.5
+            let SCALE = 0.7
             let finalBmp = new System.Drawing.Bitmap(finalBmp, System.Drawing.Size(int(float finalBmp.Width*SCALE), int(float finalBmp.Height*SCALE)))
             this.SizeToContent <- SizeToContent.WidthAndHeight 
             this.Content <- bmpToImage(finalBmp, 0.5)
