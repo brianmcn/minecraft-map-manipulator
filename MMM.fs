@@ -10,6 +10,48 @@ let BIOMES =
       160,"Mega Spruce Taiga";161,"Mega Spruce Taiga";162,"Extreme Hills+ M";163,"Savanna M";164,"Savanna Plateau M";165,"Mesa (Bryce)";166,"Mesa Plateau F M";167,"Mesa Plateau M";
       -1,"(Uncalculated)"|]
 
+let BIOMES_NEEDED_FOR_ADVENTURING_TIME = 
+    [|
+        "Beach"
+        "Birch Forest"
+        "Birch Forest Hills"
+        "Cold Beach"
+        "Cold Taiga"
+        "Cold Taiga Hills"
+        "Deep Ocean"
+        "Desert"
+        "DesertHills"
+        "Extreme Hills"
+        "Extreme Hills+"
+        "Forest"
+        "ForestHills"
+        "FrozenRiver"
+        "Ice Plains"
+        "Jungle"
+        "JungleEdge"
+        "JungleHills"
+        "Mega Taiga"
+        "Mega Taiga Hills"
+        "Mesa"
+        "Mesa Plateau"
+        "Mesa Plateau F"
+        "MushroomIsland"
+        "MushroomIslandShore"
+        "Ice Mountains"
+        "Ocean"
+        "Plains"
+        "Savanna Plateau"
+        "River"
+        "Roofed Forest"
+        "Savanna"
+        "Swampland"
+        "Stone Beach"
+        "Taiga"
+        "TaigaHills"
+    |]
+
+
+
 let ENCHANTS =
     [|0,"Protection";1,"Fire Protection";2,"Feather Falling";3,"Blast Protection";4,"Projectile Protection";5,"Respiration";6,"Aqua Affinity";7,"Thorns";
       16,"Sharpness";17,"Smite";18,"Bane of Arthropods";19,"Knockback";20,"Fire Aspect";21,"Looting";
@@ -822,7 +864,7 @@ and NBT =
         | None -> None
         | Some(path,a,b) -> Some(path |> List.fold (fun s x -> ":" + x + s) "", a, b)
 
-type BlockInfo(blockID:byte, blockData:byte, tileEntity:NBT option) =
+type BlockInfo(blockID:byte, blockData:Lazy<byte>, tileEntity:NBT option) =
     member this.BlockID = blockID
     member this.BlockData = blockData
     member this.TileEntity = tileEntity
@@ -932,14 +974,19 @@ type RegionFile(filename) =
         | End -> None
         | c -> Some c
     member this.GetBlockInfo(x, y, z) =
+        match this.TryGetBlockInfo(x,y,z) with
+        | Some r -> r
+        | None -> failwith "chunk not represented, NYI"
+    member this.TryGetBlockInfo(x, y, z) =
         let xxxx = if x < 0 then x - 512 else x
         let zzzz = if z < 0 then z - 512 else z
+        let xxxx = if xxxx < 0 then xxxx+1 else xxxx
+        let zzzz = if zzzz < 0 then zzzz+1 else zzzz
         if xxxx/512 <> rx || zzzz/512 <> rz then failwith "coords outside this region"
-        let theChunk = 
-            match chunks.[((x+51200)%512)/16,((z+51200)%512)/16] with
-            | End -> failwith "chunk not represented, NYI"
-            | c -> c
-        let theChunk = match theChunk with Compound(_,[|c;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+        match chunks.[((x+51200)%512)/16,((z+51200)%512)/16] with
+        | End -> None
+        | theChunk ->
+        let theChunk = match theChunk with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
         let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
         let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))  // TODO cope with missing sections (air)
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
@@ -948,8 +995,10 @@ type RegionFile(filename) =
         let blocks = theSection |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
         // BlockData
         let blockData = theSection |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
-        // expand 2048 half-bytes into 4096 for convenience of same indexing
-        let blockData = Array.init 4096 (fun x -> if (x+51200)%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
+        let blockDataAtI = Lazy.Create(fun() ->
+            // expand 2048 half-bytes into 4096 for convenience of same indexing
+            let blockData = Array.init 4096 (fun x -> if (x+51200)%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
+            blockData.[i])
         // TileEntities
         let tileEntity = 
             match theChunk.["TileEntities"] with 
@@ -961,7 +1010,7 @@ type RegionFile(filename) =
                 elif tes.Length = 1 then Some tes.[0]
                 else failwith "unexpected: multiple TileEntities with same xyz coords"
             | _ -> None
-        new BlockInfo(blocks.[i], blockData.[i], tileEntity)
+        Some(new BlockInfo(blocks.[i], blockDataAtI, tileEntity))
     member this.SetBlockIDAndDamage(x, y, z, blockID, damage) =
         if (x+5120)/512 <> rx+10 || (z+5120)/512 <> rz+10 then failwith "coords outside this region"
         if damage > 15uy then failwith "invalid blockData"
@@ -989,6 +1038,10 @@ type RegionFile(filename) =
             tmp <- tmp &&& 0x0Fuy
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
+    member this.DumpChunkDebug(cx,cz) =
+        let nbt = chunks.[cx,cz]
+        let s = nbt.ToString()
+        printfn "%s" s
 
 let readDatFile(filename : string) =
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
@@ -1067,14 +1120,32 @@ let main2() =
     synthetic.Write(new BinaryWriter2(s))
     s.Close()
    
-let dumpChunkInfo(regionFileName,cx,cX,cz,cZ) =
+let dumpChunkInfo(regionFileName,cx,cX,cz,cZ,onlyEntities) =
     let regionFile = new RegionFile(regionFileName)
     for x = cx to cX do
         for z = cz to cZ do
-            let nbt = regionFile.GetChunk(x, z)
-            let theChunk = match nbt with Compound(_,[|c;_|]) -> c
-            printfn "%s" (theChunk.ToString())
-            //System.Console.ReadKey() |> ignore
+            try
+                let nbt = regionFile.GetChunk(x, z)
+                let theChunk = match nbt with Compound(_,[|c;_|]) -> c
+                if onlyEntities then
+                    match theChunk.TryGetFromCompound("Entities") with 
+                    | None -> ()
+                    | Some es -> 
+                        //printfn "%s" (es.ToString())
+                        match es with 
+                        List(_,Compounds aa) -> 
+                            let mutable found = false
+                            for e in aa do
+                                for nbt in e do
+                                    //if (match nbt with String("id",x) -> printfn "%s" x; false | _ -> false) then
+                                    if (match nbt with String("id","EntityHorse") -> true | _ -> false) then
+                                        found <- true
+                            if found then
+                                printfn "%s" (es.ToString())
+                else                 
+                    printfn "%s" (theChunk.ToString())
+            with e -> ()
+            printfn "%d %d" x z
     System.Console.ReadKey() |> ignore
 
 let killAllEntities() =
@@ -1094,24 +1165,91 @@ let killAllEntities() =
                         a.[i] <- NBT.List("Entities",Compounds[||])
     regionFile.Write(filename+".new")
 
-let dumpSomeCommandBlocks() =
+
+let makeArmorStand(x,y,z,customName) = //headBlock,headDamage) =
+            [|
+                NBT.String("id","ArmorStand")
+                NBT.Byte("NoGravity",1uy)
+                NBT.Byte("Invisible",1uy)
+                NBT.List("Pos",Payload.Doubles [|x;y;z|])
+                NBT.Byte("CustomNameVisible",1uy)
+                NBT.String("CustomName",customName)
+
+    (*
+                NBT.List("Equipment",Payload.Compounds [|
+                                [|NBT.End|];[|NBT.End|];[|NBT.End|];[|NBT.End|];
+                                [|
+                                    NBT.String("id",headBlock)
+                                    NBT.Short("Damage",headDamage)
+                                    NBT.End
+                                |]
+                            |])
+    *)
+                NBT.End
+            |], (int x, int z)
+
+let placeCertainEntitiesInTheWorld(entities,filename) =
+    let regionFile = new RegionFile(filename)
+    
+    (*
+    let HEADSIZE = 0.625
+    let entities = ResizeArray()
+    let maxHeight = 60.0 + float(PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1)*HEADSIZE
+    for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
+        for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
+            let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
+            let (_,bid,dmg) = textureFilenamesToBlockIDandDataMappingForHeads |> Array.find (fun (n,_,_) -> n = filename)
+            let (_,mid) = blockIdToMinecraftName |> Array.find (fun (n,s) -> n = bid)
+            if y=21 && x=19 then
+                printfn ""
+            entities.Add( makeArmorStand(105.0 + HEADSIZE*(float x), maxHeight - (float y)*HEADSIZE, 84.0, mid, int16 dmg))
+    *)
+
+    for cx = 0 to 15 do
+        for cz = 0 to 15 do
+            let nbt = regionFile.GetChunk(cx, cz)
+            match nbt with 
+            Compound(_,[|theChunk;_;_|]) | Compound(_,[|theChunk;_|]) ->
+                match theChunk.TryGetFromCompound("Entities") with 
+                | None -> ()
+                | Some _ -> 
+                    match theChunk with 
+                    Compound(cname,a) ->
+                        let i = a |> Array.findIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
+                        let es = entities |> Seq.choose (fun (e,(x,z)) -> if x/16=cx && z/16=cz then Some e else None) |> Seq.toArray 
+                        a.[i] <- NBT.List("Entities",Compounds es)
+    regionFile.Write(filename+".new")
+
+let dumpSomeCommandBlocks(fil) =
     let aaa = ResizeArray()
     let hop = ResizeArray()
+    let skulls = ResizeArray()
     let uuidStuff = ResizeArray()
-//    for filename in ["""C:\Users\brianmcn\Desktop\bugged.r.0.0.mca"""
-    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update49\region\r.0.0.mca"""
-//    for filename in ["""C:\Users\brianmcn\Desktop\pre3failure\pre3failure\region\r.0.0.mca"""
-//    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4test01\region\r.0.0.mca"""
-//    for filename in ["""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling34\region\r.-2.2.mca"""
+    for filename in [fil
                      ] do
         let regionFile = new RegionFile(filename)
+        (*
+        let tmpbi = regionFile.GetBlockInfo(152,56,-1379)
+        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID     
+        let tmpbi = regionFile.GetBlockInfo(152,56,-1377)
+        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID     
+        let tmpbi = regionFile.GetBlockInfo(152,56,-1376)
+        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID 
+        let tmpbi = regionFile.GetBlockInfo(153,56,-1375)
+        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID 
+        regionFile.DumpChunkDebug(9,9)
+        // testing
+        *)
+        
         let blockIDCounts = Array.zeroCreate 256
         for cx = 0 to 31 do
             for cz = 0 to 31 do
                 try
                     let nbt = regionFile.GetChunk(cx, cz)
                     //printfn "%s" (nbt.ToString())
-                    let theChunk = match nbt with Compound(_,[|c;_|]) -> c
+                    let theChunk = match nbt with Compound(_,[|c;_|]) -> c 
+                                                | Compound(_,[|c;_;_|]) -> c 
+                                                | _ -> failwith "unexpected cpdf"
         //            printfn "%s" theChunk.Name 
                     let biomeData = match theChunk.["Biomes"] with ByteArray(_n,a) -> a
         //            for i = 0 to 255 do biomeData.[i] <- 14uy // Moo
@@ -1140,6 +1278,11 @@ let dumpSomeCommandBlocks() =
                         //printfn "%s" (te.ToString())
                         match te with List(_,Compounds(tes)) ->
                         for t in tes do
+                            //if t |> Array.exists (function String("id",s) -> printfn "%s" s; true | _ -> false) then ()
+                            //if t |> Array.exists (function String("id","Skull") -> true | _ -> false) then
+                            //    printfn "skull"
+                            if t |> Array.exists (function String("id","Skull") -> true | _ -> false) then
+                                skulls.Add( Compound("skullInfo",t) )
                             if t |> Array.exists (function String("id","Hopper") -> true | _ -> false) then
                                 let x = t |> Array.pick (function Int("x",i) -> Some(int i) | _ -> None)
                                 let y = t |> Array.pick (function Int("y",i) -> Some(int i) | _ -> None)
@@ -1180,19 +1323,44 @@ let dumpSomeCommandBlocks() =
     for (x,y,z) in hop do
         printfn "%5d,%5d,%5d" x y z
 
+    printfn "There are %d skulls" skulls.Count 
+    let str(n:NBT) = match n with String(_,s) -> s
+    for s in skulls do
+        printfn "%s  %s" (str s.["Owner"].["Name"]) (str s.["Owner"].["Id"])
         
     printfn "There are %d command blocks" aaa.Count 
     let aaa = aaa.ToArray() |> Array.map (fun (s,x,y,z) -> let s = (if s.StartsWith("/") then s.Substring(1) else s) in s,x,y,z)
     //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say") || comm.StartsWith("tellraw"))
     //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say"))
-    let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains(" 4 "))
+    //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("150 150 110"))
     //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("kill"))
     //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("0001"))
     //let aaa = aaa |> Array.filter (fun (_,x,y,z) -> x>= -846 && x<= -802 && y=67 && z>=1400 && z<=1480)
     //let aaa = aaa |> Array.sortBy (fun (s,x,y,z) -> s.Split([|' '|]).[0],y,z,x) 
     let aaa = aaa |> Array.sortBy (fun (_s,x,y,z) -> y,z,x) 
+    let armors = ResizeArray()
+    let USE_PADDING = false   // bad usability
+    let FACING_EW = false
     for (comm,x,y,z) in aaa do
         printfn "%5d,%5d,%5d : %s" x y z comm
+        // (default) facing west
+        let comm = if comm = "" then "<empty>" else comm
+        let escapedComm = comm.Replace("\"", "\\\"")
+        let adjustedLen = (float comm.Length) - (float(comm |> Seq.fold (fun x c -> x+if ",:il".Contains(string c) then 1 else 0) 0)/3.0)
+        let deltaZ,pad = if USE_PADDING then 1.0,int(adjustedLen / 0.7) else 1.0 - (adjustedLen / 14.0),0
+        let deltaX = 0.25 + (0.25 * float(( (if FACING_EW then z else x)/3) % 3))
+        let deltaX, deltaZ =
+            if FACING_EW then
+                deltaX, deltaZ
+            else
+                // facing north
+                let deltaX,deltaZ = -deltaX,-deltaZ
+                let deltaX,deltaZ = deltaZ,deltaX
+                let deltaX = deltaX + 1.0
+                let deltaZ = deltaZ + 1.0
+                deltaX,deltaZ
+        armors.Add(makeArmorStand(deltaX+float x,float (y-1),(float z)+deltaZ,(if USE_PADDING then (String.replicate pad " ") else "")+escapedComm))
+    placeCertainEntitiesInTheWorld(armors, fil)
 
 //    printfn "============="
 //    let bi = regionFile.GetBlockInfo(761,65,767)  // ench table
@@ -1261,6 +1429,37 @@ let dumpSomeCommandBlocks() =
     *)
     ()
 
+
+
+let findEndPortals() =
+    let mutable filled = 0
+    let mutable empty = 0
+    for filename in System.IO.Directory.EnumerateFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Tmp4\region\""","*.mca") do
+        if filled + empty > 11 then
+            () // already found one, stop
+        else
+            printfn "%s" filename
+            let regionFile = new RegionFile(filename)
+            if (regionFile.RX = -1 || regionFile.RX = 0) &&
+                (regionFile.RZ = -1 || regionFile.RZ = 0) then
+                printfn "...skipping, no stronghold so close to spawn..."
+            else
+                let xoff = regionFile.RX * 512
+                let zoff = regionFile.RZ * 512
+                for x = 0 to 511 do
+                if x % 100 = 0 then printfn "."
+                for z = 0 to 511 do
+                for y = 5 to 45 do
+                match regionFile.TryGetBlockInfo(xoff+x,y,zoff+z) with
+                | Some bi ->
+                    if bi.BlockID = 120uy then
+                        if (bi.BlockData.Force() &&& 4uy) <> 0uy then
+                            filled <- filled + 1
+                        else
+                            empty <- empty + 1 
+                | None -> ()
+    printfn "%d filled, %d empty" filled empty
+
 let diagnoseStringDiff(s1 : string, s2 : string) =
     if s1 = s2 then printfn "same!" else
     let mutable i = 0
@@ -1328,7 +1527,7 @@ let testReadWriteRegionFile() =
 // Look through statistics and achievements, discover what biomes MC thinks I have explored
 let checkExploredBiomes() =
     let jsonSer = new System.Web.Script.Serialization.JavaScriptSerializer() // System.Web.Extensions.dll
-    let jsonObj = jsonSer.DeserializeObject(System.IO.File.ReadAllText("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Advtime\stats\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.json"""))
+    let jsonObj = jsonSer.DeserializeObject(System.IO.File.ReadAllText("""F:\.minecraft\saves\E&T Season 7\stats\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.json"""))
     let dict : System.Collections.Generic.Dictionary<string,obj> = downcast jsonObj
     for kvp in dict do
         if kvp.Key.StartsWith("achievement.exploreAllBiomes") then
@@ -1338,17 +1537,17 @@ let checkExploredBiomes() =
             let sa = new ResizeArray<string>()
             for x in oa do
                 sa.Add(downcast x)
-            printfn "have %d, need %d" sa.Count BIOMES.Length 
-            let biomeSet = BIOMES |> Array.map snd |> set
+            //printfn "have %d, need %d" sa.Count BIOMES_NEEDED_FOR_ADVENTURING_TIME.Length 
+            let biomeSet = BIOMES_NEEDED_FOR_ADVENTURING_TIME |> set
             printfn "%d" biomeSet.Count 
             let mine = sa |> set
             let unexplored = biomeSet - mine
             printfn "%d" unexplored.Count 
             for x in biomeSet do
                 printfn "%s %s" (if mine.Contains(x) then "XXX" else "   ") x
-            printfn "----"
-            for x in mine do
-                printfn "%s %s" (if biomeSet.Contains(x) then "XXX" else "   ") x
+            //printfn "----"
+            //for x in mine do
+            //    printfn "%s %s" (if biomeSet.Contains(x) then "XXX" else "   ") x
 
 let renamer() =
     let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Snakev2.0G\level.dat"""
@@ -1389,14 +1588,14 @@ let placeCertainBlocksInTheWorld() =
     regionFile.Write(filename+".new")
 
 let placeCertainBlocksInTheSky() =
-    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update49\region\r.0.0.mca"""
+    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update53\region\r.0.0.mca"""
     let regionFile = new RegionFile(filename)
     printfn "%A" (PhotoToMinecraft.finalBmp = null)
     for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
         for z = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
             let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,z]).ToLower()
             let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
-            regionFile.SetBlockIDAndDamage( x+64, 253, z+64, byte bid, byte dmg)
+            regionFile.SetBlockIDAndDamage( x+64, 237, z+64, byte bid, byte dmg)
     //let bi = regionFile.GetBlockInfo(1, 50, 1)
     //printfn "%s" (bi.ToString())
     regionFile.Write(filename+".new")
@@ -1430,9 +1629,20 @@ let dumpPlayerDat() =
     //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\14w25a\data\Monument.dat"""
     //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
     //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\w26b1\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
-    let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update48\level.dat"""
+    let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Super Hostile - Legendary v3.0\level.dat"""
+    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\onebiome\level.dat"""
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
+    // allow commands
+    match nbt with
+    | Compound(_,a) ->
+        match a.[0] with
+        | Compound("Data",a) ->
+            match a |> Array.tryFindIndex (fun x -> x.Name="allowCommands") with
+            | None -> ()
+            | Some i ->
+                a.[i] <- Byte("allowCommands",1uy)
+    (*
     // replace LevelName
     match nbt with
     | Compound(_,a) ->
@@ -1442,66 +1652,22 @@ let dumpPlayerDat() =
             | None -> ()
             | Some i ->
                 a.[i] <- String("LevelName","MinecraftBINGOv2_5")
-    writeDatFile(file+".new", nbt)
-
-let makeArmorStand(x,y,z,headBlock,headDamage) =
-            [|
-                NBT.String("id","ArmorStand")
-                NBT.Byte("NoGravity",1uy)
-                NBT.Byte("Invisible",1uy)
-                NBT.List("Pos",Payload.Doubles [|x;y;z|])
-                NBT.List("Equipment",Payload.Compounds [|
-                                [|NBT.End|];[|NBT.End|];[|NBT.End|];[|NBT.End|];
-                                [|
-                                    NBT.String("id",headBlock)
-                                    NBT.Short("Damage",headDamage)
-                                    NBT.End
-                                |]
-                            |])
-                NBT.End
-            |], (int x, int z)
-
-let placeCertainEntitiesInTheWorld() =
-    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks05\region\r.0.0.mca"""
-    let regionFile = new RegionFile(filename)
-    let HEADSIZE = 0.625
-    
-    (*
-    let entities = [|
-        makeArmorStand(105.0, 64.50, 84.0, "minecraft:stained_hardened_clay", 14s)
-        makeArmorStand(105.65, 64.50, 84.0, "minecraft:stained_hardened_clay", 13s)
-        makeArmorStand(119.0, 64.50, 84.0, "minecraft:stained_hardened_clay", 14s)
-        makeArmorStand(119.65, 64.50, 84.0, "minecraft:stained_hardened_clay", 13s)
-        makeArmorStand(119.0, 64.50, 104.0, "minecraft:stained_hardened_clay", 14s)
-        makeArmorStand(119.65, 64.50, 104.0, "minecraft:stained_hardened_clay", 13s)
-        |]
+                *)
+                (*
+    // mesa bryce
+    match nbt with
+    | Compound(_,a) ->
+        match a.[0] with
+        | Compound("Data",a) ->
+            match a |> Array.tryFindIndex (fun x -> x.Name="generatorOptions") with
+            | None -> ()
+            | Some i ->
+                match a.[i] with
+                | String(_,s) ->
+                    let newOpts = s.Substring(0,s.IndexOf("fixedBiome")) + "fixedBiome\":165" + s.Substring(s.IndexOf("fixedBiome")+14)
+                    a.[i] <- String("generatorOptions",newOpts)
     *)
-
-    let entities = ResizeArray()
-    let maxHeight = 60.0 + float(PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1)*HEADSIZE
-    for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
-        for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
-            let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
-            let (_,bid,dmg) = textureFilenamesToBlockIDandDataMappingForHeads |> Array.find (fun (n,_,_) -> n = filename)
-            let (_,mid) = blockIdToMinecraftName |> Array.find (fun (n,s) -> n = bid)
-            if y=21 && x=19 then
-                printfn ""
-            entities.Add( makeArmorStand(105.0 + HEADSIZE*(float x), maxHeight - (float y)*HEADSIZE, 84.0, mid, int16 dmg))
-
-    for cx = 0 to 15 do
-        for cz = 0 to 15 do
-            let nbt = regionFile.GetChunk(cx, cz)
-            match nbt with 
-            Compound(_,[|theChunk;_|]) ->
-                match theChunk.TryGetFromCompound("Entities") with 
-                | None -> ()
-                | Some _ -> 
-                    match theChunk with 
-                    Compound(cname,a) ->
-                        let i = a |> Array.findIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
-                        let es = entities |> Seq.choose (fun (e,(x,z)) -> if x/16=cx && z/16=cz then Some e else None) |> Seq.toArray 
-                        a.[i] <- NBT.List("Entities",Compounds es)
-    regionFile.Write(filename+".new")
+    writeDatFile(file+".new", nbt)
 
 //////////////////////////////////////////////////////////////////
 
@@ -1751,7 +1917,7 @@ do
     //printfn "hi"
     //placeCertainBlocksInTheWorld()
     //renamer()
-    dumpSomeCommandBlocks()
+    //dumpSomeCommandBlocks()
     //TestTreeView()
 (*
     diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update46\region\r.0.0.mca""",
@@ -1773,8 +1939,12 @@ do
     //killAllEntities()
     //main2()
     //testReadWriteRegionFile()
-    //checkExploredBiomes()
-    //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MovingBlocks03\region\r.0.0.mca""", 6, 6, 6, 6)
+    //findEndPortals()
+    //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
+    dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\rrr\region\r.0.0.mca""")
+    //dumpChunkInfo("""F:\.minecraft\saves\E&Ts7saves\E&T Season 7 Backup After E18\region\r.-6.0.mca""", 0, 31, 0, 31, true)
     //placeCertainEntitiesInTheWorld()
     //dumpPlayerDat()
     //writeCommandBlocksFromATextFileIntoARegionFile("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling19\region\r.-2.2.mca""", """C:\Users\brianmcn\Desktop\pbcomm.txt""")
