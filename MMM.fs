@@ -869,9 +869,15 @@ type BlockInfo(blockID:byte, blockData:Lazy<byte>, tileEntity:NBT option) =
     member this.BlockData = blockData
     member this.TileEntity = tileEntity
 
+type CommandBlock =     // the useful subset I plan to map anything into
+    | P of string  // purple (pointing positive Z, unconditional, auto:0)
+    | O of string  // orange (pointing positive Z, unconditional, auto:0)
+    | U of string  // green (pointing positive Z, unconditional, auto:1)
+    | C of string  // green (pointing positive Z, conditional, auto:1)
+
 type RegionFile(filename) =
     let rx, rz =
-        let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca$""")
+        let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new)?$""")
         int m.Groups.[1].Value, int m.Groups.[2].Value
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
@@ -1020,7 +1026,7 @@ type RegionFile(filename) =
             match chunks.[xx,zz] with
             | End -> failwith "chunk not represented, NYI"
             | c -> c
-        let theChunk = match theChunk with Compound(_,[|c;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+        let theChunk = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
         let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))  // TODO cope with missing sections (air)
         let dx, dy, dz = (x+5120) % 16, y % 16, (z+5120) % 16
@@ -1038,6 +1044,63 @@ type RegionFile(filename) =
             tmp <- tmp &&& 0x0Fuy
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
+    member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[]) =
+        let mutable z = startz
+        let mutable i = 0
+        let mkCmd(x,y,z,auto,s) = [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
+                                     NBT.Byte("conditionMet",0uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);
+                                     NBT.String("id","Control"); NBT.Int("SuccessCount",0); NBT.Byte("TrackOutput",1uy);
+                                     NBT.End |]
+        let mutable prevcx = -1
+        let mutable prevcz = -1
+        let mutable tepayload = ResizeArray<NBT[]>()
+        let storeIt(prevcx,prevcz,tepayload) =
+            let a = match chunks.[prevcx, prevcz] with Compound(_,[|Compound(_,a);_|]) | Compound(_,[|Compound(_,a);_;_|]) -> a
+            let mutable found = false
+            let mutable i = 0
+            for te in tepayload do
+                for nbt in te do
+                    printf "%s   " (nbt.ToString())
+                printfn ""
+            while not found && i < a.Length-1 do
+                if a.[i].Name = "TileEntities" then
+                    found <- true
+                    a.[i] <- List("TileEntities",Compounds(tepayload |> Array.ofSeq))
+                i <- i + 1
+            if not found then
+                match chunks.[prevcx, prevcz] with 
+                | Compound(_,([|Compound(n,a);_|] as r)) 
+                | Compound(_,([|Compound(n,a);_;_|] as r)) -> r.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tepayload |> Array.ofSeq)) |] |> Array.ofSeq)
+        for c in cmds do
+            let bid, bd, au, s = 
+                match c with
+                | P s -> 210uy,3uy,0uy,s
+                | O s -> 137uy,3uy,0uy,s
+                | U s -> 211uy,3uy,1uy,s
+                | C s -> 211uy,11uy,1uy,s
+            this.SetBlockIDAndDamage(x,y,z,bid,bd)
+            let nbt = mkCmd(x,y,z,au,s)
+            if (x+5120)/512 <> rx+10 || (z+5120)/512 <> rz+10 then failwith "coords outside this region"
+            let xx = ((x+5120)%512)/16
+            let zz = ((z+5120)%512)/16
+            if xx <> prevcx || zz <> prevcz then
+                // store out old TE as we move out of this chunk
+                if prevcx <> -1 then
+                    storeIt(prevcx,prevcz,tepayload)
+                // load in initial TE as we move into next chunk
+                let newChunk = match chunks.[xx,zz] with | End -> failwith "chunk not represented, NYI" | c -> c
+                tepayload <- match newChunk.TryGetFromCompound("TileEntities") with | Some (List(_,Compounds(cs))) -> ResizeArray(cs) | None -> ResizeArray()
+                prevcx <- xx
+                prevcz <- zz
+            else
+                // accumulate payload in this chunk
+                let thisz = z
+                tepayload <-  
+                    tepayload 
+                    |> Seq.filter (fun te -> not(Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te))
+                    |> Seq.append [|nbt|] |> (fun x -> ResizeArray x)
+            z <- z + 1
+        storeIt(prevcx,prevcz,tepayload)
     member this.DumpChunkDebug(cx,cz) =
         let nbt = chunks.[cx,cz]
         let s = nbt.ToString()
@@ -1050,6 +1113,8 @@ let readDatFile(filename : string) =
 let writeDatFile(filename : string, nbt : NBT) =
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
     nbt.Write(new BinaryWriter2(s))
+
+
 
 let main2() =
     let filename = """F:\.minecraft\saves\FindHut\region\r.0.0.mca"""
@@ -1166,7 +1231,7 @@ let killAllEntities() =
     regionFile.Write(filename+".new")
 
 
-let makeArmorStand(x,y,z,customName) = //headBlock,headDamage) =
+let makeArmorStand(x,y,z,customName,team) = //headBlock,headDamage) =
             [|
                 NBT.String("id","ArmorStand")
                 NBT.Byte("NoGravity",1uy)
@@ -1174,6 +1239,8 @@ let makeArmorStand(x,y,z,customName) = //headBlock,headDamage) =
                 NBT.List("Pos",Payload.Doubles [|x;y;z|])
                 NBT.Byte("CustomNameVisible",1uy)
                 NBT.String("CustomName",customName)
+                NBT.String("Team",team)
+                NBT.Byte("Marker",1uy)
 
     (*
                 NBT.List("Equipment",Payload.Compounds [|
@@ -1229,7 +1296,7 @@ let dumpSomeCommandBlocks(fil) =
                      ] do
         let regionFile = new RegionFile(filename)
         (*
-        let tmpbi = regionFile.GetBlockInfo(152,56,-1379)
+        let tmpbi = regionFile.GetBlockInfo(121,56,107)
         printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID     
         let tmpbi = regionFile.GetBlockInfo(152,56,-1377)
         printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID     
@@ -1344,11 +1411,13 @@ let dumpSomeCommandBlocks(fil) =
     for (comm,x,y,z) in aaa do
         printfn "%5d,%5d,%5d : %s" x y z comm
         // (default) facing west
-        let comm = if comm = "" then "<empty>" else comm
-        let escapedComm = comm.Replace("\"", "\\\"")
-        let adjustedLen = (float comm.Length) - (float(comm |> Seq.fold (fun x c -> x+if ",:il".Contains(string c) then 1 else 0) 0)/3.0)
-        let deltaZ,pad = if USE_PADDING then 1.0,int(adjustedLen / 0.7) else 1.0 - (adjustedLen / 14.0),0
-        let deltaX = 0.25 + (0.25 * float(( (if FACING_EW then z else x)/3) % 3))
+        let comm = if comm.Length > 120 then comm.Substring(0,120)+"..." else comm
+//        let comm = if comm = "" then "<empty>" else comm
+        let comm = if comm = "" then "   " else comm
+        let adjustedLen = (float comm.Length) //- (float(comm |> Seq.fold (fun x c -> x+if ",:il. []".Contains(string c) then 1 else 0) 0)/4.0)
+        let deltaZ,pad = if USE_PADDING then 1.0,int(adjustedLen / 0.7) else 0.5 - (adjustedLen / 15.0),0
+        let color = ((if FACING_EW then z else x)/2) % 3
+        let deltaX = 0.25 + (0.25 * float color)
         let deltaX, deltaZ =
             if FACING_EW then
                 deltaX, deltaZ
@@ -1359,8 +1428,11 @@ let dumpSomeCommandBlocks(fil) =
                 let deltaX = deltaX + 1.0
                 let deltaZ = deltaZ + 1.0
                 deltaX,deltaZ
-        armors.Add(makeArmorStand(deltaX+float x,float (y-1),(float z)+deltaZ,(if USE_PADDING then (String.replicate pad " ") else "")+escapedComm))
+        armors.Add(makeArmorStand(deltaX+float x, float (y+1), (float z)+deltaZ,
+                                  (if USE_PADDING then (String.replicate pad " ") else "")+comm,
+                                  (if color = 0 then "White" elif color = 1 then "Aqua" else "Yellow")))
     placeCertainEntitiesInTheWorld(armors, fil)
+
 
 //    printfn "============="
 //    let bi = regionFile.GetBlockInfo(761,65,767)  // ench table
@@ -1629,10 +1701,12 @@ let dumpPlayerDat() =
     //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\14w25a\data\Monument.dat"""
     //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
     //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\w26b1\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
-    let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Super Hostile - Legendary v3.0\level.dat"""
+    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Super Hostile - Legendary v3.0\level.dat"""
+    let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\data\map_6.dat"""
     //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\onebiome\level.dat"""
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
+    (*
     // allow commands
     match nbt with
     | Compound(_,a) ->
@@ -1668,6 +1742,82 @@ let dumpPlayerDat() =
                     a.[i] <- String("generatorOptions",newOpts)
     *)
     writeDatFile(file+".new", nbt)
+    *)
+
+let placeCommandBlocksInTheWorld(fil) =
+    let region = new RegionFile(fil)
+    let cmds = 
+        [|
+            P "say purple"
+            O "say orange"
+            U "say green"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+            C "say conditional"
+        |]
+    region.PlaceCommandBlocksStartingAt(39,56,56,cmds)
+    region.Write(fil+".new")
 
 //////////////////////////////////////////////////////////////////
 
@@ -1941,9 +2091,14 @@ do
     //testReadWriteRegionFile()
     //findEndPortals()
     //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
-    dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\rrr\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Mandelbrot 1_9\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\region\r.0.0.mca""")
+    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpx\region\r.0.0.mca""")
+    //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpx\region\r.0.0.mca""",
+      //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpx\region\r.0.0.mca.new""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
     //dumpChunkInfo("""F:\.minecraft\saves\E&Ts7saves\E&T Season 7 Backup After E18\region\r.-6.0.mca""", 0, 31, 0, 31, true)
     //placeCertainEntitiesInTheWorld()
     //dumpPlayerDat()
