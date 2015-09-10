@@ -787,7 +787,9 @@ and NBT =
                 | 5uy -> Floats(Array.init len (fun _ -> s.ReadSingle()))
                 | 6uy -> Doubles(Array.init len (fun _ -> s.ReadDouble()))
                 | 8uy -> Strings(Array.init len (fun _ -> NBT.ReadName(s)))
-                | 10uy ->Compounds(Array.init len (fun _ -> readCompoundPayload()))
+                | 10uy ->let r = Compounds(Array.init len (fun _ -> readCompoundPayload()))
+                         //if n = "TileEntities" then printfn "read %d TEs" (match r with Compounds(a) -> a.Length)
+                         r
                 | 11uy ->IntArrays(Array.init len (fun _ -> let innerLen = s.ReadInt32() in Array.init innerLen (fun _ -> s.ReadInt32())))
                 | _ -> failwith "unimplemented list kind"
             List(n,payload)
@@ -823,7 +825,9 @@ and NBT =
             | Doubles(a) -> bw.Write(6uy); bw.Write(a.Length); for x in a do bw.Write(x)
             | Strings(a) -> bw.Write(8uy); bw.Write(a.Length); for x in a do NBT.WriteName(bw,x)
             //| ByteArrays(a) -> bw.Write(7uy); bw.Write(a.Length); for x in a do bw.Write(x)
-            | Compounds(a) -> bw.Write(10uy); bw.Write(a.Length); for x in a do (for y in x do y.Write(bw); assert(x.[x.Length-1] = End))
+            | Compounds(a) -> bw.Write(10uy); bw.Write(a.Length); 
+                              //if n = "TileEntities" then printfn "%d" a.Length
+                              for x in a do (for y in x do y.Write(bw); assert(x.[x.Length-1] = End))
             | IntArrays(a) -> bw.Write(11uy); bw.Write(a.Length); for x in a do for y in x do bw.Write(y)
         | Compound(n,xs) -> bw.Write(10uy); NBT.WriteName(bw,n); for x in xs do x.Write(bw); assert(xs.[xs.Length-1] = End)
         | IntArray(n,xs) -> bw.Write(11uy); NBT.WriteName(bw,n); bw.Write(xs.Length); for x in xs do bw.Write(x)
@@ -1046,7 +1050,6 @@ type RegionFile(filename) =
         blockData.[i/2] <- tmp
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[]) =
         let mutable z = startz
-        let mutable i = 0
         let mkCmd(x,y,z,auto,s) = [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
                                      NBT.Byte("conditionMet",0uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);
                                      NBT.String("id","Control"); NBT.Int("SuccessCount",0); NBT.Byte("TrackOutput",1uy);
@@ -1062,6 +1065,7 @@ type RegionFile(filename) =
                 for nbt in te do
                     printf "%s   " (nbt.ToString())
                 printfn ""
+            printfn "-----"
             while not found && i < a.Length-1 do
                 if a.[i].Name = "TileEntities" then
                     found <- true
@@ -1070,7 +1074,8 @@ type RegionFile(filename) =
             if not found then
                 match chunks.[prevcx, prevcz] with 
                 | Compound(_,([|Compound(n,a);_|] as r)) 
-                | Compound(_,([|Compound(n,a);_;_|] as r)) -> r.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tepayload |> Array.ofSeq)) |] |> Array.ofSeq)
+                | Compound(_,([|Compound(n,a);_;_|] as r)) -> 
+                    r.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tepayload |> Array.ofSeq)) |] |> Array.ofSeq)
         for c in cmds do
             let bid, bd, au, s = 
                 match c with
@@ -1088,17 +1093,18 @@ type RegionFile(filename) =
                 if prevcx <> -1 then
                     storeIt(prevcx,prevcz,tepayload)
                 // load in initial TE as we move into next chunk
-                let newChunk = match chunks.[xx,zz] with | End -> failwith "chunk not represented, NYI" | c -> c
+                let newChunk = match chunks.[xx,zz] with | End -> failwith "chunk not represented, NYI" 
+                                                         | Compound(_,[|Compound(_,_) as c;_|]) 
+                                                         | Compound(_,[|Compound(_,_) as c;_;_|]) -> c
                 tepayload <- match newChunk.TryGetFromCompound("TileEntities") with | Some (List(_,Compounds(cs))) -> ResizeArray(cs) | None -> ResizeArray()
                 prevcx <- xx
                 prevcz <- zz
-            else
-                // accumulate payload in this chunk
-                let thisz = z
-                tepayload <-  
-                    tepayload 
-                    |> Seq.filter (fun te -> not(Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te))
-                    |> Seq.append [|nbt|] |> (fun x -> ResizeArray x)
+            // accumulate payload in this chunk
+            let thisz = z
+            tepayload <-  
+                tepayload 
+                |> Seq.filter (fun te -> not(Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te))
+                |> Seq.append [|nbt|] |> (fun x -> ResizeArray x)
             z <- z + 1
         storeIt(prevcx,prevcz,tepayload)
     member this.DumpChunkDebug(cx,cz) =
@@ -1114,6 +1120,251 @@ let writeDatFile(filename : string, nbt : NBT) =
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
     nbt.Write(new BinaryWriter2(s))
 
+
+//////////////////////////////////////////////////////////////////
+
+(*
+type Payload =
+    | Bytes of byte[]
+    | Shorts of int16[]
+    | Ints of int[]
+    | Longs of int64[]
+    | Floats of single[]
+    | Doubles of double[]
+    | Strings of string[]
+    | Compounds of NBT[][]
+    | IntArrays of int[][]
+and NBT =
+    | End
+    | Byte of Name * byte
+    | Short of Name * int16
+    | Int of Name * int
+    | Long of Name * int64
+    | Float of Name * single
+    | Double of Name * double
+    | ByteArray of Name * byte[]
+    | String of Name * string // int16 length beforehand
+    | List of Name * Payload // (name,kind,num,a)
+    | Compound of Name * NBT[]
+    | IntArray of Name * int[] // int32 before data shows num elements
+*)
+
+let SimpleDisplay nbt =
+    match nbt with
+    | End -> failwith "bad SimpleDisplay"
+    | Byte(_,x) -> "<byte> " + x.ToString()
+    | Short(_,x) -> "<short> " + x.ToString()
+    | Int(_,x) -> "<int> " + x.ToString()
+    | Long(_,x) -> "<long> " + x.ToString()
+    | Float(_,x) -> "<float> " + x.ToString()
+    | Double(_,x) -> "<double> " + x.ToString()
+    | ByteArray(_,_) -> "<byte array>"
+    | String(_,x) -> x
+    | List(_,_) -> null
+    | Compound(_,_) -> null
+    | IntArray(_,_) -> "<int array>"
+   
+open System.Windows
+open System.Windows.Controls
+open System.Windows.Input
+open System.Windows.Media
+
+let mutable skipUnchangedChunks = true
+let mutable namesToIgnore = [||]
+let mutable skipUnchangedValues = true
+let mutable startExpanded = false
+let LIST_ITEM = "<list item>"
+
+let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewItem) =
+    let hasDiff = ref false
+    let xnames = x |> Array.map (fun z -> z.Name) |> set
+    let ynames = y |> Array.map (fun z -> z.Name) |> set
+    let names = (Set.union xnames ynames).Remove(END_NAME)
+    let names = Set.difference names (set namesToIgnore)
+    for n in names do
+        if xnames.Contains(n) then
+            let xpn = xp.[n]
+            let xd = SimpleDisplay(xpn)
+            if ynames.Contains(n) then
+                let ypn = yp.[n]
+                let yd = SimpleDisplay(ypn)
+                if xd = yd then
+                    if xd <> null then
+                        if xpn = ypn then
+                            if not skipUnchangedValues then
+                                tvp.Items.Add(new TreeViewItem(Header=n+": "+xd)) |> ignore
+                        else // diff byte arrays
+                            tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
+                            tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
+                            hasDiff := true
+                    else // same name compound/list
+                        let tvi = new TreeViewItem(Header=n)
+                        match xpn, ypn with
+                        | Compound _, Compound _ ->
+                            if MakeTreeDiff xpn ypn tvi then
+                                tvi.Background <- Brushes.Orange
+                                hasDiff := true
+                        | List(_,xpay), List(_,ypay) ->
+                            match xpay, ypay with
+                            | Bytes xx, Bytes yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Shorts xx, Shorts yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Ints xx, Ints yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Longs xx, Longs yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Floats xx, Floats yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Doubles xx, Doubles yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Strings xx, Strings yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | IntArrays xx, IntArrays yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Compounds xx, Compounds yy ->
+                                // This is the hard part.  Need to be 'smart' about how to compare/merge/display
+                                let ya = ResizeArray yy
+                                for x in xx do
+                                    let tvj = new TreeViewItem(Header=LIST_ITEM)
+                                    let localDiff = ref false
+                                    let BODY(i) =
+                                        if i = -1 then
+                                            MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
+                                            tvj.Background <- Brushes.Red
+                                            tvi.Background <- Brushes.Orange
+                                            hasDiff := true
+                                            localDiff := true
+                                        else
+                                            let y = ya.[i]
+                                            ya.RemoveAt(i)
+                                            if MakeTreeDiff (Compound("",x)) (Compound("",y)) tvj then
+                                                tvj.Background <- Brushes.Orange
+                                                tvi.Background <- Brushes.Orange
+                                                hasDiff := true
+                                                localDiff := true
+                                    // uuid match
+                                    if x |> Array.exists (function (Long("UUIDLeast",_))->true | _->false) &&
+                                       x |> Array.exists (function (Long("UUIDMost",_))->true | _->false) then
+                                        let xuuidl = x |> Seq.pick (function (Long("UUIDLeast",v)) -> Some v | _ -> None)
+                                        let xuuidm = x |> Seq.pick (function (Long("UUIDMost",v)) -> Some v | _ -> None)
+                                        let i = ya.FindIndex(fun ee -> 
+                                                    ee |> Array.exists (function (Long("UUIDLeast",v)) -> v=xuuidl | _ -> false) &&
+                                                    ee |> Array.exists (function (Long("UUIDMost",v)) -> v=xuuidm | _ -> false))
+                                        BODY(i)
+                                    // x,y,z match
+                                    elif x |> Array.exists (fun e -> e.Name="x") &&
+                                       x |> Array.exists (fun e -> e.Name="y") &&
+                                       x |> Array.exists (fun e -> e.Name="z") then
+                                        let ix = x |> Seq.pick (function (Int("x",v)) -> Some v | _ -> None)
+                                        let iy = x |> Seq.pick (function (Int("y",v)) -> Some v | _ -> None)
+                                        let iz = x |> Seq.pick (function (Int("z",v)) -> Some v | _ -> None)
+                                        let i = ya.FindIndex(fun ee -> 
+                                                    ee |> Array.exists (function (Int("x",v)) -> v=ix | _ -> false) &&
+                                                    ee |> Array.exists (function (Int("y",v)) -> v=iy | _ -> false) &&
+                                                    ee |> Array.exists (function (Int("z",v)) -> v=iz | _ -> false))
+                                        BODY(i)
+                                    // (approx) exact match
+                                    elif true then
+                                        let s = x.ToString()
+                                        let i = ya.FindIndex(fun ee -> ee.ToString() = s)
+                                        BODY(i)
+                                    // TODO other kinds of heuristic matches?
+                                    else
+                                        MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
+                                        tvj.Background <- Brushes.Red
+                                        tvi.Background <- Brushes.Orange
+                                        hasDiff := true
+                                    if not skipUnchangedValues || !localDiff then
+                                        tvi.Items.Add(tvj) |> ignore
+                                for y in ya do
+                                    let tvj = new TreeViewItem(Header=LIST_ITEM)
+                                    MakeTreeDiff (Compound("",[||])) (Compound("",y)) tvj |> ignore
+                                    tvj.Background <- Brushes.Yellow
+                                    tvi.Background <- Brushes.Orange
+                                    hasDiff := true
+                                    tvi.Items.Add(tvj) |> ignore
+                            | _ -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                        | _ -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                        if not skipUnchangedValues || tvi.Items.Count <> 0 then
+                            tvp.Items.Add(tvi) |> ignore
+                else // completely different (atoms of diff values, or diff types)
+                    // TODO what best display?
+                    tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
+                    tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
+                    hasDiff := true
+            else // only x
+                // TODO what best display?
+                tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
+                hasDiff := true
+        else // only y
+            let yd = SimpleDisplay(yp.[n])
+            // TODO what best display?
+            tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
+            hasDiff := true
+    !hasDiff
+
+let diffRegions(r1:RegionFile,r2:RegionFile,regionFile1:string,regionFile2:string) =
+    skipUnchangedChunks <- true
+    //namesToIgnore <- [| "InhabitedTime"; "LastUpdate"; "LastOutput" |]
+    namesToIgnore <- [| "InhabitedTime"; "LastUpdate"; "LastOutput"; (*"Biomes";*) "SkyLight"; "BlockLight"; "Data"; "Blocks"; "Entities" |]
+    skipUnchangedValues <- true
+    startExpanded <- true
+    let tv = new TreeView()
+    printfn "Processing chunks..."
+    tv.Items.Add(new TreeViewItem(Header=regionFile1,Background=Brushes.Red)) |> ignore
+    tv.Items.Add(new TreeViewItem(Header=regionFile2,Background=Brushes.Yellow)) |> ignore
+    for cx = 0 to 31 do
+        for cz = 0 to 31 do
+            printf "(%d,%d)..." cx cz
+            let n = new TreeViewItem(Header="Chunk "+cx.ToString()+","+cz.ToString())
+            let c1 = r1.TryGetChunk(cx,cz)
+            let c2 = r2.TryGetChunk(cx,cz)
+            match c1,c2 with
+            | Some c1, Some c2 ->
+                if MakeTreeDiff c1 c2 n then
+                    n.Background <- Brushes.Orange 
+                    tv.Items.Add(n) |> ignore
+                elif not skipUnchangedChunks then
+                    tv.Items.Add(n) |> ignore
+            | Some c1, _ ->
+                if MakeTreeDiff c1 (Compound("",[||])) n then
+                    n.Background <- Brushes.Red 
+                    tv.Items.Add(n) |> ignore
+                elif not skipUnchangedChunks then
+                    tv.Items.Add(n) |> ignore
+            | _, Some c2 ->
+                if MakeTreeDiff (Compound("",[||])) c2 n then
+                    n.Background <- Brushes.Yellow
+                    tv.Items.Add(n) |> ignore
+                elif not skipUnchangedChunks then
+                    tv.Items.Add(n) |> ignore
+            | _ -> ()
+            if startExpanded then
+                n.ExpandSubtree()
+    printfn ""
+    let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
+    let app = new Application()
+    app.Run(window) |> ignore
+
+let diffRegionFiles(regionFile1,regionFile2) =
+    let r1 = new RegionFile(regionFile1)
+    let r2 = new RegionFile(regionFile2)
+    diffRegions(r1,r2,regionFile1,regionFile2)
+
+let diffDatFiles(datFile1,datFile2) =
+    skipUnchangedChunks <- false
+    namesToIgnore <- [| |]
+    skipUnchangedValues <- false
+    startExpanded <- false
+    let tv = new TreeView()
+    let r1 = readDatFile(datFile1)
+    let r2 = readDatFile(datFile2)
+    tv.Items.Add(new TreeViewItem(Header=datFile1,Background=Brushes.Red)) |> ignore
+    tv.Items.Add(new TreeViewItem(Header=datFile2,Background=Brushes.Yellow)) |> ignore
+    let n = new TreeViewItem(Header="<root>")
+    if MakeTreeDiff r1 r2 n then
+        n.Background <- Brushes.Orange 
+        tv.Items.Add(n) |> ignore
+    if startExpanded then
+        n.ExpandSubtree()
+    let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
+    let app = new Application()
+    app.Run(window) |> ignore
+
+///////////////////////////////////////
 
 
 let main2() =
@@ -1746,319 +1997,178 @@ let dumpPlayerDat() =
 
 let placeCommandBlocksInTheWorld(fil) =
     let region = new RegionFile(fil)
+#if THIS_WORKS_GREAT
+    let entityType = "AreaEffectCloud"
+    let entityDefaults = ",Duration:2000,Team:White"
+    //let entityType = "ArmorStand"
+    //let entityDefaults = ",NoGravity:1,Invisible:1,Marker:1,Team:White"
     let cmds = 
         [|
-            P "say purple"
-            O "say orange"
-            U "say green"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
-            C "say conditional"
+            yield! [|
+                        P ""
+                        //O "blockdata ~ ~ ~ {auto:0b}"
+                   |]
+            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
+                yield! [|
+                            U (sprintf "execute @e[tag=live] %s summon %s ~ ~ ~ {Tags:[\"sk\"]%s}" nearby entityType entityDefaults)
+                       |]
+            yield! [|
+                        U "execute @e[tag=sk] ~ ~ ~ scoreboard players tag @e[tag=sk,r=0,c=-1] add keep"
+                        U (sprintf "kill @e[type=%s,tag=!keep]" entityType)
+                   |]
+            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
+                yield! [|
+                            U (sprintf "execute @e[tag=live] %s scoreboard players add @e[tag=sk,r=0] Tmp 1" nearby)
+                       |]
+            yield! [|
+                        //O "blockdata ~ ~ ~ {auto:0b}"
+                        U "scoreboard players set @e[tag=sk] Black 0"
+                        U "execute @e[tag=sk] ~ ~ ~ detect ~ ~ ~ wool 15 scoreboard players set @e[r=0,c=1] Black 1"  // TODO v s-p
+                        U "scoreboard players set @e[tag=sk] AliveNext 0"
+                        U "scoreboard players set @e[tag=sk,score_Black_min=1,score_Tmp_min=2,score_Tmp=3] AliveNext 1"
+                        U "scoreboard players set @e[tag=sk,score_Black=0,score_Tmp_min=3,score_Tmp=3] AliveNext 1"
+                        U "execute @e[tag=live] ~ ~ ~ setblock ~ ~ ~ wool 0"
+                        U "kill @e[tag=live]"
+                        U "execute @e[tag=sk,score_AliveNext=0] ~ ~ ~ setblock ~ ~ ~ wool 0"
+                        U "execute @e[tag=sk,score_AliveNext_min=1] ~ ~ ~ setblock ~ ~ ~ wool 15"
+                        U "kill @e[tag=sk,score_AliveNext=0]"
+                        U "entitydata @e[tag=sk] {Tags:[\"live\",\"keep\"]}"
+                        U "scoreboard players set Count Count 0"
+                        U "execute @e[tag=live] ~ ~ ~ scoreboard players add Count Count 1"
+                   |]
         |]
-    region.PlaceCommandBlocksStartingAt(39,56,56,cmds)
+    region.PlaceCommandBlocksStartingAt(20,10,20,cmds)
+    let aux = [|
+                P ""
+                U (sprintf "execute @e[type=Sheep] ~ ~ ~ summon %s ~ ~-1 ~ {Tags:[\"live\",\"keep\"]%s}" entityType entityDefaults)
+                U "execute @e[type=Sheep] ~ ~ ~ setblock ~ ~-1 ~ wool 15"
+                U "kill @e[type=Sheep]"
+              |]
+    region.PlaceCommandBlocksStartingAt(24,10,20,aux)
+    let aux2 = [|
+                O ""
+                U (sprintf "execute @e[type=%s] ~ ~ ~ setblock ~ ~ ~ wool 0" entityType)
+                U (sprintf "kill @e[type=%s]" entityType)
+               |]
+    region.PlaceCommandBlocksStartingAt(28,10,20,aux2)
     region.Write(fil+".new")
-
-//////////////////////////////////////////////////////////////////
-
-(*
-type Payload =
-    | Bytes of byte[]
-    | Shorts of int16[]
-    | Ints of int[]
-    | Longs of int64[]
-    | Floats of single[]
-    | Doubles of double[]
-    | Strings of string[]
-    | Compounds of NBT[][]
-    | IntArrays of int[][]
-and NBT =
-    | End
-    | Byte of Name * byte
-    | Short of Name * int16
-    | Int of Name * int
-    | Long of Name * int64
-    | Float of Name * single
-    | Double of Name * double
-    | ByteArray of Name * byte[]
-    | String of Name * string // int16 length beforehand
-    | List of Name * Payload // (name,kind,num,a)
-    | Compound of Name * NBT[]
-    | IntArray of Name * int[] // int32 before data shows num elements
-*)
-
-let SimpleDisplay nbt =
-    match nbt with
-    | End -> failwith "bad SimpleDisplay"
-    | Byte(_,x) -> "<byte> " + x.ToString()
-    | Short(_,x) -> "<short> " + x.ToString()
-    | Int(_,x) -> "<int> " + x.ToString()
-    | Long(_,x) -> "<long> " + x.ToString()
-    | Float(_,x) -> "<float> " + x.ToString()
-    | Double(_,x) -> "<double> " + x.ToString()
-    | ByteArray(_,_) -> "<byte array>"
-    | String(_,x) -> x
-    | List(_,_) -> null
-    | Compound(_,_) -> null
-    | IntArray(_,_) -> "<int array>"
-   
-open System
-open System.Windows
-open System.Windows.Controls
-open System.Windows.Input
-open System.Windows.Media
-
-let mutable skipUnchangedChunks = true
-let mutable namesToIgnore = [||]
-let mutable skipUnchangedValues = true
-let mutable startExpanded = false
-let LIST_ITEM = "<list item>"
-
-let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewItem) =
-    let hasDiff = ref false
-    let xnames = x |> Array.map (fun z -> z.Name) |> set
-    let ynames = y |> Array.map (fun z -> z.Name) |> set
-    let names = (Set.union xnames ynames).Remove(END_NAME)
-    let names = Set.difference names (set namesToIgnore)
-    for n in names do
-        if xnames.Contains(n) then
-            let xpn = xp.[n]
-            let xd = SimpleDisplay(xpn)
-            if ynames.Contains(n) then
-                let ypn = yp.[n]
-                let yd = SimpleDisplay(ypn)
-                if xd = yd then
-                    if xd <> null then
-                        if xpn = ypn then
-                            if not skipUnchangedValues then
-                                tvp.Items.Add(new TreeViewItem(Header=n+": "+xd)) |> ignore
-                        else // diff byte arrays
-                            tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
-                            tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
-                            hasDiff := true
-                    else // same name compound/list
-                        let tvi = new TreeViewItem(Header=n)
-                        match xpn, ypn with
-                        | Compound _, Compound _ ->
-                            if MakeTreeDiff xpn ypn tvi then
-                                tvi.Background <- Brushes.Orange
-                                hasDiff := true
-                        | List(_,xpay), List(_,ypay) ->
-                            match xpay, ypay with
-                            | Bytes xx, Bytes yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Shorts xx, Shorts yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Ints xx, Ints yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Longs xx, Longs yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Floats xx, Floats yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Doubles xx, Doubles yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Strings xx, Strings yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | IntArrays xx, IntArrays yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Compounds xx, Compounds yy ->
-                                // This is the hard part.  Need to be 'smart' about how to compare/merge/display
-                                let ya = ResizeArray yy
-                                for x in xx do
-                                    let tvj = new TreeViewItem(Header=LIST_ITEM)
-                                    let localDiff = ref false
-                                    let BODY(i) =
-                                        if i = -1 then
-                                            MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
-                                            tvj.Background <- Brushes.Red
-                                            tvi.Background <- Brushes.Orange
-                                            hasDiff := true
-                                            localDiff := true
-                                        else
-                                            let y = ya.[i]
-                                            ya.RemoveAt(i)
-                                            if MakeTreeDiff (Compound("",x)) (Compound("",y)) tvj then
-                                                tvj.Background <- Brushes.Orange
-                                                tvi.Background <- Brushes.Orange
-                                                hasDiff := true
-                                                localDiff := true
-                                    // uuid match
-                                    if x |> Array.exists (function (Long("UUIDLeast",_))->true | _->false) &&
-                                       x |> Array.exists (function (Long("UUIDMost",_))->true | _->false) then
-                                        let xuuidl = x |> Seq.pick (function (Long("UUIDLeast",v)) -> Some v | _ -> None)
-                                        let xuuidm = x |> Seq.pick (function (Long("UUIDMost",v)) -> Some v | _ -> None)
-                                        let i = ya.FindIndex(fun ee -> 
-                                                    ee |> Array.exists (function (Long("UUIDLeast",v)) -> v=xuuidl | _ -> false) &&
-                                                    ee |> Array.exists (function (Long("UUIDMost",v)) -> v=xuuidm | _ -> false))
-                                        BODY(i)
-                                    // x,y,z match
-                                    elif x |> Array.exists (fun e -> e.Name="x") &&
-                                       x |> Array.exists (fun e -> e.Name="y") &&
-                                       x |> Array.exists (fun e -> e.Name="z") then
-                                        let ix = x |> Seq.pick (function (Int("x",v)) -> Some v | _ -> None)
-                                        let iy = x |> Seq.pick (function (Int("y",v)) -> Some v | _ -> None)
-                                        let iz = x |> Seq.pick (function (Int("z",v)) -> Some v | _ -> None)
-                                        let i = ya.FindIndex(fun ee -> 
-                                                    ee |> Array.exists (function (Int("x",v)) -> v=ix | _ -> false) &&
-                                                    ee |> Array.exists (function (Int("y",v)) -> v=iy | _ -> false) &&
-                                                    ee |> Array.exists (function (Int("z",v)) -> v=iz | _ -> false))
-                                        BODY(i)
-                                    // (approx) exact match
-                                    elif true then
-                                        let s = x.ToString()
-                                        let i = ya.FindIndex(fun ee -> ee.ToString() = s)
-                                        BODY(i)
-                                    // TODO other kinds of heuristic matches?
-                                    else
-                                        MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
-                                        tvj.Background <- Brushes.Red
-                                        tvi.Background <- Brushes.Orange
-                                        hasDiff := true
-                                    if not skipUnchangedValues || !localDiff then
-                                        tvi.Items.Add(tvj) |> ignore
-                                for y in ya do
-                                    let tvj = new TreeViewItem(Header=LIST_ITEM)
-                                    MakeTreeDiff (Compound("",[||])) (Compound("",y)) tvj |> ignore
-                                    tvj.Background <- Brushes.Yellow
-                                    tvi.Background <- Brushes.Orange
-                                    hasDiff := true
-                                    tvi.Items.Add(tvj) |> ignore
-                            | _ -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                        | _ -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                        if not skipUnchangedValues || tvi.Items.Count <> 0 then
-                            tvp.Items.Add(tvi) |> ignore
-                else // completely different (atoms of diff values, or diff types)
-                    // TODO what best display?
-                    tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
-                    tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
-                    hasDiff := true
-            else // only x
-                // TODO what best display?
-                tvp.Items.Add(new TreeViewItem(Header=n+": "+xd,Background=Brushes.Red)) |> ignore
-                hasDiff := true
-        else // only y
-            let yd = SimpleDisplay(yp.[n])
-            // TODO what best display?
-            tvp.Items.Add(new TreeViewItem(Header=n+": "+yd,Background=Brushes.Yellow)) |> ignore
-            hasDiff := true
-    !hasDiff
-
-let diffRegionFiles(regionFile1,regionFile2) =
-    skipUnchangedChunks <- true
-    //namesToIgnore <- [| "InhabitedTime"; "LastUpdate"; "LastOutput" |]
-    namesToIgnore <- [| "InhabitedTime"; "LastUpdate"; "LastOutput"; (*"Biomes";*) "SkyLight"; "BlockLight"; "Data"; "Blocks"; "Entities" |]
-    skipUnchangedValues <- true
-    startExpanded <- true
-    let tv = new TreeView()
-    let r1 = new RegionFile(regionFile1)
-    let r2 = new RegionFile(regionFile2)
-    printfn "Processing chunks..."
-    tv.Items.Add(new TreeViewItem(Header=regionFile1,Background=Brushes.Red)) |> ignore
-    tv.Items.Add(new TreeViewItem(Header=regionFile2,Background=Brushes.Yellow)) |> ignore
-    for cx = 0 to 31 do
-        for cz = 0 to 31 do
-            printf "(%d,%d)..." cx cz
-            let n = new TreeViewItem(Header="Chunk "+cx.ToString()+","+cz.ToString())
-            let c1 = r1.TryGetChunk(cx,cz)
-            let c2 = r2.TryGetChunk(cx,cz)
-            match c1,c2 with
-            | Some c1, Some c2 ->
-                if MakeTreeDiff c1 c2 n then
-                    n.Background <- Brushes.Orange 
-                    tv.Items.Add(n) |> ignore
-                elif not skipUnchangedChunks then
-                    tv.Items.Add(n) |> ignore
-            | Some c1, _ ->
-                if MakeTreeDiff c1 (Compound("",[||])) n then
-                    n.Background <- Brushes.Red 
-                    tv.Items.Add(n) |> ignore
-                elif not skipUnchangedChunks then
-                    tv.Items.Add(n) |> ignore
-            | _, Some c2 ->
-                if MakeTreeDiff (Compound("",[||])) c2 n then
-                    n.Background <- Brushes.Yellow
-                    tv.Items.Add(n) |> ignore
-                elif not skipUnchangedChunks then
-                    tv.Items.Add(n) |> ignore
-            | _ -> ()
-            if startExpanded then
-                n.ExpandSubtree()
-    printfn ""
-    let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
-    let app = new Application()
-    app.Run(window) |> ignore
-
-let diffDatFiles(datFile1,datFile2) =
-    skipUnchangedChunks <- false
-    namesToIgnore <- [| |]
-    skipUnchangedValues <- false
-    startExpanded <- false
-    let tv = new TreeView()
-    let r1 = readDatFile(datFile1)
-    let r2 = readDatFile(datFile2)
-    tv.Items.Add(new TreeViewItem(Header=datFile1,Background=Brushes.Red)) |> ignore
-    tv.Items.Add(new TreeViewItem(Header=datFile2,Background=Brushes.Yellow)) |> ignore
-    let n = new TreeViewItem(Header="<root>")
-    if MakeTreeDiff r1 r2 n then
-        n.Background <- Brushes.Orange 
-        tv.Items.Add(n) |> ignore
-    if startExpanded then
-        n.ExpandSubtree()
-    let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
-    let app = new Application()
-    app.Run(window) |> ignore
+#endif
+#if THIS_WORKS_TOO
+    let DURATION = 5
+    let entityType = "AreaEffectCloud"
+    let entityDefaults = sprintf ",Duration:%d" DURATION
+    let cmds = 
+        [|
+            yield! [|
+                        P ""
+                        //O "blockdata ~ ~ ~ {auto:0b}"
+                        U "scoreboard players set @e[tag=sk] Tmp 0"
+                   |]
+            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
+                yield! [|
+                            U (sprintf "execute @e[tag=live] %s detect ~ ~-1 ~ air 0 summon %s ~ ~ ~ {Tags:[\"new\"]%s}" nearby entityType entityDefaults)
+                            U "execute @e[tag=new] ~ ~ ~ setblock ~ ~-1 ~ stone"
+                            U "entitydata @e[tag=new] {Tags:[\"sk\"]}"
+                       |]
+            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
+                yield! [|
+                            U (sprintf "execute @e[tag=live] %s scoreboard players add @e[tag=sk,r=0] Tmp 1" nearby)  // TODO probably still expensive...
+                       |]
+            yield! [|
+                        //O "blockdata ~ ~ ~ {auto:0b}"
+                        U "scoreboard players set @e[tag=sk] Black 0"
+                        U "execute @e[tag=sk] ~ ~ ~ detect ~ ~ ~ wool 15 scoreboard players set @e[type=!Player,c=1] Black 1"   // TODO ensure picks nearest
+                        U "scoreboard players set @e[tag=sk] AliveNext 0"
+                        U "scoreboard players set @e[tag=sk,score_Black_min=1,score_Tmp_min=2,score_Tmp=3] AliveNext 1"
+                        U "scoreboard players set @e[tag=sk,score_Black=0,score_Tmp_min=3,score_Tmp=3] AliveNext 1"
+                        U "execute @e[tag=live] ~ ~ ~ setblock ~ ~ ~ wool 0"
+                        U "kill @e[tag=live]"
+                        U "execute @e[tag=sk,score_AliveNext=0] ~ ~ ~ setblock ~ ~ ~ wool 0"
+                        U "execute @e[tag=sk,score_AliveNext_min=1] ~ ~ ~ setblock ~ ~ ~ wool 15"
+                        U (sprintf "execute @e[tag=sk,score_AliveNext_min=1] ~ ~ ~ summon %s ~ ~ ~ {Tags:[\"live\"]%s}" entityType entityDefaults)
+                        // kill off old sk's
+                        U "scoreboard players add @e[tag=sk] Age 1"
+                        U (sprintf "execute @e[tag=sk,score_Age_min=%d] ~ ~ ~ setblock ~ ~-1 ~ air" DURATION)
+                        // overview info
+                        U "scoreboard players set Count Count 0"
+                        U "execute @e[tag=live] ~ ~ ~ scoreboard players add Count Count 1"
+                   |]
+        |]
+    region.PlaceCommandBlocksStartingAt(20,10,20,cmds)
+    let aux = [|
+                P ""
+                U (sprintf "execute @e[type=Sheep] ~ ~ ~ summon %s ~ ~-1 ~ {Tags:[\"live\"]%s}" entityType ",Duration:2000") // long duration for init setup
+                U "execute @e[type=Sheep] ~ ~ ~ setblock ~ ~-1 ~ wool 15"
+                U "kill @e[type=Sheep]"
+              |]
+    region.PlaceCommandBlocksStartingAt(24,10,20,aux)
+    let aux2 = [|
+                O ""
+                U (sprintf "execute @e[type=%s] ~ ~ ~ setblock ~ ~ ~ wool 0" entityType)
+                U (sprintf "kill @e[type=%s]" entityType)
+                U "fill -80 2 -80 80 2 80 air"
+                U "fill -80 3 -80 80 3 80 dirt"
+               |]
+    region.PlaceCommandBlocksStartingAt(28,10,20,aux2)
+#endif
+    let DURATION = 999999
+    let entityType = "AreaEffectCloud"
+    let entityDefaults = sprintf ",Duration:%d" DURATION
+    let nearbys = [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |]
+    let cmds = 
+        [|
+            yield P ""
+            for i = 0 to 7 do
+                let nearby = nearbys.[i]
+                if i >= 3 then
+                    yield U (sprintf "execute @e[tag=live] %s fill ~ ~-1 ~ ~ ~-1 ~ wool 4 replace wool 3" nearby)
+                if i >= 2 then
+                    yield U (sprintf "execute @e[tag=live] %s fill ~ ~-1 ~ ~ ~-1 ~ wool 3 replace wool 2" nearby)
+                if i >= 1 then
+                    yield U (sprintf "execute @e[tag=live] %s fill ~ ~-1 ~ ~ ~-1 ~ wool 2 replace wool 1" nearby)
+                yield U (sprintf "execute @e[tag=live] %s fill ~ ~-1 ~ ~ ~-1 ~ wool 1 replace wool 0" nearby)
+            yield U (sprintf "execute @e[tag=live] ~ ~ ~ detect ~ ~-1 ~ wool 2 summon %s ~ ~ ~ {Tags:[\"keep\"]%s}" entityType entityDefaults)
+            yield U (sprintf "execute @e[tag=live] ~ ~ ~ detect ~ ~-1 ~ wool 3 summon %s ~ ~ ~ {Tags:[\"keep\"]%s}" entityType entityDefaults)
+            yield U "execute @e[tag=live] ~ ~ ~ detect ~ ~-1 ~ wool 0 setblock ~ ~ ~ wool 0"
+            yield U "execute @e[tag=live] ~ ~ ~ detect ~ ~-1 ~ wool 1 setblock ~ ~ ~ wool 0"
+            yield U "execute @e[tag=live] ~ ~ ~ detect ~ ~-1 ~ wool 4 setblock ~ ~ ~ wool 0"
+            yield U "execute @e[tag=live] ~ ~ ~ setblock ~ ~-1 ~ wool 0"
+            for i = 0 to 7 do
+                let nearby = nearbys.[i]
+                yield U (sprintf "execute @e[tag=live] %s detect ~ ~-1 ~ wool 3 summon %s ~ ~ ~ {Tags:[\"new\"]%s}" nearby entityType entityDefaults)
+                yield U (sprintf "execute @e[tag=live] %s setblock ~ ~-1 ~ wool 0" nearby)
+            yield U "kill @e[tag=live]"
+            yield U "entitydata @e[tag=new] {Tags:[\"live\"]}"
+            yield U "execute @e[tag=live] ~ ~ ~ setblock ~ ~ ~ wool 15"
+            yield U "entitydata @e[tag=keep] {Tags:[\"live\"]}"
+            yield U "scoreboard players set Alive Count 0"
+            yield U "execute @e[tag=live] ~ ~ ~ scoreboard players add Alive Count 1"
+            yield U "scoreboard players add Ticks Count 1"
+        |]
+    region.PlaceCommandBlocksStartingAt(20,10,20,cmds)
+    let aux = [|
+                P ""
+                U (sprintf "execute @e[type=Sheep] ~ ~ ~ summon %s ~ ~-1 ~ {Tags:[\"live\"]%s}" entityType entityDefaults)
+                U "execute @e[type=Sheep] ~ ~ ~ setblock ~ ~-1 ~ wool 15"
+                U "kill @e[type=Sheep]"
+              |]
+    region.PlaceCommandBlocksStartingAt(24,10,20,aux)
+    let aux2 = [|
+                O ""
+                U (sprintf "execute @e[type=%s] ~ ~ ~ setblock ~ ~ ~ wool 0" entityType)
+                U (sprintf "kill @e[type=%s]" entityType)
+                U "fill -160 2 -160 0 2 0 wool"
+                U "fill 0 2 -160 160 2 0 wool"
+                U "fill -160 2 0 0 2 160 wool"
+                U "fill 0 2 0 160 2 160 wool"
+                U "fill -160 3 -160 0 3 0 wool" 
+                U "fill 0 3 -160 160 3 0 wool"
+                U "fill -160 3 0 0 3 160 wool"
+                U "fill 0 3 0 160 3 160 wool"
+                U "scoreboard players reset *"
+               |]
+    region.PlaceCommandBlocksStartingAt(28,10,20,aux2)
+    region.Write(fil+".new")
 
 ////////////////////////////////////////////////////
 
@@ -2095,9 +2205,9 @@ do
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Mandelbrot 1_9\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\region\r.0.0.mca""")
-    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpx\region\r.0.0.mca""")
-    //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpx\region\r.0.0.mca""",
-      //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpx\region\r.0.0.mca.new""")
+    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpz\region\r.0.0.mca""")
+    //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca""",
+      //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca.new""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
     //dumpChunkInfo("""F:\.minecraft\saves\E&Ts7saves\E&T Season 7 Backup After E18\region\r.-6.0.mca""", 0, 31, 0, 31, true)
     //placeCertainEntitiesInTheWorld()
