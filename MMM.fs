@@ -598,6 +598,13 @@ let textureFilenamesToBlockIDandDataMappingForHeads =
         "wool_colored_yellow",35,4
     |]
 
+let rand = new System.Random()
+let swap (a: _[]) x y =
+    let tmp = a.[x]
+    a.[x] <- a.[y]
+    a.[y] <- tmp
+let shuffle a = Array.iteri (fun i _ -> swap a i (rand.Next(i, Array.length a))) a
+
 
 type BinaryReader2(stream : System.IO.Stream) = // Big Endian
     inherit System.IO.BinaryReader(stream)
@@ -878,6 +885,7 @@ type CommandBlock =     // the useful subset I plan to map anything into
     | O of string  // orange (pointing positive Z, unconditional, auto:0)
     | U of string  // green (pointing positive Z, unconditional, auto:1)
     | C of string  // green (pointing positive Z, conditional, auto:1)
+    | S of string[]  // sign, for commenting start of line
 
 type RegionFile(filename) =
     let rx, rz =
@@ -1048,12 +1056,23 @@ type RegionFile(filename) =
             tmp <- tmp &&& 0x0Fuy
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
+    member this.PlaceCommandBlocksWithLeadingSignStartingAt(x,y,startz,cmds:_[],signText:string[]) =
+        let newCmds = [| yield S signText; yield! cmds |]
+        this.PlaceCommandBlocksStartingAt(x,y,startz,newCmds)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[]) =
+        let cmds = Seq.append cmds [| O "say dummy command at end" |]
         let mutable z = startz
-        let mkCmd(x,y,z,auto,s) = [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
-                                     NBT.Byte("conditionMet",0uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);
-                                     NBT.String("id","Control"); NBT.Int("SuccessCount",0); NBT.Byte("TrackOutput",1uy);
-                                     NBT.End |]
+        let mkCmd(x,y,z,auto,s,txt:_[]) = 
+            if txt = null then
+                [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
+                   NBT.Byte("conditionMet",1uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);   // TODO defaulting conditionMet to 1, which is not like MC, but avoids an MC bug
+                   NBT.String("id","Control"); NBT.Int("SuccessCount",0); NBT.Byte("TrackOutput",1uy);
+                   NBT.End |]
+            else
+                [| yield NBT.Int("x",x); yield NBT.Int("y",y); yield NBT.Int("z",z); yield NBT.String("id","Sign")
+                   for i = 0 to txt.Length-1 do
+                       yield NBT.String(sprintf "Text%d" (i+1), sprintf "{\"text\":\"%s\"}" txt.[i])
+                   yield NBT.End |]
         let mutable prevcx = -1
         let mutable prevcz = -1
         let mutable tepayload = ResizeArray<NBT[]>()
@@ -1062,9 +1081,10 @@ type RegionFile(filename) =
             let mutable found = false
             let mutable i = 0
             for te in tepayload do
+                let sb = new System.Text.StringBuilder()
                 for nbt in te do
-                    printf "%s   " (nbt.ToString())
-                printfn ""
+                    sb.Append(nbt.ToString()).Append("   ") |> ignore
+                printfn "%s" (let s = sb.ToString() in s.Substring(0,min 90 s.Length))
             printfn "-----"
             while not found && i < a.Length-1 do
                 if a.[i].Name = "TileEntities" then
@@ -1077,14 +1097,15 @@ type RegionFile(filename) =
                 | Compound(_,([|Compound(n,a);_;_|] as r)) -> 
                     r.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tepayload |> Array.ofSeq)) |] |> Array.ofSeq)
         for c in cmds do
-            let bid, bd, au, s = 
+            let bid, bd, au, s,txt = 
                 match c with
-                | P s -> 210uy,3uy,0uy,s
-                | O s -> 137uy,3uy,0uy,s
-                | U s -> 211uy,3uy,1uy,s
-                | C s -> 211uy,11uy,1uy,s
+                | P s -> 210uy,3uy,0uy,s,null
+                | O s -> 137uy,3uy,0uy,s,null
+                | U s -> 211uy,3uy,1uy,s,null
+                | C s -> 211uy,11uy,1uy,s,null
+                | S txt -> 63uy,8uy,0uy,"",txt
             this.SetBlockIDAndDamage(x,y,z,bid,bd)
-            let nbt = mkCmd(x,y,z,au,s)
+            let nbt = mkCmd(x,y,z,au,s,txt)
             if (x+5120)/512 <> rx+10 || (z+5120)/512 <> rz+10 then failwith "coords outside this region"
             let xx = ((x+5120)%512)/16
             let zz = ((z+5120)%512)/16
@@ -2111,6 +2132,7 @@ let placeCommandBlocksInTheWorld(fil) =
                |]
     region.PlaceCommandBlocksStartingAt(28,10,20,aux2)
 #endif
+#if AWESOME
     let DURATION = 999999
     let entityType = "AreaEffectCloud"
     let entityDefaults = sprintf ",Duration:%d" DURATION
@@ -2168,7 +2190,319 @@ let placeCommandBlocksInTheWorld(fil) =
                 U "scoreboard players reset *"
                |]
     region.PlaceCommandBlocksStartingAt(28,10,20,aux2)
+#endif
+#if SCRIPTED_SHEEP
+    let W n = U (sprintf """summon AreaEffectCloud ~ ~ ~1 {Tags:["nTicksLater"],Age:-%d}""" n)
+    let aux = 
+        [|
+            P ""
+            U "scoreboard players tag @e[tag=nTicksLater] add nTicksLaterDone {Age:-1}"
+            U "execute @e[tag=nTicksLaterDone] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
+            U "execute @e[tag=nTicksLaterDone] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
+        |]
+    let cmds =
+        [|
+            O "kill @e[type=Sheep]"
+            yield U "summon Sheep ~5 ~-0.5 ~ {NoAI:true}"
+            for _i = 1 to 6 do
+                yield! [| W 3; O "tp @e[type=Sheep] ~ ~ ~0.5" |]
+            for _i = 1 to 3 do
+                yield! [| W 3; O "tp @e[type=Sheep] ~-0.5 ~ ~ 90 0" |]
+            yield! [|
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 110 0"
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 130 0"
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 110 0"
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 90 0"
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 70 0"
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 50 0"
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 70 0"
+                        W 3
+                        O "tp @e[type=Sheep] ~ ~ ~ 90 0"
+                        U "say Hello there"
+                        W 20
+                        O "say I am the sheep"
+                        W 20
+                        O "say Do you have any..."
+                        W 10
+                        O "say HAY?"
+                    |]
+        |]
+    region.PlaceCommandBlocksStartingAt(40,56,80,aux)
+    region.PlaceCommandBlocksStartingAt(43,56,80,cmds)
+#endif
+#if DECENT_TUNNEL_DIGGING_WITH_NOISE
+    let rand = new System.Random()
+    let swap (a: _[]) x y =
+        let tmp = a.[x]
+        a.[x] <- a.[y]
+        a.[y] <- tmp
+    let shuffle a = Array.iteri (fun i _ -> swap a i (rand.Next(i, Array.length a))) a
+    let XXX = 6  // noise frequency = 1/XXX
+    let computeFringe() =
+        let mutable THRESHOLD = 15  // 13 barely encloses -2..2 cube, 28 barely encloses -3..3 cube
+        let mutable dun = false
+        let mutable count = 0
+        let mutable fringe = null
+        while not dun do
+            let a = Array3D.create 19 19 19 false
+            fringe <- ResizeArray()
+            count <- 0
+            for x = -9 to 9 do
+                for y = -9 to 9 do
+                    for z = -9 to 9 do
+                        if x*x + y*y + z*z < THRESHOLD then
+                            a.[10+x,10+y,10+z] <- true
+                            count <- count + 1
+                            if abs x > 2 || abs y > 2 || abs z > 2 then
+                                //printfn "%A" (x,y,z)
+                                fringe.Add( (x,y,z) )
+            let mutable ok = true
+            for x = -2 to 2 do
+                for y = -2 to 2 do
+                    for z = -2 to 2 do
+                        if not a.[10+x,10+y,10+z] then
+                            ok <- false 
+            if ok then
+                dun <- true
+            else
+                THRESHOLD <- THRESHOLD + 1
+        //printfn "%d    %d     %d" THRESHOLD count (count - 5*5*5)
+        fringe
+    let a = computeFringe() |> Seq.toArray 
+    shuffle a
+    let b = a |> Array.mapi (fun i (x,y,z) -> x,y,z,i%XXX)
+    let aux =
+        [|
+            yield P ""
+            yield U "execute @p[score_Dig=0] ~ ~ ~ detect ~ ~ ~ fence_gate 5 setblock ~ ~ ~ air"
+        |]
+    let cmds =
+        [|
+            yield P ""
+            yield U "execute @p[score_Dig_min=1] ~ ~ ~ fill ~-1 ~-1 ~-1 ~1 ~1 ~1 air 0 outline"
+            yield U "execute @p[score_Dig_min=1] ~ ~ ~ fill ~-2 ~-2 ~-2 ~2 ~2 ~2 air 0 outline"
+            yield U "scoreboard players add @p S 1"
+            yield U (sprintf "scoreboard players set @p[score_S_min=%d] S 0" XXX)
+            for x,y,z,n in b do
+                yield U (sprintf "execute @p[score_Dig_min=1,score_S_min=%d,score_S=%d] ~ ~ ~ detect ~ ~ ~ air 0 setblock ~%d ~%d ~%d air" n n x y z)
+            yield U "execute @p[score_Dig_min=1] ~ ~ ~ setblock ~ ~ ~ fence_gate 5"
+        |]    
+    region.PlaceCommandBlocksStartingAt(23,56,20,aux)
+    region.PlaceCommandBlocksStartingAt(20,56,20,cmds)
+#endif
+#if TUNNEL_DIG
+    let computeSphereShellAndInterior() =
+        let mutable THRESHOLD = 13  // 13 barely encloses -2..2 cube, 28 barely encloses -3..3 cube
+        let a = Array3D.create 19 19 19 false
+        for x = -9 to 9 do
+            for y = -9 to 9 do
+                for z = -9 to 9 do
+                    if x*x + y*y + z*z < THRESHOLD then
+                        a.[10+x,10+y,10+z] <- true
+        // now a holds the solid sphere; the shell is all cells with 'air' next to them
+        let shell = ResizeArray()
+        for x = -8 to 8 do
+            for y = -8 to 8 do
+                for z = -8 to 8 do
+                    if a.[10+x,10+y,10+z] then
+                        if not a.[11+x,10+y,10+z] || not a.[10+x,11+y,10+z]|| not a.[10+x,10+y,11+z]
+                           || not a.[9+x,10+y,10+z] || not a.[10+x,9+y,10+z]|| not a.[10+x,10+y,9+z] then
+                            // one face is next to air, is shell
+                            shell.Add( (x,y,z) )
+        let interior = ResizeArray()
+        for x = -8 to 8 do
+            for y = -8 to 8 do
+                for z = -8 to 8 do
+                    if a.[10+x,10+y,10+z] then
+                        if not(shell.Contains( (x,y,z) )) then
+                            if not(x=0 && y=0 && z=0) then   // exclude center, we're putting fence_gate there
+                                interior.Add( (x,y,z) )
+        shell, interior
+    let shell, interior = computeSphereShellAndInterior()                    
+    let XXX = 6  // noise frequency = 1/XXX
+    let a = shell |> Seq.toArray 
+    shuffle a
+    let b = a |> Array.mapi (fun i (x,y,z) -> x,y,z,i%XXX)
+    let aux1 =
+        [|
+            yield P ""
+            yield U "execute @p[score_Dig=0] ~ ~ ~ detect ~ ~ ~ fence_gate 5 setblock ~ ~ ~ air"
+            for x,y,z,_ in b do
+                yield U (sprintf "execute @p[score_Dig_min=2] ~ ~ ~ setblock ~%d ~%d ~%d stained_glass 11" x y z)
+        |]
+    let aux2 =
+        [|
+            yield P ""
+            for x,y,z in interior do
+                yield U (sprintf "execute @p[score_Dig_min=2] ~ ~ ~ setblock ~%d ~%d ~%d wool 11" x y z)
+            yield U "scoreboard players set @p[score_Dig_min=2] Dig 0"
+        |]
+    let cmdsInterior =
+        [|
+            yield P ""
+            for x,y,z in interior do
+                yield U (sprintf "execute @p[score_Dig_min=1] ~ ~ ~ detect ~ ~ ~ air 0 setblock ~%d ~%d ~%d air" x y z)
+            yield U "execute @p[score_Dig_min=1] ~ ~ ~ setblock ~ ~ ~ fence_gate 5"
+        |]    
+    let cmdsShell =
+        [|
+            yield P ""
+            yield U "scoreboard players add @p S 1"
+            yield U (sprintf "scoreboard players set @p[score_S_min=%d] S 0" XXX)
+            for x,y,z,n in b do
+                yield U (sprintf "execute @p[score_Dig_min=1,score_S_min=%d,score_S=%d] ~ ~ ~ detect ~ ~ ~ air 0 setblock ~%d ~%d ~%d air" n n x y z)
+        |]    
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(29,56,20,aux2,[|"4";"aux2"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(26,56,20,aux1,[|"3";"aux1"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(23,56,20,cmdsInterior,[|"2";"interior"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(20,56,20,cmdsShell,[|"1";"shell"|])
+#endif    
+    let bingoItems =
+        [|
+            [|  -1, "diamond"                 ; -1, "diamond_hoe"                    ; -1, "diamond_axe"              |]
+            [|  -1, "bone"                    ; -1, "bone"                           ; -1, "bone"                     |]
+            [|  -1, "ender_pearl"             ; -1, "ender_pearl"                    ; -1, "ender_pearl"              |]
+            [|  +0, "tallgrass"               ; +2, "tallgrass"                      ; -1, "vine"                     |]
+            [|  -1, "brick"                   ; -1, "brick"                          ; -1, "brick"                    |]
+            [|  -1, "glass_bottle"            ; -1, "glass_bottle"                   ; -1, "glass_bottle"             |]
+            [|  -1, "melon"                   ; -1, "melon"                          ; -1, "speckled_melon"           |]
+            [|  +0, "dye"                     ; -1, "book"                           ; -1, "writable_book"            |]
+            [|  -1, "apple"                   ; -1, "gold_ingot"                     ; -1, "golden_apple"             |]
+            [|  -1, "flint"                   ; -1, "flint"                          ; -1, "flint_and_steel"          |]
+            [|  -1, "cookie"                  ; -1, "cookie"                         ; -1, "cookie"                   |]
+            [|  -1, "pumpkin_seeds"           ; -1, "pumpkin_seeds"                  ; -1, "rabbit_hide"              |]
+            [|  -1, "rail"                    ; -1, "rail"                           ; -1, "rail"                     |]
+            [|  -1, "mushroom_stew"           ; -1, "mushroom_stew"                  ; -1, "mushroom_stew"            |]
+            [|  -1, "sugar"                   ; -1, "spider_eye"                     ; -1, "fermented_spider_eye"     |]
+            [|  +2, "dye"                     ; +4, "dye"                            ; +6, "dye"                      |]
+            [|  -1, "emerald"                 ; -1, "emerald"                        ; -1, "emerald"                  |]
+            [|  -1, "minecart"                ; -1, "chest_minecart"                 ; -1, "tnt_minecart"             |]
+            [|  -1, "gunpowder"               ; -1, "gunpowder"                      ; -1, "gunpowder"                |]
+            [|  -1, "compass"                 ; -1, "compass"                        ; -1, "compass"                  |]
+            [|  +1, "sapling"                 ; +1, "sapling"                        ; -1, "slime_ball"               |]
+            [|  -1, "cauldron"                ; -1, "cauldron"                       ; -1, "cauldron"                 |]
+            [|  -1, "name_tag"                ; -1, "saddle"                         ; -1, "enchanted_book"           |]
+            [|  -1, "milk_bucket"             ; -1, "egg"                            ; -1, "cake"                     |]
+            [|  -1, "fish"                    ; -1, "fish"                           ; -1, "fish"                     |]
+            [|  -1, "sign"                    ; -1, "item_frame"                     ; -1, "painting"                 |]
+            [|  -1, "golden_sword"            ; -1, "clock"                          ; -1, "golden_rail"              |]
+            [|  -1, "hopper"                  ; -1, "hopper"                         ; -1, "hopper"                   |]
+        |]
+    for i = 0 to bingoItems.Length-1 do
+        let cmds = [|
+                    for j = 2 downto 0 do
+                    let dmg, id = bingoItems.[i].[j]
+                    yield U (sprintf "execute @e[tag=board] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:4,Item:{Count:1,id:minecraft:%s%s}}" id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
+                   |]
+        region.PlaceCommandBlocksStartingAt(3+i,10,3,cmds)
+    let cmdsInit =
+        [|
+        yield O ""
+        yield U "kill @e[type=!Player]"
+        yield U "scoreboard objectives add S dummy"
+        yield U "scoreboard objectives add Calc dummy"
+        yield U "scoreboard players set A Calc 1103515245"
+        yield U "scoreboard players set C Calc 12345"
+        yield U "scoreboard players set Two Calc 2"
+        yield U "scoreboard players set TwoToSixteen Calc 65536"
+        // init items 0-51
+        for _i = 1 to bingoItems.Length do
+            yield U "tp @e[tag=item] ~1 ~ ~"
+            yield U "summon AreaEffectCloud 3 10 3 {Duration:999999,Tags:[\"item\"]}"
+            yield U "scoreboard players add @e[tag=item] S 1"
+        yield U "scoreboard players remove @e[tag=item] S 1"
+        yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/scoreboard players set Z Calc NNN"}}"""
+        |]
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(3,3,10,cmdsInit,[|"init AECs";"and scores"|])
+    let cmdsLoop =
+        [|
+        yield O ""
+        // loop - could be inlined, but not for now, to avoid too many blocks
+        yield U (sprintf "scoreboard players set remain S %d" bingoItems.Length)
+        yield U "scoreboard players set I S 25"
+        yield U "scoreboard players set col S 1"
+        yield U "summon ArmorStand 3 7 4 {NoGravity:1,Tags:[\"board\"]}"
+        yield U "summon ArmorStand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
+        yield U "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
+        yield P ""
+        // pick which of 28 bingo sets
+        // INLINE PRNG HERE
+        yield U "scoreboard players operation Z Calc *= A Calc"
+        yield U "scoreboard players operation Z Calc += C Calc"
+        yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
+        yield U "scoreboard players operation Z Calc /= Two Calc"
+        yield U "scoreboard players set K Calc 0"
+        yield U "scoreboard players operation K Calc += Z Calc"
+        yield U "scoreboard players operation K Calc *= Two Calc"
+        yield U "scoreboard players operation K Calc /= Two Calc"
+        yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
+        // mod remain
+        yield U "scoreboard players set next S 0"
+        yield U "scoreboard players operation next S += K Calc"
+        yield U "scoreboard players operation next S %= remain S"
+        yield U "scoreboard players operation next S += remain S"   // ensure non-negative
+        yield U "scoreboard players operation next S %= remain S"
+        // pick which of 3 items in that set
+        // INLINE PRNG HERE
+        yield U "scoreboard players operation Z Calc *= A Calc"
+        yield U "scoreboard players operation Z Calc += C Calc"
+        yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
+        yield U "scoreboard players operation Z Calc /= Two Calc"
+        yield U "scoreboard players set K Calc 0"
+        yield U "scoreboard players operation K Calc += Z Calc"
+        yield U "scoreboard players operation K Calc *= Two Calc"
+        yield U "scoreboard players operation K Calc /= Two Calc"
+        yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
+        // mod 3
+        yield U "scoreboard players set which S 0"
+        yield U "scoreboard players set mod S 3"
+        yield U "scoreboard players operation which S += K Calc"
+        yield U "scoreboard players operation which S %= mod S"
+        yield U "scoreboard players operation which S += mod S"   // ensure non-negative
+        yield U "scoreboard players operation which S %= mod S"
+        // ************* array-indexed calls within tick - clone a CCB further into this chain, scheduling is per-x-y-z
+        yield U "scoreboard players operation @e[tag=item] S -= next S"
+        yield U "scoreboard players test which S 0 0"
+        yield C "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield U "scoreboard players test which S 1 1"
+        yield C "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~ ~1 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield U "scoreboard players test which S 2 2"
+        yield C "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~ ~2 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield U "scoreboard players operation @e[tag=item] S += next S"
+        yield U "summon ArmorStand ~ ~ ~2 {Tags:[\"replaceme\"]}"
+        yield U "execute @e[tag=replaceme] ~ ~ ~ clone 1 1 1 1 1 1 ~ ~ ~"
+        yield U "say THIS SHOULD HAVE BEEN REPLACED"
+        yield U "kill @e[tag=replaceme]"
+        // move next spot on board
+        yield U "tp @e[tag=board] ~1 ~ ~"
+        yield U "scoreboard players add col S 1"
+        yield U "scoreboard players test col S 6 *"
+        yield C "scoreboard players set col S 1"
+        yield C "tp @e[tag=board] ~-5 ~-1 ~"
+        // remove used item from remaining list
+        yield U "scoreboard players operation @e[tag=item] S -= next S"
+        yield U "kill @e[tag=item,score_S_min=0,score_S=0]"
+        yield U "scoreboard players remove @e[tag=item,score_S_min=0] S 1"
+        yield U "scoreboard players operation @e[tag=item] S += next S"
+        yield U "scoreboard players remove remain S 1"
+        yield U "scoreboard players remove I S 1"
+        yield U "scoreboard players test I S * 1"      // testing 1, which is OBO, because loop runs 1 extra time after we turn off purple
+        yield C "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
+        yield C "blockdata ~ ~ ~1 {auto:1b}"  //  one tick later (after loop done)
+        yield O "blockdata ~ ~ ~ {auto:0b}"
+        yield C "kill @e[tag=board]"
+        |]
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(6,3,10,cmdsLoop,[|"set Z Calc";"to seed"|])
     region.Write(fil+".new")
+    System.IO.File.Delete(fil)
+    System.IO.File.Move(fil+".new",fil)
 
 ////////////////////////////////////////////////////
 
@@ -2205,7 +2539,6 @@ do
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Mandelbrot 1_9\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\region\r.0.0.mca""")
-    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpz\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca""",
       //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca.new""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
@@ -2214,4 +2547,10 @@ do
     //dumpPlayerDat()
     //writeCommandBlocksFromATextFileIntoARegionFile("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling19\region\r.-2.2.mca""", """C:\Users\brianmcn\Desktop\pbcomm.txt""")
     //placeCertainBlocksInTheSky()
+    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
+    
+
+
+
     ()
+
