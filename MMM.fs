@@ -889,10 +889,29 @@ type CommandBlock =     // the useful subset I plan to map anything into
 
 type RegionFile(filename) =
     let rx, rz =
-        let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new)?$""")
+        let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new|\.old)?$""")
         int m.Groups.[1].Value, int m.Groups.[2].Value
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
+    let mutable firstSeenDataVersion = -1
+    let getOrCreateChunk(xx,zz) =
+            match chunks.[xx,zz] with
+            | End ->
+                let newChunk = Compound("",[|NBT.Compound("Level", [|
+                                                                    NBT.Int("xPos",xx); NBT.Int("zPos",zz); NBT.Long("LastUpdate", 0L);
+                                                                    NBT.Byte("LightPopulated",0uy); NBT.Byte("TerrainPopulated",1uy); // TODO best TerrainPopulated value?
+                                                                    NBT.Byte("V",1uy); NBT.Long("InhabitedTime",0L);
+                                                                    NBT.IntArray("HeightMap", Array.zeroCreate 256)
+                                                                    // a number of things can be absent
+                                                                    NBT.List("Sections", Compounds([||]))
+                                                                    NBT.End
+                                                                   |]
+                                                         )
+                                             NBT.Int("DataVersion",firstSeenDataVersion)
+                                             NBT.End|])
+                chunks.[xx,zz] <- newChunk
+                newChunk
+            | c -> c
     do
         // a set of 4KB sectors
         let chunkOffsetTable = Array.zeroCreate 1024 : int[]
@@ -933,6 +952,8 @@ type RegionFile(filename) =
                     use s = new System.IO.Compression.DeflateStream(new System.IO.MemoryStream(bytes) , System.IO.Compression.CompressionMode.Decompress)
                     let nbt = NBT.Read(new BinaryReader2(s))
                     chunks.[cx,cz] <- nbt
+                    if firstSeenDataVersion = -1 then
+                        firstSeenDataVersion <- match nbt.["DataVersion"] with NBT.Int(_,i) -> i   // TODO make not fail on Minecraft 1.8
     member this.RX = rx  // e.g. 1 means starts at x coord 512
     member this.RZ = rz
     member this.Write(outputFilename) =
@@ -983,6 +1004,20 @@ type RegionFile(filename) =
             s1 <- (s1 + int(bytes.[i])) % 65521
             s2 <- (s2 + s1) % 65521
         s2*65536 + s1
+    static member GetOrCreateSectionFromChunk(theChunk:NBT,y) =  // y is 0-255
+        let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
+        let theSection = 
+            match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
+            | Some x -> x
+            | None ->
+                let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", Array.zeroCreate 4096); NBT.ByteArray("Data", Array.zeroCreate 2048); 
+                                    NBT.ByteArray("BlockLight",Array.create 2048 255uy); NBT.ByteArray("SkyLight",Array.create 2048 255uy); NBT.End |]  // TODO relight chunk instead of pop with 255uy?
+                match theChunk with
+                | Compound(_,a) ->
+                    let i = a |> Array.findIndex (fun x -> x.Name="Sections")
+                    a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
+                    newSection
+        theSection
     member this.GetChunk(cx, cz) =
         match chunks.[cx,cz] with
         | End -> failwith "chunk not represented, NYI"
@@ -1005,8 +1040,7 @@ type RegionFile(filename) =
         | End -> None
         | theChunk ->
         let theChunk = match theChunk with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
-        let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
-        let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))  // TODO cope with missing sections (air)
+        let theSection = RegionFile.GetOrCreateSectionFromChunk(theChunk,y)
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
@@ -1035,12 +1069,9 @@ type RegionFile(filename) =
         let theChunk = 
             let xx = ((x+5120)%512)/16
             let zz = ((z+5120)%512)/16
-            match chunks.[xx,zz] with
-            | End -> failwith "chunk not represented, NYI"
-            | c -> c
+            getOrCreateChunk(xx,zz)
         let theChunk = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-        let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
-        let theSection = sections |> Array.find (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false))  // TODO cope with missing sections (air)
+        let theSection = RegionFile.GetOrCreateSectionFromChunk(theChunk,y)
         let dx, dy, dz = (x+5120) % 16, y % 16, (z+5120) % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
@@ -1077,7 +1108,7 @@ type RegionFile(filename) =
         let mutable prevcz = -1
         let mutable tepayload = ResizeArray<NBT[]>()
         let storeIt(prevcx,prevcz,tepayload) =
-            let a = match chunks.[prevcx, prevcz] with Compound(_,[|Compound(_,a);_|]) | Compound(_,[|Compound(_,a);_;_|]) -> a
+            let a = match getOrCreateChunk(prevcx, prevcz) with Compound(_,[|Compound(_,a);_|]) | Compound(_,[|Compound(_,a);_;_|]) -> a
             let mutable found = false
             let mutable i = 0
             for te in tepayload do
@@ -1114,9 +1145,9 @@ type RegionFile(filename) =
                 if prevcx <> -1 then
                     storeIt(prevcx,prevcz,tepayload)
                 // load in initial TE as we move into next chunk
-                let newChunk = match chunks.[xx,zz] with | End -> failwith "chunk not represented, NYI" 
-                                                         | Compound(_,[|Compound(_,_) as c;_|]) 
-                                                         | Compound(_,[|Compound(_,_) as c;_;_|]) -> c
+                let newChunk = match getOrCreateChunk(xx,zz) with 
+                               | Compound(_,[|Compound(_,_) as c;_|]) 
+                               | Compound(_,[|Compound(_,_) as c;_;_|]) -> c
                 tepayload <- match newChunk.TryGetFromCompound("TileEntities") with | Some (List(_,Compounds(cs))) -> ResizeArray(cs) | None -> ResizeArray()
                 prevcx <- xx
                 prevcz <- zz
@@ -2500,6 +2531,32 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C "kill @e[tag=board]"
         |]
     region.PlaceCommandBlocksWithLeadingSignStartingAt(6,3,10,cmdsLoop,[|"set Z Calc";"to seed"|])
+    let cloneIntoDisplayWallCmds =
+        [|
+            yield O ""
+            for i = 1 to 28 do
+                yield U (sprintf "clone %d 10 3 %d 10 3 12 3 %d" (2+i) (2+i) (2*i+11))
+            for i = 1 to 28 do
+                yield U (sprintf "clone %d 10 4 %d 10 4 12 3 %d" (2+i) (2+i) (2*i+11+56))
+            for i = 1 to 28 do
+                yield U (sprintf "clone %d 10 5 %d 10 5 12 3 %d" (2+i) (2+i) (2*i+11+56+56))
+        |]
+    region.PlaceCommandBlocksStartingAt(9,3,10,cloneIntoDisplayWallCmds)
+    let displayWallCmds = 
+        [|
+            yield O ""
+            yield U "summon ArmorStand ~ ~ ~ {NoGravity:1,Tags:[\"board\"]}"
+            for i = 1 to 28 do
+                yield U (sprintf "tp @e[tag=board] %d 16 2" (2+i))
+                yield U "say REPLACE"
+            for i = 1 to 28 do
+                yield U (sprintf "tp @e[tag=board] %d 14 2" (2+i))
+                yield U "say REPLACE"
+            for i = 1 to 28 do
+                yield U (sprintf "tp @e[tag=board] %d 12 2" (2+i))
+                yield U "say REPLACE"
+        |]
+    region.PlaceCommandBlocksStartingAt(12,3,10,displayWallCmds)
     region.Write(fil+".new")
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
@@ -2538,7 +2595,7 @@ do
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Mandelbrot 1_9\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Learning\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca""",
       //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca.new""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
@@ -2547,10 +2604,9 @@ do
     //dumpPlayerDat()
     //writeCommandBlocksFromATextFileIntoARegionFile("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling19\region\r.-2.2.mca""", """C:\Users\brianmcn\Desktop\pbcomm.txt""")
     //placeCertainBlocksInTheSky()
-    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
-    
-
-
-
+    //placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
+    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca""")
+    //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca""",
+      //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca.old""")
     ()
 
