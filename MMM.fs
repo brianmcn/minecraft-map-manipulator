@@ -1115,8 +1115,8 @@ type RegionFile(filename) =
                 let sb = new System.Text.StringBuilder()
                 for nbt in te do
                     sb.Append(nbt.ToString()).Append("   ") |> ignore
-                printfn "%s" (let s = sb.ToString() in s.Substring(0,min 90 s.Length))
-            printfn "-----"
+                //printfn "%s" (let s = sb.ToString() in s.Substring(0,min 90 s.Length))
+            //printfn "-----"
             while not found && i < a.Length-1 do
                 if a.[i].Name = "TileEntities" then
                     found <- true
@@ -1577,9 +1577,9 @@ let placeCertainEntitiesInTheWorld(entities,filename) =
 
     for cx = 0 to 15 do
         for cz = 0 to 15 do
-            let nbt = regionFile.GetChunk(cx, cz)
+            let nbt = regionFile.TryGetChunk(cx, cz)
             match nbt with 
-            Compound(_,[|theChunk;_;_|]) | Compound(_,[|theChunk;_|]) ->
+            | Some( Compound(_,[|theChunk;_;_|]) ) | Some( Compound(_,[|theChunk;_|]) ) ->
                 match theChunk.TryGetFromCompound("Entities") with 
                 | None -> ()
                 | Some _ -> 
@@ -1588,6 +1588,7 @@ let placeCertainEntitiesInTheWorld(entities,filename) =
                         let i = a |> Array.findIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
                         let es = entities |> Seq.choose (fun (e,(x,z)) -> if x/16=cx && z/16=cz then Some e else None) |> Seq.toArray 
                         a.[i] <- NBT.List("Entities",Compounds es)
+            | None -> ()
     regionFile.Write(filename+".new")
 
 let dumpSomeCommandBlocks(fil) =
@@ -1598,18 +1599,6 @@ let dumpSomeCommandBlocks(fil) =
     for filename in [fil
                      ] do
         let regionFile = new RegionFile(filename)
-        (*
-        let tmpbi = regionFile.GetBlockInfo(121,56,107)
-        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID     
-        let tmpbi = regionFile.GetBlockInfo(152,56,-1377)
-        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID     
-        let tmpbi = regionFile.GetBlockInfo(152,56,-1376)
-        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID 
-        let tmpbi = regionFile.GetBlockInfo(153,56,-1375)
-        printfn "%A %A" tmpbi.BlockData.Value tmpbi.BlockID 
-        regionFile.DumpChunkDebug(9,9)
-        // testing
-        *)
         
         let blockIDCounts = Array.zeroCreate 256
         for cx = 0 to 31 do
@@ -1620,7 +1609,6 @@ let dumpSomeCommandBlocks(fil) =
                     let theChunk = match nbt with Compound(_,[|c;_|]) -> c 
                                                 | Compound(_,[|c;_;_|]) -> c 
                                                 | _ -> failwith "unexpected cpdf"
-        //            printfn "%s" theChunk.Name 
                     let biomeData = match theChunk.["Biomes"] with ByteArray(_n,a) -> a
         //            for i = 0 to 255 do biomeData.[i] <- 14uy // Moo
                     match theChunk.TryGetFromCompound("Entities") with 
@@ -2426,24 +2414,37 @@ let placeCommandBlocksInTheWorld(fil) =
             [|  -1, "golden_sword"            ; -1, "clock"                          ; -1, "golden_rail"              |]
             [|  -1, "hopper"                  ; -1, "hopper"                         ; -1, "hopper"                   |]
         |]
-    for i = 0 to bingoItems.Length-1 do
-        let cmds = [|
-                    for j = 2 downto 0 do
-                    let dmg, id = bingoItems.[i].[j]
-                    yield U (sprintf "execute @e[tag=board] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:4,Item:{Count:1,id:minecraft:%s%s}}" id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
-                   |]
-        region.PlaceCommandBlocksStartingAt(3+i,10,3,cmds)
+    // per-item Bingo Command storage
+    // Y axis - different difficulties
+    // X axis - different item subsets
+    // Z axis - command: item framex4, (testfor, clear)x4
+    for x = 0 to bingoItems.Length-1 do
+        for y = 0 to 2 do
+            let dmg, id = bingoItems.[x].[y]
+            let cmds = [|
+                        for i = 0 to 3 do
+                            yield U (sprintf "execute @e[tag=whereToPlaceItemFrame] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:%d,Item:{Count:1,id:minecraft:%s%s}}" i id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
+                        for team in [| "Red"; "Blue"; "Green"; "Yellow" |] do
+                            yield C (sprintf """testfor @a[team=%s] {Inventory:[{id:"minecraft:%s"%s}]}""" team id (if dmg <> -1 then sprintf ",Damage:%ds" dmg else ""))
+                            yield C (sprintf """clear @a[team=%s] %s %d 1""" team id dmg)
+                       |]
+            region.PlaceCommandBlocksStartingAt(3+x,10+y,3,cmds)
+
+    // set up scoreboard objectives
+    // summon 28 AECs with score 1-28 at the bottom of the 28 item sets
     let cmdsInit =
         [|
         yield O ""
         yield U "kill @e[type=!Player]"
+        yield U "scoreboard objectives add Score dummy"
+        yield U "scoreboard objectives setdisplay sidebar Score"
+        yield U "scoreboard players set @a Score 0"
         yield U "scoreboard objectives add S dummy"
         yield U "scoreboard objectives add Calc dummy"
         yield U "scoreboard players set A Calc 1103515245"
         yield U "scoreboard players set C Calc 12345"
         yield U "scoreboard players set Two Calc 2"
         yield U "scoreboard players set TwoToSixteen Calc 65536"
-        // init items 0-51
         for _i = 1 to bingoItems.Length do
             yield U "tp @e[tag=item] ~1 ~ ~"
             yield U "summon AreaEffectCloud 3 10 3 {Duration:999999,Tags:[\"item\"]}"
@@ -2452,111 +2453,212 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/scoreboard players set Z Calc NNN"}}"""
         |]
     region.PlaceCommandBlocksWithLeadingSignStartingAt(3,3,10,cmdsInit,[|"init AECs";"and scores"|])
-    let cmdsLoop =
+
+    //////////////////////////////////////////////
+    // generate a preview of card with items frames on a wall
+    //////////////////////////////////////////////
+    let makePreviewWallInit() =
         [|
-        yield O ""
-        // loop - could be inlined, but not for now, to avoid too many blocks
-        yield U (sprintf "scoreboard players set remain S %d" bingoItems.Length)
-        yield U "scoreboard players set I S 25"
-        yield U "scoreboard players set col S 1"
-        yield U "summon ArmorStand 3 7 4 {NoGravity:1,Tags:[\"board\"]}"
-        yield U "summon ArmorStand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
-        yield U "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
-        yield P ""
-        // pick which of 28 bingo sets
-        // INLINE PRNG HERE
-        yield U "scoreboard players operation Z Calc *= A Calc"
-        yield U "scoreboard players operation Z Calc += C Calc"
-        yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
-        yield U "scoreboard players operation Z Calc /= Two Calc"
-        yield U "scoreboard players set K Calc 0"
-        yield U "scoreboard players operation K Calc += Z Calc"
-        yield U "scoreboard players operation K Calc *= Two Calc"
-        yield U "scoreboard players operation K Calc /= Two Calc"
-        yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
-        // mod remain
-        yield U "scoreboard players set next S 0"
-        yield U "scoreboard players operation next S += K Calc"
-        yield U "scoreboard players operation next S %= remain S"
-        yield U "scoreboard players operation next S += remain S"   // ensure non-negative
-        yield U "scoreboard players operation next S %= remain S"
-        // pick which of 3 items in that set
-        // INLINE PRNG HERE
-        yield U "scoreboard players operation Z Calc *= A Calc"
-        yield U "scoreboard players operation Z Calc += C Calc"
-        yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
-        yield U "scoreboard players operation Z Calc /= Two Calc"
-        yield U "scoreboard players set K Calc 0"
-        yield U "scoreboard players operation K Calc += Z Calc"
-        yield U "scoreboard players operation K Calc *= Two Calc"
-        yield U "scoreboard players operation K Calc /= Two Calc"
-        yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
-        // mod 3
-        yield U "scoreboard players set which S 0"
-        yield U "scoreboard players set mod S 3"
-        yield U "scoreboard players operation which S += K Calc"
-        yield U "scoreboard players operation which S %= mod S"
-        yield U "scoreboard players operation which S += mod S"   // ensure non-negative
-        yield U "scoreboard players operation which S %= mod S"
-        // ************* array-indexed calls within tick - clone a CCB further into this chain, scheduling is per-x-y-z
+        yield U "scoreboard players set mpwCol S 1"
+        yield U "summon ArmorStand 3 7 4 {NoGravity:1,Tags:[\"whereToPlaceItemFrame\"]}"
+        |]
+    let makePreviewWall() =
+        [|
+        // find one block to clone to 1 1 1 
         yield U "scoreboard players operation @e[tag=item] S -= next S"
         yield U "scoreboard players test which S 0 0"
-        yield C "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~2 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players test which S 1 1"
-        yield C "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~ ~1 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~1 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players test which S 2 2"
-        yield C "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~ ~2 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~0 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players operation @e[tag=item] S += next S"
+        // clone it and run it
         yield U "summon ArmorStand ~ ~ ~2 {Tags:[\"replaceme\"]}"
         yield U "execute @e[tag=replaceme] ~ ~ ~ clone 1 1 1 1 1 1 ~ ~ ~"
         yield U "say THIS SHOULD HAVE BEEN REPLACED"
         yield U "kill @e[tag=replaceme]"
         // move next spot on board
-        yield U "tp @e[tag=board] ~1 ~ ~"
-        yield U "scoreboard players add col S 1"
-        yield U "scoreboard players test col S 6 *"
-        yield C "scoreboard players set col S 1"
-        yield C "tp @e[tag=board] ~-5 ~-1 ~"
-        // remove used item from remaining list
-        yield U "scoreboard players operation @e[tag=item] S -= next S"
-        yield U "kill @e[tag=item,score_S_min=0,score_S=0]"
-        yield U "scoreboard players remove @e[tag=item,score_S_min=0] S 1"
-        yield U "scoreboard players operation @e[tag=item] S += next S"
-        yield U "scoreboard players remove remain S 1"
-        yield U "scoreboard players remove I S 1"
-        yield U "scoreboard players test I S * 1"      // testing 1, which is OBO, because loop runs 1 extra time after we turn off purple
-        yield C "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
-        yield C "blockdata ~ ~ ~1 {auto:1b}"  //  one tick later (after loop done)
-        yield O "blockdata ~ ~ ~ {auto:0b}"
-        yield C "kill @e[tag=board]"
+        yield U "tp @e[tag=whereToPlaceItemFrame] ~1 ~ ~"
+        yield U "scoreboard players add mpwCol S 1"
+        yield U "scoreboard players test mpwCol S 6 *"
+        yield C "scoreboard players set mpwCol S 1"
+        yield C "tp @e[tag=whereToPlaceItemFrame] ~-5 ~-1 ~"
         |]
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(6,3,10,cmdsLoop,[|"set Z Calc";"to seed"|])
+    let makePreviewWallCleanup() =
+        [|
+            yield C "kill @e[tag=whereToPlaceItemFrame]"
+        |]
+
+    ///////////////////////
+    // "constantly checking for getting bingo items" bit
+    ///////////////////////
+    let TIMER_CYCLE_LENGTH = 5  // TODO decide loop time length
+    assert(TIMER_CYCLE_LENGTH > 1)
+    let timerCmds = 
+        [|
+            O "fill 6 10 44 10 14 44 minecraft:redstone_block"
+            P "scoreboard players add Time S 1"
+            U (sprintf "scoreboard players test Time S %d %d" TIMER_CYCLE_LENGTH TIMER_CYCLE_LENGTH)
+            C "scoreboard players set Time S 0"
+        |]
+    region.PlaceCommandBlocksStartingAt(3,10,45,timerCmds)
+
+    // red team got-item-checker framework   // TODO 3 other team colors
+    for x = 0 to 4 do
+        for y = 0 to 4 do
+            let checkerCmds = 
+                [|
+                    P "scoreboard players test Time S 0 0"   // might need to spread load across 0 to N-1 to avoid lag spikes?
+                    U "say REPLACE ME testfor"
+                    U "say REPLACE ME clear"
+                    // TODO call on-item-get (fireworks sound, chat msg)
+                    // TODO color
+                    // TODO lockout logic
+                    C "scoreboard players add @a[team=Red] Score 1"  // TODO hardcoded red
+                    C "setblock ~ ~ ~-5 wool"  // the two-consecutive-tick issue doesn't apply as a result of the purple condition if N > 1
+                |]
+            region.PlaceCommandBlocksStartingAt(6+x,10+y,45,checkerCmds)
+
+    let checkForItemsInit() =
+        [|
+        yield U "scoreboard players set cfiCol S 1"
+        yield U "summon ArmorStand 6 14 45 {NoGravity:1,Tags:[\"whereToCloneCommandTo\"]}"
+        |]
+    let checkForItems() =
+        [|
+        // find one block to clone to 1 1 1 (testfor)
+        yield U "scoreboard players operation @e[tag=item] S -= next S"
+        yield U "scoreboard players test which S 0 0"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~2 ~ clone ~ ~ ~4 ~ ~ ~4 1 1 1"
+        yield U "scoreboard players test which S 1 1"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~1 ~ clone ~ ~ ~4 ~ ~ ~4 1 1 1"
+        yield U "scoreboard players test which S 2 2"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~0 ~ clone ~ ~ ~4 ~ ~ ~4 1 1 1"
+        yield U "scoreboard players operation @e[tag=item] S += next S"
+        // clone it
+        yield U "execute @e[tag=whereToCloneCommandTo] ~ ~ ~1 clone 1 1 1 1 1 1 ~ ~ ~"
+        // find one block to clone to 1 1 1 (clear)
+        yield U "scoreboard players operation @e[tag=item] S -= next S"
+        yield U "scoreboard players test which S 0 0"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~2 ~ clone ~ ~ ~5 ~ ~ ~5 1 1 1"
+        yield U "scoreboard players test which S 1 1"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~1 ~ clone ~ ~ ~5 ~ ~ ~5 1 1 1"
+        yield U "scoreboard players test which S 2 2"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~0 ~ clone ~ ~ ~5 ~ ~ ~5 1 1 1"
+        yield U "scoreboard players operation @e[tag=item] S += next S"
+        // clone it
+        yield U "execute @e[tag=whereToCloneCommandTo] ~ ~ ~2 clone 1 1 1 1 1 1 ~ ~ ~"
+        // move next spot on board
+        yield U "tp @e[tag=whereToCloneCommandTo] ~1 ~ ~"
+        yield U "scoreboard players add cfiCol S 1"
+        yield U "scoreboard players test cfiCol S 6 *"
+        yield C "scoreboard players set cfiCol S 1"
+        yield C "tp @e[tag=whereToCloneCommandTo] ~-5 ~-1 ~"
+        |]
+    let checkForItemsCleanup() =
+        [|
+            yield C "kill @e[tag=whereToCloneCommandTo]"
+        |]
+
+    
+    // uses seed 'Z' to compute a bingo card (and do SOMETHING)
+    let bingoCardPreviewCmds =
+        [|
+        yield O ""
+        // loop - could be inlined, but not for now, to avoid too many blocks
+        yield U (sprintf "scoreboard players set remain S %d" bingoItems.Length)
+        yield U "scoreboard players set I S 25"
+        yield! makePreviewWallInit()
+        yield! checkForItemsInit()
+        yield U "summon ArmorStand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
+        yield U "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
+        yield P ""
+        if true then
+            // pick which of 28 bingo sets
+            // INLINE PRNG HERE
+            yield U "scoreboard players operation Z Calc *= A Calc"
+            yield U "scoreboard players operation Z Calc += C Calc"
+            yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
+            yield U "scoreboard players operation Z Calc /= Two Calc"
+            yield U "scoreboard players set K Calc 0"
+            yield U "scoreboard players operation K Calc += Z Calc"
+            yield U "scoreboard players operation K Calc *= Two Calc"
+            yield U "scoreboard players operation K Calc /= Two Calc"
+            yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
+            // mod remain
+            yield U "scoreboard players set next S 0"
+            yield U "scoreboard players operation next S += K Calc"
+            yield U "scoreboard players operation next S %= remain S"
+            yield U "scoreboard players operation next S += remain S"   // ensure non-negative
+            yield U "scoreboard players operation next S %= remain S"
+            // pick which of 3 items in that set
+            // INLINE PRNG HERE
+            yield U "scoreboard players operation Z Calc *= A Calc"
+            yield U "scoreboard players operation Z Calc += C Calc"
+            yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
+            yield U "scoreboard players operation Z Calc /= Two Calc"
+            yield U "scoreboard players set K Calc 0"
+            yield U "scoreboard players operation K Calc += Z Calc"
+            yield U "scoreboard players operation K Calc *= Two Calc"
+            yield U "scoreboard players operation K Calc /= Two Calc"
+            yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
+            // mod 3
+            yield U "scoreboard players set which S 0"
+            yield U "scoreboard players set mod S 3"
+            yield U "scoreboard players operation which S += K Calc"
+            yield U "scoreboard players operation which S %= mod S"
+            yield U "scoreboard players operation which S += mod S"   // ensure non-negative
+            yield U "scoreboard players operation which S %= mod S"
+            // ************* array-indexed calls within tick - clone a CCB further into this chain, scheduling is per-x-y-z
+            // call some procedure(s) with this implicit state flowing in
+            //  - next is a subset # (1-28)
+            //  - which is a difficulty # (0-2)
+            yield! makePreviewWall()
+            yield! checkForItems()
+            // remove used item from remaining list
+            yield U "scoreboard players operation @e[tag=item] S -= next S"
+            yield U "kill @e[tag=item,score_S_min=0,score_S=0]"
+            yield U "scoreboard players remove @e[tag=item,score_S_min=0] S 1"
+            yield U "scoreboard players operation @e[tag=item] S += next S"
+            yield U "scoreboard players remove remain S 1"
+            yield U "scoreboard players remove I S 1"
+            yield U "scoreboard players test I S * 1"      // testing 1, which is OBO, because loop runs 1 extra time after we turn off purple
+            yield C "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
+            yield C "blockdata ~ ~ ~1 {auto:1b}"  //  one tick later (after loop done)
+            yield O "blockdata ~ ~ ~ {auto:0b}"
+            yield! makePreviewWallCleanup()
+            yield! checkForItemsCleanup()
+        |]
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(6,3,10,bingoCardPreviewCmds,[|"set Z Calc";"to seed"|])
     let cloneIntoDisplayWallCmds =
         [|
             yield O ""
             for i = 1 to 28 do
-                yield U (sprintf "clone %d 10 3 %d 10 3 12 3 %d" (2+i) (2+i) (2*i+11))
+                yield U (sprintf "clone %d 12 3 %d 12 3 12 3 %d" (2+i) (2+i) (2*i+11))
             for i = 1 to 28 do
-                yield U (sprintf "clone %d 10 4 %d 10 4 12 3 %d" (2+i) (2+i) (2*i+11+56))
+                yield U (sprintf "clone %d 11 3 %d 11 3 12 3 %d" (2+i) (2+i) (2*i+11+56))
             for i = 1 to 28 do
-                yield U (sprintf "clone %d 10 5 %d 10 5 12 3 %d" (2+i) (2+i) (2*i+11+56+56))
+                yield U (sprintf "clone %d 10 3 %d 10 3 12 3 %d" (2+i) (2+i) (2*i+11+56+56))
         |]
     region.PlaceCommandBlocksStartingAt(9,3,10,cloneIntoDisplayWallCmds)
     let displayWallCmds = 
         [|
             yield O ""
-            yield U "summon ArmorStand ~ ~ ~ {NoGravity:1,Tags:[\"board\"]}"
+            yield U "summon ArmorStand ~ ~ ~ {NoGravity:1,Tags:[\"whereToPlaceItemFrame\"]}"
             for i = 1 to 28 do
-                yield U (sprintf "tp @e[tag=board] %d 16 2" (2+i))
+                yield U (sprintf "tp @e[tag=whereToPlaceItemFrame] %d 12 -3" (2+i))
                 yield U "say REPLACE"
             for i = 1 to 28 do
-                yield U (sprintf "tp @e[tag=board] %d 14 2" (2+i))
+                yield U (sprintf "tp @e[tag=whereToPlaceItemFrame] %d 11 -3" (2+i))
                 yield U "say REPLACE"
             for i = 1 to 28 do
-                yield U (sprintf "tp @e[tag=board] %d 12 2" (2+i))
+                yield U (sprintf "tp @e[tag=whereToPlaceItemFrame] %d 10 -3" (2+i))
                 yield U "say REPLACE"
         |]
     region.PlaceCommandBlocksStartingAt(12,3,10,displayWallCmds)
+
+
     region.Write(fil+".new")
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
@@ -2605,8 +2707,9 @@ do
     //writeCommandBlocksFromATextFileIntoARegionFile("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling19\region\r.-2.2.mca""", """C:\Users\brianmcn\Desktop\pbcomm.txt""")
     //placeCertainBlocksInTheSky()
     //placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
-    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca""")
+    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca""",
       //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca.old""")
+    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
     ()
 
