@@ -1,3 +1,5 @@
+module AA = ArtAssets
+
 let BIOMES = 
     [|0,"Ocean";1,"Plains";2,"Desert";3,"Extreme Hills";4,"Forest";5,"Taiga";6,"Swampland";7,"River";8,"Hell";9,"Sky";
       10,"Frozen Ocean";11,"FrozenRiver";12,"Ice Plains";13,"Ice Mountains";14,"MushroomIsland";15,"MushroomIslandShore";16,"Beach";17,"DesertHills";18,"ForestHills";19,"TaigaHills";
@@ -2034,6 +2036,84 @@ let dumpPlayerDat() =
     *)
     writeDatFile(file+".new", nbt)
     *)
+////////////////////////////////////////////////////
+
+let BrianEncodeKey = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!." |> Seq.toArray 
+
+let encodeBlock(blockId:byte, data:byte) =
+    assert(data <= 15uy)
+    let lo6 = blockId &&& 63uy
+    let hi2 = blockId >>> 6
+    let x = (hi2 <<< 4) + data
+    BrianEncodeKey.[int lo6], BrianEncodeKey.[int x]
+
+let decodeBlock(c1, c2) =
+    match BrianEncodeKey |> Array.tryFindIndex (fun x -> x=c1) with
+    | Some lo6 ->
+        match BrianEncodeKey |> Array.tryFindIndex (fun x -> x=c2) with
+        | Some x ->
+            let data = (byte x) &&& 15uy
+            let hi2 = (byte x) >>> 4
+            let blockId = (hi2 <<< 6) + (byte lo6)
+            blockId, data
+        | _ -> failwith "bad decode data"
+    | _ -> failwith "bad decode data"
+
+let readZoneIntoString(r:RegionFile,x,y,z,dx,dy,dz) =
+    assert(dx>=0)
+    assert(dx>=0)
+    assert(dx>=0)
+    let arr = ResizeArray()
+    arr.Add(BrianEncodeKey.[dx])
+    arr.Add(BrianEncodeKey.[dy])
+    arr.Add(BrianEncodeKey.[dz])
+    for i = 0 to dx do
+        for j = 0 to dy do
+            for k = 0 to dz do
+                let bi = r.GetBlockInfo(x+i, y+j, z+k)
+                let a,b = encodeBlock(bi.BlockID, bi.BlockData.Force())
+                arr.Add(a)
+                arr.Add(b)
+    new System.String(arr |> Seq.toArray)
+
+let writeZoneFromString(r:RegionFile,x,y,z,s:string) =
+    assert(s.Length>=3)
+    let dx = BrianEncodeKey |> Array.findIndex(fun c -> c=s.[0])
+    let dy = BrianEncodeKey |> Array.findIndex(fun c -> c=s.[1])
+    let dz = BrianEncodeKey |> Array.findIndex(fun c -> c=s.[2])
+    let mutable strIndex = 3
+    for i = 0 to dx do
+        for j = 0 to dy do
+            for k = 0 to dz do
+                let bid, data = decodeBlock(s.[strIndex], s.[strIndex+1])
+                r.SetBlockIDAndDamage(x+i, y+j, z+k, bid, data)
+                strIndex <- strIndex + 2
+
+let testing() =
+    let fil = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca"""
+    let r = new RegionFile(fil)
+    let s = readZoneIntoString(r,71,208,67,16,1,16)
+    printfn "%s" s
+    writeZoneFromString(r,71,213,67,s)
+
+    r.Write(fil+".new")
+    System.IO.File.Delete(fil)
+    System.IO.File.Move(fil+".new",fil)
+
+let testing2() =
+    let fil = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca"""
+    let r = new RegionFile(fil)
+    let arr = ResizeArray()
+    for i = 0 to 4 do
+        for j = 0 to 4 do
+            let s = readZoneIntoString(r,71+24*i,88,67+24*j,16,1,16)
+            printfn "%s" s
+            arr.Add(sprintf """let xxx%d%d = "%s" """ i j s)
+    let writePath = """C:\Users\brianmcn\Documents\Visual Studio 2012\Projects\MinecraftMapManipulator\MinecraftMapManipulator\Tutorial.fsx"""
+    System.IO.File.WriteAllLines(writePath, arr)
+
+
+/////////////////////////////
 
 let placeCommandBlocksInTheWorld(fil) =
     let region = new RegionFile(fil)
@@ -2385,34 +2465,34 @@ let placeCommandBlocksInTheWorld(fil) =
 #endif    
     let bingoItems =
         [|
-            [|  -1, "diamond"                 ; -1, "diamond_hoe"                    ; -1, "diamond_axe"              |]
-            [|  -1, "bone"                    ; -1, "bone"                           ; -1, "bone"                     |]
-            [|  -1, "ender_pearl"             ; -1, "ender_pearl"                    ; -1, "ender_pearl"              |]
-            [|  +0, "tallgrass"               ; +2, "tallgrass"                      ; -1, "vine"                     |]
-            [|  -1, "brick"                   ; -1, "brick"                          ; -1, "brick"                    |]
-            [|  -1, "glass_bottle"            ; -1, "glass_bottle"                   ; -1, "glass_bottle"             |]
-            [|  -1, "melon"                   ; -1, "melon"                          ; -1, "speckled_melon"           |]
-            [|  +0, "dye"                     ; -1, "book"                           ; -1, "writable_book"            |]
-            [|  -1, "apple"                   ; -1, "gold_ingot"                     ; -1, "golden_apple"             |]
-            [|  -1, "flint"                   ; -1, "flint"                          ; -1, "flint_and_steel"          |]
-            [|  -1, "cookie"                  ; -1, "cookie"                         ; -1, "cookie"                   |]
-            [|  -1, "pumpkin_seeds"           ; -1, "pumpkin_seeds"                  ; -1, "rabbit_hide"              |]
-            [|  -1, "rail"                    ; -1, "rail"                           ; -1, "rail"                     |]
-            [|  -1, "mushroom_stew"           ; -1, "mushroom_stew"                  ; -1, "mushroom_stew"            |]
-            [|  -1, "sugar"                   ; -1, "spider_eye"                     ; -1, "fermented_spider_eye"     |]
-            [|  +2, "dye"                     ; +4, "dye"                            ; +6, "dye"                      |]
-            [|  -1, "emerald"                 ; -1, "emerald"                        ; -1, "emerald"                  |]
-            [|  -1, "minecart"                ; -1, "chest_minecart"                 ; -1, "tnt_minecart"             |]
-            [|  -1, "gunpowder"               ; -1, "gunpowder"                      ; -1, "gunpowder"                |]
-            [|  -1, "compass"                 ; -1, "compass"                        ; -1, "compass"                  |]
-            [|  +1, "sapling"                 ; +1, "sapling"                        ; -1, "slime_ball"               |]
-            [|  -1, "cauldron"                ; -1, "cauldron"                       ; -1, "cauldron"                 |]
-            [|  -1, "name_tag"                ; -1, "saddle"                         ; -1, "enchanted_book"           |]
-            [|  -1, "milk_bucket"             ; -1, "egg"                            ; -1, "cake"                     |]
-            [|  -1, "fish"                    ; -1, "fish"                           ; -1, "fish"                     |]
-            [|  -1, "sign"                    ; -1, "item_frame"                     ; -1, "painting"                 |]
-            [|  -1, "golden_sword"            ; -1, "clock"                          ; -1, "golden_rail"              |]
-            [|  -1, "hopper"                  ; -1, "hopper"                         ; -1, "hopper"                   |]
+            [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
+            [|  -1, "bone", AA.bone                         ; -1, "bone", AA.bone                       ; -1, "bone", AA.bone                       |]
+            [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "ender_pearl", AA.ender_pearl         |]
+            [|  +0, "tallgrass", AA.deadbush                ; +2, "tallgrass", AA.fern                  ; -1, "vine", AA.vine                       |]
+            [|  -1, "brick", AA.brick                       ; -1, "brick", AA.brick                     ; -1, "brick", AA.brick                     |]
+            [|  -1, "glass_bottle", AA.glass_bottle         ; -1, "glass_bottle", AA.glass_bottle       ; -1, "glass_bottle", AA.glass_bottle       |]
+            [|  -1, "melon", AA.melon_slice                 ; -1, "melon", AA.melon_slice               ; -1, "speckled_melon", AA.speckled_melon   |]
+            [|  +0, "dye", AA.ink_sac                       ; -1, "book", AA.book                       ; -1, "writable_book", AA.book_and_quill    |]
+            [|  -1, "apple", AA.apple                       ; -1, "gold_ingot", AA.gold_ingot           ; -1, "golden_apple", AA.golden_apple       |]
+            [|  -1, "flint", AA.flint                       ; -1, "flint", AA.flint                     ; -1, "flint_and_steel", AA.flint_and_steel |]
+            [|  -1, "cookie", AA.cookie                     ; -1, "cookie", AA.cookie                   ; -1, "cookie", AA.cookie                   |]
+            [|  -1, "pumpkin_seeds", AA.pumpkin_seeds       ; -1, "pumpkin_seeds", AA.pumpkin_seeds     ; -1, "rabbit_hide", AA.rabbit_hide         |]
+            [|  -1, "rail", AA.rail                         ; -1, "rail", AA.rail                       ; -1, "rail", AA.rail                       |]
+            [|  -1, "mushroom_stew", AA.mushroom_stew       ; -1, "mushroom_stew", AA.mushroom_stew     ; -1, "mushroom_stew", AA.mushroom_stew     |]
+            [|  -1, "sugar", AA.sugar                       ; -1, "spider_eye", AA.spider_eye           ; -1, "fermented_spider_eye", AA.fermented_spider_eye |]
+            [|  +2, "dye", AA.cactus_dye                    ; +4, "dye", AA.lapis                       ; +6, "dye", AA.cyan_dye                    |]
+            [|  -1, "emerald", AA.emerald                   ; -1, "emerald", AA.emerald                 ; -1, "emerald", AA.emerald                 |]
+            [|  -1, "minecart", AA.minecart                 ; -1, "chest_minecart", AA.chest_minecart   ; -1, "tnt_minecart", AA.tnt_minecart       |]
+            [|  -1, "gunpowder", AA.gunpowder               ; -1, "gunpowder", AA.gunpowder             ; -1, "gunpowder", AA.gunpowder             |]
+            [|  -1, "compass", AA.compass                   ; -1, "compass", AA.compass                 ; -1, "compass", AA.compass                 |]
+            [|  +1, "sapling", AA.spruce_sapling            ; +1, "sapling", AA.spruce_sapling          ; -1, "slime_ball", AA.slime_ball           |]
+            [|  -1, "cauldron", AA.cauldron                 ; -1, "cauldron", AA.cauldron               ; -1, "cauldron", AA.cauldron               |]
+            [|  -1, "name_tag", AA.name_tag                 ; -1, "saddle", AA.saddle                   ; -1, "enchanted_book", AA.enchanted_book   |]
+            [|  -1, "milk_bucket", AA.milk_bucket           ; -1, "egg", AA.egg                         ; -1, "cake", AA.cake                       |]
+            [|  -1, "fish", AA.fish                         ; -1, "fish", AA.fish                       ; -1, "fish", AA.fish                       |]
+            [|  -1, "sign", AA.sign                         ; -1, "item_frame", AA.item_frame           ; -1, "painting", AA.painting               |]
+            [|  -1, "golden_sword", AA.golden_sword         ; -1, "clock", AA.clock                     ; -1, "golden_rail", AA.golden_rail         |]
+            [|  -1, "hopper", AA.hopper                     ; -1, "hopper", AA.hopper                   ; -1, "hopper", AA.hopper                   |]
         |]
     // per-item Bingo Command storage
     // Y axis - different difficulties
@@ -2420,7 +2500,7 @@ let placeCommandBlocksInTheWorld(fil) =
     // Z axis - command: item framex4, (testfor, clear)x4
     for x = 0 to bingoItems.Length-1 do
         for y = 0 to 2 do
-            let dmg, id = bingoItems.[x].[y]
+            let dmg, id, _ = bingoItems.[x].[y]
             let cmds = [|
                         for i = 0 to 3 do
                             yield U (sprintf "execute @e[tag=whereToPlaceItemFrame] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:%d,Item:{Count:1,id:minecraft:%s%s}}" i id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
@@ -2659,11 +2739,21 @@ let placeCommandBlocksInTheWorld(fil) =
     region.PlaceCommandBlocksStartingAt(12,3,10,displayWallCmds)
 
 
+
+    for x = 0 to bingoItems.Length-1 do
+        for y = 0 to 2 do
+            let _, _, art = bingoItems.[x].[y]
+            if x < 14 then
+                writeZoneFromString(region, 100+24*x, 50, 100+24*y, art)
+            else
+                writeZoneFromString(region, 100+24*(x-14), 50, 200+24*y, art)
+
     region.Write(fil+".new")
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
 
 ////////////////////////////////////////////////////
+
 
 [<System.STAThread()>]  
 do   
@@ -2711,5 +2801,5 @@ do
     //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca""",
       //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca.old""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
-    ()
+    //testing2()
 
