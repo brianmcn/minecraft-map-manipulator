@@ -1420,104 +1420,7 @@ let diffDatFiles(datFile1,datFile2) =
 
 ///////////////////////////////////////
 
-
-let main2() =
-    let filename = """F:\.minecraft\saves\FindHut\region\r.0.0.mca"""
-    // I want to read chunk (10,13), which is coords (165,211) and is in the witch hut
-    let regionFile = new RegionFile(filename)
-    let nbt = regionFile.GetChunk(10, 13)
-    printfn "%s" (nbt.ToString())
-    let theChunk = match nbt with Compound(_,[|c;_|]) -> c
-    let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
-    // height of map I want to look at is 65, which is section 4
-    let s = sections |> Array.find (Array.exists (function Byte("Y",4uy) -> true | _ -> false))
-    for x in s do printfn "%s\n" (x.ToString())
-    let bi = regionFile.GetBlockInfo(165,65,211)
-    printfn "%A %A %A" bi.BlockID bi.BlockData bi.TileEntity  // planks at floor of hut
-
-    let structures = [ //"VILLAGES", """F:\.minecraft\saves\FindHut\data\villages.dat"""
-                       //"TEMPLE", """F:\.minecraft\saves\E&T 1_3\data\Temple.dat"""
-                       "TEMPLE", """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\data\Temple.dat"""
-                       //"TEMPLE", """F:\.minecraft\saves\FindHut\data\Temple.dat"""
-                       //"MINESHAFT", """F:\.minecraft\saves\FindHut\data\Mineshaft.dat"""
-                     ]
-    printfn "E&Tafterupdate"
-    for name, file in structures do
-        printfn ""
-        printfn "%s" name
-        try
-            let vnbt = readDatFile(file)
-            printfn "%s" (vnbt.ToString())
-        with e -> printfn "error %A" e
-    printfn "======================="
-
-    let MakeSyntheticWitchArea(lowX, lowY, lowZ, hiX, hiY, hiZ) = 
-        let bb = [| lowX; lowY; lowZ; hiX; hiY; hiZ |]
-        let chunkX = lowX / 16
-        let chunkZ = lowZ / 16
-        Compound("", [|
-            Compound("data", [|
-                Compound("Features", [|
-                    Compound(sprintf "[%d,%d]" chunkX chunkZ, [|
-                        String("id", "Temple")
-                        Int("ChunkX", chunkX)
-                        Int("ChunkZ", chunkZ)
-                        IntArray("BB", bb)
-                        List("Children", Compounds[|[|
-                            String("id", "TeSH")
-                            Int("GD", 0) //?
-                            Int("HPos", -1)
-                            IntArray("BB", bb)
-                            Int("Height", hiY - lowY + 1)
-                            Int("Width", hiX - lowX + 1)
-                            Int("Depth", hiZ - lowZ + 1)
-                            Int("Witch", 0) //?
-                            Int("O", 1)  //?
-                            End
-                            |]|])
-                        End
-                        |])
-                    End
-                    |])
-                End
-                |])
-            End
-            |])
-
-    let synthetic = MakeSyntheticWitchArea(651, 54, 651, 750, 83, 750)
-    printfn "%s" (synthetic.ToString())
-    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\data\Temple.dat""", System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
-    synthetic.Write(new BinaryWriter2(s))
-    s.Close()
    
-let dumpChunkInfo(regionFileName,cx,cX,cz,cZ,onlyEntities) =
-    let regionFile = new RegionFile(regionFileName)
-    for x = cx to cX do
-        for z = cz to cZ do
-            try
-                let nbt = regionFile.GetChunk(x, z)
-                let theChunk = match nbt with Compound(_,[|c;_|]) -> c
-                if onlyEntities then
-                    match theChunk.TryGetFromCompound("Entities") with 
-                    | None -> ()
-                    | Some es -> 
-                        //printfn "%s" (es.ToString())
-                        match es with 
-                        List(_,Compounds aa) -> 
-                            let mutable found = false
-                            for e in aa do
-                                for nbt in e do
-                                    //if (match nbt with String("id",x) -> printfn "%s" x; false | _ -> false) then
-                                    if (match nbt with String("id","EntityHorse") -> true | _ -> false) then
-                                        found <- true
-                            if found then
-                                printfn "%s" (es.ToString())
-                else                 
-                    printfn "%s" (theChunk.ToString())
-            with e -> ()
-            printfn "%d %d" x z
-    System.Console.ReadKey() |> ignore
-
 let killAllEntities() =
     let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Bingo_v2_0_10\region\r.0.0.mca"""
     let regionFile = new RegionFile(filename)
@@ -1535,8 +1438,7 @@ let killAllEntities() =
                         a.[i] <- NBT.List("Entities",Compounds[||])
     regionFile.Write(filename+".new")
 
-
-let makeArmorStand(x,y,z,customName,team) = //headBlock,headDamage) =
+let makeArmorStand(x,y,z,customName,team) =
             [|
                 NBT.String("id","ArmorStand")
                 NBT.Byte("NoGravity",1uy)
@@ -1546,37 +1448,11 @@ let makeArmorStand(x,y,z,customName,team) = //headBlock,headDamage) =
                 NBT.String("CustomName",customName)
                 NBT.String("Team",team)
                 NBT.Byte("Marker",1uy)
-
-    (*
-                NBT.List("Equipment",Payload.Compounds [|
-                                [|NBT.End|];[|NBT.End|];[|NBT.End|];[|NBT.End|];
-                                [|
-                                    NBT.String("id",headBlock)
-                                    NBT.Short("Damage",headDamage)
-                                    NBT.End
-                                |]
-                            |])
-    *)
                 NBT.End
             |], (int x, int z)
 
 let placeCertainEntitiesInTheWorld(entities,filename) =
     let regionFile = new RegionFile(filename)
-    
-    (*
-    let HEADSIZE = 0.625
-    let entities = ResizeArray()
-    let maxHeight = 60.0 + float(PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1)*HEADSIZE
-    for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
-        for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
-            let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
-            let (_,bid,dmg) = textureFilenamesToBlockIDandDataMappingForHeads |> Array.find (fun (n,_,_) -> n = filename)
-            let (_,mid) = blockIdToMinecraftName |> Array.find (fun (n,s) -> n = bid)
-            if y=21 && x=19 then
-                printfn ""
-            entities.Add( makeArmorStand(105.0 + HEADSIZE*(float x), maxHeight - (float y)*HEADSIZE, 84.0, mid, int16 dmg))
-    *)
-
     for cx = 0 to 15 do
         for cz = 0 to 15 do
             let nbt = regionFile.TryGetChunk(cx, cz)
@@ -1595,9 +1471,6 @@ let placeCertainEntitiesInTheWorld(entities,filename) =
 
 let dumpSomeCommandBlocks(fil) =
     let aaa = ResizeArray()
-    let hop = ResizeArray()
-    let skulls = ResizeArray()
-    let uuidStuff = ResizeArray()
     for filename in [fil
                      ] do
         let regionFile = new RegionFile(filename)
@@ -1607,47 +1480,14 @@ let dumpSomeCommandBlocks(fil) =
             for cz = 0 to 31 do
                 try
                     let nbt = regionFile.GetChunk(cx, cz)
-                    //printfn "%s" (nbt.ToString())
                     let theChunk = match nbt with Compound(_,[|c;_|]) -> c 
                                                 | Compound(_,[|c;_;_|]) -> c 
                                                 | _ -> failwith "unexpected cpdf"
-                    let biomeData = match theChunk.["Biomes"] with ByteArray(_n,a) -> a
-        //            for i = 0 to 255 do biomeData.[i] <- 14uy // Moo
-                    match theChunk.TryGetFromCompound("Entities") with 
-                    | None -> ()
-                    | Some e -> 
-                        match e with
-                        | NBT.List(_,Compounds(nbtarrarr)) ->
-                            for ent in nbtarrarr do
-                                let mutable l = 0L
-                                let mutable m = 0L
-                                let mutable s = ""
-                                for nv in ent do
-                                    match nv with
-                                    | Long("UUIDLeast",x) -> l <- x
-                                    | Long("UUIDMost",x) -> m <- x
-                                    | String("id",n) -> s <- n
-                                    | _ -> ()
-                                //if l <> 0L then
-                                if s="Ozelot" then
-                                    uuidStuff.Add( (s,l,m) )   
-                        //printfn "%s" (e.ToString())
                     match theChunk.TryGetFromCompound("TileEntities") with 
                     | None -> ()
                     | Some te -> 
-                        //printfn "%s" (te.ToString())
                         match te with List(_,Compounds(tes)) ->
                         for t in tes do
-                            //if t |> Array.exists (function String("id",s) -> printfn "%s" s; true | _ -> false) then ()
-                            //if t |> Array.exists (function String("id","Skull") -> true | _ -> false) then
-                            //    printfn "skull"
-                            if t |> Array.exists (function String("id","Skull") -> true | _ -> false) then
-                                skulls.Add( Compound("skullInfo",t) )
-                            if t |> Array.exists (function String("id","Hopper") -> true | _ -> false) then
-                                let x = t |> Array.pick (function Int("x",i) -> Some(int i) | _ -> None)
-                                let y = t |> Array.pick (function Int("y",i) -> Some(int i) | _ -> None)
-                                let z = t |> Array.pick (function Int("z",i) -> Some(int i) | _ -> None)
-                                hop.Add( (x,y,z) )
                             if t |> Array.exists (function String("Command",s) -> true | _ -> false) then
                                 let comm = t |> Array.pick (function String("Command",s) -> Some(string s) | _ -> None)
                                 let x = t |> Array.pick (function Int("x",i) -> Some(int i) | _ -> None)
@@ -1661,43 +1501,16 @@ let dumpSomeCommandBlocks(fil) =
                         for i = 0 to 4095 do
                             let bid = blocks.[i]
                             blockIDCounts.[int bid] <- blockIDCounts.[int bid] + 1
-                            (*
-                            if bid = 116uy then
-                                // let i = dy*256 + dz*16 + dx
-                                printfn "ench tab at (%d,%d,%d)" (regionFile.RX*512 + cx*16 + (i%16)) (ySection * 16 + (i/256)) (regionFile.RZ*512 + cz*16 + ((i%256)/16))
-                            if bid = 137uy then
-                                // let i = dy*256 + dz*16 + dx
-                                printfn "comm at (%d,%d,%d)" (regionFile.RX*512 + cx*16 + (i%16)) (ySection * 16 + (i/256)) (regionFile.RZ*512 + cz*16 + ((i%256)/16))
-                            *)
                 with e ->
                     if e.Message.StartsWith("chunk not") then
                         () // yeah yeah
                     else
                         printfn "%A" e.Message 
 
-    let uuidStuff = uuidStuff (* |> Seq.filter (fun (s,l,m) -> s = "MinecartRideable") *) |> Seq.toArray
-    uuidStuff |> Array.sortInPlaceBy (fun (s,l,m) -> s,m)
-    printfn "%A" uuidStuff
-
-    printfn "There are %d hoppers" hop.Count 
-    for (x,y,z) in hop do
-        printfn "%5d,%5d,%5d" x y z
-
-    printfn "There are %d skulls" skulls.Count 
-    let str(n:NBT) = match n with String(_,s) -> s
-    for s in skulls do
-        printfn "%s  %s" (str s.["Owner"].["Name"]) (str s.["Owner"].["Id"])
-        
     printfn "There are %d command blocks" aaa.Count 
     let aaa = aaa.ToArray() |> Array.map (fun (s,x,y,z) -> let s = (if s.StartsWith("/") then s.Substring(1) else s) in s,x,y,z)
-    //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say") || comm.StartsWith("tellraw"))
-    //let aaa = aaa.ToArray() |> Array.filter (fun (comm,_,_,_) -> comm.StartsWith("say"))
-    //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("150 150 110"))
-    //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("kill"))
-    //let aaa = aaa |> Array.filter (fun (comm,_,_,_) -> comm.ToLower().Contains("0001"))
-    //let aaa = aaa |> Array.filter (fun (_,x,y,z) -> x>= -846 && x<= -802 && y=67 && z>=1400 && z<=1480)
-    //let aaa = aaa |> Array.sortBy (fun (s,x,y,z) -> s.Split([|' '|]).[0],y,z,x) 
     let aaa = aaa |> Array.sortBy (fun (_s,x,y,z) -> y,z,x) 
+
     let armors = ResizeArray()
     let USE_PADDING = false   // bad usability
     let FACING_EW = false
@@ -1725,105 +1538,6 @@ let dumpSomeCommandBlocks(fil) =
                                   (if USE_PADDING then (String.replicate pad " ") else "")+comm,
                                   (if color = 0 then "White" elif color = 1 then "Aqua" else "Yellow")))
     placeCertainEntitiesInTheWorld(armors, fil)
-
-
-//    printfn "============="
-//    let bi = regionFile.GetBlockInfo(761,65,767)  // ench table
-//    printfn "%A %A %A" bi.BlockID bi.BlockData bi.TileEntity  
-
-//    printfn "============="
-//    printfn "Block counts"
-//    for i = 0 to blockIDCounts.Length-1 do
-//        if blockIDCounts.[i] <> 0 then
-//            printfn "%7d - %s" blockIDCounts.[i] (BLOCK_IDS |> Array.find (fun (n,_) -> n=i) |> snd)
-//    printfn "============="
-
-(*
-    let copy = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\E&T 1_3later\region\copy.r.1.1.mca"""
-    regionFile.Write(copy)
-    let copyRegionFile = new RegionFile(copy)
-    printfn "DIFFS:"
-    for cx = 0 to 31 do
-        for cz = 0 to 31 do
-            let a = regionFile.GetChunk(cx,cz)
-            let b = copyRegionFile.GetChunk(cx,cz)
-            match a.Diff(b) with
-            | None -> ()
-            | Some(path,m,n) ->
-                printfn "chunk (%d,%d) differs at %s" cx cz path
-                printfn "%s" (m.ToString())
-                printfn "----"
-                printfn "%s" (n.ToString())
-    printfn "(end of DIFFS)"
-*)
-
-    (*
-    //let filename = """F:\.minecraft\saves\BingoGood\region\r.0.0.mca"""
-    // I want to read chunk (12,12), which is coords (192,192) and is the top left of my bingo map
-    let regionFile = new RegionFile(filename)
-    let nbt = regionFile.GetChunk(12, 12)
-    printfn "%s" (nbt.ToString())
-    let theChunk = match nbt with Compound(_,[|c;_|]) -> c
-    printfn "%s" theChunk.Name 
-    let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
-    printfn "%d" sections.Length 
-    // height of map I want to look at is just below 208, which is section 12
-    let s = sections |> Array.find (Array.exists (function Byte("Y",12uy) -> true | _ -> false))
-    for x in s do printfn "%s\n" (x.ToString())
-    let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
-    // 76 is active redstone torch blockID; 23 is dispenser
-    printfn "red torch? %A" (blocks |> Array.exists (fun b -> b = 76uy))
-    // dispenser in next higher section (13)... i could see its contents already in the TileEntities of the chunk
-    let s = sections |> Array.find (Array.exists (function Byte("Y",13uy) -> true | _ -> false))
-    let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
-    printfn "dispenser? %A" (blocks |> Array.exists (fun b -> b = 23uy))
-    let dispIndex = blocks |> Array.findIndex (fun b -> b = 23uy)
-    let blockData = s |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
-    // expand 2048 half-bytes into 4096 for convenience of same indexing without having to decode YZX
-    let blockData = Array.init 4096 (fun x -> if x%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
-    printfn "disp orientation %d" blockData.[dispIndex]
-(*
-    for i = 0 to 4095 do
-        printf "%d " blocks.[i]
-        if i%16 = 15 then printfn ""
-*)
-    let blockID, blockData, tileEntityOpt = regionFile.GetBlockIDAndBlockDataAndTileEntityOpt(204,208,199)
-    printfn "should be dispenser (23) here: %d" blockID
-    printfn "should be facing up and powered (9) here: %d" blockData
-    printfn "should have tile entity here: %s" (match tileEntityOpt with None -> "" | Some nbt -> nbt.ToString())
-    *)
-    ()
-
-
-
-let findEndPortals() =
-    let mutable filled = 0
-    let mutable empty = 0
-    for filename in System.IO.Directory.EnumerateFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Tmp4\region\""","*.mca") do
-        if filled + empty > 11 then
-            () // already found one, stop
-        else
-            printfn "%s" filename
-            let regionFile = new RegionFile(filename)
-            if (regionFile.RX = -1 || regionFile.RX = 0) &&
-                (regionFile.RZ = -1 || regionFile.RZ = 0) then
-                printfn "...skipping, no stronghold so close to spawn..."
-            else
-                let xoff = regionFile.RX * 512
-                let zoff = regionFile.RZ * 512
-                for x = 0 to 511 do
-                if x % 100 = 0 then printfn "."
-                for z = 0 to 511 do
-                for y = 5 to 45 do
-                match regionFile.TryGetBlockInfo(xoff+x,y,zoff+z) with
-                | Some bi ->
-                    if bi.BlockID = 120uy then
-                        if (bi.BlockData.Force() &&& 4uy) <> 0uy then
-                            filled <- filled + 1
-                        else
-                            empty <- empty + 1 
-                | None -> ()
-    printfn "%d filled, %d empty" filled empty
 
 let diagnoseStringDiff(s1 : string, s2 : string) =
     if s1 = s2 then printfn "same!" else
@@ -1865,8 +1579,6 @@ let testReadWriteRegionFile() =
     let nbt = out2File.GetChunk(12, 12)
     let out2String = nbt.ToString()
     diagnoseStringDiff(origString, out2String)
-    
-
 (*
     // finding diff in byte arrays
     let k =
@@ -1886,7 +1598,6 @@ let testReadWriteRegionFile() =
         printf "%3d " b
     printfn ""
 *)
-    ()
 
 
 // Look through statistics and achievements, discover what biomes MC thinks I have explored
@@ -1929,15 +1640,6 @@ let renamer() =
     writeDatFile(file + ".new", newNbt)
 
 
-(*    
-    | None -> printfn "hmmm"
-    | Some data -> 
-        match data.TryGetFromCompound("LevelName") with 
-        | None -> printfn "yuck"
-        | Some x -> printfn "%s" (x.ToString())
-        *)
-
-
 let placeCertainBlocksInTheWorld() =
     let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Photo\region\r.0.-2.mca"""
     let regionFile = new RegionFile(filename)
@@ -1948,8 +1650,6 @@ let placeCertainBlocksInTheWorld() =
             let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
             let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
             regionFile.SetBlockIDAndDamage( 400, maxHeight - y, -670 + x, byte bid, byte dmg)
-    //let bi = regionFile.GetBlockInfo(1, 50, 1)
-    //printfn "%s" (bi.ToString())
     regionFile.Write(filename+".new")
 
 let placeCertainBlocksInTheSky() =
@@ -1961,42 +1661,10 @@ let placeCertainBlocksInTheSky() =
             let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,z]).ToLower()
             let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
             regionFile.SetBlockIDAndDamage( x+64, 237, z+64, byte bid, byte dmg)
-    //let bi = regionFile.GetBlockInfo(1, 50, 1)
-    //printfn "%s" (bi.ToString())
     regionFile.Write(filename+".new")
 
-let writeCommandBlocksFromATextFileIntoARegionFile(regionFilename,commandTextFilename) =
-    let lines = System.IO.File.ReadAllLines(commandTextFilename)
-    let regionFile = new RegionFile(regionFilename)
-    let regex = System.Text.RegularExpressions.Regex(" *(-?\d+), *(-?\d+), *(-?\d+) : (.*)")
-    for line in lines do
-        let matches = regex.Match(line)
-        //for m in matches.Groups do
-        //    printfn "|%s|" m.Value
-        //printfn ""
-        let x = System.Int32.Parse(matches.Groups.[1].Value)
-        let y = System.Int32.Parse(matches.Groups.[2].Value)
-        let z = System.Int32.Parse(matches.Groups.[3].Value)
-        let comm = matches.Groups.[4].Value
-                    //let te = Compound("unnamedDummyToCarryAPayload",te)
-                    //if te.["x"]=Int("x",x) && te.["y"]=Int("y",y) && te.["z"]=Int("z",z) then Some te else None)
-        let bi = regionFile.GetBlockInfo(x,y,z)
-        match bi.TileEntity with
-        | Some(Compound(_,nbts)) ->
-            //for nbt in nbts do
-            //    printfn "%A" nbt
-            let i = nbts |> Array.findIndex(function String("Command",_) -> true | _ -> false)
-            nbts.[i] <- String("Command",comm)
-        ()
-    regionFile.Write(regionFilename+".new")
-
 let dumpPlayerDat() =
-    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\14w25a\data\Monument.dat"""
-    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
-    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\w26b1\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
-    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Super Hostile - Legendary v3.0\level.dat"""
     let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\New World\data\map_6.dat"""
-    //let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\onebiome\level.dat"""
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
     (*
@@ -2117,121 +1785,7 @@ let testing2() =
 
 let placeCommandBlocksInTheWorld(fil) =
     let region = new RegionFile(fil)
-#if THIS_WORKS_GREAT
-    let entityType = "AreaEffectCloud"
-    let entityDefaults = ",Duration:2000,Team:White"
-    //let entityType = "ArmorStand"
-    //let entityDefaults = ",NoGravity:1,Invisible:1,Marker:1,Team:White"
-    let cmds = 
-        [|
-            yield! [|
-                        P ""
-                        //O "blockdata ~ ~ ~ {auto:0b}"
-                   |]
-            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
-                yield! [|
-                            U (sprintf "execute @e[tag=live] %s summon %s ~ ~ ~ {Tags:[\"sk\"]%s}" nearby entityType entityDefaults)
-                       |]
-            yield! [|
-                        U "execute @e[tag=sk] ~ ~ ~ scoreboard players tag @e[tag=sk,r=0,c=-1] add keep"
-                        U (sprintf "kill @e[type=%s,tag=!keep]" entityType)
-                   |]
-            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
-                yield! [|
-                            U (sprintf "execute @e[tag=live] %s scoreboard players add @e[tag=sk,r=0] Tmp 1" nearby)
-                       |]
-            yield! [|
-                        //O "blockdata ~ ~ ~ {auto:0b}"
-                        U "scoreboard players set @e[tag=sk] Black 0"
-                        U "execute @e[tag=sk] ~ ~ ~ detect ~ ~ ~ wool 15 scoreboard players set @e[r=0,c=1] Black 1"  // TODO v s-p
-                        U "scoreboard players set @e[tag=sk] AliveNext 0"
-                        U "scoreboard players set @e[tag=sk,score_Black_min=1,score_Tmp_min=2,score_Tmp=3] AliveNext 1"
-                        U "scoreboard players set @e[tag=sk,score_Black=0,score_Tmp_min=3,score_Tmp=3] AliveNext 1"
-                        U "execute @e[tag=live] ~ ~ ~ setblock ~ ~ ~ wool 0"
-                        U "kill @e[tag=live]"
-                        U "execute @e[tag=sk,score_AliveNext=0] ~ ~ ~ setblock ~ ~ ~ wool 0"
-                        U "execute @e[tag=sk,score_AliveNext_min=1] ~ ~ ~ setblock ~ ~ ~ wool 15"
-                        U "kill @e[tag=sk,score_AliveNext=0]"
-                        U "entitydata @e[tag=sk] {Tags:[\"live\",\"keep\"]}"
-                        U "scoreboard players set Count Count 0"
-                        U "execute @e[tag=live] ~ ~ ~ scoreboard players add Count Count 1"
-                   |]
-        |]
-    region.PlaceCommandBlocksStartingAt(20,10,20,cmds)
-    let aux = [|
-                P ""
-                U (sprintf "execute @e[type=Sheep] ~ ~ ~ summon %s ~ ~-1 ~ {Tags:[\"live\",\"keep\"]%s}" entityType entityDefaults)
-                U "execute @e[type=Sheep] ~ ~ ~ setblock ~ ~-1 ~ wool 15"
-                U "kill @e[type=Sheep]"
-              |]
-    region.PlaceCommandBlocksStartingAt(24,10,20,aux)
-    let aux2 = [|
-                O ""
-                U (sprintf "execute @e[type=%s] ~ ~ ~ setblock ~ ~ ~ wool 0" entityType)
-                U (sprintf "kill @e[type=%s]" entityType)
-               |]
-    region.PlaceCommandBlocksStartingAt(28,10,20,aux2)
-    region.Write(fil+".new")
-#endif
-#if THIS_WORKS_TOO
-    let DURATION = 5
-    let entityType = "AreaEffectCloud"
-    let entityDefaults = sprintf ",Duration:%d" DURATION
-    let cmds = 
-        [|
-            yield! [|
-                        P ""
-                        //O "blockdata ~ ~ ~ {auto:0b}"
-                        U "scoreboard players set @e[tag=sk] Tmp 0"
-                   |]
-            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
-                yield! [|
-                            U (sprintf "execute @e[tag=live] %s detect ~ ~-1 ~ air 0 summon %s ~ ~ ~ {Tags:[\"new\"]%s}" nearby entityType entityDefaults)
-                            U "execute @e[tag=new] ~ ~ ~ setblock ~ ~-1 ~ stone"
-                            U "entitydata @e[tag=new] {Tags:[\"sk\"]}"
-                       |]
-            for nearby in [| "~-1 ~ ~-1"; "~0 ~ ~-1"; "~1 ~ ~-1"; "~-1 ~ ~0"; "~1 ~ ~0"; "~-1 ~ ~1"; "~0 ~ ~1"; "~1 ~ ~1" |] do
-                yield! [|
-                            U (sprintf "execute @e[tag=live] %s scoreboard players add @e[tag=sk,r=0] Tmp 1" nearby)  // TODO probably still expensive...
-                       |]
-            yield! [|
-                        //O "blockdata ~ ~ ~ {auto:0b}"
-                        U "scoreboard players set @e[tag=sk] Black 0"
-                        U "execute @e[tag=sk] ~ ~ ~ detect ~ ~ ~ wool 15 scoreboard players set @e[type=!Player,c=1] Black 1"   // TODO ensure picks nearest
-                        U "scoreboard players set @e[tag=sk] AliveNext 0"
-                        U "scoreboard players set @e[tag=sk,score_Black_min=1,score_Tmp_min=2,score_Tmp=3] AliveNext 1"
-                        U "scoreboard players set @e[tag=sk,score_Black=0,score_Tmp_min=3,score_Tmp=3] AliveNext 1"
-                        U "execute @e[tag=live] ~ ~ ~ setblock ~ ~ ~ wool 0"
-                        U "kill @e[tag=live]"
-                        U "execute @e[tag=sk,score_AliveNext=0] ~ ~ ~ setblock ~ ~ ~ wool 0"
-                        U "execute @e[tag=sk,score_AliveNext_min=1] ~ ~ ~ setblock ~ ~ ~ wool 15"
-                        U (sprintf "execute @e[tag=sk,score_AliveNext_min=1] ~ ~ ~ summon %s ~ ~ ~ {Tags:[\"live\"]%s}" entityType entityDefaults)
-                        // kill off old sk's
-                        U "scoreboard players add @e[tag=sk] Age 1"
-                        U (sprintf "execute @e[tag=sk,score_Age_min=%d] ~ ~ ~ setblock ~ ~-1 ~ air" DURATION)
-                        // overview info
-                        U "scoreboard players set Count Count 0"
-                        U "execute @e[tag=live] ~ ~ ~ scoreboard players add Count Count 1"
-                   |]
-        |]
-    region.PlaceCommandBlocksStartingAt(20,10,20,cmds)
-    let aux = [|
-                P ""
-                U (sprintf "execute @e[type=Sheep] ~ ~ ~ summon %s ~ ~-1 ~ {Tags:[\"live\"]%s}" entityType ",Duration:2000") // long duration for init setup
-                U "execute @e[type=Sheep] ~ ~ ~ setblock ~ ~-1 ~ wool 15"
-                U "kill @e[type=Sheep]"
-              |]
-    region.PlaceCommandBlocksStartingAt(24,10,20,aux)
-    let aux2 = [|
-                O ""
-                U (sprintf "execute @e[type=%s] ~ ~ ~ setblock ~ ~ ~ wool 0" entityType)
-                U (sprintf "kill @e[type=%s]" entityType)
-                U "fill -80 2 -80 80 2 80 air"
-                U "fill -80 3 -80 80 3 80 dirt"
-               |]
-    region.PlaceCommandBlocksStartingAt(28,10,20,aux2)
-#endif
-#if AWESOME
+#if AWESOME_CONWAY_LIFE
     let DURATION = 999999
     let entityType = "AreaEffectCloud"
     let entityDefaults = sprintf ",Duration:%d" DURATION
@@ -2336,133 +1890,6 @@ let placeCommandBlocksInTheWorld(fil) =
     region.PlaceCommandBlocksStartingAt(40,56,80,aux)
     region.PlaceCommandBlocksStartingAt(43,56,80,cmds)
 #endif
-#if DECENT_TUNNEL_DIGGING_WITH_NOISE
-    let rand = new System.Random()
-    let swap (a: _[]) x y =
-        let tmp = a.[x]
-        a.[x] <- a.[y]
-        a.[y] <- tmp
-    let shuffle a = Array.iteri (fun i _ -> swap a i (rand.Next(i, Array.length a))) a
-    let XXX = 6  // noise frequency = 1/XXX
-    let computeFringe() =
-        let mutable THRESHOLD = 15  // 13 barely encloses -2..2 cube, 28 barely encloses -3..3 cube
-        let mutable dun = false
-        let mutable count = 0
-        let mutable fringe = null
-        while not dun do
-            let a = Array3D.create 19 19 19 false
-            fringe <- ResizeArray()
-            count <- 0
-            for x = -9 to 9 do
-                for y = -9 to 9 do
-                    for z = -9 to 9 do
-                        if x*x + y*y + z*z < THRESHOLD then
-                            a.[10+x,10+y,10+z] <- true
-                            count <- count + 1
-                            if abs x > 2 || abs y > 2 || abs z > 2 then
-                                //printfn "%A" (x,y,z)
-                                fringe.Add( (x,y,z) )
-            let mutable ok = true
-            for x = -2 to 2 do
-                for y = -2 to 2 do
-                    for z = -2 to 2 do
-                        if not a.[10+x,10+y,10+z] then
-                            ok <- false 
-            if ok then
-                dun <- true
-            else
-                THRESHOLD <- THRESHOLD + 1
-        //printfn "%d    %d     %d" THRESHOLD count (count - 5*5*5)
-        fringe
-    let a = computeFringe() |> Seq.toArray 
-    shuffle a
-    let b = a |> Array.mapi (fun i (x,y,z) -> x,y,z,i%XXX)
-    let aux =
-        [|
-            yield P ""
-            yield U "execute @p[score_Dig=0] ~ ~ ~ detect ~ ~ ~ fence_gate 5 setblock ~ ~ ~ air"
-        |]
-    let cmds =
-        [|
-            yield P ""
-            yield U "execute @p[score_Dig_min=1] ~ ~ ~ fill ~-1 ~-1 ~-1 ~1 ~1 ~1 air 0 outline"
-            yield U "execute @p[score_Dig_min=1] ~ ~ ~ fill ~-2 ~-2 ~-2 ~2 ~2 ~2 air 0 outline"
-            yield U "scoreboard players add @p S 1"
-            yield U (sprintf "scoreboard players set @p[score_S_min=%d] S 0" XXX)
-            for x,y,z,n in b do
-                yield U (sprintf "execute @p[score_Dig_min=1,score_S_min=%d,score_S=%d] ~ ~ ~ detect ~ ~ ~ air 0 setblock ~%d ~%d ~%d air" n n x y z)
-            yield U "execute @p[score_Dig_min=1] ~ ~ ~ setblock ~ ~ ~ fence_gate 5"
-        |]    
-    region.PlaceCommandBlocksStartingAt(23,56,20,aux)
-    region.PlaceCommandBlocksStartingAt(20,56,20,cmds)
-#endif
-#if TUNNEL_DIG
-    let computeSphereShellAndInterior() =
-        let mutable THRESHOLD = 13  // 13 barely encloses -2..2 cube, 28 barely encloses -3..3 cube
-        let a = Array3D.create 19 19 19 false
-        for x = -9 to 9 do
-            for y = -9 to 9 do
-                for z = -9 to 9 do
-                    if x*x + y*y + z*z < THRESHOLD then
-                        a.[10+x,10+y,10+z] <- true
-        // now a holds the solid sphere; the shell is all cells with 'air' next to them
-        let shell = ResizeArray()
-        for x = -8 to 8 do
-            for y = -8 to 8 do
-                for z = -8 to 8 do
-                    if a.[10+x,10+y,10+z] then
-                        if not a.[11+x,10+y,10+z] || not a.[10+x,11+y,10+z]|| not a.[10+x,10+y,11+z]
-                           || not a.[9+x,10+y,10+z] || not a.[10+x,9+y,10+z]|| not a.[10+x,10+y,9+z] then
-                            // one face is next to air, is shell
-                            shell.Add( (x,y,z) )
-        let interior = ResizeArray()
-        for x = -8 to 8 do
-            for y = -8 to 8 do
-                for z = -8 to 8 do
-                    if a.[10+x,10+y,10+z] then
-                        if not(shell.Contains( (x,y,z) )) then
-                            if not(x=0 && y=0 && z=0) then   // exclude center, we're putting fence_gate there
-                                interior.Add( (x,y,z) )
-        shell, interior
-    let shell, interior = computeSphereShellAndInterior()                    
-    let XXX = 6  // noise frequency = 1/XXX
-    let a = shell |> Seq.toArray 
-    shuffle a
-    let b = a |> Array.mapi (fun i (x,y,z) -> x,y,z,i%XXX)
-    let aux1 =
-        [|
-            yield P ""
-            yield U "execute @p[score_Dig=0] ~ ~ ~ detect ~ ~ ~ fence_gate 5 setblock ~ ~ ~ air"
-            for x,y,z,_ in b do
-                yield U (sprintf "execute @p[score_Dig_min=2] ~ ~ ~ setblock ~%d ~%d ~%d stained_glass 11" x y z)
-        |]
-    let aux2 =
-        [|
-            yield P ""
-            for x,y,z in interior do
-                yield U (sprintf "execute @p[score_Dig_min=2] ~ ~ ~ setblock ~%d ~%d ~%d wool 11" x y z)
-            yield U "scoreboard players set @p[score_Dig_min=2] Dig 0"
-        |]
-    let cmdsInterior =
-        [|
-            yield P ""
-            for x,y,z in interior do
-                yield U (sprintf "execute @p[score_Dig_min=1] ~ ~ ~ detect ~ ~ ~ air 0 setblock ~%d ~%d ~%d air" x y z)
-            yield U "execute @p[score_Dig_min=1] ~ ~ ~ setblock ~ ~ ~ fence_gate 5"
-        |]    
-    let cmdsShell =
-        [|
-            yield P ""
-            yield U "scoreboard players add @p S 1"
-            yield U (sprintf "scoreboard players set @p[score_S_min=%d] S 0" XXX)
-            for x,y,z,n in b do
-                yield U (sprintf "execute @p[score_Dig_min=1,score_S_min=%d,score_S=%d] ~ ~ ~ detect ~ ~ ~ air 0 setblock ~%d ~%d ~%d air" n n x y z)
-        |]    
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(29,56,20,aux2,[|"4";"aux2"|])
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(26,56,20,aux1,[|"3";"aux1"|])
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(23,56,20,cmdsInterior,[|"2";"interior"|])
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(20,56,20,cmdsShell,[|"1";"shell"|])
-#endif    
     let bingoItems =
         [|
             [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
@@ -2494,28 +1921,57 @@ let placeCommandBlocksInTheWorld(fil) =
             [|  -1, "golden_sword", AA.golden_sword         ; -1, "clock", AA.clock                     ; -1, "golden_rail", AA.golden_rail         |]
             [|  -1, "hopper", AA.hopper                     ; -1, "hopper", AA.hopper                   ; -1, "hopper", AA.hopper                   |]
         |]
+    // store bingo art in the world
+    let mutable x = 0
+    let mutable z = 0
+    let mutable uniqueArts = Map.empty 
+    for i = 0 to bingoItems.Length-1 do
+        for j = 0 to 2 do
+            let _, _, art = bingoItems.[i].[j]
+            if not(uniqueArts.ContainsKey(art)) then
+                let xCoord = 3+18*x
+                let yCoord = 1
+                let zCoord = 3+18*z
+                writeZoneFromString(region, xCoord, yCoord, zCoord, art)
+                uniqueArts <- uniqueArts.Add(art, (xCoord, yCoord, zCoord))
+                x <- x + 1
+                if x = 8 then
+                    x <- 0
+                    z <- z + 1
+    let uniqueArts = uniqueArts // make an immutable copy
     // per-item Bingo Command storage
     // Y axis - different difficulties
     // X axis - different item subsets
     // Z axis - command: item framex4, (testfor, clear)x4
     for x = 0 to bingoItems.Length-1 do
         for y = 0 to 2 do
-            let dmg, id, _ = bingoItems.[x].[y]
+            let dmg, id, art = bingoItems.[x].[y]
             let cmds = [|
                         for i = 0 to 3 do
                             yield U (sprintf "execute @e[tag=whereToPlaceItemFrame] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:%d,Item:{Count:1,id:minecraft:%s%s}}" i id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
                         for team in [| "Red"; "Blue"; "Green"; "Yellow" |] do
                             yield C (sprintf """testfor @a[team=%s] {Inventory:[{id:"minecraft:%s"%s}]}""" team id (if dmg <> -1 then sprintf ",Damage:%ds" dmg else ""))
                             yield C (sprintf """clear @a[team=%s] %s %d 1""" team id dmg)
+                        let xx, yy, zz = uniqueArts.[art]
+                        yield U (sprintf "execute @e[tag=whereToPlacePixelArt] ~ ~ ~ clone %d %d %d %d %d %d ~ ~ ~" xx yy zz (xx+16) (yy+1) (zz+16))
                        |]
             region.PlaceCommandBlocksStartingAt(3+x,10+y,3,cmds)
 
-    // set up scoreboard objectives
-    // summon 28 AECs with score 1-28 at the bottom of the 28 item sets
     let cmdsInit =
         [|
         yield O ""
+        // world init
+        yield U "setworldspawn 3 4 12"
+        yield U "gamerule commandBlockOutput false"
+        yield U "gamerule doDaylightCycle false"
+        yield U "time set 500"
+        yield U "weather clear 999999"
+        // make display walls for temp work
+        yield U "fill 3 3 3 7 7 3 stone"
+        yield U "fill 3 10 -4 30 12 -4 stone"
+        // kill all entities
         yield U "kill @e[type=!Player]"
+        // set up scoreboard objectives & initial values
         yield U "scoreboard objectives add Score dummy"
         yield U "scoreboard objectives setdisplay sidebar Score"
         yield U "scoreboard players set @a Score 0"
@@ -2525,11 +1981,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set C Calc 12345"
         yield U "scoreboard players set Two Calc 2"
         yield U "scoreboard players set TwoToSixteen Calc 65536"
-        for _i = 1 to bingoItems.Length do
-            yield U "tp @e[tag=item] ~1 ~ ~"
-            yield U "summon AreaEffectCloud 3 10 3 {Duration:999999,Tags:[\"item\"]}"
-            yield U "scoreboard players add @e[tag=item] S 1"
-        yield U "scoreboard players remove @e[tag=item] S 1"
+        // ask for initial seed
         yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/scoreboard players set Z Calc NNN"}}"""
         |]
     region.PlaceCommandBlocksWithLeadingSignStartingAt(3,3,10,cmdsInit,[|"init AECs";"and scores"|])
@@ -2569,6 +2021,43 @@ let placeCommandBlocksInTheWorld(fil) =
         [|
             yield C "kill @e[tag=whereToPlaceItemFrame]"
         |]
+
+    //////////////////////////////////////////////
+    // generate actual card in the sky
+    //////////////////////////////////////////////
+    let makeActualCardInit() =
+        [|
+        yield U "scoreboard players set macCol S 1"
+        yield U "summon ArmorStand 3 28 3 {NoGravity:1,Tags:[\"whereToPlacePixelArt\"]}"
+        |]
+    let makeActualCard() =
+        [|
+        // find one block to clone to 1 1 1 
+        yield U "scoreboard players operation @e[tag=item] S -= next S"
+        yield U "scoreboard players test which S 0 0"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~2 ~12 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield U "scoreboard players test which S 1 1"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~1 ~12 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield U "scoreboard players test which S 2 2"
+        yield C     "execute @e[tag=item,score_S_min=0,score_S=0] ~ ~0 ~12 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield U "scoreboard players operation @e[tag=item] S += next S"
+        // clone it and run it
+        yield U "summon ArmorStand ~ ~ ~2 {Tags:[\"replaceme\"]}"
+        yield U "execute @e[tag=replaceme] ~ ~ ~ clone 1 1 1 1 1 1 ~ ~ ~"
+        yield U "say THIS SHOULD HAVE BEEN REPLACED"
+        yield U "kill @e[tag=replaceme]"
+        // move next spot on board
+        yield U "tp @e[tag=whereToPlacePixelArt] ~24 ~ ~"
+        yield U "scoreboard players add macCol S 1"
+        yield U "scoreboard players test macCol S 6 *"
+        yield C "scoreboard players set macCol S 1"
+        yield C "tp @e[tag=whereToPlacePixelArt] ~-120 ~ ~24"
+        |]
+    let makeActualCardCleanup() =
+        [|
+            yield C "kill @e[tag=whereToPlacePixelArt]"
+        |]
+
 
     ///////////////////////
     // "constantly checking for getting bingo items" bit
@@ -2643,16 +2132,29 @@ let placeCommandBlocksInTheWorld(fil) =
 
     
     // uses seed 'Z' to compute a bingo card (and do SOMETHING)
-    let bingoCardPreviewCmds =
+    let bingoCardMakerCmds(sky) =
         [|
         yield O ""
-        // loop - could be inlined, but not for now, to avoid too many blocks
+        // summon 28 AECs with score 1-28 at the bottom of the 28 item sets
+        yield U "kill @e[tag=item]"
+        for _i = 1 to bingoItems.Length do
+            yield U "tp @e[tag=item] ~1 ~ ~"
+            yield U "summon AreaEffectCloud 3 10 3 {Duration:999999,Tags:[\"item\"]}"
+            yield U "scoreboard players add @e[tag=item] S 1"
+        yield U "scoreboard players remove @e[tag=item] S 1"
+        // init other vars
         yield U (sprintf "scoreboard players set remain S %d" bingoItems.Length)
         yield U "scoreboard players set I S 25"
-        yield! makePreviewWallInit()
-        yield! checkForItemsInit()
+        if sky then
+            yield! makeActualCardInit()
+            yield U "say generating card..."
+        else
+            yield! makePreviewWallInit()
+            yield! checkForItemsInit()
+        // prepare loop
         yield U "summon ArmorStand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
         yield U "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
+        // loop - could be inlined, but not for now, to avoid too many blocks
         yield P ""
         if true then
             // pick which of 28 bingo sets
@@ -2694,8 +2196,11 @@ let placeCommandBlocksInTheWorld(fil) =
             // call some procedure(s) with this implicit state flowing in
             //  - next is a subset # (1-28)
             //  - which is a difficulty # (0-2)
-            yield! makePreviewWall()
-            yield! checkForItems()
+            if sky then
+                yield! makeActualCard()
+            else
+                yield! makePreviewWall()
+                yield! checkForItems()
             // remove used item from remaining list
             yield U "scoreboard players operation @e[tag=item] S -= next S"
             yield U "kill @e[tag=item,score_S_min=0,score_S=0]"
@@ -2707,10 +2212,16 @@ let placeCommandBlocksInTheWorld(fil) =
             yield C "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
             yield C "blockdata ~ ~ ~1 {auto:1b}"  //  one tick later (after loop done)
             yield O "blockdata ~ ~ ~ {auto:0b}"
-            yield! makePreviewWallCleanup()
-            yield! checkForItemsCleanup()
+            yield C "kill @e[tag=purple]"
+            if sky then
+                yield! makeActualCardCleanup()
+                yield U "say ...done!"
+            else
+                yield! makePreviewWallCleanup()
+                yield! checkForItemsCleanup()
         |]
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(6,3,10,bingoCardPreviewCmds,[|"set Z Calc";"to seed"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(6,3,10,bingoCardMakerCmds(false),[|"set Z Calc";"to seed"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(7,3,10,bingoCardMakerCmds(true),[|"set Z Calc";"to seed"|])
     let cloneIntoDisplayWallCmds =
         [|
             yield O ""
@@ -2738,16 +2249,6 @@ let placeCommandBlocksInTheWorld(fil) =
         |]
     region.PlaceCommandBlocksStartingAt(12,3,10,displayWallCmds)
 
-
-
-    for x = 0 to bingoItems.Length-1 do
-        for y = 0 to 2 do
-            let _, _, art = bingoItems.[x].[y]
-            if x < 14 then
-                writeZoneFromString(region, 100+24*x, 50, 100+24*y, art)
-            else
-                writeZoneFromString(region, 100+24*(x-14), 50, 200+24*y, art)
-
     region.Write(fil+".new")
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
@@ -2757,32 +2258,7 @@ let placeCommandBlocksInTheWorld(fil) =
 
 [<System.STAThread()>]  
 do   
-    //printfn "hi"
-    //placeCertainBlocksInTheWorld()
-    //renamer()
-    //dumpSomeCommandBlocks()
-    //TestTreeView()
-(*
-    diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update46\region\r.0.0.mca""",
-              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update47\region\r.0.0.mca""")
-*)
-(*
-    diffDatFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update48\level.dat""",
-              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update48\level.dat.new""")
-    diffDatFiles("""C:\Users\brianmcn\Desktop\FunkyTown-alpha\Classic\level.dat""",
-              """C:\Users\brianmcn\Desktop\FunkyTownDay2-2\FunkyTownDay2-2\level.dat""")
-    diffRegionFiles("""C:\Users\brianmcn\Desktop\FunkyTown-alpha\Classic\region\r.-1.0.mca""",
-              """C:\Users\brianmcn\Desktop\FunkyTownDay2-2\FunkyTownDay2-2\region\r.-1.0.mca""")
-*)
-
-(*
-    diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\TryToReproduceBug4\region\r.0.0.mca""",
-              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\TryToReproduceBug5\region\r.0.0.mca""")
-*)
     //killAllEntities()
-    //main2()
-    //testReadWriteRegionFile()
-    //findEndPortals()
     //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
@@ -2791,13 +2267,11 @@ do
     //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca""",
       //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca.new""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
-    //dumpChunkInfo("""F:\.minecraft\saves\E&Ts7saves\E&T Season 7 Backup After E18\region\r.-6.0.mca""", 0, 31, 0, 31, true)
     //placeCertainEntitiesInTheWorld()
     //dumpPlayerDat()
-    //writeCommandBlocksFromATextFileIntoARegionFile("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\PaintBling19\region\r.-2.2.mca""", """C:\Users\brianmcn\Desktop\pbcomm.txt""")
     //placeCertainBlocksInTheSky()
     //placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
-    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
+    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38b\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca""",
       //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca.old""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
