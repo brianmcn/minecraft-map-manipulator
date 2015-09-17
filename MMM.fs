@@ -893,6 +893,7 @@ type RegionFile(filename) =
     let rx, rz =
         let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new|\.old)?$""")
         int m.Groups.[1].Value, int m.Groups.[2].Value
+    let isChunkDirty = Array2D.create 32 32 false
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
     let mutable firstSeenDataVersion = -1
@@ -968,6 +969,12 @@ type RegionFile(filename) =
         for cx = 0 to 31 do
             for cz = 0 to 31 do
                 if chunks.[cx,cz] <> End then
+                    if isChunkDirty.[cx,cz] then
+                        let chunkLevel = match chunks.[cx,cz] with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+                        match chunkLevel with 
+                        | Compound(n,nbts) -> 
+                            let i = nbts |> Array.findIndex (fun nbt -> nbt.Name = "LightPopulated")
+                            nbts.[i] <- NBT.Byte("LightPopulated", 0uy)
                     let ms = new System.IO.MemoryStream()
                     use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionMode.Compress, true)
                     chunks.[cx,cz].Write(new BinaryWriter2(s))
@@ -1006,18 +1013,32 @@ type RegionFile(filename) =
             s1 <- (s1 + int(bytes.[i])) % 65521
             s2 <- (s2 + s1) % 65521
         s2*65536 + s1
-    static member GetOrCreateSectionFromChunk(theChunk:NBT,y) =  // y is 0-255
-        let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
+    member private this.SetChunkDirty(x,z) = // x,z are world coordinates
+        let xx = ((x+5120)%512)/16
+        let zz = ((z+5120)%512)/16
+        isChunkDirty.[xx,zz] <- true
+    member this.GetOrCreateChunk(x,z) =  // x,z are world coordinates
+        let xx = ((x+5120)%512)/16
+        let zz = ((z+5120)%512)/16
+        let theChunk = getOrCreateChunk(xx,zz)
+        theChunk
+    member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
+        let xx = ((x+5120)%512)/16
+        let zz = ((z+5120)%512)/16
+        let theChunk = getOrCreateChunk(xx,zz)
+        let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+        let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
         let theSection = 
             match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
             | Some x -> x
             | None ->
                 let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", Array.zeroCreate 4096); NBT.ByteArray("Data", Array.zeroCreate 2048); 
-                                    NBT.ByteArray("BlockLight",Array.create 2048 255uy); NBT.ByteArray("SkyLight",Array.create 2048 255uy); NBT.End |]  // TODO relight chunk instead of pop with 255uy?
-                match theChunk with
+                                    NBT.ByteArray("BlockLight",Array.create 2048 0uy); NBT.ByteArray("SkyLight",Array.create 2048 0uy); NBT.End |]  // TODO relight chunk instead of pop with 255uy?
+                match theChunkLevel with
                 | Compound(_,a) ->
                     let i = a |> Array.findIndex (fun x -> x.Name="Sections")
                     a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
+                    isChunkDirty.[xx,zz] <- true
                     newSection
         theSection
     member this.GetChunk(cx, cz) =
@@ -1038,11 +1059,7 @@ type RegionFile(filename) =
         let xxxx = if xxxx < 0 then xxxx+1 else xxxx
         let zzzz = if zzzz < 0 then zzzz+1 else zzzz
         if xxxx/512 <> rx || zzzz/512 <> rz then failwith "coords outside this region"
-        match chunks.[((x+51200)%512)/16,((z+51200)%512)/16] with
-        | End -> None
-        | theChunk ->
-        let theChunk = match theChunk with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
-        let theSection = RegionFile.GetOrCreateSectionFromChunk(theChunk,y)
+        let theSection = this.GetOrCreateSection(x,y,z)
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
@@ -1053,9 +1070,11 @@ type RegionFile(filename) =
             // expand 2048 half-bytes into 4096 for convenience of same indexing
             let blockData = Array.init 4096 (fun x -> if (x+51200)%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
             blockData.[i])
+        let theChunk = this.GetOrCreateChunk(x,z)
+        let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         // TileEntities
         let tileEntity = 
-            match theChunk.["TileEntities"] with 
+            match theChunkLevel.["TileEntities"] with 
             | List(_,Compounds(cs)) ->
                 let tes = cs |> Array.choose (fun te -> 
                     let te = Compound("unnamedDummyToCarryAPayload",te)
@@ -1068,12 +1087,7 @@ type RegionFile(filename) =
     member this.SetBlockIDAndDamage(x, y, z, blockID, damage) =
         if (x+5120)/512 <> rx+10 || (z+5120)/512 <> rz+10 then failwith "coords outside this region"
         if damage > 15uy then failwith "invalid blockData"
-        let theChunk = 
-            let xx = ((x+5120)%512)/16
-            let zz = ((z+5120)%512)/16
-            getOrCreateChunk(xx,zz)
-        let theChunk = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-        let theSection = RegionFile.GetOrCreateSectionFromChunk(theChunk,y)
+        let theSection = this.GetOrCreateSection(x,y,z)
         let dx, dy, dz = (x+5120) % 16, y % 16, (z+5120) % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
@@ -1089,6 +1103,7 @@ type RegionFile(filename) =
             tmp <- tmp &&& 0x0Fuy
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
+        this.SetChunkDirty(x,z)
     member this.PlaceCommandBlocksWithLeadingSignStartingAt(x,y,startz,cmds:_[],signText:string[]) =
         let newCmds = [| yield S signText; yield! cmds |]
         this.PlaceCommandBlocksStartingAt(x,y,startz,newCmds)
@@ -1433,7 +1448,7 @@ let killAllEntities() =
                 | None -> ()
                 | Some _ -> 
                     match theChunk with 
-                    Compound(cname,a) ->
+                    Compound(_cname,a) ->
                         let i = a |> Array.findIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
                         a.[i] <- NBT.List("Entities",Compounds[||])
     regionFile.Write(filename+".new")
@@ -1772,10 +1787,10 @@ let testing2() =
     let fil = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca"""
     let r = new RegionFile(fil)
     let arr = ResizeArray()
-    for i = 0 to 4 do
-        for j = 0 to 4 do
-            let s = readZoneIntoString(r,71+24*i,88,67+24*j,16,1,16)
-            printfn "%s" s
+    for i = 0 to 1 do
+        for j = 0 to 1 do
+            let s = readZoneIntoString(r,64+i*64,208,64+j*64,63,0,63)
+            //printfn "%s" s
             arr.Add(sprintf """let xxx%d%d = "%s" """ i j s)
     let writePath = """C:\Users\brianmcn\Documents\Visual Studio 2012\Projects\MinecraftMapManipulator\MinecraftMapManipulator\Tutorial.fsx"""
     System.IO.File.WriteAllLines(writePath, arr)
@@ -1938,6 +1953,11 @@ let placeCommandBlocksInTheWorld(fil) =
                 if x = 8 then
                     x <- 0
                     z <- z + 1
+    let MAPX, MAPY, MAPZ = 1, 28, 1
+    writeZoneFromString(region, MAPX, MAPY, MAPZ, AA.mapTopLeft)
+    writeZoneFromString(region, MAPX+64, MAPY, MAPZ, AA.mapTopRight)
+    writeZoneFromString(region, MAPX, MAPY, MAPZ+64, AA.mapBottomLeft)
+    writeZoneFromString(region, MAPX+64, MAPY, MAPZ+64, AA.mapBottomRight)
     let uniqueArts = uniqueArts // make an immutable copy
     // per-item Bingo Command storage
     // Y axis - different difficulties
@@ -1957,6 +1977,7 @@ let placeCommandBlocksInTheWorld(fil) =
                        |]
             region.PlaceCommandBlocksStartingAt(3+x,10+y,3,cmds)
 
+    // TODO snow blocks in art assets (e.g. glass bottle) is melting - Mojang bug? how fix?
     let cmdsInit =
         [|
         yield O ""
@@ -1964,8 +1985,12 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "setworldspawn 3 4 12"
         yield U "gamerule commandBlockOutput false"
         yield U "gamerule doDaylightCycle false"
+        yield U "gamerule keepInventory true"
         yield U "time set 500"
         yield U "weather clear 999999"
+        yield U "scoreboard teams add Red"
+        yield U "scoreboard teams option Red color red"
+        yield U "scoreboard teams join Red @a"
         // make display walls for temp work
         yield U "fill 3 3 3 7 7 3 stone"
         yield U "fill 3 10 -4 30 12 -4 stone"
@@ -2028,7 +2053,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let makeActualCardInit() =
         [|
         yield U "scoreboard players set macCol S 1"
-        yield U "summon ArmorStand 3 28 3 {NoGravity:1,Tags:[\"whereToPlacePixelArt\"]}"
+        yield U (sprintf "summon ArmorStand %d %d %d {NoGravity:1,Tags:[\"whereToPlacePixelArt\"]}" (MAPX+7) MAPY (MAPZ+3)) 
         |]
     let makeActualCard() =
         [|
@@ -2135,7 +2160,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let bingoCardMakerCmds(sky) =
         [|
         yield O ""
-        // summon 28 AECs with score 1-28 at the bottom of the 28 item sets
+        // summon 28 AECs with score 0-27 at the bottom of the 28 item sets
         yield U "kill @e[tag=item]"
         for _i = 1 to bingoItems.Length do
             yield U "tp @e[tag=item] ~1 ~ ~"
@@ -2253,6 +2278,23 @@ let placeCommandBlocksInTheWorld(fil) =
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
 
+
+
+
+let placeCommandBlocksInTheWorldTemp(fil) =
+    let region = new RegionFile(fil)
+    let cmdsInit =
+        [|
+        yield P ""
+        for _i = 0 to 199 do
+            yield U "scoreboard players add Score S 1"
+        |]
+    region.PlaceCommandBlocksStartingAt(3,3,10,cmdsInit)
+
+    region.Write(fil+".new")
+    System.IO.File.Delete(fil)
+    System.IO.File.Move(fil+".new",fil)
+
 ////////////////////////////////////////////////////
 
 
@@ -2271,9 +2313,9 @@ do
     //dumpPlayerDat()
     //placeCertainBlocksInTheSky()
     //placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
-    placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38b\region\r.0.0.mca""")
-    //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca""",
-      //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BC\region\r.0.0.mca.old""")
+    //placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\region\r.0.0.mca""")
+    diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
+                    """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
     //testing2()
-
+    //placeCommandBlocksInTheWorldTemp("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""")
