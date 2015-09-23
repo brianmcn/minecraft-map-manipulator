@@ -2029,6 +2029,70 @@ let placeCommandBlocksInTheWorld(fil) =
     writeZoneFromString(region, MAPX+64, MAPY, MAPZ, AA.mapTopRight)
     writeZoneFromString(region, MAPX, MAPY, MAPZ+64, AA.mapBottomLeft)
     writeZoneFromString(region, MAPX+64, MAPY, MAPZ+64, AA.mapBottomRight)
+    // TODO fill plane 1 below it with opaque block, to prevent lighting updates
+
+    // IWIDTH/ILENGTH are interior measures, not including walls
+    let LOBBYX, LOBBYY, LOBBYZ = 1, 40, 1
+    let CFG_ROOM_IWIDTH = 7
+    let MAIN_ROOM_IWIDTH = 9
+    let INFO_ROOM_IWITDH = 7
+    let TOTAL_WIDTH = 1 + CFG_ROOM_IWIDTH + 2 + MAIN_ROOM_IWIDTH + 2 + INFO_ROOM_IWITDH + 1
+    let ILENGTH = 13
+    let LENGTH = ILENGTH + 2
+    let HEIGHT = 9
+    let makeWallSign x y z dmg txt =
+        [|
+            U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
+            U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"}"}""" x y z x y z txt)
+        |]
+
+    let makeLobbyCmds =
+        [|
+            yield O ""
+            // clear
+            yield U (sprintf "fill %d %d %d %d %d %d air" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            // z walls
+            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) LOBBYZ)
+            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY (LOBBYZ+LENGTH-1) (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            // x walls
+            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY LOBBYZ LOBBYX (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+CFG_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-4) (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+3) (LOBBYZ+LENGTH-2))
+            yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-4) (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+3) (LOBBYZ+LENGTH-2))
+            yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+TOTAL_WIDTH-1) LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            // floor
+            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
+            // interior layout - cfg room
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "start cmds"
+            yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+9))
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "respawn cmds"
+            yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+9))
+            yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "night vision"
+            yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "vanilla"
+            yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "other loadout"
+            // interior layout - main room
+            for i = 0 to 4 do
+                for j = 0 to 4 do
+                    yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+5+i) (LOBBYY+2+j) (LOBBYZ+1) 3 "bingo item"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "start game"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "join red"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "join blue"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "join green"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+9) 4 "join yellow"
+            // interior layout - info room
+            for i = 0 to 7 do
+                for j = 0 to 5 do
+                    yield! makeWallSign (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2+j) (LOBBYZ+6+i) 4 "head"
+            yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "offering"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+9) 5 "show items"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+7) 5 "version"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+5) 5 "donate"
+
+        |]
+    region.PlaceCommandBlocksStartingAt(LOBBYX,LOBBYY-2,LOBBYZ,makeLobbyCmds,"build lobby walls")
+
     let uniqueArts = uniqueArts // make an immutable copy
     // per-item Bingo Command storage
     // Y axis - different difficulties
@@ -2047,6 +2111,28 @@ let placeCommandBlocksInTheWorld(fil) =
                         yield U (sprintf "execute @e[tag=whereToPlacePixelArt] ~ ~ ~ clone %d %d %d %d %d %d ~ ~ ~" xx yy zz (xx+16) (yy+1) (zz+16))
                        |]
             region.PlaceCommandBlocksStartingAt(3+x,10+y,3,cmds,"itemframe/testfor/clear/copyPixelArt logic")
+
+    let cmdsTickLagDebugger =
+        [|
+        yield O ""
+        yield U "scoreboard objectives add TickInfo dummy"
+        yield U "scoreboard players set @p TickInfo 0"
+        yield U "stats block ~ ~ ~5 set QueryResult @p TickInfo"
+        yield P ""
+        yield U "scoreboard players add Tick TickInfo 1"
+        yield U "scoreboard players test Tick TickInfo 40 *"
+        yield C "scoreboard players set Tick TickInfo 0"
+        yield C "worldborder get"
+        yield C "worldborder set 10000000"   // TODO note, cannot use as-is while game is running
+        yield C "worldborder add 10000 500"
+        yield C "scoreboard players remove @p TickInfo 10000000"
+        yield C "execute @p[score_TickInfo_min=41] ~ ~ ~ say ticks are lagging"
+        yield U "testforblock ~ ~ ~-7 chain_command_block -1 {SuccessCount:1}"
+        yield C "execute @p[score_TickInfo=39] ~ ~ ~ say ticks are trying to catch up"
+        yield U "testforblock ~ ~ ~-9 chain_command_block -1 {SuccessCount:1}"
+        yield C "execute @p[score_TickInfo_min=40,score_TickInfo=40] ~ ~ ~ say ticks are normal"
+        |]
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(1,3,10,cmdsTickLagDebugger,[|"tick lag";"debugger"|])
 
     let cmdsInit =
         [|
