@@ -1720,6 +1720,24 @@ let dumpTileTicks(file) =
             with e ->
                 ()
 
+let editMapDat(file) =
+    let nbt = readDatFile(file)
+    printfn "%s" (nbt.ToString())
+    let nbt = cataNBT (fun nbt -> 
+        match nbt with 
+        |NBT.Compound("data",_) ->  Compound("data",[|
+                                                    Byte("scale",0uy)
+                                                    Byte("dimension",0uy)
+                                                    Short("height",128s)
+                                                    Short("width",128s)
+                                                    Int("xCenter",65)
+                                                    Int("zCenter",65)
+                                                    ByteArray("colors",Array.zeroCreate 16384)
+                                                    End
+                                                    |])
+        | _ -> nbt) id nbt
+    printfn "%s" (nbt.ToString())
+    writeDatFile(file+".new", nbt)
 
 
 let dumpPlayerDat(file) =
@@ -1975,6 +1993,12 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
             yield U "kill @e[tag=replaceme]"
         |]
+    let nTicksLater(n) = 
+        [|
+            yield U (sprintf "summon AreaEffectCloud ~ ~ ~1 {Tags:[\"nTicksLater\"],Age:-%d}" n)
+            yield O ""
+        |]
+
 
     let bingoItems =
         [|
@@ -2024,15 +2048,17 @@ let placeCommandBlocksInTheWorld(fil) =
                 if x = 8 then
                     x <- 0
                     z <- z + 1
-    let MAPX, MAPY, MAPZ = 1, 28, 1
+    let MAPX, MAPY, MAPZ = 1, 30, 1
     writeZoneFromString(region, MAPX, MAPY, MAPZ, AA.mapTopLeft)
     writeZoneFromString(region, MAPX+64, MAPY, MAPZ, AA.mapTopRight)
     writeZoneFromString(region, MAPX, MAPY, MAPZ+64, AA.mapBottomLeft)
     writeZoneFromString(region, MAPX+64, MAPY, MAPZ+64, AA.mapBottomRight)
-    // TODO fill plane 1 below it with opaque block, to prevent lighting updates
+    for x = 1 to 128 do
+        for z = 1 to 128 do
+            region.SetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
 
     // IWIDTH/ILENGTH are interior measures, not including walls
-    let LOBBYX, LOBBYY, LOBBYZ = 1, 40, 1
+    let LOBBYX, LOBBYY, LOBBYZ = 50, 17, 50
     let CFG_ROOM_IWIDTH = 7
     let MAIN_ROOM_IWIDTH = 9
     let INFO_ROOM_IWITDH = 7
@@ -2092,6 +2118,7 @@ let placeCommandBlocksInTheWorld(fil) =
 
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX,LOBBYY-2,LOBBYZ,makeLobbyCmds,"build lobby walls")
+    // TODO remove 'build lobby' commands from final version
 
     let uniqueArts = uniqueArts // make an immutable copy
     // per-item Bingo Command storage
@@ -2132,7 +2159,66 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "testforblock ~ ~ ~-9 chain_command_block -1 {SuccessCount:1}"
         yield C "execute @p[score_TickInfo_min=40,score_TickInfo=40] ~ ~ ~ say ticks are normal"
         |]
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(1,3,10,cmdsTickLagDebugger,[|"tick lag";"debugger"|])
+    let cmdsnTicksLater =
+        [|
+        // nTicksLater
+        yield P ""
+        yield U "scoreboard players tag @e[tag=nTicksLater] add nTicksLaterDone {Age:-1}"
+        yield U "execute @e[tag=nTicksLaterDone] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
+        yield U "execute @e[tag=nTicksLaterDone] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
+        |]
+    let TIMER_CYCLE_LENGTH = 5  // TODO decide loop time length
+    assert(TIMER_CYCLE_LENGTH > 1)
+    let timerCmds = 
+        [|
+            P "scoreboard players add Time S 1"
+            U (sprintf "scoreboard players test Time S %d %d" TIMER_CYCLE_LENGTH TIMER_CYCLE_LENGTH)
+            C "scoreboard players set Time S 0"
+        |]
+    let cmdsFindPlayerWhoDroppedMap =
+        [|
+        yield P "scoreboard players test Time S 0 0"
+        yield C "blockdata ~ ~ ~2 {auto:1b}"
+        yield C "blockdata ~ ~ ~1 {auto:0b}"
+        yield O ""
+        yield U "scoreboard players set SomeoneIsMapUpdating S 0"
+        yield U "execute @a[tag=playerThatIsMapUpdating] ~ ~ ~ scoreboard players set SomeoneIsMapUpdating S 1"
+        yield U "scoreboard players test SomeoneIsMapUpdating S 0 0"
+        yield C "blockdata ~ ~ ~2 {auto:1b}"
+        yield C "blockdata ~ ~ ~1 {auto:0b}"
+        yield O ""
+        yield U "scoreboard players tag @e[type=Item] add droppedMap {Item:{id:\"minecraft:filled_map\",Damage:0s}}"
+        yield U "execute @e[tag=droppedMap] ~ ~ ~ scoreboard players tag @p[r=5] add playerThatIsMapUpdating"
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Tags:[\"whereToTpBackTo\"],Duration:1000}"  // summon now, need to wait a tick to TP
+        yield U "testfor @p[tag=playerThatIsMapUpdating]"
+        yield C """tellraw @a ["time ",{"score":{"name":"Time","objective":"S"}}]"""
+        yield C "setblock 103 4 10 wool"   // TODO sync coords
+        yield C "blockdata ~ ~ ~3 {auto:1b}"
+        yield C "blockdata ~ ~ ~2 {auto:0b}"
+        yield U "kill @e[tag=droppedMap]"
+        // at end, at most one playerThatIsMapUpdating is tagged
+        yield O ""   // someone was tagged, do teleport
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ setworldspawn ~ ~ ~"
+        yield U """tellraw @a [{"selector":"@p[tag=playerThatIsMapUpdating]"}," is updating the BINGO map"]"""
+        yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
+        // TODO mob-preservation-system
+        yield U "tp @e[tag=whereToTpBackTo] @p[playerThatIsMapUpdating]"  // a tick after summoning, tp marker to player, to preserve facing direction
+        yield U "tp @p[tag=playerThatIsMapUpdating] 61 18 61 0 0"  // TODO coords of tp room
+        yield! nTicksLater(40) // TODO adjust timing?
+        yield U "tp @p[tag=playerThatIsMapUpdating] @e[tag=whereToTpBackTo]"  // TODO coords of tp room
+        yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
+        yield U "setworldspawn 61 18 61"  // TODO coords
+        yield U "scoreboard players tag @p[tag=playerThatIsMapUpdating] remove playerThatIsMapUpdating"
+        yield U "kill @e[tag=whereToTpBackTo]"
+        yield U "setblock 103 4 10 redstone_block"   // TODO sync coords
+        |]
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(100,3,5,cmdsTickLagDebugger,[|"tick lag";"debugger"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(101,3,9,cmdsnTicksLater,[|"nTicksLater"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(102,3,9,timerCmds,[|"clock every";"N ticks"|])
+    region.PlaceCommandBlocksWithLeadingSignStartingAt(103,3,9,cmdsFindPlayerWhoDroppedMap,[|"notice player";"that drops map"|])
+
 
     let cmdsInit =
         [|
@@ -2239,16 +2325,9 @@ let placeCommandBlocksInTheWorld(fil) =
     ///////////////////////
     // "constantly checking for getting bingo items" bit
     ///////////////////////
-    let TIMER_CYCLE_LENGTH = 5  // TODO decide loop time length
-    assert(TIMER_CYCLE_LENGTH > 1)
-    let timerCmds = 
-        [|
-            O "fill 6 10 44 10 14 44 minecraft:redstone_block"
-            P "scoreboard players add Time S 1"
-            U (sprintf "scoreboard players test Time S %d %d" TIMER_CYCLE_LENGTH TIMER_CYCLE_LENGTH)
-            C "scoreboard players set Time S 0"
-        |]
-    region.PlaceCommandBlocksStartingAt(3,10,45,timerCmds,"timer to only clock item-check every N ticks")
+    
+    // TODO init all red checkers:
+    //        O "fill 6 10 44 10 14 44 minecraft:redstone_block"   
 
     // red team got-item-checker framework   // TODO 3 other team colors
     for x = 0 to 4 do
@@ -2433,7 +2512,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let pickSpawnCmds = 
         [|
             yield O ""
-            yield U "tp @p[xtag=oneGuyToTeleport] 0 5 0"// TODO xtag
+            yield U "tp @p[xtag=oneGuyToTeleport] 0 251 0"// TODO xtag
             yield U "scoreboard players set mod S 300"
             yield! PRNG("whichX", "S", "mod", "S")
             yield U "scoreboard players set mod S 300"
@@ -2461,8 +2540,26 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "execute @e[tag=findblock] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
             yield! CLONE_111_AND_RUN_IT_NOW
             yield U "kill @e[tag=findblock]"
+            // guy is TP'd there, now do spawn box, drop armor stand, etc
+            yield! nTicksLater(100) // TODO adjust timing?
+            yield U "execute @p[xtag=oneGuyToTeleport] ~ ~ ~ fill ~-2 249 ~-2 ~2 254 ~2 barrier 0 hollow"  // TODO adjust height?
+            yield U "execute @p[xtag=oneGuyToTeleport] ~ ~ ~ setblock ~ 64 ~ grass"// TODO remove
+            yield U "execute @p[xtag=oneGuyToTeleport] ~ ~ ~ setblock ~ 65 ~ deadbush"// TODO remove
+            yield U "tp @p[xtag=oneGuyToTeleport] ~ 251 ~"// TODO xtag // TODO adjust height?
+            yield U "execute @p[xtag=oneGuyToTeleport] ~ ~ ~ summon ArmorStand ~ ~-4 ~ {Invulnerable:1,Marker:1,Tags:[\"tpas\"]}"// TODO xtag
+            yield! nTicksLater(200) // TODO adjust timing?
+            for _i = 0 to 9 do
+                yield U "execute @e[tag=tpas] ~ ~ ~ testforblock ~ ~ ~ air 0"
+                yield U "testforblock ~ ~ ~-1 chain_command_block -1 {SuccessCount:0}"
+                yield C "tp @e[tag=tpas] ~ ~2 ~"
+                yield C "execute @e[tag=tpas] ~ ~ ~ fill ~ ~-2 ~ ~ ~-1 ~ stone"
+            yield U "tp @p[xtag=oneGuyToTeleport] @e[tag=tpas]"// TODO xtag
+            yield U "kill @e[tag=tpas]"
+            // TODO tp rest of team, set spawnpoints, etc
         |]
     region.PlaceCommandBlocksStartingAt(18,3,10,pickSpawnCmds, "spawn based on seed")
+
+
 
     region.Write(fil+".new")
     System.IO.File.Delete(fil)
@@ -2512,4 +2609,5 @@ do
 
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\level.dat""")
+    //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\data\map_0.dat""")
     placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\region\r.0.0.mca""")
