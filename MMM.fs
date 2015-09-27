@@ -1140,7 +1140,7 @@ type RegionFile(filename) =
     member this.PlaceCommandBlocksStartingAt(c:Coords,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAt(c.X,c.Y,c.Z,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
-        printfn "%d commands being placed - %s" cmds.Length comment
+        printfn "%s%d commands being placed - %s" (if startz + cmds.Length > 180 then "***WARN*** - " else "") cmds.Length comment
         let cmds = Seq.append cmds [| O "say dummy command at end" |] |> Array.ofSeq   // TODO remove this, make air, so less data in the chunk
 #if DEBUG_DETAIL
         if cmds.[0] = O "" then
@@ -2071,6 +2071,10 @@ let placeCommandBlocksInTheWorld(fil) =
     let GOT_AN_ITEM_COMMON_LOGIC(team) = Coords(6+6*team,10,80)
     let MAKE_SEEDED_CARD = Coords(7,3,11)
     let TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW = Coords(20,3,10)
+    let CHOOSE_SEED_BUTTON = Coords(50,10,10)
+    let START_GAME_PART_1 = Coords(51,10,10)
+    let START_GAME_PART_2 = Coords(52,10,10)
+    let PILLAR_UP_THE_ARMOR_STAND = Coords(60,10,10)
     
     //////////////////////////////
     // lobby
@@ -2085,6 +2089,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let ILENGTH = 13
     let LENGTH = ILENGTH + 2
     let HEIGHT = 9
+    let NUM_CONFIG_COMMANDS = 8
     let makeWallSign x y z dmg txt =
         [|
             U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
@@ -2116,13 +2121,13 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-4) (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+3) (LOBBYZ+LENGTH-2))
             yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+TOTAL_WIDTH-1) LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
             // floor
-            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
             // interior layout - cfg room
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout"
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "start game"
-            yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+9))
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "respawn cmds"
-            yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+9))
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at start"
+            yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at respawn"
+            yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "night vision"
             yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "vanilla"
             yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "other loadout"
@@ -2254,15 +2259,27 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set hasAnyoneUpdatedMap S 1"
         yield U "kill @e[tag=whereToTpBackTo]"
         |]
+    let cmdsNoMoreMaps =
+        [|
+        P "scoreboard players test Time S 0 0"
+        C "blockdata ~ ~ ~2 {auto:1b}"
+        C "blockdata ~ ~ ~1 {auto:0b}"
+        O ""
+        U "scoreboard players set @a hasMaps 0"
+        U """scoreboard players set @a hasMaps 1 {Inventory:[{id:"minecraft:filled_map",Damage:0s}]}"""
+        U """give @a[score_hasMaps=0] filled_map 64 0 {display:{Name:"BINGO Card"}}"""
+        |]
     region.PlaceCommandBlocksStartingAt(100,3,6,cmdsTickLagDebugger,"tick lag debugger")
     region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
     region.PlaceCommandBlocksStartingAt(102,3,10,timerCmds,"clock every N ticks")
     region.PlaceCommandBlocksStartingAt(103,3,10,cmdsFindPlayerWhoDroppedMap,"notice player that drops map")
+    region.PlaceCommandBlocksStartingAt(104,3,10,cmdsNoMoreMaps,"give maps to players without")
 
 
-    let cmdsInit =
+    let cmdsInit1 =
         [|
         yield O ""
+        yield U "effect @a night_vision 9999 0 true"
         // world init
         yield U "setworldspawn 3 4 12"
         yield U "gamerule commandBlockOutput false"
@@ -2278,11 +2295,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "fill 3 10 -4 30 12 -4 stone"
         // kill all entities
         yield U "kill @e[type=!Player]"
-        // make AECs for indexing, e.g. tag=Z,score_S=7 is at Z=7
-        for i = 60 downto 1 do  // TODO what is good max #?
-            yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)   // TODO deal with expiration
-            yield U "scoreboard players add @e[tag=Z] S 1"
         // set up scoreboard objectives & initial values
+        yield U "scoreboard objectives add hasMaps dummy"
         yield U "scoreboard objectives add Score dummy"
         yield U "scoreboard objectives setdisplay sidebar Score"
         yield U "scoreboard players set @a Score 0"
@@ -2301,11 +2315,27 @@ let placeCommandBlocksInTheWorld(fil) =
         // start major clocks
         yield U "fill 101 4 10 108 4 10 wool"  // todo coords
         yield U "fill 101 4 10 108 4 10 redstone_block"  // todo coords
+        // call part 2
+        yield U (sprintf "blockdata %d %d %d {auto:1b}" 4 3 10) // todo coords
+        yield U (sprintf "blockdata %d %d %d {auto:0b}" 4 3 10)
         // build lobby
         yield U (sprintf "blockdata %d %d %d {auto:1b}" LOBBYX (LOBBYY-2) LOBBYZ)
         yield U (sprintf "blockdata %d %d %d {auto:0b}" LOBBYX (LOBBYY-2) LOBBYZ)
+        // debug stuff
+        yield! nTicksLater(3)
+        yield U (sprintf """blockdata %d %d %d {Command:"effect @a 16 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2)) // todo remove (debug help)
+        yield U (sprintf """blockdata %d %d %d {Command:"gamemode 1 @a"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+1)) // todo remove (debug help)
         |]
-    region.PlaceCommandBlocksStartingAt(3,3,10,cmdsInit,"init all")
+    region.PlaceCommandBlocksStartingAt(3,3,10,cmdsInit1,"init1 all")
+    let cmdsInit2 =
+        [|
+        yield O ""
+        // make AECs for indexing, e.g. tag=Z,score_S=7 is at Z=7
+        for i = 60 downto 1 do  // TODO what is good max #?
+            yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)   // TODO deal with expiration
+            yield U "scoreboard players add @e[tag=Z] S 1"
+        |]
+    region.PlaceCommandBlocksStartingAt(4,3,10,cmdsInit2,"init2 all")
 
     //////////////////////////////////////////////
     // generate a preview of card with items frames on a wall
@@ -2430,7 +2460,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
         yield C (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
         |]
-    region.PlaceCommandBlocksStartingAt(50,10,10,chooseSeedButton,"choose seed")
+    region.PlaceCommandBlocksStartingAt(CHOOSE_SEED_BUTTON,chooseSeedButton,"choose seed")
 
     ///////////////////////
     // start game    
@@ -2454,12 +2484,21 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C "blockdata ~ ~ ~2 {auto:1b}"
         yield C "blockdata ~ ~ ~1 {auto:0b}"
         yield O ""
-        // - put folks in survival mode, feed & heal, remove all xp
-        // - do the 'clear card' logic of clearing scores and map color
-        // - fill inv with maps to ensure cleared (map updated)
-        // - give player all the effects
-        // - if non-seeded spawn: spread 1 red, wait for terrain, tp rest red, spread 1 blue, wait terrain, tp rest blue, wait, start
-        //   else seeded spawn: tp player x then z (have more than 20x20), make skybox, wait terrain, drop armorstand, wait fall, lift armorstand, tp player(s), wait, start
+        // put folks in survival mode, feed & heal, remove all xp
+        yield U "gamemode s @a"
+        yield U "effect @a saturation 10 4 true"
+        yield U "effect @a regeneration 10 4 true"
+        yield U "xp -2147483648L @a"
+        // TODO fill inv with maps to ensure cleared (map updated)
+        // give player all the effects
+        yield U "effect @a slowness 999 127 true"
+        yield U "effect @a mining_fatigue 999 7 true"
+        yield U "effect @a jump_boost 999 150 true"
+        yield U "effect @a resistance 999 4 true"
+        yield U "effect @a water_breathing 999 4 true"
+        yield U "effect @a invisibility 999 4 true"
+        yield U "time set 0"
+        // do seeded spawn points
         yield U "scoreboard players operation Z Calc = Seed Score"
         yield U (sprintf "blockdata %s {auto:1b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
         yield U (sprintf "blockdata %s {auto:0b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
@@ -2467,35 +2506,47 @@ let placeCommandBlocksInTheWorld(fil) =
     let startGameButtonPart2 =
         [|
         yield O ""
-        // - set player spawnpoints
-        // - enable triggers (for click-in-chat-to-tp-home stuff)
-        // - get rid of potion effects
-        // - time set 0
-        // - feed & heal
-        // - diff 0 then diff 2, to clear mobs (mobSpawning, daylightCycle true)
+        // TODO enable triggers (for click-in-chat-to-tp-home stuff)
+        // feed & heal again
+        yield U "effect @a saturation 10 4 true"
+        yield U "effect @a regeneration 10 4 true"
+        // clear hostile mobs
         yield U "difficulty 0"
         yield U "blockdata ~ ~ ~2 {auto:1b}"
         yield U "blockdata ~ ~ ~1 {auto:0b}"
         yield O ""
         yield U "difficulty 2"
-        // - start magic mirror
-        yield U "fill 101 4 10 107 4 10 wool" // TODO coords  // todo already started hm
-        yield U "fill 101 4 10 107 4 10 redstone_block" // TODO coords
-        // - start no-more-maps replacement
-        // - start check-for-bingo-items
+        // start check-for-bingo-items
         for t = 0 to 3 do
             let team = TEAMS.[t]
             yield U (sprintf "scoreboard players test %sCount S 1 *" team)
             yield C (sprintf "fill %s %s stone" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR) // Note: 'stone' because 'wool' may fail (0 updates) after blackout
             yield C (sprintf "fill %s %s redstone_block" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
-        // - start worldborder timer
-        // - announce start-go in chat
+        // TODO start worldborder timer
+        yield U """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
+        yield! nTicksLater(10)
+        yield U """tellraw @a ["3"]"""
+        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+        yield! nTicksLater(10)
+        yield U """tellraw @a ["2"]"""
+        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+        yield! nTicksLater(10)
+        yield U """tellraw @a ["1"]"""
+        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+        yield! nTicksLater(10)
         yield U "scoreboard players set hasAnyoneUpdatedMap S 0"
+        yield U "time set 0"
+        yield U "effect @a clear"
         yield U """tellraw @a ["Start! Go!!!"]"""
-        // - (new) run the on-start logic (do last, so can override other stuff)
+        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 1.2"
+        // TODO (new) run the on-start logic (do last, so can override other stuff)
+        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
+        for _i = 1 to NUM_CONFIG_COMMANDS do
+            yield U "say SHOULD BE REPLACED"
+        // TODO find place to run the after-death logic
         |]
-    region.PlaceCommandBlocksStartingAt(51,10,10,startGameButtonPart1,"start game1")
-    region.PlaceCommandBlocksStartingAt(52,10,10,startGameButtonPart2,"start game2")
+    region.PlaceCommandBlocksStartingAt(START_GAME_PART_1,startGameButtonPart1,"start game1")
+    region.PlaceCommandBlocksStartingAt(START_GAME_PART_2,startGameButtonPart2,"start game2")
 
     ///////////////////////
     // "constantly checking for getting bingo items" bit
@@ -2596,7 +2647,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "scoreboard players set remain S %d" bingoItems.Length)
         yield U "scoreboard players set I S 25"
         if sky then
-            yield U "say generating card..."
+            yield U """tellraw @a ["Generating card..."]"""
             yield! makeActualCardInit()
             yield! checkForItemsInit()
         else
@@ -2630,15 +2681,16 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "scoreboard players remove I S 1"
             yield U "scoreboard players test I S * 1"      // testing 1, which is OBO, because loop runs 1 extra time after we turn off purple
             yield C "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
-            yield C "blockdata ~ ~ ~1 {auto:1b}"  //  one tick later (after loop done)
-            yield O "blockdata ~ ~ ~ {auto:0b}"
-            yield C "kill @e[tag=purple]"
-            if sky then
-                yield! makeActualCardCleanup()
-                yield! checkForItemsCleanup()
-                yield U "say ...done!"
-            else
-                yield! makePreviewWallCleanup()
+            yield C "blockdata ~ ~ ~2 {auto:1b}"  //  one tick later (after loop done)
+            yield C "blockdata ~ ~ ~1 {auto:0b}"
+        yield O ""
+        yield U "kill @e[tag=purple]"
+        if sky then
+            yield! makeActualCardCleanup()
+            yield! checkForItemsCleanup()
+            yield U """tellraw @a ["...done!"]"""
+        else
+            yield! makePreviewWallCleanup()
         |]
     region.PlaceCommandBlocksStartingAt(6,3,10,bingoCardMakerCmds(false),"make preview")  // TODO remove all related to preview? wall and code?
     region.PlaceCommandBlocksStartingAt(MAKE_SEEDED_CARD,bingoCardMakerCmds(true),"make pixel art and checker")
@@ -2703,10 +2755,21 @@ let placeCommandBlocksInTheWorld(fil) =
             |]
         region.PlaceCommandBlocksStartingAt(16,3+y,10,tpXCmds, "tp Z")
     // pick spawn from seed
+    let pillarUpTheArmorStand =
+        [|
+            yield O ""
+            for _i = 0 to 15 do
+                yield U "execute @e[tag=tpas] ~ ~ ~ testforblock ~ ~ ~ air 0"
+                yield U "testforblock ~ ~ ~-1 chain_command_block -1 {SuccessCount:0}"
+                yield C "tp @e[tag=tpas] ~ ~2 ~"
+                yield C "execute @e[tag=tpas] ~ ~ ~ fill ~ ~-2 ~ ~ ~-1 ~ stone"
+        |]
+    region.PlaceCommandBlocksStartingAt(PILLAR_UP_THE_ARMOR_STAND,pillarUpTheArmorStand, "pillar up the armor stand")
+        
     let SPAWN_START_HEIGHT = 130// TODO adjust height?
     let pickSpawnThenActivate(team,ax,ay,az) = 
         [|
-#if DEBUG
+#if DEBUG_DETAIL
             yield O (sprintf "say pickSpawnThenActivate %s" team)
 #else
             yield O ""
@@ -2746,7 +2809,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! nTicksLater(100) // get some terrain gen'd    TODO adjust timing?
             yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ %d ~" SPAWN_START_HEIGHT)
             yield! nTicksLater(5) // ensure skybox area gen'd    TODO adjust timing?
-            yield U (sprintf "execute @p[tag=oneGuyToTeleport] ~ ~ ~ fill ~-2 %d ~-2 ~2 %d ~2 barrier 0 hollow" (SPAWN_START_HEIGHT-2) (SPAWN_START_HEIGHT+3))
+            yield U (sprintf "execute @p[tag=oneGuyToTeleport] ~ ~ ~ fill ~-1 %d ~-1 ~1 %d ~1 barrier 0 hollow" (SPAWN_START_HEIGHT-2) (SPAWN_START_HEIGHT+3))
 #if VOID_WORLD_TESTING
             yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ setblock ~ 64 ~ grass"// TODO remove
             yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ setblock ~ 65 ~ deadbush"// TODO remove
@@ -2754,14 +2817,14 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ %d ~" SPAWN_START_HEIGHT)
             yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ summon ArmorStand ~ ~-4 ~ {Invulnerable:1,Marker:1,Tags:[\"tpas\"]}"
             yield! nTicksLater(400) // TODO adjust timing?
-            for _i = 0 to 15 do
-                yield U "execute @e[tag=tpas] ~ ~ ~ testforblock ~ ~ ~ air 0"
-                yield U "testforblock ~ ~ ~-1 chain_command_block -1 {SuccessCount:0}"
-                yield C "tp @e[tag=tpas] ~ ~2 ~"
-                yield C "execute @e[tag=tpas] ~ ~ ~ fill ~ ~-2 ~ ~ ~-1 ~ stone"
+            // call out to pillar-armor-stand (only takes 1 tick)
+            yield U (sprintf "blockdata %s {auto:1b}" PILLAR_UP_THE_ARMOR_STAND.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" PILLAR_UP_THE_ARMOR_STAND.STR)
+            yield! nTicksLater(3) // ensure armor stand pillar done
             yield U "tp @p[tag=oneGuyToTeleport] @e[tag=tpas]"
             yield U "kill @e[tag=tpas]"
             yield U (sprintf "tp @a[team=%s,tag=!oneGuyToTeleport] @p[tag=oneGuyToTeleport]" team)
+            yield U (sprintf "spawnpoint @a[team=%s]" team)
             yield U (sprintf "blockdata %d %d %d {auto:1b}" ax ay az)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" ax ay az)
         |]
@@ -2774,8 +2837,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "scoreboard players tag @a[tag=oneGuyToTeleport] remove oneGuyToTeleport"
             yield U (sprintf "testfor @p[team=%s]" team)
             yield U "testforblock ~ ~ ~-1 chain_command_block -1 {SuccessCount:0}"
-            yield C (sprintf "blockdata %d 3 10 {auto:1b}" (21+t))
-            yield C (sprintf "blockdata %d 3 10 {auto:0b}" (21+t))
+            yield C (sprintf "blockdata %d %d %d {auto:1b}" (coord.X+t+1) coord.Y coord.Z)
+            yield C (sprintf "blockdata %d %d %d {auto:0b}" (coord.X+t+1) coord.Y coord.Z)
             yield U "testforblock ~ ~ ~-3 chain_command_block -1 {SuccessCount:0}"
             yield C (sprintf "scoreboard players tag @p[team=%s] add oneGuyToTeleport" team)
             yield C "blockdata ~ ~ ~2 {auto:1b}"
@@ -2786,8 +2849,8 @@ let placeCommandBlocksInTheWorld(fil) =
     let afterAllSpawn =
         [|
         O ""
-        U "blockdata 52 10 10 {auto:1b}" // todo coords
-        U "blockdata 52 10 10 {auto:0b}" // todo coords
+        U (sprintf "blockdata %s {auto:1b}" START_GAME_PART_2.STR)
+        U (sprintf "blockdata %s {auto:0b}" START_GAME_PART_2.STR)
         |]
     let coordTp = TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW
     region.PlaceCommandBlocksStartingAt(coordTp.X+4,coordTp.Y,coordTp.Z,afterAllSpawn, "after spawn based on seed")
