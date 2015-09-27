@@ -916,6 +916,12 @@ type CommandBlock =     // the useful subset I plan to map anything into
     | C of string  // green (pointing positive Z, conditional, auto:1)
     | S of string[]  // sign, for commenting start of line
 
+type Coords(x:int,y:int,z:int) = 
+    member this.X = x
+    member this.Y = y
+    member this.Z = z
+    member this.STR = sprintf "%d %d %d" x y z
+
 type RegionFile(filename) =
     let rx, rz =
         let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new|\.old)?$""")
@@ -1131,9 +1137,8 @@ type RegionFile(filename) =
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
         this.SetChunkDirty(x,z)
-    member this.PlaceCommandBlocksWithLeadingSignStartingAt(x,y,startz,cmds:_[],signText:string[]) =
-        let newCmds = [| yield S signText; yield! cmds |]
-        this.PlaceCommandBlocksStartingAt(x,y,startz,newCmds,signText.[0])
+    member this.PlaceCommandBlocksStartingAt(c:Coords,cmds:_[],comment) =
+        this.PlaceCommandBlocksStartingAt(c.X,c.Y,c.Z,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
         printfn "%d commands being placed - %s" cmds.Length comment
         let cmds = Seq.append cmds [| O "say dummy command at end" |] |> Array.ofSeq   // TODO remove this, make air, so less data in the chunk
@@ -2060,6 +2065,17 @@ let placeCommandBlocksInTheWorld(fil) =
         for z = 1 to 128 do
             region.SetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
 
+    let MAP_UPDATE_ROOM = Coords(61,18,61) // TODO pick right spot
+    let ITEM_CHECKERS_REDSTONE_LOW(team) = Coords(6+6*team,10,44)
+    let ITEM_CHECKERS_REDSTONE_HIGH(team) = Coords(10+6*team,14,44)
+    let GOT_AN_ITEM_COMMON_LOGIC(team) = Coords(6+6*team,10,80)
+    let MAKE_SEEDED_CARD = Coords(7,3,11)
+    let TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW = Coords(20,3,10)
+    
+    //////////////////////////////
+    // lobby
+    //////////////////////////////
+
     // IWIDTH/ILENGTH are interior measures, not including walls
     let LOBBYX, LOBBYY, LOBBYZ = 50, 17, 50
     let CFG_ROOM_IWIDTH = 7
@@ -2226,21 +2242,22 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U """tellraw @a [{"selector":"@p[tag=playerThatIsMapUpdating]"}," is updating the BINGO map"]"""
         // TODO mob-preservation-system
         yield U "tp @e[tag=whereToTpBackTo] @p[tag=playerThatIsMapUpdating]"  // a tick after summoning, tp marker to player, to preserve facing direction
-        yield U "tp @p[tag=playerThatIsMapUpdating] 61 18 61 0 0"  // TODO coords of tp room
+        yield U (sprintf "tp @p[tag=playerThatIsMapUpdating] %s 0 0" MAP_UPDATE_ROOM.STR)
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
         yield! nTicksLater(40) // TODO adjust timing?
         yield U "tp @p[tag=playerThatIsMapUpdating] @e[tag=whereToTpBackTo]"
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
-        yield U "setworldspawn 61 18 61"  // TODO coords
+        yield U (sprintf "setworldspawn %s" MAP_UPDATE_ROOM.STR)
         yield U "scoreboard players tag @p[tag=playerThatIsMapUpdating] remove playerThatIsMapUpdating"
+        yield U "scoreboard players set hasAnyoneUpdatedMap S 1"
         yield U "kill @e[tag=whereToTpBackTo]"
         |]
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(100,3,5,cmdsTickLagDebugger,[|"tick lag";"debugger"|])
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(101,3,9,cmdsnTicksLater,[|"nTicksLater"|])
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(102,3,9,timerCmds,[|"clock every";"N ticks"|])
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(103,3,9,cmdsFindPlayerWhoDroppedMap,[|"notice player";"that drops map"|])
+    region.PlaceCommandBlocksStartingAt(100,3,6,cmdsTickLagDebugger,"tick lag debugger")
+    region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
+    region.PlaceCommandBlocksStartingAt(102,3,10,timerCmds,"clock every N ticks")
+    region.PlaceCommandBlocksStartingAt(103,3,10,cmdsFindPlayerWhoDroppedMap,"notice player that drops map")
 
 
     let cmdsInit =
@@ -2288,7 +2305,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "blockdata %d %d %d {auto:1b}" LOBBYX (LOBBYY-2) LOBBYZ)
         yield U (sprintf "blockdata %d %d %d {auto:0b}" LOBBYX (LOBBYY-2) LOBBYZ)
         |]
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(3,3,10,cmdsInit,[|"init AECs";"and scores"|])
+    region.PlaceCommandBlocksStartingAt(3,3,10,cmdsInit,"init all")
 
     //////////////////////////////////////////////
     // generate a preview of card with items frames on a wall
@@ -2366,7 +2383,7 @@ let placeCommandBlocksInTheWorld(fil) =
         // TODO disabling other buttons
         // turn off check-for-item-checkers
         for t = 0 to 3 do
-            yield U (sprintf "fill %d 10 44 %d 14 44 wool" (6+6*t) (10+6*t)) // TODO coords
+            yield U (sprintf "fill %s %s wool" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
         // clear scores
         yield U "scoreboard players set @a Score 0"
         // select seed and generate
@@ -2383,8 +2400,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players operation Seed Score = seed is"
         yield U "scoreboard players operation Z Calc = seed is"
         yield U "scoreboard players set seed is -2147483648"
-        yield U "blockdata 7 3 11 {auto:1b}"  // TODO coords
-        yield U "blockdata 7 3 11 {auto:0b}"  // TODO coords
+        yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
         |]
     region.PlaceCommandBlocksStartingAt(49,10,10,randomSeedButton,"random seed")
 
@@ -2394,7 +2411,7 @@ let placeCommandBlocksInTheWorld(fil) =
         // TODO disabling other buttons
         // turn off check-for-item-checkers
         for t = 0 to 3 do
-            yield U (sprintf "fill %d 10 44 %d 14 44 wool" (6+6*t) (10+6*t)) // TODO coords
+            yield U (sprintf "fill %s %s wool" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
         // clear scores
         yield U "scoreboard players set @a Score 0"
         // select seed and generate
@@ -2410,8 +2427,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C "scoreboard players operation Seed Score = seed is"
         yield C "scoreboard players operation Z Calc = seed is"
         yield C "scoreboard players set seed is -2147483648"
-        yield C "blockdata 7 3 11 {auto:1b}"  // TODO coords
-        yield C "blockdata 7 3 11 {auto:0b}"  // TODO coords
+        yield C (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
+        yield C (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
         |]
     region.PlaceCommandBlocksStartingAt(50,10,10,chooseSeedButton,"choose seed")
 
@@ -2420,8 +2437,8 @@ let placeCommandBlocksInTheWorld(fil) =
     ///////////////////////
     let startGameButtonPart1 =
         [|
-        // TODO disabling other buttons
         yield O ""
+        // TODO disabling other buttons
         // ensure that people have joined teams
         for t in TEAMS do
             yield U (sprintf "scoreboard players set %sCount S 0" t)
@@ -2444,8 +2461,8 @@ let placeCommandBlocksInTheWorld(fil) =
         // - if non-seeded spawn: spread 1 red, wait for terrain, tp rest red, spread 1 blue, wait terrain, tp rest blue, wait, start
         //   else seeded spawn: tp player x then z (have more than 20x20), make skybox, wait terrain, drop armorstand, wait fall, lift armorstand, tp player(s), wait, start
         yield U "scoreboard players operation Z Calc = Seed Score"
-        yield U "blockdata 20 3 10 {auto:1b}"        // call seeded spawn // TODO coords 
-        yield U "blockdata 20 3 10 {auto:0b}"
+        yield U (sprintf "blockdata %s {auto:1b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
         |]
     let startGameButtonPart2 =
         [|
@@ -2469,10 +2486,11 @@ let placeCommandBlocksInTheWorld(fil) =
         for t = 0 to 3 do
             let team = TEAMS.[t]
             yield U (sprintf "scoreboard players test %sCount S 1 *" team)
-            yield C (sprintf "fill %d 10 44 %d 14 44 stone" (6+6*t) (10+6*t)) // TODO coords
-            yield C (sprintf "fill %d 10 44 %d 14 44 redstone_block" (6+6*t) (10+6*t)) // TODO coords
+            yield C (sprintf "fill %s %s stone" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR) // Note: 'stone' because 'wool' may fail (0 updates) after blackout
+            yield C (sprintf "fill %s %s redstone_block" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
         // - start worldborder timer
         // - announce start-go in chat
+        yield U "scoreboard players set hasAnyoneUpdatedMap S 0"
         yield U """tellraw @a ["Start! Go!!!"]"""
         // - (new) run the on-start logic (do last, so can override other stuff)
         |]
@@ -2500,8 +2518,10 @@ let placeCommandBlocksInTheWorld(fil) =
                     C "blockdata ~ ~ ~2 {auto:1b}"
                     C "blockdata ~ ~ ~1 {auto:0b}"
                     O ""
-                    U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"GameTime","objective":"Score"}},"s)"]""" team team)
-                    U "execute @a ~ ~ ~ playsound fireworks.launch @a ~ ~ ~"
+                    // call common got-an-item logic (at most once per tick)
+                    U (sprintf "blockdata %s {auto:1b}" (GOT_AN_ITEM_COMMON_LOGIC t).STR)
+                    U (sprintf "blockdata %s {auto:0b}" (GOT_AN_ITEM_COMMON_LOGIC t).STR)
+                    // do specific-to-this-item logic (repeat for each item, even if in same tick)
                     U (sprintf "scoreboard players add @a[team=%s] Score 1" team)
                     U "scoreboard players test teamCount S 1 1"
                     C (sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24) (MAPY) (MAPZ+(4-y)*24) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+22) color)
@@ -2513,10 +2533,20 @@ let placeCommandBlocksInTheWorld(fil) =
                        | 3 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24+12) (MAPY) (MAPZ+(4-y)*24+11) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+22) color
                        )
                     |]
-                region.PlaceCommandBlocksStartingAt(6+x+6*t,10+y,45,checkerCmds,"team 5x5 bingo play")
+                let coord = ITEM_CHECKERS_REDSTONE_LOW(t)
+                region.PlaceCommandBlocksStartingAt(coord.X+x,coord.Y+y,coord.Z+1,checkerCmds,"team 5x5 bingo play")
+        let gotAnItem =
+            [|
+            O ""
+            U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"GameTime","objective":"Score"}},"s)"]""" team team)
+            U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
+            C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
+            U "execute @a ~ ~ ~ playsound fireworks.launch @a ~ ~ ~"
+            |]
+        region.PlaceCommandBlocksStartingAt(GOT_AN_ITEM_COMMON_LOGIC(t),gotAnItem,"team got-an-item")
     for t = 0 to 3 do
-        region.PlaceCommandBlocksStartingAt(3,10+t,44,[|O (sprintf "fill %d 10 44 %d 14 44 wool" (6+6*t) (10+6*t))
-                                                        O (sprintf "fill %d 10 44 %d 14 44 redstone_block" (6+6*t) (10+6*t))|],"init checkers")
+        region.PlaceCommandBlocksStartingAt(3,10+t,44,[|O (sprintf "fill %s %s wool" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
+                                                        O (sprintf "fill %s %s redstone_block" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)|],"init checkers")
 
     // clone blocks into framework
     let checkForItemsInit() =
@@ -2610,8 +2640,8 @@ let placeCommandBlocksInTheWorld(fil) =
             else
                 yield! makePreviewWallCleanup()
         |]
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(6,3,10,bingoCardMakerCmds(false),[|"set Z Calc";"to seed";"make preview"|])
-    region.PlaceCommandBlocksWithLeadingSignStartingAt(7,3,10,bingoCardMakerCmds(true),[|"set Z Calc";"to seed";"make pixel art";"and checker"|])
+    region.PlaceCommandBlocksStartingAt(6,3,10,bingoCardMakerCmds(false),"make preview")  // TODO remove all related to preview? wall and code?
+    region.PlaceCommandBlocksStartingAt(MAKE_SEEDED_CARD,bingoCardMakerCmds(true),"make pixel art and checker")
     let cloneIntoDisplayWallCmds =
         [|
             yield O ""
@@ -2737,6 +2767,7 @@ let placeCommandBlocksInTheWorld(fil) =
         |]
     for t = 0 to 3 do
         let team = TEAMS.[t]
+        let coord = TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW
         let pickSpawnCmds =
             [|
             yield O ""
@@ -2749,16 +2780,17 @@ let placeCommandBlocksInTheWorld(fil) =
             yield C (sprintf "scoreboard players tag @p[team=%s] add oneGuyToTeleport" team)
             yield C "blockdata ~ ~ ~2 {auto:1b}"
             yield C "blockdata ~ ~ ~1 {auto:0b}"
-            yield! pickSpawnThenActivate(team,21+t,3,10)
+            yield! pickSpawnThenActivate(team,coord.X+t+1,coord.Y,coord.Z)
             |]
-        region.PlaceCommandBlocksStartingAt(20+t,3,10,pickSpawnCmds, "spawn based on seed")
+        region.PlaceCommandBlocksStartingAt(coord.X+t,coord.Y,coord.Z,pickSpawnCmds, "spawn based on seed")
     let afterAllSpawn =
         [|
         O ""
         U "blockdata 52 10 10 {auto:1b}" // todo coords
         U "blockdata 52 10 10 {auto:0b}" // todo coords
         |]
-    region.PlaceCommandBlocksStartingAt(20+4,3,10,afterAllSpawn, "after spawn based on seed")
+    let coordTp = TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW
+    region.PlaceCommandBlocksStartingAt(coordTp.X+4,coordTp.Y,coordTp.Z,afterAllSpawn, "after spawn based on seed")
 
 
 
@@ -2810,5 +2842,7 @@ do
 
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\level.dat""")
+    
+    //editMapDat("""C:\Users\brianmcn\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
     //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\data\map_0.dat""")
     placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\region\r.0.0.mca""")
