@@ -1151,7 +1151,7 @@ type RegionFile(filename) =
             if txt = null then
                 [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
                    NBT.Byte("conditionMet",1uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);   // TODO defaulting conditionMet to 1, which is not like MC, but avoids an MC bug
-                   NBT.String("id","Control"); NBT.Int("SuccessCount",0); NBT.Byte("TrackOutput",1uy);
+                   NBT.String("id","Control"); NBT.Int("SuccessCount",0); NBT.Byte("TrackOutput",1uy);    // TODO for release, do the thing where TrackOutput is turned off for all the blocks
                    NBT.End |]
             else
                 [| yield NBT.Int("x",x); yield NBT.Int("y",y); yield NBT.Int("z",z); yield NBT.String("id","Sign")
@@ -1729,6 +1729,23 @@ let dumpTileTicks(file) =
             with e ->
                 ()
 
+let removeAllTileTicks(fil) =
+    let region = new RegionFile(fil)
+    for x = 0 to 31 do
+        for z = 0 to 31 do
+            try
+                let theChunk = region.GetChunk(x,z)
+                let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                match theChunkLevel with
+                | Compound(_n,a) ->
+                    let i = a |> Array.findIndex(fun x -> x.Name = "TileTicks")
+                    a.[i] <- List("TileTicks",Compounds[||])
+            with e ->
+                ()
+    region.Write(fil+".new")
+    System.IO.File.Delete(fil)
+    System.IO.File.Move(fil+".new",fil)
+
 let editMapDat(file) =
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
@@ -2065,7 +2082,7 @@ let placeCommandBlocksInTheWorld(fil) =
         for z = 1 to 128 do
             region.SetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
 
-    let MAP_UPDATE_ROOM = Coords(61,18,61) // TODO pick right spot
+    let MAP_UPDATE_ROOM = Coords(61,7,61) // TODO pick right spot, make a room
     let ITEM_CHECKERS_REDSTONE_LOW(team) = Coords(6+6*team,6,44)
     let ITEM_CHECKERS_REDSTONE_HIGH(team) = Coords(10+6*team,10,44)
     let GOT_AN_ITEM_COMMON_LOGIC(team) = Coords(6+6*team,6,80)
@@ -2251,8 +2268,15 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C "blockdata ~ ~ ~2 {auto:1b}"
         yield C "blockdata ~ ~ ~1 {auto:0b}"
         yield O ""
+        // mark all droppedMap entities
         yield U "scoreboard players tag @e[type=Item] add droppedMap {Item:{id:\"minecraft:filled_map\",Damage:0s}}"
-        yield U "execute @e[tag=droppedMap] ~ ~ ~ scoreboard players tag @p[r=5] add playerThatIsMapUpdating"
+        // tag all nearby players as wanting to tp
+        yield U "execute @e[tag=droppedMap] ~ ~ ~ scoreboard players tag @a[r=5] add playerThatWantsToUpdate"
+        // choose a random one to be the tp'er
+        yield U "scoreboard players tag @r[tag=playerThatWantsToUpdate] add playerThatIsMapUpdating"
+        // clear the 'wanting' flags
+        yield U "scoreboard players tag @a[tag=playerThatWantsToUpdate] remove playerThatWantsToUpdate"
+        // start the TP sequence for the chosen guy
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Tags:[\"whereToTpBackTo\"],Duration:1000}"  // summon now, need to wait a tick to TP
         yield U "testfor @p[tag=playerThatIsMapUpdating]"
         yield C "blockdata ~ ~ ~3 {auto:1b}"
@@ -2302,6 +2326,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "gamerule commandBlockOutput false"
         yield U "gamerule doDaylightCycle false"
         yield U "gamerule keepInventory true"
+        yield U "gamerule logAdminCommands false"
         yield U "time set 500"
         yield U "weather clear 999999"
         for t in TEAMS do
@@ -2316,6 +2341,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set @a Score 0"
         yield U "scoreboard objectives add is dummy"
         yield U "scoreboard objectives add S dummy"
+        yield U "scoreboard objectives add PlayerSeed trigger"
         yield U "scoreboard objectives add Calc dummy"
         yield U "scoreboard players set A Calc 1103515245"
         yield U "scoreboard players set C Calc 12345"
@@ -2466,14 +2492,19 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set @a Score 0"
         // select seed and generate
         yield U "scoreboard players set seed is -2147483648"
-        yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/scoreboard players set seed is NNN"}}"""
+        yield U "scoreboard players set @a PlayerSeed -2147483648"
+        yield U "scoreboard players enable @a PlayerSeed"
+        yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/trigger PlayerSeed set NNN"}}"""  // TODO usability of 'click here' (say press 't' chat)
+        // clear card of colors _after_ the tellraw (as commands below can lag a few seconds)
         yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace stained_hardened_clay" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
         yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace emerald_block" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
         yield U "setblock ~ ~1 ~2 wool"
         yield U "setblock ~ ~1 ~1 redstone_block"
         yield P ""
+        yield U "execute @a[score_PlayerSeed_min=-2147483647] ~ ~ ~ scoreboard players operation seed is = @p[score_PlayerSeed_min=-2147483647] PlayerSeed"
         yield U "scoreboard players test seed is -2147483647"
         yield C "setblock ~ ~1 ~-2 wool"
+        yield C "scoreboard players set @a PlayerSeed -2147483648"
         yield C "scoreboard players operation Seed Score = seed is"
         yield C "scoreboard players operation Z Calc = seed is"
         yield C "scoreboard players set seed is -2147483648"
@@ -2873,7 +2904,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield C (sprintf "scoreboard players tag @p[team=%s] add oneGuyToTeleport" team)
             yield C "blockdata ~ ~ ~2 {auto:1b}"
             yield C "blockdata ~ ~ ~1 {auto:0b}"
-            yield! pickSpawnThenActivate(team,coord.X+t+1,coord.Y,coord.Z)
+            yield! pickSpawnThenActivate(team,coord.X+t+1,coord.Y,coord.Z)  // TODO make visually clear to 'waiting' players what is happening
             |]
         region.PlaceCommandBlocksStartingAt(coord.X+t,coord.Y,coord.Z,pickSpawnCmds, "spawn based on seed")
     let afterAllSpawn =
@@ -2938,7 +2969,9 @@ do
     
     //editMapDat("""C:\Users\brianmcn\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
     //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\data\map_0.dat""")
-    let save = "tmp7"
+    let save = "tmp9"
+    //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
+    //removeAllTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     placeCommandBlocksInTheWorld(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\data\map_0.dat.new""",
                         sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" save, true)
