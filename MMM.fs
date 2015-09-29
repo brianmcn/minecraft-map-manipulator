@@ -2028,13 +2028,12 @@ let placeCommandBlocksInTheWorld(fil) =
         |]
     let nTicksLater(n) = 
         [|
-#if DEBUG
+#if DEBUG_NTICKSLATER
             yield U (sprintf """tellraw @a ["schedule nTickLater %d at ",{"score":{"name":"Tick","objective":"Score"}}]""" n)
 #endif
             yield U "summon ArmorStand ~ ~ ~3 {Tags:[\"nTicksLaterNewArmor\"],NoGravity:1,Marker:1}"
             yield U (sprintf "scoreboard players set @e[tag=nTicksLaterNewArmor] S -%d" n)
             yield U "entitydata @e[tag=nTicksLaterNewArmor] {Tags:[\"nTicksLaterScoredArmor\"]}"
-//            yield U (sprintf "summon AreaEffectCloud ~ ~ ~1 {Tags:[\"nTicksLater\"],Age:-%d}" n)
             yield O ""
         |]
 
@@ -2095,6 +2094,37 @@ let placeCommandBlocksInTheWorld(fil) =
     for x = 1 to 128 do
         for z = 1 to 128 do
             region.SetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
+    // prepare item display chests
+    let anyDifficultyItems = ResizeArray()
+    let otherItems = ResizeArray()
+    for i = 0 to bingoItems.Length-1 do
+        if bingoItems.[i].[0] = bingoItems.[i].[1] && bingoItems.[i].[0] = bingoItems.[i].[2] then
+            anyDifficultyItems.Add( bingoItems.[i].[0] )
+        else
+            otherItems.Add( bingoItems.[i] )
+    let anyDifficultyChest = 
+        let sb = new System.Text.StringBuilder("""{CustomName:"Items at any difficulty",Items:[""")
+        for i = 0 to anyDifficultyItems.Count-1 do
+            let dmg,item,_art = anyDifficultyItems.[i]
+            sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db,Damage:%ds},""" i item 1 (if dmg = -1 then 0 else dmg)) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    let otherChest1 =
+        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        for i = 0 to 8 do
+            for j = 0 to 2 do
+                let dmg,item,_art = otherItems.[i].[j]
+                sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db,Damage:%ds},""" (i+(9*j)) item 1 (if dmg = -1 then 0 else dmg)) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    let otherChest2 =
+        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        for i = 9 to otherItems.Count-1 do
+            for j = 0 to 2 do
+                let dmg,item,_art = otherItems.[i].[j]
+                sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db,Damage:%ds},""" (i-9+(9*j)) item 1 (if dmg = -1 then 0 else dmg)) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
 
     let MAP_UPDATE_ROOM = Coords(61,7,61) // TODO pick right spot, make a room
     let ITEM_CHECKERS_REDSTONE_LOW(team) = Coords(6+6*team,6,44)
@@ -2102,6 +2132,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let GOT_AN_ITEM_COMMON_LOGIC(team) = Coords(6+6*team,6,80)
     let GOT_BINGO_REDSTONE(team) = Coords(6+6*team,8,80)
     let GOT_MEGA_BINGO_REDSTONE(team) = Coords(6+6*team,10,80)
+    let GOT_WIN_COMMON_LOGIC = Coords(4,8,80)
     let MAKE_SEEDED_CARD = Coords(7,3,11)
     let TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW = Coords(20,3,10)
     let RESET_SCORES_LOGIC = Coords(48,3,10)
@@ -2109,6 +2140,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let CHOOSE_SEED_BUTTON = Coords(50,3,10)
     let START_GAME_PART_1 = Coords(51,3,10)
     let START_GAME_PART_2 = Coords(52,3,10)
+    let SHOW_ITEMS_BUTTON = Coords(53,3,10)
     let PILLAR_UP_THE_ARMOR_STAND = Coords(60,3,10)
     let TPX_LOW = Coords(40,3,10)
     let TPZ_LOW = Coords(41,3,10)
@@ -2188,7 +2220,7 @@ let placeCommandBlocksInTheWorld(fil) =
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+10) 5 "pick random" "seed" RANDOM_SEED_BUTTON true "black"
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "seed the" "card" CHOOSE_SEED_BUTTON  true "black"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "seed the" "card" CHOOSE_SEED_BUTTON true "black"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "start the" "game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "join red" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "red" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "join blue" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "blue" else "gray")
@@ -2199,7 +2231,7 @@ let placeCommandBlocksInTheWorld(fil) =
                 for j = 0 to 3 do
                     yield! makeWallSign (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2+j) (LOBBYZ+6+i) 4 "head"
             yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "offering"
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+9) 5 "show items"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+9) 5 "show" "items" SHOW_ITEMS_BUTTON true "black"
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+7) 5 "version"
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+5) 5 "donate"
         |]
@@ -2251,16 +2283,10 @@ let placeCommandBlocksInTheWorld(fil) =
         // nTicksLater
         yield P ""
         yield U "scoreboard players add Tick Score 1"
-        //yield U "scoreboard players tag @e[tag=nTicksLater] add nTicksLaterDone {Age:-1}"
-        //yield U "execute @e[tag=nTicksLaterDone] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
-        //yield U "execute @e[tag=nTicksLaterDone] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
-#if DEBUG
-        //yield U """execute @e[tag=nTicksLaterDone] ~ ~ ~ tellraw @a ["nTickLater awaken at ",{"score":{"name":"Tick","objective":"Score"}}]"""
-#endif
         yield U "scoreboard players add @e[tag=nTicksLaterScoredArmor] S 1"
         yield U "execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
         yield U "execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
-#if DEBUG
+#if DEBUG_NTICKSLATER
         yield U """execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ tellraw @a ["nTickLater armor-awaken at ",{"score":{"name":"Tick","objective":"Score"}}]"""
 #endif
         yield U "kill @e[tag=nTicksLaterScoredArmor,score_S_min=-1]"
@@ -2328,11 +2354,18 @@ let placeCommandBlocksInTheWorld(fil) =
         U """scoreboard players set @a hasMaps 1 {Inventory:[{id:"minecraft:filled_map",Damage:0s}]}"""
         U """give @a[score_hasMaps=0] filled_map 64 0 {display:{Name:"BINGO Card"}}"""
         |]
+    let cmdsTriggerHome =
+        [|
+        P "scoreboard players test Time S 0 0"
+        C (sprintf "tp @a[score_home_min=1] %s" MAP_UPDATE_ROOM.STR) // TODO where send
+        C "scoreboard players set @a home 0"
+        |]
     region.PlaceCommandBlocksStartingAt(100,3,6,cmdsTickLagDebugger,"tick lag debugger")
     region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
     region.PlaceCommandBlocksStartingAt(102,3,10,timerCmds,"clock every N ticks")
     region.PlaceCommandBlocksStartingAt(103,3,10,cmdsFindPlayerWhoDroppedMap,"notice player that drops map")
     region.PlaceCommandBlocksStartingAt(104,3,10,cmdsNoMoreMaps,"give maps to players without")
+    region.PlaceCommandBlocksStartingAt(105,3,10,cmdsTriggerHome,"trigger home checker")
 
 
     let cmdsInit1 =
@@ -2360,6 +2393,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard objectives add is dummy"
         yield U "scoreboard objectives add S dummy"
         yield U "scoreboard objectives add PlayerSeed trigger"
+        yield U "scoreboard objectives add home trigger"
         yield U "scoreboard objectives add Calc dummy"
         yield U "scoreboard players set A Calc 1103515245"
         yield U "scoreboard players set C Calc 12345"
@@ -2596,7 +2630,6 @@ let placeCommandBlocksInTheWorld(fil) =
     let startGameButtonPart2 =
         [|
         yield O ""
-        // TODO enable triggers (for click-in-chat-to-tp-home stuff)
         // feed & heal again
         yield U "effect @a saturation 10 4 true"
         yield U "effect @a regeneration 10 4 true"
@@ -2629,6 +2662,10 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "effect @a clear"
         yield U """tellraw @a ["Start! Go!!!"]"""
         yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 1.2"
+        // enable triggers (for click-in-chat-to-tp-home stuff)
+        yield U "scoreboard players set @a home 0"
+        yield U "scoreboard players enable @a home"
+        // run customized on-start command blocks
         yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
@@ -2636,6 +2673,19 @@ let placeCommandBlocksInTheWorld(fil) =
         |]
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_1,startGameButtonPart1,"start game1")
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_2,startGameButtonPart2,"start game2")
+
+    let showItemsButton =
+        [|
+            let x,y,z = (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5), (LOBBYY+2), (LOBBYZ+9)
+            yield O ""
+            yield U (sprintf "setblock %d %d %d chest" (x+1) (y-1) z)
+            yield U (sprintf "blockdata %d %d %d %s" (x+1) (y-1) z anyDifficultyChest)
+            yield U (sprintf "setblock %d %d %d chest" (x+3) (y-1) z)
+            yield U (sprintf "blockdata %d %d %d %s" (x+3) (y-1) z otherChest1)
+            yield U (sprintf "setblock %d %d %d chest" (x+5) (y-1) z)
+            yield U (sprintf "blockdata %d %d %d %s" (x+5) (y-1) z otherChest2)
+        |]
+    region.PlaceCommandBlocksStartingAt(SHOW_ITEMS_BUTTON,showItemsButton,"show items button")
 
     ///////////////////////
     // "constantly checking for getting bingo items" bit
@@ -2707,16 +2757,36 @@ let placeCommandBlocksInTheWorld(fil) =
             [|
             yield O ""
             yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" team)
-            // TODO fireworks
+            yield U (sprintf "blockdata %s {auto:1b}" GOT_WIN_COMMON_LOGIC.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" GOT_WIN_COMMON_LOGIC.STR)
             |]
         region.PlaceCommandBlocksStartingAt(GOT_BINGO_REDSTONE(t).Offset(0,0,1),gotBingo,"team got bingo")
         let gotMegaBingo =
             [|
             yield O ""
             yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" team)
-            // TODO fireworks
+            yield U (sprintf "blockdata %s {auto:1b}" GOT_WIN_COMMON_LOGIC.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" GOT_WIN_COMMON_LOGIC.STR)
             |]
         region.PlaceCommandBlocksStartingAt(GOT_MEGA_BINGO_REDSTONE(t).Offset(0,0,1),gotMegaBingo,"team got mega bingo")
+        let gotAWinCommonLogic =
+            [|
+            yield O ""
+            // option to return to lobby
+            yield U """tellraw @a ["You can keep playing, or"]"""
+            yield U """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+            // fireworks
+            yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~3 ~0 ~0 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}"""
+            yield! nTicksLater(8)
+            yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~3 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:0,Trail:1,Colors:[13172728],FadeColors:[16777215]},]}}}}"""
+            yield! nTicksLater(8)
+            yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~-3 ~0 ~0 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:0,Colors:[16777074],FadeColors:[16777215]},]}}}}"""
+            yield! nTicksLater(8)
+            yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~-3 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:3,Flicker:1,Trail:1,Colors:[6160227],FadeColors:[16777215]}]}}}}"""
+            |]
+        region.PlaceCommandBlocksStartingAt(GOT_WIN_COMMON_LOGIC,gotAWinCommonLogic,"someone won coda")
+
+
 
     // clone blocks into framework
     let checkForItemsInit() =
