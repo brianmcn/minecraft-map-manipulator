@@ -921,6 +921,7 @@ type Coords(x:int,y:int,z:int) =
     member this.Y = y
     member this.Z = z
     member this.STR = sprintf "%d %d %d" x y z
+    member this.Offset(dx,dy,dz) = new Coords(x+dx, y+dy, z+dz)
 
 type RegionFile(filename) =
     let rx, rz =
@@ -1217,6 +1218,16 @@ type RegionFile(filename) =
         let nbt = chunks.[cx,cz]
         let s = nbt.ToString()
         printfn "%s" s
+    member this.ReplaceBlocks(f) =
+        for cx = 0 to 31 do
+            for cz = 0 to 31 do
+                if chunks.[cx,cz] <> End then
+                    let theChunkLevel = match chunks.[cx,cz] with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                    let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
+                    for s in sections do
+                        let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
+                        let data = s |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
+                        f blocks data
 
 let readDatFile(filename : string) =
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
@@ -1724,8 +1735,11 @@ let dumpTileTicks(file) =
                 let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
                 let ticks = match theChunkLevel.["TileTicks"] with List(_,Compounds(cs)) -> cs
                 for t in ticks do
-                    printfn "%s" (t |> Array.find(fun n -> n.Name="z") |> fun x -> x.ToString())
-                    ()
+                    let x = (t |> Array.find(fun n -> n.Name="x") |> fun x -> x.ToString())
+                    let y = (t |> Array.find(fun n -> n.Name="y") |> fun x -> x.ToString())
+                    let z = (t |> Array.find(fun n -> n.Name="z") |> fun x -> x.ToString())
+                    let i = (t |> Array.find(fun n -> n.Name="i") |> fun x -> x.ToString())
+                    printfn "%s %s %s     %s" x y z i
             with e ->
                 ()
 
@@ -2030,7 +2044,7 @@ let placeCommandBlocksInTheWorld(fil) =
             [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
             [|  -1, "bone", AA.bone                         ; -1, "bone", AA.bone                       ; -1, "bone", AA.bone                       |]
             [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "ender_pearl", AA.ender_pearl         |]
-            [|  +0, "tallgrass", AA.deadbush                ; +2, "tallgrass", AA.fern                  ; -1, "vine", AA.vine                       |]
+            [|  -1, "deadbush", AA.deadbush                 ; +2, "tallgrass", AA.fern                  ; -1, "vine", AA.vine                       |]
             [|  -1, "brick", AA.brick                       ; -1, "brick", AA.brick                     ; -1, "brick", AA.brick                     |]
             [|  -1, "glass_bottle", AA.glass_bottle         ; -1, "glass_bottle", AA.glass_bottle       ; -1, "glass_bottle", AA.glass_bottle       |]
             [|  -1, "melon", AA.melon_slice                 ; -1, "melon", AA.melon_slice               ; -1, "speckled_melon", AA.speckled_melon   |]
@@ -2086,8 +2100,11 @@ let placeCommandBlocksInTheWorld(fil) =
     let ITEM_CHECKERS_REDSTONE_LOW(team) = Coords(6+6*team,6,44)
     let ITEM_CHECKERS_REDSTONE_HIGH(team) = Coords(10+6*team,10,44)
     let GOT_AN_ITEM_COMMON_LOGIC(team) = Coords(6+6*team,6,80)
+    let GOT_BINGO_REDSTONE(team) = Coords(6+6*team,8,80)
+    let GOT_MEGA_BINGO_REDSTONE(team) = Coords(6+6*team,10,80)
     let MAKE_SEEDED_CARD = Coords(7,3,11)
     let TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW = Coords(20,3,10)
+    let RESET_SCORES_LOGIC = Coords(48,3,10)
     let RANDOM_SEED_BUTTON = Coords(49,3,10)
     let CHOOSE_SEED_BUTTON = Coords(50,3,10)
     let START_GAME_PART_1 = Coords(51,3,10)
@@ -2102,7 +2119,7 @@ let placeCommandBlocksInTheWorld(fil) =
     //////////////////////////////
 
     // IWIDTH/ILENGTH are interior measures, not including walls
-    let LOBBYX, LOBBYY, LOBBYZ = 50, 6, 50     // TODO LOBBYY down to 6
+    let LOBBYX, LOBBYY, LOBBYZ = 50, 6, 50
     let CFG_ROOM_IWIDTH = 7
     let MAIN_ROOM_IWIDTH = 9
     let INFO_ROOM_IWITDH = 7
@@ -2207,14 +2224,14 @@ let placeCommandBlocksInTheWorld(fil) =
                         let xx, yy, zz = uniqueArts.[art]
                         yield U (sprintf "execute @e[tag=whereToPlacePixelArt] ~ ~ ~ clone %d %d %d %d %d %d ~ ~ ~" xx yy zz (xx+16) (yy+1) (zz+16))
                        |]
-            region.PlaceCommandBlocksStartingAt(BINGO_ITEMS_LOW.X+x,BINGO_ITEMS_LOW.Y+y,BINGO_ITEMS_LOW.Z,cmds,"itemframe/testfor/clear/copyPixelArt logic")
+            region.PlaceCommandBlocksStartingAt(BINGO_ITEMS_LOW.Offset(x,y,0),cmds,"itemframe/testfor/clear/copyPixelArt logic")
 
     let cmdsTickLagDebugger =
         [|
         yield O ""
         yield U "scoreboard objectives add TickInfo dummy"
-        yield U "scoreboard players set @p TickInfo 0"   // TODO @p not good in multiplayer, have a dedicated entity for keeping this score
-        yield U "stats block ~ ~ ~5 set QueryResult @p TickInfo"
+        yield U "scoreboard players set @e[name=TickLagDebug] TickInfo 0"
+        yield U "stats block ~ ~ ~5 set QueryResult @e[name=TickLagDebug] TickInfo"
         yield P ""
         yield U "scoreboard players add Tick TickInfo 1"
         yield U "scoreboard players test Tick TickInfo 40 *"
@@ -2222,12 +2239,12 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C "worldborder get"
         yield C "worldborder set 10000000"   // TODO note, cannot use as-is while game is running
         yield C "worldborder add 10000 500"
-        yield C "scoreboard players remove @p TickInfo 10000000"
-        yield C "execute @p[score_TickInfo_min=41] ~ ~ ~ say ticks are lagging"
+        yield C "scoreboard players remove @e[Name=TickLagDebug] TickInfo 10000000"
+        yield C "execute @e[name=TickLagDebug,score_TickInfo_min=41] ~ ~ ~ say ticks are lagging"
         yield U "testforblock ~ ~ ~-7 chain_command_block -1 {SuccessCount:1}"
-        yield C "execute @p[score_TickInfo=39] ~ ~ ~ say ticks are trying to catch up"
+        yield C "execute @e[name=TickLagDebug,score_TickInfo=39] ~ ~ ~ say ticks are trying to catch up"
         yield U "testforblock ~ ~ ~-9 chain_command_block -1 {SuccessCount:1}"
-        yield C "execute @p[score_TickInfo_min=40,score_TickInfo=40] ~ ~ ~ say ticks are normal"
+        yield C "execute @e[name=TickLagDebug,score_TickInfo_min=40,score_TickInfo=40] ~ ~ ~ say ticks are normal"
         |]
     let cmdsnTicksLater =
         [|
@@ -2286,13 +2303,14 @@ let placeCommandBlocksInTheWorld(fil) =
         yield O ""   // someone was tagged, do teleport
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ setworldspawn ~ ~ ~"
         yield U """tellraw @a [{"selector":"@p[tag=playerThatIsMapUpdating]"}," is updating the BINGO map"]"""
-        // TODO mob-preservation-system
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ entitydata @e[type=!Player,r=62] {PersistenceRequired:1}"  // preserve mobs
         yield U "tp @e[tag=whereToTpBackTo] @p[tag=playerThatIsMapUpdating]"  // a tick after summoning, tp marker to player, to preserve facing direction
         yield U (sprintf "tp @p[tag=playerThatIsMapUpdating] %s 0 0" MAP_UPDATE_ROOM.STR)
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
         yield! nTicksLater(40) // TODO adjust timing?
         yield U "tp @p[tag=playerThatIsMapUpdating] @e[tag=whereToTpBackTo]"
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ entitydata @e[type=!Player,r=72] {PersistenceRequired:0}"  // don't leak mobs
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
         yield U (sprintf "setworldspawn %s" MAP_UPDATE_ROOM.STR)
@@ -2350,6 +2368,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set OneThousand Calc 1000"
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
         // start tick-lag-debug
+        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,CustomName:"TickLagDebug"}"""
         yield U "fill 100 4 6 100 4 10 wool"  // todo coords
         yield U "fill 100 4 6 100 4 10 redstone_block"  // todo coords
         // start major clocks
@@ -2455,14 +2474,33 @@ let placeCommandBlocksInTheWorld(fil) =
     /////////////////////// 
     // choose seed
     ///////////////////////
-    let randomSeedButton =
+    let resetScoresLogic =
         [|
         yield O ""
         // turn off check-for-item-checkers
         for t = 0 to 3 do
             yield U (sprintf "fill %s %s wool" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
-        // clear scores
+        // clear player scores
         yield U "scoreboard players set @a Score 0"
+        // clear bingo information
+        for t = 0 to 3 do
+            let team = TEAMS.[t]
+            for x = 0 to 4 do
+                yield U (sprintf "scoreboard players set %s_x%d S 0" team x)
+            for y = 0 to 4 do
+                yield U (sprintf "scoreboard players set %s_y%d S 0" team y)
+            yield U (sprintf "scoreboard players set %s_d0 S 0" team)
+            yield U (sprintf "scoreboard players set %s_d1 S 0" team)
+            yield U (sprintf "setblock %s wool" (GOT_BINGO_REDSTONE(t).STR))
+            yield U (sprintf "setblock %s wool" (GOT_MEGA_BINGO_REDSTONE(t).STR))
+        |]
+    region.PlaceCommandBlocksStartingAt(RESET_SCORES_LOGIC,resetScoresLogic,"reset scores")
+
+    let randomSeedButton =
+        [|
+        yield O ""
+        yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
         // select seed and generate
         yield U """tellraw @a ["Choosing random seed..."]"""
         yield U "scoreboard players set modRandomSeed S 899"
@@ -2485,16 +2523,14 @@ let placeCommandBlocksInTheWorld(fil) =
     let chooseSeedButton =
         [|
         yield O ""
-        // turn off check-for-item-checkers
-        for t = 0 to 3 do
-            yield U (sprintf "fill %s %s wool" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
-        // clear scores
-        yield U "scoreboard players set @a Score 0"
+        yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
         // select seed and generate
         yield U "scoreboard players set seed is -2147483648"
         yield U "scoreboard players set @a PlayerSeed -2147483648"
         yield U "scoreboard players enable @a PlayerSeed"
-        yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/trigger PlayerSeed set NNN"}}"""  // TODO usability of 'click here' (say press 't' chat)
+        yield U """tellraw @a {"text":"Press 't' (chat), click below, then replace NNN with a seed number in chat"}"""
+        yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/trigger PlayerSeed set NNN"}}"""
         // clear card of colors _after_ the tellraw (as commands below can lag a few seconds)
         yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace stained_hardened_clay" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
         yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace emerald_block" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
@@ -2503,7 +2539,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield P ""
         yield U "execute @a[score_PlayerSeed_min=-2147483647] ~ ~ ~ scoreboard players operation seed is = @p[score_PlayerSeed_min=-2147483647] PlayerSeed"
         yield U "scoreboard players test seed is -2147483647"
-        yield C "setblock ~ ~1 ~-2 wool"
+        yield C "setblock ~ ~1 ~-3 wool"
         yield C "scoreboard players set @a PlayerSeed -2147483648"
         yield C "scoreboard players operation Seed Score = seed is"
         yield C "scoreboard players operation Z Calc = seed is"
@@ -2542,6 +2578,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "effect @a saturation 10 4 true"
         yield U "effect @a regeneration 10 4 true"
         yield U "xp -2147483648L @a"
+        // TODO clear inventories
         // TODO fill inv with maps to ensure cleared (map updated)
         // give player all the effects
         yield U "effect @a slowness 999 127 true"
@@ -2592,7 +2629,6 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "effect @a clear"
         yield U """tellraw @a ["Start! Go!!!"]"""
         yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 1.2"
-        // TODO (new) run the on-start logic (do last, so can override other stuff)
         yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
@@ -2613,51 +2649,80 @@ let placeCommandBlocksInTheWorld(fil) =
             for y = 0 to 4 do
                 let checkerCmds = 
                     [|
-                    P "scoreboard players test Time S 0 0"   // might need to spread load across 0 to N-1 to avoid lag spikes?
-                    U "say REPLACE ME testfor"
-                    U "say REPLACE ME clear"
-                    C "setblock ~ ~ ~-4 wool"  // the two-consecutive-tick issue doesn't apply as a result of the purple condition if N > 1
+                    yield P "scoreboard players test Time S 0 0"   // might need to spread load across 0 to N-1 to avoid lag spikes?
+                    yield U "say REPLACE ME testfor"
+                    yield U "say REPLACE ME clear"
+                    yield C "setblock ~ ~ ~-4 wool"  // the two-consecutive-tick issue doesn't apply as a result of the purple condition if N > 1
                     // TODO lockout logic
                     // todo what if both teams get same item at once in lockout?
-                    C "blockdata ~ ~ ~2 {auto:1b}"
-                    C "blockdata ~ ~ ~1 {auto:0b}"
-                    O ""
+                    yield C "blockdata ~ ~ ~2 {auto:1b}"
+                    yield C "blockdata ~ ~ ~1 {auto:0b}"
+                    yield O ""
                     // call common got-an-item logic (at most once per tick)
-                    U (sprintf "blockdata %s {auto:1b}" (GOT_AN_ITEM_COMMON_LOGIC t).STR)
-                    U (sprintf "blockdata %s {auto:0b}" (GOT_AN_ITEM_COMMON_LOGIC t).STR)
+                    yield U (sprintf "blockdata %s {auto:1b}" (GOT_AN_ITEM_COMMON_LOGIC t).STR)
+                    yield U (sprintf "blockdata %s {auto:0b}" (GOT_AN_ITEM_COMMON_LOGIC t).STR)
                     // do specific-to-this-item logic (repeat for each item, even if in same tick)
-                    U (sprintf "scoreboard players add @a[team=%s] Score 1" team)
-                    U "scoreboard players test teamCount S 1 1"
-                    C (sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24) (MAPY) (MAPZ+(4-y)*24) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+22) color)
-                    U "scoreboard players test teamCount S 2 *"
-                    C (match t with
-                       | 0 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24) (MAPY) (MAPZ+(4-y)*24) (MAPX+4+x*24+11) (MAPY) (MAPZ+(4-y)*24+10) color
-                       | 1 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24+12) (MAPY) (MAPZ+(4-y)*24) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+10) color
-                       | 2 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24) (MAPY) (MAPZ+(4-y)*24+11) (MAPX+4+x*24+11) (MAPY) (MAPZ+(4-y)*24+22) color
-                       | 3 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24+12) (MAPY) (MAPZ+(4-y)*24+11) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+22) color
-                       )
+                    yield U (sprintf "scoreboard players add @a[team=%s] Score 1" team)
+                    yield U "scoreboard players test teamCount S 1 1"
+                    yield C (sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24) (MAPY) (MAPZ+(4-y)*24) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+22) color)
+                    yield U "scoreboard players test teamCount S 2 *"
+                    yield C (match t with
+                               | 0 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24) (MAPY) (MAPZ+(4-y)*24) (MAPX+4+x*24+11) (MAPY) (MAPZ+(4-y)*24+10) color
+                               | 1 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24+12) (MAPY) (MAPZ+(4-y)*24) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+10) color
+                               | 2 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24) (MAPY) (MAPZ+(4-y)*24+11) (MAPX+4+x*24+11) (MAPY) (MAPZ+(4-y)*24+22) color
+                               | 3 -> sprintf "fill %d %d %d %d %d %d %s replace clay" (MAPX+4+x*24+12) (MAPY) (MAPZ+(4-y)*24+11) (MAPX+4+x*24+22) (MAPY) (MAPZ+(4-y)*24+22) color
+                               )
+                    // update win condition scores
+                    yield U (sprintf "scoreboard players add %s_x%d S 1" team x)
+                    yield U (sprintf "scoreboard players add %s_y%d S 1" team y)
+                    if x = y then
+                        yield U (sprintf "scoreboard players add %s_d0 S 1" team)
+                    if x = 4-y then
+                        yield U (sprintf "scoreboard players add %s_d1 S 1" team)
                     |]
                 let coord = ITEM_CHECKERS_REDSTONE_LOW(t)
                 region.PlaceCommandBlocksStartingAt(coord.X+x,coord.Y+y,coord.Z+1,checkerCmds,"team 5x5 bingo play")
         let gotAnItem =
             [|
-            O ""
-            U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"GameTime","objective":"Score"}},"s)"]""" team team)
-            U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
-            C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
-            U "execute @a ~ ~ ~ playsound fireworks.launch @a ~ ~ ~"
+            yield O ""
+            yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"GameTime","objective":"Score"}},"s)"]""" team team)
+            yield U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
+            yield C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
+            yield U "execute @a ~ ~ ~ playsound fireworks.launch @a ~ ~ ~"
+            // check for win
+            for x = 0 to 4 do
+                yield U (sprintf "scoreboard players test %s_x%d S 5 *" team x)
+                yield C (sprintf "setblock %s redstone_block" (GOT_BINGO_REDSTONE(t).STR))
+            for y = 0 to 4 do
+                yield U (sprintf "scoreboard players test %s_y%d S 5 *" team y)
+                yield C (sprintf "setblock %s redstone_block" (GOT_BINGO_REDSTONE(t).STR))
+            yield U (sprintf "scoreboard players test %s_d0 S 5 *" team)
+            yield C (sprintf "setblock %s redstone_block" (GOT_BINGO_REDSTONE(t).STR))
+            yield U (sprintf "scoreboard players test %s_d1 S 5 *" team)
+            yield C (sprintf "setblock %s redstone_block" (GOT_BINGO_REDSTONE(t).STR))
+            yield U (sprintf "execute @p[team=%s,score_Score_min=25] ~ ~ ~ setblock %s redstone_block" team (GOT_MEGA_BINGO_REDSTONE(t).STR))
             |]
         region.PlaceCommandBlocksStartingAt(GOT_AN_ITEM_COMMON_LOGIC(t),gotAnItem,"team got-an-item")
-    for t = 0 to 3 do
-        region.PlaceCommandBlocksStartingAt(3,10+t,44,[|O (sprintf "fill %s %s wool" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
-                                                        O (sprintf "fill %s %s redstone_block" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)|],"init checkers")
+        let gotBingo =
+            [|
+            yield O ""
+            yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" team)
+            // TODO fireworks
+            |]
+        region.PlaceCommandBlocksStartingAt(GOT_BINGO_REDSTONE(t).Offset(0,0,1),gotBingo,"team got bingo")
+        let gotMegaBingo =
+            [|
+            yield O ""
+            yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" team)
+            // TODO fireworks
+            |]
+        region.PlaceCommandBlocksStartingAt(GOT_MEGA_BINGO_REDSTONE(t).Offset(0,0,1),gotMegaBingo,"team got mega bingo")
 
     // clone blocks into framework
     let checkForItemsInit() =
         [|
         yield U "scoreboard players set cfiCol S 1"
-        let c = ITEM_CHECKERS_REDSTONE_LOW(0)
-        yield U (sprintf "summon ArmorStand %d %d %d {NoGravity:1,Tags:[\"whereToCloneCommandTo\"]}" c.X (c.Y+4) (c.Z+1))
+        yield U (sprintf "summon ArmorStand %s {NoGravity:1,Tags:[\"whereToCloneCommandTo\"]}" (ITEM_CHECKERS_REDSTONE_LOW(0).Offset(0,4,1).STR))
         |]
     let checkForItems() =
         [|
@@ -2752,15 +2817,14 @@ let placeCommandBlocksInTheWorld(fil) =
     region.PlaceCommandBlocksStartingAt(6,3,10,bingoCardMakerCmds(false),"make preview")  // TODO remove all related to preview? wall and code?
     region.PlaceCommandBlocksStartingAt(MAKE_SEEDED_CARD,bingoCardMakerCmds(true),"make pixel art and checker")
     let cloneIntoDisplayWallCmds =
-        let c = BINGO_ITEMS_LOW
         [|
             yield O ""
             for i = 1 to 28 do
-                yield U (sprintf "clone %d %d %d %d %d %d 12 3 %d" (c.X-1+i) (c.Y+2) c.Z (c.X-1+i) (c.Y+2) c.Z (2*i+11))
+                yield U (sprintf "clone %s %s 12 3 %d" (BINGO_ITEMS_LOW.Offset(i-1,2,0).STR) (BINGO_ITEMS_LOW.Offset(i-1,2,0).STR) (2*i+11))
             for i = 1 to 28 do
-                yield U (sprintf "clone %d %d %d %d %d %d 12 3 %d" (c.X-1+i) (c.Y+1) c.Z (c.X-1+i) (c.Y+1) c.Z (2*i+11+56))
+                yield U (sprintf "clone %s %s 12 3 %d" (BINGO_ITEMS_LOW.Offset(i-1,1,0).STR) (BINGO_ITEMS_LOW.Offset(i-1,1,0).STR) (2*i+11+56))
             for i = 1 to 28 do
-                yield U (sprintf "clone %d %d %d %d %d %d 12 3 %d" (c.X-1+i) (c.Y+0) c.Z (c.X-1+i) (c.Y+0) c.Z (2*i+11+56+56))
+                yield U (sprintf "clone %s %s 12 3 %d" (BINGO_ITEMS_LOW.Offset(i-1,0,0).STR) (BINGO_ITEMS_LOW.Offset(i-1,0,0).STR) (2*i+11+56+56))
             yield U (sprintf "fill %d %d -4 %d %d -4 stone" BINGO_ITEMS_LOW.X BINGO_ITEMS_LOW.Y (BINGO_ITEMS_LOW.X+28-1) (BINGO_ITEMS_LOW.Y+3-1))
         |]
     region.PlaceCommandBlocksStartingAt(9,3,10,cloneIntoDisplayWallCmds,"display wall of 28x3 item frames (clone cmds)")
@@ -2803,18 +2867,16 @@ let placeCommandBlocksInTheWorld(fil) =
                     let dist = spawnIndices.[i] * 10000
                     yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~%d ~ ~" dist)
             |]
-        let c = TPX_LOW
-        region.PlaceCommandBlocksStartingAt(c.X,c.Y+y,c.Z,tpXCmds, "tp X")
+        region.PlaceCommandBlocksStartingAt(TPX_LOW.Offset(0,y,0),tpXCmds, "tp X")
     for y = 0 to 4 do
-        let tpXCmds =
+        let tpZCmds =
             [|
                 for z = 0 to 59 do
                     let i = 60*y + z
                     let dist = spawnIndices.[i] * 10000
                     yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ ~ ~%d" dist)
             |]
-        let c = TPZ_LOW
-        region.PlaceCommandBlocksStartingAt(c.X,c.Y+y,c.Z,tpXCmds, "tp Z")
+        region.PlaceCommandBlocksStartingAt(TPZ_LOW.Offset(0,y,0),tpZCmds, "tp Z")
     // pick spawn from seed
     let pillarUpTheArmorStand =
         [|
@@ -2855,7 +2917,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! teleportBasedOnScore("findblock", "x2", "S", "z")
             yield! teleportBasedOnScore("findblock", "x1", "S", "y")
             yield U "execute @e[tag=findblock] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
-            yield U "clone 1 1 1 1 1 1 ~ ~ ~1"
+            yield U "clone 1 1 1 1 1 1 ~ ~ ~1"                                           // TODO seed 226264 is giving me x=0 (z=1080000)
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
             // find the tpZ block to clone
             yield U (sprintf "tp @e[tag=findblock] %s" TPZ_LOW.STR)
@@ -2902,9 +2964,10 @@ let placeCommandBlocksInTheWorld(fil) =
             yield C (sprintf "blockdata %d %d %d {auto:0b}" (coord.X+t+1) coord.Y coord.Z)
             yield U "testforblock ~ ~ ~-3 chain_command_block -1 {SuccessCount:0}"
             yield C (sprintf "scoreboard players tag @p[team=%s] add oneGuyToTeleport" team)
+            yield C (sprintf """tellraw @a ["Creating spawn for %s team..."]""" team)
             yield C "blockdata ~ ~ ~2 {auto:1b}"
             yield C "blockdata ~ ~ ~1 {auto:0b}"
-            yield! pickSpawnThenActivate(team,coord.X+t+1,coord.Y,coord.Z)  // TODO make visually clear to 'waiting' players what is happening
+            yield! pickSpawnThenActivate(team,coord.X+t+1,coord.Y,coord.Z)  // TODO make visually clearer to 'waiting' players what is happening
             |]
         region.PlaceCommandBlocksStartingAt(coord.X+t,coord.Y,coord.Z,pickSpawnCmds, "spawn based on seed")
     let afterAllSpawn =
@@ -2957,7 +3020,7 @@ do
     // 45,000,012
     //dumpTileTicks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Purple\region\r.0.0.mca""")
     //placeCertainBlocksInTheSky()
-    //placeCommandBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
+    //placeCommnadBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
       //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
@@ -2972,6 +3035,46 @@ do
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     //removeAllTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
+    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.0.0.mca""",
+                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save, true)
+    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.0.-1.mca""",
+                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.-1.mca""" save, true)
+    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.-1.0.mca""",
+                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" save, true)
+    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
+                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" save, true)
     placeCommandBlocksInTheWorld(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\data\map_0.dat.new""",
                         sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" save, true)
+#if DEBUG_JUNGLE_LAG    
+    let save = "tmp9"
+    let CHANGE = true
+    let fil = sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.2109.mca""" save
+    //let fil = sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.2110.mca""" save
+    //removeAllTileTicks(fil)
+    dumpTileTicks(fil)
+    if CHANGE then
+        let r = new RegionFile(fil)
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 17uy then a.[i] <- 0uy)  // 17=log
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 18uy then a.[i] <- 1uy; d.[i/2] <- 0uy elif a.[i] = 106uy then a.[i] <- 0uy)  // 18=leaves, 106=vine
+        r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 18uy then a.[i] <- 0uy)
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 106uy then a.[i] <- 0uy)
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 1uy then a.[i] <- 0uy)  // stone -> air
+        System.IO.File.Delete(fil+".new")
+        r.Write(fil+".new")
+        System.IO.File.Copy(fil+".new", fil, true)
+    let fil = sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.-1.2109.mca""" save
+    //let fil = sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.-1.2110.mca""" save
+    //removeAllTileTicks(fil)
+    dumpTileTicks(fil)
+    if CHANGE then
+        let r = new RegionFile(fil)
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 17uy then a.[i] <- 0uy)  // 17=log
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 18uy then a.[i] <- 1uy; d.[i/2] <- 0uy elif a.[i] = 106uy then a.[i] <- 0uy)  // 18=leaves, 106=vine
+        r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 18uy then a.[i] <- 0uy)
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 106uy then a.[i] <- 0uy)
+        //r.ReplaceBlocks(fun a d -> for i = 0 to a.Length-1 do if a.[i] = 1uy then a.[i] <- 0uy)  // stone -> air
+        System.IO.File.Delete(fil+".new")
+        r.Write(fil+".new")
+        System.IO.File.Copy(fil+".new", fil, true)
+#endif    
