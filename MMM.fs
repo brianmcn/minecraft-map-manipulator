@@ -2140,16 +2140,26 @@ let placeCommandBlocksInTheWorld(fil) =
     let MAP_UPDATE_ROOM = MAP_UPDATE_ROOM_LOW.Offset(3,2,3)
     let WAITING_ROOM_LOW = Coords(79,8,69)
     let WAITING_ROOM = WAITING_ROOM_LOW.Offset(3,2,3)
+
+    let BINGO_ITEMS_LOW = Coords(3,6,3)
     let TIMEKEEPER_REDSTONE = Coords(3,6,44)
+    let TIMEKEEPER_25MIN_REDSTONE = Coords(3,8,44)
     let ITEM_CHECKERS_REDSTONE_LOW(team) = Coords(6+6*team,6,44)
     let ITEM_CHECKERS_REDSTONE_HIGH(team) = Coords(10+6*team,10,44)
     let GOT_AN_ITEM_COMMON_LOGIC(team) = Coords(6+6*team,6,80)
     let GOT_BINGO_REDSTONE(team) = Coords(6+6*team,8,80)
     let GOT_MEGA_BINGO_REDSTONE(team) = Coords(6+6*team,10,80)
     let GOT_LOCKOUT_REDSTONE(team) = Coords(6+6*team+2,8,80)
+    let SPAWN_LOCATION_COMMANDS(team) = Coords(6+6*team+2,10,80)
     let GOT_WIN_COMMON_LOGIC = Coords(4,8,80)
+
     let MAKE_SEEDED_CARD = Coords(7,3,11)
     let TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW = Coords(20,3,10)
+
+    let TPX_LOW = Coords(40,3,10)
+    let TPZ_LOW = Coords(41,3,10)
+    let TPY_LOW = Coords(42,3,10)
+
     let RESET_SCORES_LOGIC = Coords(48,3,10)
     let RANDOM_SEED_BUTTON = Coords(49,3,10)
     let CHOOSE_SEED_BUTTON = Coords(50,3,10)
@@ -2157,10 +2167,9 @@ let placeCommandBlocksInTheWorld(fil) =
     let START_GAME_PART_2 = Coords(52,3,10)
     let SHOW_ITEMS_BUTTON = Coords(53,3,10)
     let TOGGLE_LOCKOUT_BUTTON = Coords(54,3,10)
-    let PILLAR_UP_THE_ARMOR_STAND = Coords(60,3,10)
-    let TPX_LOW = Coords(40,3,10)
-    let TPZ_LOW = Coords(41,3,10)
-    let BINGO_ITEMS_LOW = Coords(3,6,3)
+
+    let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
+    let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
     
     //////////////////////////////
     // lobby
@@ -2467,6 +2476,22 @@ let placeCommandBlocksInTheWorld(fil) =
     let cmdsInit2 =
         [|
         yield O ""
+        // call part 3
+        yield U (sprintf "blockdata %d %d %d {auto:1b}" 5 3 10) // todo coords
+        yield U (sprintf "blockdata %d %d %d {auto:0b}" 5 3 10)
+        // force every chunk to redraw map
+        for x = 0 to 7 do
+            for z = 0 to 7 do
+                yield U (sprintf "setblock %d %d %d stone" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))
+        yield! nTicksLater(20)
+        for x = 0 to 7 do
+            for z = 0 to 7 do
+                yield U (sprintf "setblock %d %d %d air" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))
+        |]
+    region.PlaceCommandBlocksStartingAt(4,3,10,cmdsInit2,"init2 all")
+    let cmdsInit3 =
+        [|
+        yield O ""
         // make AECs for teleportBasedOnScore, e.g. to move N spaces with a score of N
         for i = 60 downto 1 do  // 60 is nice, not too many, divides 1-6, makes the 300 X/Z spawns manageable
             yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)   // TODO deal with expiration (999999 = 13 hours)
@@ -2484,7 +2509,12 @@ let placeCommandBlocksInTheWorld(fil) =
                 yield U (sprintf "execute @e[tag=Z,score_S=0] ~ ~ ~ tp @e[tag=%s] ~ ~ ~1" tagToTp)
             yield U (sprintf "scoreboard players operation @e[tag=Z] S += %s %s" scorePlayer scoreObjective)
         |]
-    region.PlaceCommandBlocksStartingAt(4,3,10,cmdsInit2,"init2 all")
+    region.PlaceCommandBlocksStartingAt(5,3,10,cmdsInit3,"init3 all")
+    // ensure there is an empty command block at each SPAWN_LOCATION_COMMANDS, since it gets cloned in, and cloning air breaks the chain
+    for t = 0 to 3 do
+        region.PlaceCommandBlocksStartingAt(SPAWN_LOCATION_COMMANDS(t),[|U"";U"";U""|],"ensure spawn cmd blocks")
+
+
 
     //////////////////////////////////////////////
     // generate a preview of card with items frames on a wall
@@ -2565,6 +2595,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "fill %d %d %d %s wool" lo.X lo.Y (lo.Z-1) (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
         // turn off timekeeper
         yield U (sprintf "setblock %s wool" TIMEKEEPER_REDSTONE.STR)
+        yield U (sprintf "setblock %s wool" TIMEKEEPER_25MIN_REDSTONE.STR)
         // clear player scores
         yield U "scoreboard players set @a Score 0"
         yield U "scoreboard players reset Time Score"
@@ -2590,7 +2621,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield O ""
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
-        // select seed and generate
+        // select seed and generate  // TODO use an @r as well, so not same sequence for all?
         yield U """tellraw @a ["Choosing random seed..."]"""
         yield U "scoreboard players set modRandomSeed S 899"
         yield! PRNG("seed","is","modRandomSeed","S")
@@ -2719,6 +2750,18 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "scoreboard players test %sCount S 1 *" team)
             yield C (sprintf "fill %s %s stone" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR) // Note: 'stone' because 'wool' may fail (0 updates) after blackout
             yield C (sprintf "fill %s %s redstone_block" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
+            // and re-tp anyone who maybe moved, the cheaters!
+            let tpxCmd = SPAWN_LOCATION_COMMANDS(t)
+            let tpzCmd = SPAWN_LOCATION_COMMANDS(t).Offset(0,0,1)
+            let tpyCmd = SPAWN_LOCATION_COMMANDS(t).Offset(0,0,2)
+            yield U "scoreboard players tag @a[tag=oneGuyToTeleport] remove oneGuyToTeleport"
+            yield U (sprintf "scoreboard players tag @a[team=%s] add oneGuyToTeleport" team)
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpxCmd.STR tpxCmd.STR)
+            yield U "say THIS SHOULD HAVE BEEN REPLACED"
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpzCmd.STR tpzCmd.STR)
+            yield U "say THIS SHOULD HAVE BEEN REPLACED"
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpyCmd.STR tpyCmd.STR)
+            yield U "say THIS SHOULD HAVE BEEN REPLACED"
         yield U """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
         yield! nTicksLater(20)
         yield U """tellraw @a ["3"]"""
@@ -2730,6 +2773,20 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U """tellraw @a ["1"]"""
         yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
         yield! nTicksLater(20)
+        // once more, re-tp anyone who maybe moved, the cheaters!
+        for t = 0 to 3 do
+            let team = TEAMS.[t]
+            let tpxCmd = SPAWN_LOCATION_COMMANDS(t)
+            let tpzCmd = SPAWN_LOCATION_COMMANDS(t).Offset(0,0,1)
+            let tpyCmd = SPAWN_LOCATION_COMMANDS(t).Offset(0,0,2)
+            yield U "scoreboard players tag @a[tag=oneGuyToTeleport] remove oneGuyToTeleport"
+            yield U (sprintf "scoreboard players tag @a[team=%s] add oneGuyToTeleport" team)
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpxCmd.STR tpxCmd.STR)
+            yield U "say THIS SHOULD HAVE BEEN REPLACED"
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpzCmd.STR tpzCmd.STR)
+            yield U "say THIS SHOULD HAVE BEEN REPLACED"
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpyCmd.STR tpyCmd.STR)
+            yield U "say THIS SHOULD HAVE BEEN REPLACED"
         yield U "scoreboard players set hasAnyoneUpdatedMap S 0"
         yield U "time set 0"
         yield U "effect @a clear"
@@ -2909,16 +2966,27 @@ let placeCommandBlocksInTheWorld(fil) =
     region.PlaceCommandBlocksStartingAt(GOT_WIN_COMMON_LOGIC,gotAWinCommonLogic,"someone won coda")
     let timekeeperLogic =
         [|
-            O "stats block ~ ~ ~3 set QueryResult @e[tag=TimeKeeper] S"
+            O "stats block ~ ~ ~6 set QueryResult @e[tag=TimeKeeper] S"
             U "say this gets replaced by redstone/wool"
             P "scoreboard players test Time S 0 0"
-            C "worldborder get"
-            C "scoreboard players set TmpTimeCalc S 10000000"
-            C "scoreboard players operation @e[tag=TimeKeeper] S -= TenMillion Calc"
-            C "scoreboard players operation @e[tag=TimeKeeper] S /= Twenty Calc"
-            C "scoreboard players operation Time Score = @e[tag=TimeKeeper] S"
+            C "blockdata ~ ~ ~2 {auto:1b}"
+            C "blockdata ~ ~ ~1 {auto:0b}"
+            O ""
+            U "worldborder get"
+            U "scoreboard players operation @e[tag=TimeKeeper] S -= TenMillion Calc"
+            U "scoreboard players operation @e[tag=TimeKeeper] S /= Twenty Calc"
+            U "scoreboard players operation Time Score = @e[tag=TimeKeeper] S"
+            U "scoreboard players test Time Score 1500 *"
+            C (sprintf "setblock %s redstone_block" TIMEKEEPER_25MIN_REDSTONE.STR)
         |]
     region.PlaceCommandBlocksStartingAt(TIMEKEEPER_REDSTONE.Offset(0,0,-1),timekeeperLogic,"timekeeper")
+    let timekeeper25min =
+        [|
+            O ""
+            U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+            U """execute @a ~ ~ ~ tellraw @a [{"selector":"@p"}," got ",{"score":{"name":"@p","objective":"Score"}}," in 25 mins"]"""
+        |]
+    region.PlaceCommandBlocksStartingAt(TIMEKEEPER_25MIN_REDSTONE.Offset(0,0,1),timekeeper25min,"timekeeper 25min")
 
     // clone blocks into framework
     let checkForItemsInit() =
@@ -3055,7 +3123,7 @@ let placeCommandBlocksInTheWorld(fil) =
                 for z = 0 to 59 do
                     let i = 60*y + z
                     let dist = spawnIndices.[i] * 10000
-                    yield U (sprintf "tp @p[tag=oneGuyToTeleport] %d ~ ~" dist)
+                    yield U (sprintf "tp @a[tag=oneGuyToTeleport] %d ~ ~" dist)
             |]
         region.PlaceCommandBlocksStartingAt(TPX_LOW.Offset(0,y,0),tpXCmds, "tp X")
     for y = 0 to 4 do
@@ -3064,23 +3132,68 @@ let placeCommandBlocksInTheWorld(fil) =
                 for z = 0 to 59 do
                     let i = 60*y + z
                     let dist = spawnIndices.[i] * 10000
-                    yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ ~ %d" dist)
+                    yield U (sprintf "tp @a[tag=oneGuyToTeleport] ~ ~ %d" dist)
             |]
         region.PlaceCommandBlocksStartingAt(TPZ_LOW.Offset(0,y,0),tpZCmds, "tp Z")
+    // once a spawn is picked, we'll also need to use falling armor stand to compute Y height of spawn point
+    for y = 0 to 3 do
+        let tpYCmds =
+            [|
+                for z = 0 to 31 do
+                    yield U (sprintf "tp @a[tag=oneGuyToTeleport] ~ %d ~" (32*y + z))
+            |]
+        region.PlaceCommandBlocksStartingAt(TPY_LOW.Offset(0,y,0),tpYCmds, "tp Y")
+
     // pick spawn from seed
     let pillarUpTheArmorStand =
         [|
             yield O ""
-            for _i = 0 to 15 do
+            for _i = 0 to 30 do
                 yield U "execute @e[tag=tpas] ~ ~ ~ testforblock ~ ~ ~ air 0"
                 yield U "testforblock ~ ~ ~-1 chain_command_block -1 {SuccessCount:0}"
                 yield C "tp @e[tag=tpas] ~ ~2 ~"
                 yield C "execute @e[tag=tpas] ~ ~ ~ fill ~ ~-2 ~ ~ ~-1 ~ stone"
         |]
     region.PlaceCommandBlocksStartingAt(PILLAR_UP_THE_ARMOR_STAND,pillarUpTheArmorStand, "pillar up the armor stand")
+    // compute Y coordinate of armor stand
+    let computeYCoordinateInit =
+        [|
+            yield O ""
+            yield U """execute @e[tag=tpas] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["findASY"]}"""
+            yield U (sprintf """summon AreaEffectCloud %s {Duration:999999,Tags:["findYCmd"]}""" TPY_LOW.STR)
+            yield U "setblock 1 1 1 wool 15"
+            yield U "blockdata ~ ~ ~2 {auto:1b}"
+            yield U "blockdata ~ ~ ~1 {auto:0b}"
+            yield O ""
+            yield U "tp @e[tag=findASY] ~ 0 ~"
+            yield U (sprintf "blockdata %d %d %d {auto:1b}" COMPUTE_Y_ARMOR_STAND_LOW.X (COMPUTE_Y_ARMOR_STAND_LOW.Y+1) COMPUTE_Y_ARMOR_STAND_LOW.Z)
+            yield U (sprintf "blockdata %d %d %d {auto:0b}" COMPUTE_Y_ARMOR_STAND_LOW.X (COMPUTE_Y_ARMOR_STAND_LOW.Y+1) COMPUTE_Y_ARMOR_STAND_LOW.Z)
+        |]
+    region.PlaceCommandBlocksStartingAt(COMPUTE_Y_ARMOR_STAND_LOW.Offset(0,0,0),computeYCoordinateInit, "compute armor stand Y init")
+    for y = 1 to 4 do
+        let computeYCoordinate =
+            [|
+                yield O ""
+                for _i = 0 to 31 do
+                    //                                         if we have reached Y           then clone
+                    yield U "execute @e[tag=findASY] ~ ~ ~ execute @e[tag=tpas,r=1] ~ ~ ~ execute @e[tag=findYCmd] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
+                    yield U "tp @e[tag=findYCmd] ~ ~ ~1"
+                    yield U "tp @e[tag=findASY] ~ ~1 ~"
+                yield U "tp @e[tag=findYCmd] ~ ~1 ~-32"
+                yield U (sprintf "blockdata %d %d %d {auto:1b}" COMPUTE_Y_ARMOR_STAND_LOW.X (COMPUTE_Y_ARMOR_STAND_LOW.Y+y+1) COMPUTE_Y_ARMOR_STAND_LOW.Z)
+                yield U (sprintf "blockdata %d %d %d {auto:0b}" COMPUTE_Y_ARMOR_STAND_LOW.X (COMPUTE_Y_ARMOR_STAND_LOW.Y+y+1) COMPUTE_Y_ARMOR_STAND_LOW.Z)
+            |]
+        region.PlaceCommandBlocksStartingAt(COMPUTE_Y_ARMOR_STAND_LOW.Offset(0,y,0),computeYCoordinate, "compute armor stand Y loop")
+    let computeYCoordinateCoda =
+        [|
+            yield O ""
+            yield U "kill @e[tag=findASY]"
+            yield U "kill @e[tag=findYCmd]"
+        |]
+    region.PlaceCommandBlocksStartingAt(COMPUTE_Y_ARMOR_STAND_LOW.Offset(0,5,0),computeYCoordinateCoda, "compute armor stand Y coda")
         
     let SPAWN_START_HEIGHT = 130// TODO adjust height?
-    let pickSpawnThenActivate(team,ax,ay,az) = 
+    let pickSpawnThenActivate(t,team,ax,ay,az) = 
         [|
 #if DEBUG_DETAIL
             yield O (sprintf "say pickSpawnThenActivate %s" team)
@@ -3106,15 +3219,17 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "summon ArmorStand %s {Tags:[\"findblock\"]}" TPX_LOW.STR)
             yield! teleportBasedOnScore("findblock", "x2", "S", "z")
             yield! teleportBasedOnScore("findblock", "x1", "S", "y")
-            yield U "execute @e[tag=findblock] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
-            yield U "clone 1 1 1 1 1 1 ~ ~ ~1"
+            let tpxCmd = SPAWN_LOCATION_COMMANDS(t)
+            let tpzCmd = SPAWN_LOCATION_COMMANDS(t).Offset(0,0,1)
+            yield U (sprintf "execute @e[tag=findblock] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ %s" tpxCmd.STR)
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpxCmd.STR tpxCmd.STR)
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
             // find the tpZ block to clone
             yield U (sprintf "tp @e[tag=findblock] %s" TPZ_LOW.STR)
             yield! teleportBasedOnScore("findblock", "z2", "S", "z")
             yield! teleportBasedOnScore("findblock", "z1", "S", "y")
-            yield U "execute @e[tag=findblock] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 1 1 2"
-            yield U "clone 1 1 2 1 1 2 ~ ~ ~1"
+            yield U (sprintf "execute @e[tag=findblock] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ %s" tpzCmd.STR)
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpzCmd.STR tpzCmd.STR)
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
             yield U "kill @e[tag=findblock]"
             // guy is TP'd there, now do spawn box, drop armor stand, etc
@@ -3123,9 +3238,9 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! nTicksLater(5) // ensure skybox area gen'd    TODO adjust timing?
             // re-tp to exact spot to build box, in case he moved while falling
             yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ %d ~" SPAWN_START_HEIGHT)
-            yield U "clone 1 1 1 1 1 1 ~ ~ ~1"
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpxCmd.STR tpxCmd.STR)
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
-            yield U "clone 1 1 2 1 1 2 ~ ~ ~1"
+            yield U (sprintf "clone %s %s ~ ~ ~1" tpzCmd.STR tpzCmd.STR)
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
             yield U (sprintf "execute @p[tag=oneGuyToTeleport] ~ ~ ~ fill ~-1 %d ~-1 ~1 %d ~1 barrier 0 hollow" (SPAWN_START_HEIGHT-2) (SPAWN_START_HEIGHT+3))
 #if VOID_WORLD_TESTING
@@ -3135,10 +3250,13 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ %d ~" SPAWN_START_HEIGHT)
             yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ summon ArmorStand ~ ~-4 ~ {Invulnerable:1,Marker:1,Tags:[\"tpas\"]}"
             yield! nTicksLater(400) // TODO adjust timing?
-            // call out to pillar-armor-stand (only takes 1 tick)
+            // call out to pillar-armor-stand (takes 1 tick to pillar, 7 ticks to compute Y)
             yield U (sprintf "blockdata %s {auto:1b}" PILLAR_UP_THE_ARMOR_STAND.STR)
             yield U (sprintf "blockdata %s {auto:0b}" PILLAR_UP_THE_ARMOR_STAND.STR)
-            yield! nTicksLater(3) // ensure armor stand pillar done
+            yield U (sprintf "blockdata %s {auto:1b}" COMPUTE_Y_ARMOR_STAND_LOW.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" COMPUTE_Y_ARMOR_STAND_LOW.STR)
+            yield! nTicksLater(8) // ensure armor stand pillar & y compute done
+            yield U (sprintf "clone 1 1 1 1 1 1 %s" (SPAWN_LOCATION_COMMANDS(t).Offset(0,0,2).STR))
             yield U "tp @p[tag=oneGuyToTeleport] @e[tag=tpas]"
             yield U "kill @e[tag=tpas]"
             yield U (sprintf "tp @a[team=%s,tag=!oneGuyToTeleport] @p[tag=oneGuyToTeleport]" team)
@@ -3162,7 +3280,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield C (sprintf """tellraw @a ["Creating spawn for %s team..."]""" team)
             yield C "blockdata ~ ~ ~2 {auto:1b}"
             yield C "blockdata ~ ~ ~1 {auto:0b}"
-            yield! pickSpawnThenActivate(team,coord.X+t+1,coord.Y,coord.Z)
+            yield! pickSpawnThenActivate(t,team,coord.X+t+1,coord.Y,coord.Z)
             |]
         region.PlaceCommandBlocksStartingAt(coord.X+t,coord.Y,coord.Z,pickSpawnCmds, "spawn based on seed")
     let afterAllSpawn =
