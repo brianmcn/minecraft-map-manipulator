@@ -2140,6 +2140,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let MAP_UPDATE_ROOM = MAP_UPDATE_ROOM_LOW.Offset(3,2,3)
     let WAITING_ROOM_LOW = Coords(79,8,69)
     let WAITING_ROOM = WAITING_ROOM_LOW.Offset(3,2,3)
+    let TIMEKEEPER_REDSTONE = Coords(3,6,44)
     let ITEM_CHECKERS_REDSTONE_LOW(team) = Coords(6+6*team,6,44)
     let ITEM_CHECKERS_REDSTONE_HIGH(team) = Coords(10+6*team,10,44)
     let GOT_AN_ITEM_COMMON_LOGIC(team) = Coords(6+6*team,6,80)
@@ -2290,7 +2291,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard objectives add TickInfo dummy"
         yield U "scoreboard players set @e[tag=TickLagDebug] TickInfo 1"
         yield U "stats block ~ ~ ~8 set QueryResult @e[tag=TickLagDebug] TickInfo"
-        yield U "worldborder set 10000000"   // TODO note, cannot use as-is while game is running
+        yield U "worldborder set 10000000"
         yield U "worldborder add 10000000 500000"
         yield U "scoreboard players set PrevTick TickInfo 10000000"
         yield P ""
@@ -2430,8 +2431,12 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set Two Calc 2"
         yield U "scoreboard players set TwoToSixteen Calc 65536"
         yield U "scoreboard players set OneThousand Calc 1000"
+        yield U "scoreboard players set TenMillion Calc 10000000"
+        yield U "scoreboard players set Twenty Calc 20"
+        yield U "scoreboard players set Sixty Calc 60"
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
+        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TimeKeeper"]}""" // TODO deal with duration (re-seed -> entitydata all AECs?)
         // start ticklagdebug // TODO eventually remove this
         yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TickLagDebug"]}"""
         yield U "fill 100 4 6 100 4 16 wool"  // todo coords
@@ -2558,8 +2563,13 @@ let placeCommandBlocksInTheWorld(fil) =
         for t = 0 to 3 do
             let lo = ITEM_CHECKERS_REDSTONE_LOW(t)
             yield U (sprintf "fill %d %d %d %s wool" lo.X lo.Y (lo.Z-1) (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
+        // turn off timekeeper
+        yield U (sprintf "setblock %s wool" TIMEKEEPER_REDSTONE.STR)
         // clear player scores
         yield U "scoreboard players set @a Score 0"
+        yield U "scoreboard players reset Time Score"
+        yield U "scoreboard players reset Minutes Score"
+        yield U "scoreboard players reset Seconds Score"
         // clear bingo information
         for t = 0 to 3 do
             let team = TEAMS.[t]
@@ -2709,7 +2719,6 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "scoreboard players test %sCount S 1 *" team)
             yield C (sprintf "fill %s %s stone" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR) // Note: 'stone' because 'wool' may fail (0 updates) after blackout
             yield C (sprintf "fill %s %s redstone_block" (ITEM_CHECKERS_REDSTONE_LOW t).STR (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
-        // TODO start worldborder timer
         yield U """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
         yield! nTicksLater(20)
         yield U """tellraw @a ["3"]"""
@@ -2726,6 +2735,10 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "effect @a clear"
         yield U """tellraw @a ["Start! Go!!!"]"""
         yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 1.2"
+        // start worldborder timer
+        yield U "worldborder set 10000000"
+        yield U "worldborder add 10000000 500000"
+        yield U (sprintf "setblock %s redstone_block" TIMEKEEPER_REDSTONE.STR)
         // enable triggers (for click-in-chat-to-tp-home stuff)
         yield U "scoreboard players set @a home 0"
         yield U "scoreboard players enable @a home"
@@ -2821,7 +2834,7 @@ let placeCommandBlocksInTheWorld(fil) =
         let gotAnItem =
             [|
             yield O ""
-            yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"GameTime","objective":"Score"}},"s)"]""" team team)
+            yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"Time","objective":"Score"}},"s)"]""" team team)
             yield U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
             yield C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
             yield U "execute @a ~ ~ ~ playsound fireworks.launch @a ~ ~ ~"
@@ -2872,6 +2885,15 @@ let placeCommandBlocksInTheWorld(fil) =
     let gotAWinCommonLogic =
         [|
         yield O ""
+        // put time on scoreboard
+        yield U "scoreboard players operation Minutes S = Time Score"
+        yield U "scoreboard players operation Minutes S /= Sixty Calc"
+        yield U "scoreboard players operation Seconds S = Time Score"
+        yield U "scoreboard players operation Seconds S %= Sixty Calc"
+        yield U "scoreboard players set Minutes Score 0"
+        yield U "scoreboard players set Seconds Score 0"
+        yield U "scoreboard players operation Minutes Score -= Minutes S"
+        yield U "scoreboard players operation Seconds Score -= Seconds S"
         // option to return to lobby
         yield U """tellraw @a ["You can keep playing, or"]"""
         yield U """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
@@ -2885,8 +2907,18 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~-3 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:3,Flicker:1,Trail:1,Colors:[6160227],FadeColors:[16777215]}]}}}}"""
         |]
     region.PlaceCommandBlocksStartingAt(GOT_WIN_COMMON_LOGIC,gotAWinCommonLogic,"someone won coda")
-
-
+    let timekeeperLogic =
+        [|
+            O "stats block ~ ~ ~3 set QueryResult @e[tag=TimeKeeper] S"
+            U "say this gets replaced by redstone/wool"
+            P "scoreboard players test Time S 0 0"
+            C "worldborder get"
+            C "scoreboard players set TmpTimeCalc S 10000000"
+            C "scoreboard players operation @e[tag=TimeKeeper] S -= TenMillion Calc"
+            C "scoreboard players operation @e[tag=TimeKeeper] S /= Twenty Calc"
+            C "scoreboard players operation Time Score = @e[tag=TimeKeeper] S"
+        |]
+    region.PlaceCommandBlocksStartingAt(TIMEKEEPER_REDSTONE.Offset(0,0,-1),timekeeperLogic,"timekeeper")
 
     // clone blocks into framework
     let checkForItemsInit() =
