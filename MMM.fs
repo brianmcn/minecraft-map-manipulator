@@ -2235,6 +2235,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield O ""
             // interior layout - cfg room
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout" "" TOGGLE_LOCKOUT_BUTTON true "black"
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at start" "" "" ""
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at respawn" "" "" ""
             yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "night vision" "" "" ""
@@ -2286,21 +2288,24 @@ let placeCommandBlocksInTheWorld(fil) =
         [|
         yield O ""
         yield U "scoreboard objectives add TickInfo dummy"
-        yield U "scoreboard players set @e[name=TickLagDebug] TickInfo 0"
-        yield U "stats block ~ ~ ~5 set QueryResult @e[name=TickLagDebug] TickInfo"
+        yield U "scoreboard players set @e[tag=TickLagDebug] TickInfo 1"
+        yield U "stats block ~ ~ ~8 set QueryResult @e[tag=TickLagDebug] TickInfo"
+        yield U "worldborder set 10000000"   // TODO note, cannot use as-is while game is running
+        yield U "worldborder add 10000000 500000"
+        yield U "scoreboard players set PrevTick TickInfo 10000000"
         yield P ""
         yield U "scoreboard players add Tick TickInfo 1"
         yield U "scoreboard players test Tick TickInfo 40 *"
         yield C "scoreboard players set Tick TickInfo 0"
         yield C "worldborder get"
-        yield C "worldborder set 10000000"   // TODO note, cannot use as-is while game is running
-        yield C "worldborder add 10000 500"
-        yield C "scoreboard players remove @e[Name=TickLagDebug] TickInfo 10000000"
-        yield C "execute @e[name=TickLagDebug,score_TickInfo_min=41] ~ ~ ~ say ticks are lagging"
+        yield C "scoreboard players operation TempTick TickInfo = @e[tag=TickLagDebug] TickInfo"
+        yield C "scoreboard players operation @e[tag=TickLagDebug] TickInfo -= PrevTick TickInfo"
+        yield C "scoreboard players operation PrevTick TickInfo = TempTick TickInfo"
+        yield C """execute @e[tag=TickLagDebug,score_TickInfo_min=41] ~ ~ ~ tellraw @a[score_TickInfo_min=1] ["ticks are lagging"]"""
         yield U "testforblock ~ ~ ~-7 chain_command_block -1 {SuccessCount:1}"
-        yield C "execute @e[name=TickLagDebug,score_TickInfo=39] ~ ~ ~ say ticks are trying to catch up"
+        yield C """execute @e[tag=TickLagDebug,score_TickInfo=39] ~ ~ ~ tellraw @a[score_TickInfo_min=1] ["ticks are trying to catch up"]"""
         yield U "testforblock ~ ~ ~-9 chain_command_block -1 {SuccessCount:1}"
-        yield C "execute @e[name=TickLagDebug,score_TickInfo_min=40,score_TickInfo=40] ~ ~ ~ say ticks are normal"
+        yield C """execute @e[tag=TickLagDebug,score_TickInfo_min=40,score_TickInfo=40] ~ ~ ~ tellraw @a[score_TickInfo_min=1] ["ticks are normal"]"""
         |]
     let cmdsnTicksLater =
         [|
@@ -2427,10 +2432,10 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set OneThousand Calc 1000"
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
-        // start tick-lag-debug
-        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,CustomName:"TickLagDebug"}"""
-        yield U "fill 100 4 6 100 4 10 wool"  // todo coords
-        yield U "fill 100 4 6 100 4 10 redstone_block"  // todo coords
+        // start ticklagdebug // TODO eventually remove this
+        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TickLagDebug"]}"""
+        yield U "fill 100 4 6 100 4 16 wool"  // todo coords
+        yield U "fill 100 4 6 100 4 16 redstone_block"  // todo coords
         // start major clocks
         yield U "fill 101 4 10 108 4 10 wool"  // todo coords
         yield U "fill 101 4 10 108 4 10 redstone_block"  // todo coords
@@ -2756,6 +2761,7 @@ let placeCommandBlocksInTheWorld(fil) =
             C "scoreboard players set LockoutGoal Score -1"
         |]
     region.PlaceCommandBlocksStartingAt(TOGGLE_LOCKOUT_BUTTON,toggleLockoutButton,"toggle lockout button")
+
 
 
     ///////////////////////
