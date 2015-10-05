@@ -1780,8 +1780,8 @@ let editMapDat(file) =
                                                     Byte("dimension",0uy)
                                                     Short("height",128s)
                                                     Short("width",128s)
-                                                    Int("xCenter",65)
-                                                    Int("zCenter",65)
+                                                    Int("xCenter",64)
+                                                    Int("zCenter",64)
                                                     ByteArray("colors",Array.zeroCreate 16384)
                                                     End
                                                     |])
@@ -2098,7 +2098,7 @@ let placeCommandBlocksInTheWorld(fil) =
                 if x = 8 then
                     x <- 0
                     z <- z + 1
-    let MAPX, MAPY, MAPZ = 1, 19, 1
+    let MAPX, MAPY, MAPZ = 0, 19, 0
     writeZoneFromString(region, MAPX, MAPY, MAPZ, AA.mapTopLeft)
     writeZoneFromString(region, MAPX+64, MAPY, MAPZ, AA.mapTopRight)
     writeZoneFromString(region, MAPX, MAPY, MAPZ+64, AA.mapBottomLeft)
@@ -2192,7 +2192,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let ILENGTH = 13
     let LENGTH = ILENGTH + 2
     let HEIGHT = 9
-    let NUM_CONFIG_COMMANDS = 8
+    let NUM_CONFIG_COMMANDS = 7
     let OFFERING_SPOT = Coords(LOBBYX+TOTAL_WIDTH-INFO_ROOM_IWITDH/2-2,LOBBYY+1,LOBBYZ+2)
     let LOBBY_CENTER_LOCATION = Coords(LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3, LOBBYY+2, LOBBYZ+4)
     let makeWallSign x y z dmg txt1 txt2 txt3 txt4 =
@@ -2229,9 +2229,9 @@ let placeCommandBlocksInTheWorld(fil) =
             // x walls
             yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY LOBBYZ LOBBYX (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
             yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+CFG_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
-            yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-4) (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+3) (LOBBYZ+LENGTH-2))
+            yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-5) (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+4) (LOBBYZ+LENGTH-2))
             yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
-            yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-4) (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+3) (LOBBYZ+LENGTH-2))
+            yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-5) (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+4) (LOBBYZ+LENGTH-2))
             yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+TOTAL_WIDTH-1) LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
             // floor
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
@@ -2267,21 +2267,21 @@ let placeCommandBlocksInTheWorld(fil) =
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "go to tutorial" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled "black"
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+10) 5 "pick random" "seed" RANDOM_SEED_BUTTON true "black"
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "seed the" "card" CHOOSE_SEED_BUTTON true "black"
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "start the" "game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "join red" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "red" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "join blue" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "blue" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "join yellow" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "yellow" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+9) 4 "join green" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "green" else "gray")
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "pick random" "seed" RANDOM_SEED_BUTTON true "black"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "seed the" "card" CHOOSE_SEED_BUTTON true "black"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+4) 5 "start the" "game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "join red" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "red" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "join blue" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "blue" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "join yellow" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "yellow" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "join green" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "green" else "gray")
             // interior layout - info room
             for i = 0 to 4 do
                 for j = 0 to 3 do
                     yield! makeWallSign (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2+j) (LOBBYZ+6+i) 4 "head" "" "" ""
             yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "offering" "" "" ""
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+9) 5 "show" "items" SHOW_ITEMS_BUTTON true "black"
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+7) 5 "version" "" "" ""
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+5) 5 "donate" "" "" ""
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "show" "items" SHOW_ITEMS_BUTTON true "black"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "version" "" "" ""
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-3,LOBBYY,LOBBYZ,placeSigns(false),"disabled signs")
     region.PlaceCommandBlocksStartingAt(LOBBYX-4,LOBBYY,LOBBYZ,placeSigns(true),"enabled signs")
@@ -2614,6 +2614,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)   // TODO deal with expiration (999999 = 13 hours)
             yield U "scoreboard players add @e[tag=Z] S 1"
         yield U (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR)
+        yield U (sprintf "fill %d %d %d %d %d %d stone" 0 MAPY (MAPZ-1) 127 MAPY (MAPZ-1)) // stone above top row, to prevent shading on top line
         |]
     let teleportBasedOnScore(tagToTp, scorePlayer, scoreObjective, axis) =  // score must have value 0-59 to work
         assert(axis="x" || axis="y" || axis="z")
@@ -2802,6 +2803,15 @@ let placeCommandBlocksInTheWorld(fil) =
     ///////////////////////
     // start game    
     ///////////////////////
+    let ensureCardUpdated(whereToTpBack:Coords) =
+        [|
+            yield U "scoreboard players tag @p add oneGuyToEnsureBingoCardCleared"
+            yield U (sprintf "blockdata %s {auto:1b}" ENSURE_CARD_UPDATED_LOGIC.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" ENSURE_CARD_UPDATED_LOGIC.STR)
+            yield! nTicksLater(33)
+            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" whereToTpBack.STR) 
+            yield U "scoreboard players tag @a remove oneGuyToEnsureBingoCardCleared"
+        |]
     let startGameButtonPart1 =
         [|
         yield O ""
@@ -2835,7 +2845,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "effect @a regeneration 10 4 true"
         yield U "xp -2147483648L @a"
         // TODO clear inventories
-        // TODO fill inv with maps to ensure cleared (map updated)
+        // fill inv with maps to ensure cleared (map updated)
+        yield! ensureCardUpdated(LOBBY_CENTER_LOCATION)
         // give player all the effects
         yield U "effect @a slowness 999 127 true"
         yield U "effect @a mining_fatigue 999 7 true"
@@ -2986,6 +2997,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield O ""
             // reset scores
             yield U """tellraw @a ["One moment, tutorial being initialized..."]"""
+            yield U "time set 500"
             yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
             yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
             yield! nTicksLater(2)
@@ -3007,12 +3019,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
             yield U (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
             yield! nTicksLater(55)
-            yield U "scoreboard players tag @p add oneGuyToEnsureBingoCardCleared"
-            yield U (sprintf "blockdata %s {auto:1b}" ENSURE_CARD_UPDATED_LOGIC.STR)
-            yield U (sprintf "blockdata %s {auto:0b}" ENSURE_CARD_UPDATED_LOGIC.STR)
-            yield! nTicksLater(33)
-            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" TUTORIAL_PLAYER_START.STR) 
-            yield U "scoreboard players tag @a remove oneGuyToEnsureBingoCardCleared"
+            yield! ensureCardUpdated(TUTORIAL_PLAYER_START)
         |]
     region.PlaceCommandBlocksStartingAt(START_TUTORIAL_BUTTON,startTutorialButton,"start tutorial button")
     let ensureCardUpdatedLogic = // tp oneGuyToEnsureBingoCardCleared to center and update
@@ -3563,9 +3570,9 @@ do
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\level.dat""")
     
     //editMapDat("""C:\Users\brianmcn\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
-    //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\data\map_0.dat""")
 
-
+    //testing2()
+    //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat""")
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     //removeAllTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
@@ -3578,7 +3585,7 @@ do
     System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
                         sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" save, true)
     placeCommandBlocksInTheWorld(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\data\map_0.dat.new""",
+    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat.new""",
                         sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" save, true)
     System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
                         sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\level.dat""" save, true)
