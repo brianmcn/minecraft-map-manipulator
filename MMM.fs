@@ -1912,6 +1912,8 @@ let testing2() =
 
 /////////////////////////////
 
+let mutable signZ = 0
+
 let placeCommandBlocksInTheWorld(fil) =
     let region = new RegionFile(fil)
 #if AWESOME_CONWAY_LIFE
@@ -2163,10 +2165,14 @@ let placeCommandBlocksInTheWorld(fil) =
     let RESET_SCORES_LOGIC = Coords(48,3,10)
     let RANDOM_SEED_BUTTON = Coords(49,3,10)
     let CHOOSE_SEED_BUTTON = Coords(50,3,10)
-    let START_GAME_PART_1 = Coords(51,3,10)
-    let START_GAME_PART_2 = Coords(52,3,10)
-    let SHOW_ITEMS_BUTTON = Coords(53,3,10)
-    let TOGGLE_LOCKOUT_BUTTON = Coords(54,3,10)
+    let CHOOSE_SEED_REDSTONE = Coords(51,3,9)  // 9 not 10 to offset redstone placement
+    let START_GAME_PART_1 = Coords(53,3,10)
+    let START_GAME_PART_2 = Coords(54,3,10)
+    let SHOW_ITEMS_BUTTON = Coords(55,3,10)
+    let TOGGLE_LOCKOUT_BUTTON = Coords(56,3,10)
+    let END_TUTORIAL_BUTTON = Coords(57,3,10)
+    let START_TUTORIAL_BUTTON = Coords(58,3,10)
+    let ENSURE_CARD_UPDATED_LOGIC = Coords(59,3,10)
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -2174,11 +2180,13 @@ let placeCommandBlocksInTheWorld(fil) =
     //////////////////////////////
     // lobby
     //////////////////////////////
+    let NEW_PLAYER_PLATFORM_LO = Coords(-150,1,-150)
+    let NEW_PLAYER_LOCATION = Coords(-130,3,-130)
 
     // IWIDTH/ILENGTH are interior measures, not including walls
     let LOBBYX, LOBBYY, LOBBYZ = 50, 6, 50
     let CFG_ROOM_IWIDTH = 7
-    let MAIN_ROOM_IWIDTH = 9
+    let MAIN_ROOM_IWIDTH = 7
     let INFO_ROOM_IWITDH = 7
     let TOTAL_WIDTH = 1 + CFG_ROOM_IWIDTH + 2 + MAIN_ROOM_IWIDTH + 2 + INFO_ROOM_IWITDH + 1
     let ILENGTH = 13
@@ -2186,10 +2194,11 @@ let placeCommandBlocksInTheWorld(fil) =
     let HEIGHT = 9
     let NUM_CONFIG_COMMANDS = 8
     let OFFERING_SPOT = Coords(LOBBYX+TOTAL_WIDTH-INFO_ROOM_IWITDH/2-2,LOBBYY+1,LOBBYZ+2)
+    let LOBBY_CENTER_LOCATION = Coords(LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3, LOBBYY+2, LOBBYZ+4)
     let makeWallSign x y z dmg txt1 txt2 txt3 txt4 =
         [|
             U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
-            U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\",\"bold\":\"true\"}",Text2:"{\"text\":\"%s\",\"bold\":\"false\"}",Text3:"{\"text\":\"%s\",\"bold\":\"false\"}",Text4:"{\"text\":\"%s\",\"bold\":\"false\"}"}""" x y z x y z txt1 txt2 txt3 txt4)
+            U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\",\"bold\":\"true\"}",Text2:"{\"text\":\"%s\",\"bold\":\"true\"}",Text3:"{\"text\":\"%s\",\"bold\":\"true\"}",Text4:"{\"text\":\"%s\",\"bold\":\"true\"}"}""" x y z x y z txt1 txt2 txt3 txt4)
         |]
     let makeWallSignActivate x y z dmg txt1 txt2 (a:Coords) isBold color =
         let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
@@ -2199,14 +2208,16 @@ let placeCommandBlocksInTheWorld(fil) =
             U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
             U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s%s}"}"""  x y z x y z txt1 bc c1 txt2 bc c2)
         |]
-    let makeWallSignDo x y z dmg txt1 txt2 cmd1 cmd2 isBold color =
+    let makeSignDo kind x y z dmg txt1 txt2 cmd1 cmd2 isBold color =
         let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
         let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd1 else ""
         let c2 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd2 else ""
         [|
-            U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
+            U (sprintf "setblock %d %d %d %s %d" x y z kind dmg)
             U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s%s}"}""" x y z x y z txt1 bc c1 txt2 bc c2)
         |]
+    let makeWallSignDo x y z dmg txt1 txt2 cmd1 cmd2 isBold color =
+        makeSignDo "wall_sign" x y z dmg txt1 txt2 cmd1 cmd2 isBold color
     let makeLobbyCmds =
         [|
             yield O ""
@@ -2239,7 +2250,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "fill %s %s barrier 0 hollow" (WAITING_ROOM_LOW.Offset(2,1,2).STR) (WAITING_ROOM_LOW.Offset(4,4,4).STR))
             yield! makeWallSign (WAITING_ROOM_LOW.X+3) (WAITING_ROOM_LOW.Y+3) (WAITING_ROOM_LOW.Z+1) 3 "PLEASE WAIT" "(spawns are" "being" "generated)"
         |]
-    region.PlaceCommandBlocksStartingAt(LOBBYX-2,LOBBYY,LOBBYZ,makeLobbyCmds,"build lobby walls") // TODO remove 'build lobby' commands from final version
+    region.PlaceCommandBlocksStartingAt(LOBBYX-2,LOBBYY,LOBBYZ,makeLobbyCmds,"build lobby walls") // TODO remove 'build lobby' commands from final version (but not the signs - enable/disable)
     let placeSigns(enabled) =
         [|
             yield O ""
@@ -2255,6 +2266,7 @@ let placeCommandBlocksInTheWorld(fil) =
             // TODO clear all scores? (remove players that left server)
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "go to tutorial" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled "black"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+10) 5 "pick random" "seed" RANDOM_SEED_BUTTON true "black"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "seed the" "card" CHOOSE_SEED_BUTTON true "black"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "start the" "game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
@@ -2273,6 +2285,70 @@ let placeCommandBlocksInTheWorld(fil) =
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-3,LOBBYY,LOBBYZ,placeSigns(false),"disabled signs")
     region.PlaceCommandBlocksStartingAt(LOBBYX-4,LOBBYY,LOBBYZ,placeSigns(true),"enabled signs")
+
+    //////////////////////////////
+    // tutorial
+    //////////////////////////////
+    let TUTORIAL_LOCATION = Coords(-90, 1, -120)
+    let TUTORIAL_PLAYER_START = TUTORIAL_LOCATION.Offset(-2,2,2)
+    let TUTORIAL_CMDS = Coords(80,3,10)
+    let makeWallSignIncZ args = 
+        let r = makeWallSign args
+        signZ <- signZ + 1
+        r
+    let makeTutorialCmds =
+        [|
+            let tut = TUTORIAL_LOCATION
+            let signY = TUTORIAL_LOCATION.Y+2
+            let signX = TUTORIAL_LOCATION.X-1
+            yield O ""
+            yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,-1).STR) (tut.Offset(-5,4,-1).STR))
+            yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0, 0).STR) (tut.Offset( 0,4,30).STR))
+            yield U (sprintf "fill %s %s stone" (tut.Offset(-5,0, 0).STR) (tut.Offset(-5,4,30).STR))
+            yield U (sprintf "fill %s %s sea_lantern" (tut.Offset(-5,0,0).STR) (tut.Offset(0,0,30).STR))
+            signZ <- TUTORIAL_LOCATION.Z + 1
+            yield! makeWallSignIncZ signX signY signZ 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
+            yield! makeWallSignIncZ signX signY signZ 4 "MinecraftBINGO" "uses" "clickable signs" ""
+            yield! makeWallSignDo signX signY signZ 4 "Right-click" "to continue" (sprintf "tp @p %s 90 180" (TUTORIAL_PLAYER_START.Offset(0,0,5).STR)) "" true "black"
+            signZ <- signZ + 2
+            yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
+            signZ <- signZ + 2
+            yield! makeWallSignIncZ signX signY signZ 4 "MinecraftBINGO" "plays as" "new-world" "survival Minecraft"
+            yield! makeWallSignIncZ signX signY signZ 4 "You'll need to" "punch trees," "craft tools," "and eat"
+            yield! makeWallSignIncZ signX signY signZ 4 "But you're" "given a goal" "to race to" "complete"
+            signZ <- signZ + 1
+            yield! makeWallSignIncZ signX signY signZ 4 "There are" "25 items" "pictured on" "the BINGO card"
+            yield! makeWallSignIncZ signX signY signZ 4 "You want to" "get items" "as fast as" "you can"
+            yield! makeWallSignIncZ signX signY signZ 4 "Goal is 'BINGO'" "5 in a row," "column, or" "diagonal"
+            signZ <- signZ + 1
+            yield! makeWallSignIncZ signX signY signZ 4 "Try getting" "an item now" "" ""
+            yield! makeWallSignIncZ signX signY signZ 4 "Punch down some" "sugar cane" "and craft it" "into sugar" // TODO (probably auto-grow the sugar?)
+            signZ <- signZ + 1
+            yield! makeWallSignIncZ signX signY signZ 4 "When you get" "an item," "your score" "will update"
+            yield! makeWallSignIncZ signX signY signZ 4 "You can see" "what items" "you've gotten" "by..."
+            yield! makeWallSignIncZ signX signY signZ 4 "...holding" "your maps and" "dropping" "one copy"
+            yield! makeWallSignIncZ signX signY signZ 4 "(The 'drop'" "key is 'Q'" "by default)" ""
+            yield! makeWallSignIncZ signX signY signZ 4 "Try it now!" "(drop a" "BINGO Card)" ""
+            signZ <- signZ + 1
+            yield! makeWallSignIncZ signX signY signZ 4 "Once you get" "5 in a row," "you win!" ""
+            yield! makeWallSignIncZ signX signY signZ 4 "Other game" "modes exist," "learn more" "in the lobby"
+            yield! makeWallSignActivate signX signY signZ 4 "Let's play!" "Click to start" END_TUTORIAL_BUTTON true "black"  // TODO multiplayer state testing of tutorial
+            signZ <- signZ + 1
+            yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
+            // new players go here:
+            yield U (sprintf "fill %s %s stone" NEW_PLAYER_PLATFORM_LO.STR (NEW_PLAYER_PLATFORM_LO.Offset(40,0,40).STR))
+            let GTL = NEW_PLAYER_PLATFORM_LO.Offset(22,1,19)
+            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Go to" "Lobby" (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR) "" true "black"
+            let GTT = NEW_PLAYER_PLATFORM_LO.Offset(22,1,21)
+            yield! makeSignDo "standing_sign" GTT.X GTT.Y GTT.Z 4 "Go to" "Tutorial" (sprintf "blockdata %s {auto:1b}" START_TUTORIAL_BUTTON.STR) (sprintf "blockdata %s {auto:0b}" START_TUTORIAL_BUTTON.STR) true "black"
+
+        |]
+    region.PlaceCommandBlocksStartingAt(TUTORIAL_CMDS,makeTutorialCmds,"build tutorial") // TODO remove 'build tutorial' commands from final version
+
+
+
+
+
 
     let uniqueArts = uniqueArts // make an immutable copy
     // per-item Bingo Command storage
@@ -2400,12 +2476,50 @@ let placeCommandBlocksInTheWorld(fil) =
         C (sprintf "tp @a[score_home_min=1] %s 180 0" OFFERING_SPOT.STR)
         C "scoreboard players set @a home 0"
         |]
+    let cmdsTutorialState =
+        [|
+        P "scoreboard players test Time S 0 0"
+        // if anyone in tutorial...
+        C "testfor @p[tag=InTutorial]"
+        C "blockdata ~ ~ ~2 {auto:1b}"
+        C "blockdata ~ ~ ~1 {auto:0b}"
+        // THEN...
+        O ""
+        //   if game not in progress...
+        //    - TP any untagged players to tutorial
+        //    - tag them
+        U "scoreboard players test GameInProgress S 0 0"
+        C (sprintf "tp @a[tag=!InTutorial] %s 90 180" TUTORIAL_PLAYER_START.STR)
+        U "scoreboard players test GameInProgress S 0 0" // need to retest because above can fail
+        C "scoreboard players tag @a add InTutorial"
+        //   if game IS in progress...
+        //    - spec the tutorial guy
+        //    - tp him to lobby
+        //    - tell him to wait
+        //    - untag him
+        U "scoreboard players test GameInProgress S 1 *"
+        C "gamemode 3 @a[tag=InTutorial]"
+        U "scoreboard players test GameInProgress S 1 *"
+        C (sprintf "tp @a[tag=InTutorial] %s 90 180" LOBBY_CENTER_LOCATION.STR)
+        U "scoreboard players test GameInProgress S 1 *"
+        C """tellraw @a[tag=InTutorial] ["Please wait, a game is currently in progress"]"""
+        U "scoreboard players test GameInProgress S 1 *"
+        C "scoreboard players tag @a remove InTutorial"
+        |]
+    let cmdsFindNewPlayers =
+        [|
+        P "scoreboard players test Time S 0 0"
+        C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_PLAYER_LOCATION.STR)
+        C "scoreboard players tag @a add playerHasBeenSeen"
+        |]
     region.PlaceCommandBlocksStartingAt(100,3,6,cmdsTickLagDebugger,"tick lag debugger")
     region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
     region.PlaceCommandBlocksStartingAt(102,3,10,timerCmds,"clock every N ticks")
     region.PlaceCommandBlocksStartingAt(103,3,10,cmdsFindPlayerWhoDroppedMap,"notice player that drops map")
     region.PlaceCommandBlocksStartingAt(104,3,10,cmdsNoMoreMaps,"give maps to players without")
     region.PlaceCommandBlocksStartingAt(105,3,10,cmdsTriggerHome,"trigger home checker")
+    region.PlaceCommandBlocksStartingAt(106,3,10,cmdsTutorialState,"tutorial state checker")
+    region.PlaceCommandBlocksStartingAt(107,3,10,cmdsFindNewPlayers,"cmdsFindNewPlayers")
 
 
     let cmdsInit1 =
@@ -2459,6 +2573,9 @@ let placeCommandBlocksInTheWorld(fil) =
         // build lobby
         yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-2) LOBBYY LOBBYZ)
         yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-2) LOBBYY LOBBYZ)
+        // build tutorial
+        yield U (sprintf "blockdata %s {auto:1b}" TUTORIAL_CMDS.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" TUTORIAL_CMDS.STR)
         // debug stuff
         yield! nTicksLater(3)
         yield U (sprintf """blockdata %d %d %d {Command:"effect @a 16 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2))
@@ -2496,6 +2613,7 @@ let placeCommandBlocksInTheWorld(fil) =
         for i = 60 downto 1 do  // 60 is nice, not too many, divides 1-6, makes the 300 X/Z spawns manageable
             yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)   // TODO deal with expiration (999999 = 13 hours)
             yield U "scoreboard players add @e[tag=Z] S 1"
+        yield U (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR)
         |]
     let teleportBasedOnScore(tagToTp, scorePlayer, scoreObjective, axis) =  // score must have value 0-59 to work
         assert(axis="x" || axis="y" || axis="z")
@@ -2596,6 +2714,12 @@ let placeCommandBlocksInTheWorld(fil) =
         // turn off timekeeper
         yield U (sprintf "setblock %s wool" TIMEKEEPER_REDSTONE.STR)
         yield U (sprintf "setblock %s wool" TIMEKEEPER_25MIN_REDSTONE.STR)
+        // bring everyone back to lobby in survival if game just ended
+        yield U "scoreboard players test GameInProgress S 1 *"
+        yield C (sprintf "tp @a %s 90 180" LOBBY_CENTER_LOCATION.STR)
+        yield C "gamemode 0 @a"
+        // note previous game has finished
+        yield U "scoreboard players set GameInProgress S 0"
         // clear player scores
         yield U "scoreboard players set @a Score 0"
         yield U "scoreboard players reset Time Score"
@@ -2619,6 +2743,8 @@ let placeCommandBlocksInTheWorld(fil) =
     let randomSeedButton =
         [|
         yield O ""
+        // cancel out any pending seed choice
+        yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
         // select seed and generate  // TODO use an @r as well, so not same sequence for all?
@@ -2654,12 +2780,16 @@ let placeCommandBlocksInTheWorld(fil) =
         // clear card of colors _after_ the tellraw (as commands below can lag a few seconds)
         yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace stained_hardened_clay" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
         yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace emerald_block" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
-        yield U "setblock ~ ~1 ~2 wool"
-        yield U "setblock ~ ~1 ~1 redstone_block"
+        yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
+        yield U (sprintf "setblock %s redstone_block" CHOOSE_SEED_REDSTONE.STR)
+        |]
+    region.PlaceCommandBlocksStartingAt(CHOOSE_SEED_BUTTON,chooseSeedButton,"choose seed")
+    let chooseSeedCoda =
+        [|
         yield P ""
         yield U "execute @a[score_PlayerSeed_min=-2147483647] ~ ~ ~ scoreboard players operation seed is = @p[score_PlayerSeed_min=-2147483647] PlayerSeed"
-        yield U "scoreboard players test seed is -2147483647"
-        yield C "setblock ~ ~1 ~-3 wool"
+        yield U "scoreboard players test seed is -2147483647 *"
+        yield C (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield C "scoreboard players set @a PlayerSeed -2147483648"
         yield C "scoreboard players operation Seed Score = seed is"
         yield C "scoreboard players operation Z Calc = seed is"
@@ -2667,7 +2797,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
         yield C (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
         |]
-    region.PlaceCommandBlocksStartingAt(CHOOSE_SEED_BUTTON,chooseSeedButton,"choose seed")
+    region.PlaceCommandBlocksStartingAt(CHOOSE_SEED_REDSTONE.Offset(0,0,1),chooseSeedCoda,"choose seed coda")
 
     ///////////////////////
     // start game    
@@ -2690,11 +2820,15 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C "blockdata ~ ~ ~2 {auto:1b}"
         yield C "blockdata ~ ~ ~1 {auto:0b}"
         yield O ""
+        // cancel out any pending seed choice
+        yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         // clear player scores again (in case player joined server after card gen'd)
         yield U "scoreboard players set @a Score 0"
         // disable other buttons
         yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-3) LOBBYY LOBBYZ)
         yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-3) LOBBYY LOBBYZ)
+        // note game in progress
+        yield U "scoreboard players set GameInProgress S 1"
         // put folks in survival mode, feed & heal, remove all xp
         yield U "gamemode s @a"
         yield U "effect @a saturation 10 4 true"
@@ -2804,6 +2938,8 @@ let placeCommandBlocksInTheWorld(fil) =
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
         // TODO find place to run the after-death logic
+        // can have stat.deathCount objective, note that @a[score_d_min=1] will target while on respawn screen, whereas @p[score_d_min=1] targets after resspawn
+        // probably tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
         |]
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_1,startGameButtonPart1,"start game1")
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_2,startGameButtonPart2,"start game2")
@@ -2831,7 +2967,65 @@ let placeCommandBlocksInTheWorld(fil) =
             C "scoreboard players set LockoutGoal Score -1"
         |]
     region.PlaceCommandBlocksStartingAt(TOGGLE_LOCKOUT_BUTTON,toggleLockoutButton,"toggle lockout button")
-
+    let endTutorialButton =
+        [|
+            yield O ""
+            // turn off check-for-item-checkers
+            for t = 0 to 3 do
+                let lo = ITEM_CHECKERS_REDSTONE_LOW(t)
+                yield U (sprintf "fill %d %d %d %s wool" lo.X lo.Y (lo.Z-1) (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
+            // auto-gen a new card now; tp all to lobby, remove all InTutorial tags
+            yield U (sprintf "tp @a %s 90 180" LOBBY_CENTER_LOCATION.STR)
+            yield U "scoreboard players tag @a remove InTutorial"
+            yield U (sprintf "blockdata %s {auto:1b}" RANDOM_SEED_BUTTON.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" RANDOM_SEED_BUTTON.STR)
+        |]
+    region.PlaceCommandBlocksStartingAt(END_TUTORIAL_BUTTON,endTutorialButton,"end tutorial button")
+    let startTutorialButton =
+        [|
+            yield O ""
+            // reset scores
+            yield U """tellraw @a ["One moment, tutorial being initialized..."]"""
+            yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
+            yield! nTicksLater(2)
+            // turn on check-for-item-checkers
+            for t = 0 to 3 do
+                let lo = ITEM_CHECKERS_REDSTONE_LOW(t)
+                yield U (sprintf "fill %d %d %d %s redstone_block" lo.X lo.Y (lo.Z-1) (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
+            // do tutorial start stuff
+            yield U (sprintf "tp @a %s 90 180" TUTORIAL_PLAYER_START.STR) 
+            yield U "scoreboard teams join red @a"
+            yield U "scoreboard players tag @a add InTutorial"
+            yield U "gamemode 0 @a"
+            yield U (sprintf "setblock %s water" (TUTORIAL_LOCATION.Offset(0,0,17).STR))
+            yield U (sprintf "setblock %s dirt"  (TUTORIAL_LOCATION.Offset(-1,0,17).STR))
+            yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,1,17).STR))
+            yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,2,17).STR))
+            yield U "scoreboard players set Seed Score 447960"
+            yield U "scoreboard players set Z Calc 447960"
+            yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
+            yield! nTicksLater(55)
+            yield U "scoreboard players tag @p add oneGuyToEnsureBingoCardCleared"
+            yield U (sprintf "blockdata %s {auto:1b}" ENSURE_CARD_UPDATED_LOGIC.STR)
+            yield U (sprintf "blockdata %s {auto:0b}" ENSURE_CARD_UPDATED_LOGIC.STR)
+            yield! nTicksLater(33)
+            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" TUTORIAL_PLAYER_START.STR) 
+            yield U "scoreboard players tag @a remove oneGuyToEnsureBingoCardCleared"
+        |]
+    region.PlaceCommandBlocksStartingAt(START_TUTORIAL_BUTTON,startTutorialButton,"start tutorial button")
+    let ensureCardUpdatedLogic = // tp oneGuyToEnsureBingoCardCleared to center and update
+        [|
+            yield O ""
+            yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"
+            for _i = 0 to 8 do
+                yield U "give @p[tag=oneGuyToEnsureBingoCardCleared] filled_map 64 0"
+            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" LOBBY_CENTER_LOCATION.STR)
+            yield! nTicksLater(30)
+            yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"
+        |]
+    region.PlaceCommandBlocksStartingAt(ENSURE_CARD_UPDATED_LOGIC,ensureCardUpdatedLogic,"ensureCardUpdatedLogic")
 
 
     ///////////////////////
