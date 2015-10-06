@@ -2329,7 +2329,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSignIncZ signX signY signZ 4 "Goal is 'BINGO'" "5 in a row," "column, or" "diagonal"
             signZ <- signZ + 1
             yield! makeWallSignIncZ signX signY signZ 4 "Try getting" "an item now" "" ""
-            yield! makeWallSignIncZ signX signY signZ 4 "Punch down some" "sugar cane" "and craft it" "into sugar" // TODO (probably auto-grow the sugar?)
+            yield! makeWallSignIncZ signX signY signZ 4 "Punch down some" "sugar cane" "and craft it" "into sugar"
             signZ <- signZ + 1
             yield! makeWallSignIncZ signX signY signZ 4 "When you get" "an item," "your score" "will update"
             yield! makeWallSignIncZ signX signY signZ 4 "You can see" "what items" "you've gotten" "by..."
@@ -2367,15 +2367,21 @@ let placeCommandBlocksInTheWorld(fil) =
         for y = 0 to 2 do
             let dmg, id, art = bingoItems.[x].[y]
             let cmds = [|
-                        for i = 0 to 3 do
-                            yield U (sprintf "execute @e[tag=whereToPlaceItemFrame] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:%d,Item:{Count:1,id:minecraft:%s%s}}" i id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
                         for team in TEAMS do
                             yield C (sprintf """testfor @a[team=%s] {Inventory:[{id:"minecraft:%s"%s}]}""" team id (if dmg <> -1 then sprintf ",Damage:%ds" dmg else ""))
                             yield C (sprintf """clear @a[team=%s] %s %d 1""" team id dmg)
                         let xx, yy, zz = uniqueArts.[art]
                         yield U (sprintf "execute @e[tag=whereToPlacePixelArt] ~ ~ ~ clone %d %d %d %d %d %d ~ ~ ~" xx yy zz (xx+16) (yy+1) (zz+16))
+#if ITEM_FRAME
+                        for i = 0 to 3 do
+                            yield U (sprintf "execute @e[tag=whereToPlaceItemFrame] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:%d,Item:{Count:1,id:minecraft:%s%s}}" i id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
+#endif
                        |]
             region.PlaceCommandBlocksStartingAt(BINGO_ITEMS_LOW.Offset(x,y,0),cmds,"itemframe/testfor/clear/copyPixelArt logic")
+
+    let nTimesDo(n) = 
+        assert( n > 0 && n < 60 )
+        sprintf "execute @e[tag=Z,c=%d] ~ ~ ~" n   // rather than yield same command block N times, can just execute it N times
 
     let cmdsTickLagDebugger =
         [|
@@ -2457,7 +2463,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "tp @p[tag=playerThatIsMapUpdating] %s 180 0" MAP_UPDATE_ROOM.STR)
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
-        yield! nTicksLater(40) // TODO adjust timing?
+        yield! nTicksLater(30) // TODO adjust timing?
         yield U "tp @p[tag=playerThatIsMapUpdating] @e[tag=whereToTpBackTo]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ entitydata @e[type=!Player,r=72] {PersistenceRequired:0}"  // don't leak mobs
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
@@ -2529,8 +2535,7 @@ let placeCommandBlocksInTheWorld(fil) =
         // note that @a[score_d_min=1] will target while on respawn screen, whereas @p[score_d_min=1] targets after resspawn
         // as a result, run @p multiple times
         // tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
-        for _i = 0 to 6 do
-            yield U "scoreboard players tag @p[score_Deaths_min=1,tag=!justRespawned] add justRespawned"
+        yield U (sprintf "%s scoreboard players tag @p[score_Deaths_min=1,tag=!justRespawned] add justRespawned" (nTimesDo 8))
         // run customized on-respawn command blocks
         yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
         for _i = 1 to NUM_CONFIG_COMMANDS do
@@ -2538,8 +2543,7 @@ let placeCommandBlocksInTheWorld(fil) =
         // untag
         yield U "scoreboard players tag @a[score_Deaths_min=1] remove justRespawned"
         // reset deaths of players who respawned
-        for _i = 0 to 6 do
-            yield U "scoreboard players set @p[score_Deaths_min=1] Deaths 0"
+        yield U (sprintf "%s scoreboard players set @p[score_Deaths_min=1] Deaths 0" (nTimesDo 8))
         |]
     region.PlaceCommandBlocksStartingAt(100,3,6,cmdsTickLagDebugger,"tick lag debugger")
     region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
@@ -2667,7 +2671,7 @@ let placeCommandBlocksInTheWorld(fil) =
         region.PlaceCommandBlocksStartingAt(SPAWN_LOCATION_COMMANDS(t),[|U"";U"";U""|],"ensure spawn cmd blocks")
 
 
-
+#if ITEM_FRAME
     //////////////////////////////////////////////
     // generate a preview of card with items frames on a wall
     //////////////////////////////////////////////
@@ -2681,11 +2685,11 @@ let placeCommandBlocksInTheWorld(fil) =
         // find one block to clone to 1 1 1 
         yield U "scoreboard players operation @e[tag=bingoItem] S -= next S"
         yield U "scoreboard players test which S 0 0"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~2 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~2 ~9 clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players test which S 1 1"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~1 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~1 ~9 clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players test which S 2 2"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~0 ~ clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~0 ~9 clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players operation @e[tag=bingoItem] S += next S"
         yield U "clone 1 1 1 1 1 1 ~ ~ ~1"
         yield U "say THIS SHOULD HAVE BEEN REPLACED"
@@ -2700,6 +2704,7 @@ let placeCommandBlocksInTheWorld(fil) =
         [|
             yield C "kill @e[tag=whereToPlaceItemFrame]"
         |]
+#endif
 
     //////////////////////////////////////////////
     // generate actual card in the sky
@@ -2714,11 +2719,11 @@ let placeCommandBlocksInTheWorld(fil) =
         // find one block to clone to 1 1 1 
         yield U "scoreboard players operation @e[tag=bingoItem] S -= next S"
         yield U "scoreboard players test which S 0 0"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~2 ~12 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~2 ~8 clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players test which S 1 1"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~1 ~12 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~1 ~8 clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players test which S 2 2"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~0 ~12 clone ~ ~ ~ ~ ~ ~ 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~0 ~8 clone ~ ~ ~ ~ ~ ~ 1 1 1"
         yield U "scoreboard players operation @e[tag=bingoItem] S += next S"
         yield U "clone 1 1 1 1 1 1 ~ ~ ~1"
         yield U "say THIS SHOULD HAVE BEEN REPLACED"
@@ -2781,7 +2786,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
-        // select seed and generate  // TODO use an @r as well, so not same sequence for all?
+        yield U "scoreboard players operation Z Calc += @r[type=AreaEffectCloud,tag=Z] S"  // insert some 'real' randomness by adding rand(60) before re-PRNG
         yield U """tellraw @a ["Choosing random seed..."]"""
         yield U "scoreboard players set modRandomSeed S 899"
         yield! PRNG("seed","is","modRandomSeed","S")
@@ -2983,9 +2988,6 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "say SHOULD BE REPLACED"
         // prep for customized on-respawn command blocks
         yield U "scoreboard players set @a Deaths 0"
-        // TODO find place to run the after-death logic
-        // can have stat.deathCount objective, note that @a[score_d_min=1] will target while on respawn screen, whereas @p[score_d_min=1] targets after resspawn
-        // probably tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
         |]
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_1,startGameButtonPart1,"start game1")
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_2,startGameButtonPart2,"start game2")
@@ -3061,8 +3063,7 @@ let placeCommandBlocksInTheWorld(fil) =
         [|
             yield O ""
             yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"   // TODO, the map-giver sometimes triggers the teleporter as maps given back, hmmm
-            for _i = 0 to 8 do
-                yield U "give @p[tag=oneGuyToEnsureBingoCardCleared] filled_map 64 0"
+            yield U (sprintf "%s give @p[tag=oneGuyToEnsureBingoCardCleared] filled_map 64 0" (nTimesDo 9))
             yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" LOBBY_CENTER_LOCATION.STR)
             yield! nTicksLater(30)
             yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"
@@ -3235,11 +3236,11 @@ let placeCommandBlocksInTheWorld(fil) =
         // find blocks to clone to 1 1 1 (testfor & clone, x4 teams)
         yield U "scoreboard players operation @e[tag=bingoItem] S -= next S"
         yield U "scoreboard players test which S 0 0"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~2 ~ clone ~ ~ ~4 ~ ~ ~11 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~2 ~ clone ~ ~ ~ ~ ~ ~11 1 1 1"
         yield U "scoreboard players test which S 1 1"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~1 ~ clone ~ ~ ~4 ~ ~ ~11 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~1 ~ clone ~ ~ ~ ~ ~ ~11 1 1 1"
         yield U "scoreboard players test which S 2 2"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~0 ~ clone ~ ~ ~4 ~ ~ ~11 1 1 1"
+        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~0 ~ clone ~ ~ ~ ~ ~ ~11 1 1 1"
         yield U "scoreboard players operation @e[tag=bingoItem] S += next S"
         // clone it for each team
         for t = 0 to 3 do
@@ -3276,8 +3277,10 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U """tellraw @a ["Generating card..."]"""
             yield! makeActualCardInit()
             yield! checkForItemsInit()
+#if ITEM_FRAME
         else
             yield! makePreviewWallInit()
+#endif
         // prepare loop
         yield U "summon ArmorStand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
         yield U "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
@@ -3296,8 +3299,10 @@ let placeCommandBlocksInTheWorld(fil) =
             if sky then
                 yield! makeActualCard()
                 yield! checkForItems()
+#if ITEM_FRAME
             else
                 yield! makePreviewWall()
+#endif
             // remove used item from remaining list
             yield U "scoreboard players operation @e[tag=bingoItem] S -= next S"
             yield U "kill @e[tag=bingoItem,score_S_min=0,score_S=0]"
@@ -3318,11 +3323,16 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U """tellraw @a ["...done!"]"""
+#if ITEM_FRAME
         else
             yield! makePreviewWallCleanup()
+#endif
         |]
-    region.PlaceCommandBlocksStartingAt(6,3,10,bingoCardMakerCmds(false),"make preview")  // TODO remove all related to preview? wall and code?
+#if ITEM_FRAME
+    region.PlaceCommandBlocksStartingAt(6,3,10,bingoCardMakerCmds(false),"make preview")
+#endif
     region.PlaceCommandBlocksStartingAt(MAKE_SEEDED_CARD,bingoCardMakerCmds(true),"make pixel art and checker")
+#if ITEM_FRAME
     let cloneIntoDisplayWallCmds =
         [|
             yield O ""
@@ -3350,6 +3360,7 @@ let placeCommandBlocksInTheWorld(fil) =
                 yield U "say REPLACE"
         |]
     region.PlaceCommandBlocksStartingAt(12,3,10,displayWallCmds, "display wall of 28x3 item frames (actually run)")
+#endif
 
     // want to have grid of 300x300 spawn points, marked -150 to 150 (skipping 0s)
     let spawnIndices = List.append [-150 .. -1] [1 .. 150] |> Array.ofList 
@@ -3479,10 +3490,6 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "clone %s %s ~ ~ ~1" tpzCmd.STR tpzCmd.STR)
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
             yield U (sprintf "execute @p[tag=oneGuyToTeleport] ~ ~ ~ fill ~-1 %d ~-1 ~1 %d ~1 barrier 0 hollow" (SPAWN_START_HEIGHT-2) (SPAWN_START_HEIGHT+3))
-#if VOID_WORLD_TESTING
-            yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ setblock ~ 64 ~ grass"// TODO remove
-            yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ setblock ~ 65 ~ deadbush"// TODO remove
-#endif
             yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ %d ~" SPAWN_START_HEIGHT)
             yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ summon ArmorStand ~ ~-4 ~ {Invulnerable:1,Marker:1,Tags:[\"tpas\"]}"
             yield! nTicksLater(400) // TODO adjust timing?
