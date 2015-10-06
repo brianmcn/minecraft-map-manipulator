@@ -2249,6 +2249,13 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "fill %s %s sea_lantern 0 hollow" (WAITING_ROOM_LOW.STR) (WAITING_ROOM_LOW.Offset(6,5,6).STR))
             yield U (sprintf "fill %s %s barrier 0 hollow" (WAITING_ROOM_LOW.Offset(2,1,2).STR) (WAITING_ROOM_LOW.Offset(4,4,4).STR))
             yield! makeWallSign (WAITING_ROOM_LOW.X+3) (WAITING_ROOM_LOW.Y+3) (WAITING_ROOM_LOW.Z+1) 3 "PLEASE WAIT" "(spawns are" "being" "generated)"
+            // team color wall bits
+            let wsx, wsy, wsz = (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2), (LOBBYY+2), (LOBBYZ+5)
+            yield U (sprintf "fill %d %d %d %d %d %d redstone_block" (wsx+1) (wsy-1) (wsz+0) (wsx+1) (wsy+1) (wsz+0))
+            yield U (sprintf "fill %d %d %d %d %d %d lapis_block" (wsx+1) (wsy-1) (wsz+1) (wsx+1) (wsy+1) (wsz+1))
+            yield U (sprintf "fill %d %d %d %d %d %d gold_block" (wsx+1) (wsy-1) (wsz+2) (wsx+1) (wsy+1) (wsz+2))
+            yield U (sprintf "fill %d %d %d %d %d %d emerald_block" (wsx+1) (wsy-1) (wsz+3) (wsx+1) (wsy+1) (wsz+3))
+
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-2,LOBBYY,LOBBYZ,makeLobbyCmds,"build lobby walls") // TODO remove 'build lobby' commands from final version (but not the signs - enable/disable)
     let placeSigns(enabled) =
@@ -2258,8 +2265,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout" "" TOGGLE_LOCKOUT_BUTTON true "black"
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at start" "" "" ""
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at respawn" "" "" ""
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at" "start" "" ""
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at" "respawn" "" ""
             yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "night vision" "" "" ""
             yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "vanilla" "" "" ""
             yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "other loadout" "" "" ""
@@ -2270,10 +2277,10 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "pick random" "seed" RANDOM_SEED_BUTTON true "black"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "seed the" "card" CHOOSE_SEED_BUTTON true "black"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+4) 5 "start the" "game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "join red" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "red" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "join blue" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "blue" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "join yellow" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "yellow" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "join green" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "green" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "join red" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "join blue" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "join yellow" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "join green" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             // interior layout - info room
             for i = 0 to 4 do
                 for j = 0 to 3 do
@@ -2512,6 +2519,28 @@ let placeCommandBlocksInTheWorld(fil) =
         C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_PLAYER_LOCATION.STR)
         C "scoreboard players tag @a add playerHasBeenSeen"
         |]
+    let cmdsOnRespawn =
+        [|
+        yield P "scoreboard players test Time S 0 0"
+        yield C "testfor @p[score_Deaths_min=1]"
+        yield C "blockdata ~ ~ ~2 {auto:1b}"
+        yield C "blockdata ~ ~ ~1 {auto:0b}"
+        yield O ""
+        // note that @a[score_d_min=1] will target while on respawn screen, whereas @p[score_d_min=1] targets after resspawn
+        // as a result, run @p multiple times
+        // tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
+        for _i = 0 to 6 do
+            yield U "scoreboard players tag @p[score_Deaths_min=1,tag=!justRespawned] add justRespawned"
+        // run customized on-respawn command blocks
+        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
+        for _i = 1 to NUM_CONFIG_COMMANDS do
+            yield U "say SHOULD BE REPLACED"
+        // untag
+        yield U "scoreboard players tag @a[score_Deaths_min=1] remove justRespawned"
+        // reset deaths of players who respawned
+        for _i = 0 to 6 do
+            yield U "scoreboard players set @p[score_Deaths_min=1] Deaths 0"
+        |]
     region.PlaceCommandBlocksStartingAt(100,3,6,cmdsTickLagDebugger,"tick lag debugger")
     region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
     region.PlaceCommandBlocksStartingAt(102,3,10,timerCmds,"clock every N ticks")
@@ -2520,6 +2549,7 @@ let placeCommandBlocksInTheWorld(fil) =
     region.PlaceCommandBlocksStartingAt(105,3,10,cmdsTriggerHome,"trigger home checker")
     region.PlaceCommandBlocksStartingAt(106,3,10,cmdsTutorialState,"tutorial state checker")
     region.PlaceCommandBlocksStartingAt(107,3,10,cmdsFindNewPlayers,"cmdsFindNewPlayers")
+    region.PlaceCommandBlocksStartingAt(108,3,10,cmdsOnRespawn,"cmdsOnRespawn")
 
 
     let cmdsInit1 =
@@ -2549,6 +2579,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard objectives add PlayerSeed trigger"
         yield U "scoreboard objectives add home trigger"
         yield U "scoreboard objectives add Calc dummy"
+        yield U "scoreboard objectives add Deaths deathCount"
         yield U "scoreboard players set A Calc 1103515245"
         yield U "scoreboard players set C Calc 12345"
         yield U "scoreboard players set Two Calc 2"
@@ -2565,8 +2596,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "fill 100 4 6 100 4 16 wool"  // todo coords
         yield U "fill 100 4 6 100 4 16 redstone_block"  // todo coords
         // start major clocks
-        yield U "fill 101 4 10 108 4 10 wool"  // todo coords
-        yield U "fill 101 4 10 108 4 10 redstone_block"  // todo coords
+        yield U "fill 101 4 10 112 4 10 wool"  // todo coords
+        yield U "fill 101 4 10 112 4 10 redstone_block"  // todo coords
         // call part 2
         yield U (sprintf "blockdata %d %d %d {auto:1b}" 4 3 10) // todo coords
         yield U (sprintf "blockdata %d %d %d {auto:0b}" 4 3 10)
@@ -2580,6 +2611,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield! nTicksLater(3)
         yield U (sprintf """blockdata %d %d %d {Command:"effect @a 16 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2))
         yield U (sprintf """blockdata %d %d %d {Command:"gamemode 1 @a"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+1))
+        yield U (sprintf """blockdata %d %d %d {Command:"tellraw @a [{\"selector\":\"@a[tag=justRespawned]\"},\" just respawned\"]"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2))
+        yield U (sprintf """blockdata %d %d %d {Command:"effect @a 16 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+1))
         // force every chunk to redraw map
         for x = 0 to 7 do
             for z = 0 to 7 do
@@ -2948,6 +2981,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
+        // prep for customized on-respawn command blocks
+        yield U "scoreboard players set @a Deaths 0"
         // TODO find place to run the after-death logic
         // can have stat.deathCount objective, note that @a[score_d_min=1] will target while on respawn screen, whereas @p[score_d_min=1] targets after resspawn
         // probably tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
@@ -3025,7 +3060,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let ensureCardUpdatedLogic = // tp oneGuyToEnsureBingoCardCleared to center and update
         [|
             yield O ""
-            yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"
+            yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"   // TODO, the map-giver sometimes triggers the teleporter as maps given back, hmmm
             for _i = 0 to 8 do
                 yield U "give @p[tag=oneGuyToEnsureBingoCardCleared] filled_map 64 0"
             yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" LOBBY_CENTER_LOCATION.STR)
