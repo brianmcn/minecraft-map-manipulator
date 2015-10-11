@@ -2175,6 +2175,11 @@ let placeCommandBlocksInTheWorld(fil) =
     let ENSURE_CARD_UPDATED_LOGIC = Coords(59,3,10)
     let SEND_TO_WAITING_ROOM = Coords(60,3,10)
 
+    let VANILLA_LOADOUT = Coords(70,3,10)
+    let NIGHT_VISION_LOADOUT = Coords(71,3,10)
+    let SADDLED_HORSE_NIGHT_VISION_LOADOUT = Coords(72,3,10)
+    let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10)
+
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
     
@@ -2239,6 +2244,7 @@ let placeCommandBlocksInTheWorld(fil) =
             // cfg room blocks
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
+            yield U (sprintf "setblock %d %d %d chest" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             // put enabled signs
             yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-4) LOBBYY LOBBYZ)
@@ -2263,15 +2269,17 @@ let placeCommandBlocksInTheWorld(fil) =
         [|
             yield O ""
             // interior layout - cfg room
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout" "" TOGGLE_LOCKOUT_BUTTON true "black"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout" "" TOGGLE_LOCKOUT_BUTTON enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at" "start" "" ""
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at" "respawn" "" ""
-            yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "night vision" "" "" ""
-            yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "vanilla" "" "" ""
-            yield! makeWallSign (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "other loadout" "" "" ""
-            // TODO clear all scores? (remove players that left server)
+            let mkLoadout x y z d txt1 txt2 txt3 (c:Coords) tellPlayers =
+                makeWallSignDo x y z d txt1 txt2 txt3 (sprintf """tellraw @a [\\\"%s\\\"]""" tellPlayers) (sprintf "clone %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2)) enabled (if enabled then "black" else "gray")
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "night vision" "" "" NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "vanilla" "" "" VANILLA_LOADOUT "Game configured: Vanilla gameplay (no on-start/on-respawn commands)"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "saddled horse" "+night vision" "" SADDLED_HORSE_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, as well as an invulnerable saddled horse at game start"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "starting chest" "per team" "+night vision" STARTING_CHEST_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, and each team starts with chest of items"
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "go to tutorial" "" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
@@ -2300,6 +2308,51 @@ let placeCommandBlocksInTheWorld(fil) =
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-3,LOBBYY,LOBBYZ,placeSigns(false),"disabled signs")
     region.PlaceCommandBlocksStartingAt(LOBBYX-4,LOBBYY,LOBBYZ,placeSigns(true),"enabled signs")
+
+    //////////////////////////////
+    // loadouts
+    //////////////////////////////
+    let loadout(start:_[], respawn:_[], c:Coords, comment) =
+        if start.Length > NUM_CONFIG_COMMANDS || respawn .Length > NUM_CONFIG_COMMANDS then
+            failwith "too many cmds"
+        else
+            let s = Array.init NUM_CONFIG_COMMANDS (fun i -> if i < start.Length then start.[i] else U "")
+            region.PlaceCommandBlocksStartingAt(c.Offset(0,2,0),s,comment)
+            let r = Array.init NUM_CONFIG_COMMANDS (fun i -> if i < respawn.Length then respawn.[i] else U "")
+            region.PlaceCommandBlocksStartingAt(c.Offset(0,0,0),r,comment)
+    loadout([||],[||],VANILLA_LOADOUT,"vanillaLoadout")
+    let nightVisionLoadout =
+        [|
+            U "effect @a 16 9999 1 true"
+        |],
+        [|
+            U "effect @a[tag=justRespawned] 16 9999 1 true"
+        |], 
+        NIGHT_VISION_LOADOUT, "nightVisionLoadout"
+    loadout(nightVisionLoadout)
+    let saddledHorseNightVisionLoadout =
+        [|
+            U "effect @a 16 9999 1 true"
+            U """execute @a ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
+        |],
+        [|
+            U "effect @a[tag=justRespawned] 16 9999 1 true"
+        |], 
+        SADDLED_HORSE_NIGHT_VISION_LOADOUT, "saddledHorseNightVisionLoadout"
+    loadout(saddledHorseNightVisionLoadout)
+    let startingChestNightVisionLoadout =
+        [|
+            U "effect @a 16 9999 1 true"
+            U (sprintf "execute @p[team=red] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U (sprintf "execute @p[team=blue] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U (sprintf "execute @p[team=yellow] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U (sprintf "execute @p[team=green] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+        |],
+        [|
+            U "effect @a[tag=justRespawned] 16 9999 1 true"
+        |], 
+        STARTING_CHEST_NIGHT_VISION_LOADOUT, "startingChestNightVisionLoadout"
+    loadout(startingChestNightVisionLoadout)
 
     //////////////////////////////
     // tutorial
