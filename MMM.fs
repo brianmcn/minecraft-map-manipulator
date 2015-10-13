@@ -2138,9 +2138,9 @@ let placeCommandBlocksInTheWorld(fil) =
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
 
-    let MAP_UPDATE_ROOM_LOW = Coords(69,8,69)
+    let MAP_UPDATE_ROOM_LOW = Coords(59,8,69)
     let MAP_UPDATE_ROOM = MAP_UPDATE_ROOM_LOW.Offset(3,2,3)
-    let WAITING_ROOM_LOW = Coords(79,8,69)
+    let WAITING_ROOM_LOW = Coords(69,8,69)
     let WAITING_ROOM = WAITING_ROOM_LOW.Offset(3,2,3)
 
     let BINGO_ITEMS_LOW = Coords(3,6,3)
@@ -2186,11 +2186,11 @@ let placeCommandBlocksInTheWorld(fil) =
     //////////////////////////////
     // lobby
     //////////////////////////////
-    let NEW_PLAYER_PLATFORM_LO = Coords(-150,1,-150)
-    let NEW_PLAYER_LOCATION = Coords(-130,3,-130)
 
     // IWIDTH/ILENGTH are interior measures, not including walls
     let LOBBYX, LOBBYY, LOBBYZ = 50, 6, 50
+    let NEW_PLAYER_PLATFORM_LO = Coords(60,LOBBYY,30)
+    let NEW_PLAYER_LOCATION = NEW_PLAYER_PLATFORM_LO.Offset(5,2,5)
     let CFG_ROOM_IWIDTH = 7
     let MAIN_ROOM_IWIDTH = 7
     let INFO_ROOM_IWITDH = 7
@@ -2303,8 +2303,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "version" "" "" ""
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
             // start platform has a disable-able sign
-            let GTT = NEW_PLAYER_PLATFORM_LO.Offset(22,1,21)
-            yield! makeSignDo "standing_sign" GTT.X GTT.Y GTT.Z 4 "Go to" "Tutorial" "" (sprintf "blockdata %s {auto:1b}" START_TUTORIAL_BUTTON.STR) (sprintf "blockdata %s {auto:0b}" START_TUTORIAL_BUTTON.STR) enabled (if enabled then "black" else "gray")
+            let GTT = NEW_PLAYER_PLATFORM_LO.Offset(7,1,6)
+            yield! makeSignDo "standing_sign" GTT.X GTT.Y GTT.Z 4 "Right-click" "me to go to" "Tutorial" (sprintf "blockdata %s {auto:1b}" START_TUTORIAL_BUTTON.STR) (sprintf "blockdata %s {auto:0b}" START_TUTORIAL_BUTTON.STR) enabled (if enabled then "black" else "gray")
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-3,LOBBYY,LOBBYZ,placeSigns(false),"disabled signs")
     region.PlaceCommandBlocksStartingAt(LOBBYX-4,LOBBYY,LOBBYZ,placeSigns(true),"enabled signs")
@@ -2357,7 +2357,7 @@ let placeCommandBlocksInTheWorld(fil) =
     //////////////////////////////
     // tutorial
     //////////////////////////////
-    let TUTORIAL_LOCATION = Coords(-90, 1, -120)
+    let TUTORIAL_LOCATION = Coords(-90, 2, -120)
     let TUTORIAL_PLAYER_START = TUTORIAL_LOCATION.Offset(-2,2,2)
     let TUTORIAL_CMDS = Coords(80,3,10)
     let makeWallSignIncZ args = 
@@ -2404,9 +2404,9 @@ let placeCommandBlocksInTheWorld(fil) =
             signZ <- signZ + 1
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
             // new players go here:
-            yield U (sprintf "fill %s %s stone" NEW_PLAYER_PLATFORM_LO.STR (NEW_PLAYER_PLATFORM_LO.Offset(40,0,40).STR))
-            let GTL = NEW_PLAYER_PLATFORM_LO.Offset(22,1,19)
-            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Go to" "Lobby" "" (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR) "" true "black"
+            yield U (sprintf "fill %s %s sea_lantern" NEW_PLAYER_PLATFORM_LO.STR (NEW_PLAYER_PLATFORM_LO.Offset(10,0,10).STR))
+            let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,1,4)
+            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "Lobby" (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR) "" true "black"
             // Note: there is also a 'Go to Tutorial' sign, but it's coded as part of lobby, to turn it on/off
         |]
     region.PlaceCommandBlocksStartingAt(TUTORIAL_CMDS,makeTutorialCmds,"build tutorial") // TODO remove 'build tutorial' commands from final version
@@ -2495,6 +2495,11 @@ let placeCommandBlocksInTheWorld(fil) =
         yield O ""
         yield U "scoreboard players set SomeoneIsMapUpdating S 0"
         yield U "execute @a[tag=playerThatIsMapUpdating] ~ ~ ~ scoreboard players set SomeoneIsMapUpdating S 1"
+        // if someone already updating, kill all droppedMap entities
+        yield U "scoreboard players test SomeoneIsMapUpdating S 1 1"
+        yield C "scoreboard players tag @e[type=Item] add droppedMap {Item:{id:\"minecraft:filled_map\",Damage:0s}}"
+        yield C "kill @e[tag=droppedMap]"
+        // if no one updating yet, do the main work
         yield U "scoreboard players test SomeoneIsMapUpdating S 0 0"
         yield C "blockdata ~ ~ ~2 {auto:1b}"
         yield C "blockdata ~ ~ ~1 {auto:0b}"
@@ -2582,7 +2587,8 @@ let placeCommandBlocksInTheWorld(fil) =
         [|
         P "scoreboard players test Time S 0 0"
         C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_PLAYER_LOCATION.STR)
-        C "scoreboard players tag @a add playerHasBeenSeen"
+        C "gamemode 0 @a[tag=!playerHasBeenSeen]"
+        C "scoreboard players tag @a[tag=!playerHasBeenSeen] add playerHasBeenSeen"
         |]
     let cmdsOnRespawn =
         [|
@@ -2701,6 +2707,10 @@ let placeCommandBlocksInTheWorld(fil) =
         for x = 0 to 7 do
             for z = 0 to 7 do
                 yield U (sprintf "setblock %d %d %d air" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))
+        yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
+        yield U (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR)
+        yield U "clear @p"
         |]
     region.PlaceCommandBlocksStartingAt(4,3,10,cmdsInit2,"init2 all")
     let cmdsInit3 =
@@ -2710,7 +2720,6 @@ let placeCommandBlocksInTheWorld(fil) =
         for i = 60 downto 1 do  // 60 is nice, not too many, divides 1-6, makes the 300 X/Z spawns manageable
             yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)   // TODO deal with expiration (999999 = 13 hours)
             yield U "scoreboard players add @e[tag=Z] S 1"
-        yield U (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR)
         yield U (sprintf "fill %d %d %d %d %d %d stone" 0 MAPY (MAPZ-1) 127 MAPY (MAPZ-1)) // stone above top row, to prevent shading on top line
         |]
     let teleportBasedOnScore(tagToTp, scorePlayer, scoreObjective, axis) =  // score must have value 0-59 to work
@@ -2817,6 +2826,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players test GameInProgress S 1 *"
         yield C (sprintf "tp @a %s 90 180" LOBBY_CENTER_LOCATION.STR)
         yield C "gamemode 0 @a"
+        yield C "spawnpoint @a"
         // note previous game has finished
         yield U "scoreboard players set GameInProgress S 0"
         // clear player scores
@@ -3008,13 +3018,13 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
         yield! nTicksLater(20)
         yield U """tellraw @a ["3"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
         yield! nTicksLater(20)
         yield U """tellraw @a ["2"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
         yield! nTicksLater(20)
         yield U """tellraw @a ["1"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
         yield! nTicksLater(20)
         // once more, re-tp anyone who maybe moved, the cheaters!
         for t = 0 to 3 do
@@ -3034,7 +3044,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "time set 0"
         yield U "effect @a clear"
         yield U """tellraw @a ["Start! Go!!!"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 1.2"
+        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 1.2"
         // start worldborder timer
         yield U "worldborder set 10000000"
         yield U "worldborder add 10000000 500000"
@@ -3109,6 +3119,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "scoreboard teams join red @a"
             yield U "scoreboard players tag @a add InTutorial"
             yield U "gamemode 0 @a"
+            yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(1,0,17).STR))
+            yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(0,-1,17).STR))
             yield U (sprintf "setblock %s water" (TUTORIAL_LOCATION.Offset(0,0,17).STR))
             yield U (sprintf "setblock %s dirt"  (TUTORIAL_LOCATION.Offset(-1,0,17).STR))
             yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,1,17).STR))
@@ -3194,7 +3206,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"Time","objective":"Score"}},"s)"]""" team team)
             yield U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
             yield C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
-            yield U "execute @a ~ ~ ~ playsound fireworks.launch @a ~ ~ ~"
+            yield U "execute @a ~ ~ ~ playsound fireworks.launch @p ~ ~ ~"
             // check for win
             for x = 0 to 4 do
                 yield U (sprintf "scoreboard players test %s_x%d S 5 *" team x)
@@ -3283,7 +3295,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let timekeeper25min =
         [|
             O ""
-            U "execute @a ~ ~ ~ playsound note.harp @a ~ ~ ~ 1 0.6"
+            U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
             U """execute @a ~ ~ ~ tellraw @a [{"selector":"@p"}," got ",{"score":{"name":"@p","objective":"Score"}}," in 25 mins"]"""
         |]
     region.PlaceCommandBlocksStartingAt(TIMEKEEPER_25MIN_REDSTONE.Offset(0,0,1),timekeeper25min,"timekeeper 25min")
@@ -3565,6 +3577,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "clone 1 1 1 1 1 1 %s" (SPAWN_LOCATION_COMMANDS(t).Offset(0,0,2).STR))
             yield U "tp @p[tag=oneGuyToTeleport] @e[tag=tpas]"
             yield U "kill @e[tag=tpas]"
+            yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ fill ~ ~ ~ ~ ~20 ~ air"  // just in case findY failed and they're suffocating inside terrain
             yield U (sprintf "tp @a[team=%s,tag=!oneGuyToTeleport] @p[tag=oneGuyToTeleport]" team)
             yield U (sprintf "spawnpoint @a[team=%s]" team)
             yield U (sprintf "blockdata %d %d %d {auto:1b}" ax ay az)
