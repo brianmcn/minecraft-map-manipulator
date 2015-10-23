@@ -1182,8 +1182,13 @@ type RegionFile(filename) =
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
         this.SetChunkDirty(x,z)
+    member this.PlaceCommandBlocksStartingAtSelfDestruct(c:Coords,cmds:_[],comment) =
+        this.PlaceCommandBlocksStartingAtSelfDestruct(c.X,c.Y,c.Z,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(c:Coords,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAt(c.X,c.Y,c.Z,cmds,comment)
+    member this.PlaceCommandBlocksStartingAtSelfDestruct(x,y,startz,cmds:_[],comment) =
+        let cmds = [| yield! cmds; yield U (sprintf "fill ~ ~ ~-%d ~ ~ ~ air" cmds.Length) |]
+        this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
         printfn "%s%d commands being placed - %s" (if startz + cmds.Length > 180 then "***WARN*** - " else "") cmds.Length comment
         numCommandBlocksPlaced <- numCommandBlocksPlaced + cmds.Length 
@@ -1197,7 +1202,12 @@ type RegionFile(filename) =
             if txt = null then
                 [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
                    NBT.Byte("conditionMet",0uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);
-                   NBT.String("id","Control"); NBT.Int("SuccessCount",0); NBT.Byte("TrackOutput",1uy);    // TODO for release, do the thing where TrackOutput is turned off for all the blocks
+                   NBT.String("id","Control"); NBT.Int("SuccessCount",0); 
+#if DEBUG
+                   NBT.Byte("TrackOutput",1uy);   // TODO for release, use release mode
+#else
+                   NBT.Byte("TrackOutput",0uy);
+#endif
                    NBT.End |]
             else
                 [| yield NBT.Int("x",x); yield NBT.Int("y",y); yield NBT.Int("z",z); yield NBT.String("id","Sign")
@@ -2557,9 +2567,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "fill %d %d %d %d %d %d lapis_block" (wsx+1) (wsy-1) (wsz+1) (wsx+1) (wsy+1) (wsz+1))
             yield U (sprintf "fill %d %d %d %d %d %d gold_block" (wsx+1) (wsy-1) (wsz+2) (wsx+1) (wsy+1) (wsz+2))
             yield U (sprintf "fill %d %d %d %d %d %d emerald_block" (wsx+1) (wsy-1) (wsz+3) (wsx+1) (wsy+1) (wsz+3))
-
         |]
-    region.PlaceCommandBlocksStartingAt(LOBBYX-2,LOBBYY,LOBBYZ,makeLobbyCmds,"build lobby walls") // TODO remove 'build lobby' commands from final version (but not the signs - enable/disable)
+    region.PlaceCommandBlocksStartingAtSelfDestruct(LOBBYX-2,LOBBYY,LOBBYZ,makeLobbyCmds,"build lobby walls")
     let bingo30testers = // TODO finish this list if more
         [|
             "Cacille"
@@ -2654,8 +2663,10 @@ let placeCommandBlocksInTheWorld(fil) =
             yield O ""
             // interior layout - cfg room
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout" "" TOGGLE_LOCKOUT_BUTTON enabled (if enabled then "black" else "gray")
+#if DEBUG
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
+#endif
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at" "start" "" ""
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at" "respawn" "" ""
             let mkLoadout x y z d txt1 txt2 txt3 (c:Coords) tellPlayers =
@@ -2689,7 +2700,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
             // start platform has a disable-able sign
             let GTT = NEW_PLAYER_PLATFORM_LO.Offset(7,1,6)
-            yield! makeSignDo "standing_sign" GTT.X GTT.Y GTT.Z 4 "Right-click" "me to go to" "Tutorial" (sprintf "blockdata %s {auto:1b}" START_TUTORIAL_BUTTON.STR) (sprintf "blockdata %s {auto:0b}" START_TUTORIAL_BUTTON.STR) enabled (if enabled then "black" else "gray")
+            yield! makeSignDo "standing_sign" GTT.X GTT.Y GTT.Z 4 "Right-click" "me to go to" "TUTORIAL" (sprintf "blockdata %s {auto:1b}" START_TUTORIAL_BUTTON.STR) (sprintf "blockdata %s {auto:0b}" START_TUTORIAL_BUTTON.STR) enabled (if enabled then "black" else "gray")
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-3,LOBBYY,LOBBYZ,placeSigns(false),"disabled signs")
     region.PlaceCommandBlocksStartingAt(LOBBYX-4,LOBBYY,LOBBYZ,placeSigns(true),"enabled signs")
@@ -2791,10 +2802,10 @@ let placeCommandBlocksInTheWorld(fil) =
             // new players go here:
             yield U (sprintf "fill %s %s sea_lantern" NEW_PLAYER_PLATFORM_LO.STR (NEW_PLAYER_PLATFORM_LO.Offset(10,0,10).STR))
             let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,1,4)
-            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "Lobby" (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR) "" true "black"
+            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "LOBBY" (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR) "" true "black"
             // Note: there is also a 'Go to Tutorial' sign, but it's coded as part of lobby, to turn it on/off
         |]
-    region.PlaceCommandBlocksStartingAt(TUTORIAL_CMDS,makeTutorialCmds,"build tutorial") // TODO remove 'build tutorial' commands from final version
+    region.PlaceCommandBlocksStartingAtSelfDestruct(TUTORIAL_CMDS,makeTutorialCmds,"build tutorial")
 
 
 
@@ -2816,10 +2827,6 @@ let placeCommandBlocksInTheWorld(fil) =
                             yield C (sprintf """clear @a[team=%s] %s %d 1""" team id dmg)
                         let xx, yy, zz = uniqueArts.[art]
                         yield U (sprintf "execute @e[tag=whereToPlacePixelArt] ~ ~ ~ clone %d %d %d %d %d %d ~ ~ ~" xx yy zz (xx+16) (yy+1) (zz+16))
-#if ITEM_FRAME
-                        for i = 0 to 3 do
-                            yield U (sprintf "execute @e[tag=whereToPlaceItemFrame] ~ ~ ~ summon ItemFrame ~ ~ ~ {ItemRotation:0,Facing:%d,Item:{Count:1,id:minecraft:%s%s}}" i id (if dmg <> -1 then sprintf ",Damage:%d" dmg else ""))
-#endif
                        |]
             region.PlaceCommandBlocksStartingAt(BINGO_ITEMS_LOW.Offset(x,y,0),cmds,"itemframe/testfor/clear/copyPixelArt logic")
 
@@ -2995,7 +3002,9 @@ let placeCommandBlocksInTheWorld(fil) =
         // reset deaths of players who respawned
         yield U (sprintf "%s scoreboard players set @p[score_Deaths_min=1] Deaths 0" (nTimesDo 8))
         |]
+#if DEBUG
     region.PlaceCommandBlocksStartingAt(100,3,6,cmdsTickLagDebugger,"tick lag debugger")
+#endif
     region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
     region.PlaceCommandBlocksStartingAt(102,3,10,timerCmds,"clock every N ticks")
     region.PlaceCommandBlocksStartingAt(103,3,10,cmdsFindPlayerWhoDroppedMap,"notice player that drops map")
@@ -3046,10 +3055,12 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
         yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TimeKeeper"]}"""
+#if DEBUG
         // start ticklagdebug // TODO eventually remove this
         yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TickLagDebug"]}"""
         yield U "fill 100 4 6 100 4 16 wool"  // todo coords
         yield U "fill 100 4 6 100 4 16 redstone_block"  // todo coords
+#endif
         // start major clocks
         yield U "fill 101 4 10 112 4 10 wool"  // todo coords
         yield U "fill 101 4 10 112 4 10 redstone_block"  // todo coords
@@ -3068,16 +3079,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf """blockdata %d %d %d {Command:"gamemode 1 @a"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+1))
         yield U (sprintf """blockdata %d %d %d {Command:"tellraw @a [{\"selector\":\"@a[tag=justRespawned]\"},\" just respawned\"]"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2))
         yield U (sprintf """blockdata %d %d %d {Command:"effect @a 16 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+1))
-        // force every chunk to redraw map
-        for x = 0 to 7 do
-            for z = 0 to 7 do
-                yield U (sprintf "setblock %d %d %d stone" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))
-        yield! nTicksLater(20)
-        for x = 0 to 7 do
-            for z = 0 to 7 do
-                yield U (sprintf "setblock %d %d %d air" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))
         |]
-    region.PlaceCommandBlocksStartingAt(3,3,10,cmdsInit1,"init1 all")
+    region.PlaceCommandBlocksStartingAtSelfDestruct(3,3,10,cmdsInit1,"init1 all")
     let cmdsInit2 =
         [|
         yield O ""
@@ -3092,12 +3095,13 @@ let placeCommandBlocksInTheWorld(fil) =
         for x = 0 to 7 do
             for z = 0 to 7 do
                 yield U (sprintf "setblock %d %d %d air" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))
-        yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
-        yield U (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
+        // gen a card
+        yield U (sprintf "blockdata %s {auto:1b}" RANDOM_SEED_BUTTON.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" RANDOM_SEED_BUTTON.STR)
         yield U (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR)
         yield U "clear @p"
         |]
-    region.PlaceCommandBlocksStartingAt(4,3,10,cmdsInit2,"init2 all")
+    region.PlaceCommandBlocksStartingAtSelfDestruct(4,3,10,cmdsInit2,"init2 all")
     let cmdsInit3 =
         [|
         yield O ""
@@ -3107,7 +3111,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "scoreboard players add @e[tag=Z] S 1"
         yield U (sprintf "fill %d %d %d %d %d %d stone" 0 MAPY (MAPZ-1) 127 MAPY (MAPZ-1)) // stone above top row, to prevent shading on top line
         |]
-    let teleportBasedOnScore(tagToTp, scorePlayer, scoreObjective, axis) =  // score must have value 0-59 to work
+    let teleportBasedOnScore(tagToTp, scorePlayer, scoreObjective, axis) =  // score must have value 0-59 to work, based on init3 code just above
         assert(axis="x" || axis="y" || axis="z")
         [|
             yield U (sprintf "scoreboard players operation @e[tag=Z] S -= %s %s" scorePlayer scoreObjective)
@@ -3119,46 +3123,11 @@ let placeCommandBlocksInTheWorld(fil) =
                 yield U (sprintf "execute @e[tag=Z,score_S=0] ~ ~ ~ tp @e[tag=%s] ~ ~ ~1" tagToTp)
             yield U (sprintf "scoreboard players operation @e[tag=Z] S += %s %s" scorePlayer scoreObjective)
         |]
-    region.PlaceCommandBlocksStartingAt(5,3,10,cmdsInit3,"init3 all")
+    region.PlaceCommandBlocksStartingAtSelfDestruct(5,3,10,cmdsInit3,"init3 all")
     // ensure there is an empty command block at each SPAWN_LOCATION_COMMANDS, since it gets cloned in, and cloning air breaks the chain
     for t = 0 to 3 do
         region.PlaceCommandBlocksStartingAt(SPAWN_LOCATION_COMMANDS(t),[|U"";U"";U""|],"ensure spawn cmd blocks")
 
-
-#if ITEM_FRAME
-    //////////////////////////////////////////////
-    // generate a preview of card with items frames on a wall
-    //////////////////////////////////////////////
-    let makePreviewWallInit() =
-        [|
-        yield U "scoreboard players set mpwCol S 1"
-        yield U "summon ArmorStand 3 7 4 {NoGravity:1,Tags:[\"whereToPlaceItemFrame\"]}"
-        |]
-    let makePreviewWall() =
-        [|
-        // find one block to clone to 1 1 1 
-        yield U "scoreboard players operation @e[tag=bingoItem] S -= next S"
-        yield U "scoreboard players test which S 0 0"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~2 ~9 clone ~ ~ ~ ~ ~ ~ 1 1 1"
-        yield U "scoreboard players test which S 1 1"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~1 ~9 clone ~ ~ ~ ~ ~ ~ 1 1 1"
-        yield U "scoreboard players test which S 2 2"
-        yield C     "execute @e[tag=bingoItem,score_S_min=0,score_S=0] ~ ~0 ~9 clone ~ ~ ~ ~ ~ ~ 1 1 1"
-        yield U "scoreboard players operation @e[tag=bingoItem] S += next S"
-        yield U "clone 1 1 1 1 1 1 ~ ~ ~1"
-        yield U "say THIS SHOULD HAVE BEEN REPLACED"
-        // move next spot on board
-        yield U "tp @e[tag=whereToPlaceItemFrame] ~1 ~ ~"
-        yield U "scoreboard players add mpwCol S 1"
-        yield U "scoreboard players test mpwCol S 6 *"
-        yield C "scoreboard players set mpwCol S 1"
-        yield C "tp @e[tag=whereToPlaceItemFrame] ~-5 ~-1 ~"
-        |]
-    let makePreviewWallCleanup() =
-        [|
-            yield C "kill @e[tag=whereToPlaceItemFrame]"
-        |]
-#endif
 
     //////////////////////////////////////////////
     // generate actual card in the sky
@@ -3727,9 +3696,8 @@ let placeCommandBlocksInTheWorld(fil) =
         // summon 28 AECs with score 0-27 at the bottom of the 28 item sets 
         // note, we need these short-lived AECs, because these are killed as removed from candidate set
         yield U "kill @e[tag=bingoItem]"
-        for _i = 1 to bingoItems.Length do
-            yield U "tp @e[tag=bingoItem] ~1 ~ ~"
-            yield U (sprintf "summon AreaEffectCloud %s {Duration:999999,Tags:[\"bingoItem\"]}" BINGO_ITEMS_LOW.STR)
+        for i = 1 to bingoItems.Length do
+            yield U (sprintf "summon AreaEffectCloud %d %d %d {Duration:999999,Tags:[\"bingoItem\"]}" (bingoItems.Length - i + BINGO_ITEMS_LOW.X) BINGO_ITEMS_LOW.Y BINGO_ITEMS_LOW.Z)
             yield U "scoreboard players add @e[tag=bingoItem] S 1"
         yield U "scoreboard players remove @e[tag=bingoItem] S 1"
         // init other vars
@@ -3739,10 +3707,6 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U """tellraw @a ["Generating card..."]"""
             yield! makeActualCardInit()
             yield! checkForItemsInit()
-#if ITEM_FRAME
-        else
-            yield! makePreviewWallInit()
-#endif
         // prepare loop
         yield U "summon ArmorStand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
         yield U "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
@@ -3760,10 +3724,6 @@ let placeCommandBlocksInTheWorld(fil) =
             if sky then
                 yield! makeActualCard()
                 yield! checkForItems()
-#if ITEM_FRAME
-            else
-                yield! makePreviewWall()
-#endif
             // remove used item from remaining list
             yield U "scoreboard players operation @e[tag=bingoItem] S -= next S"
             yield U "kill @e[tag=bingoItem,score_S_min=0,score_S=0]"
@@ -3784,44 +3744,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U """tellraw @a ["...done!"]"""
-#if ITEM_FRAME
-        else
-            yield! makePreviewWallCleanup()
-#endif
         |]
-#if ITEM_FRAME
-    region.PlaceCommandBlocksStartingAt(6,3,10,bingoCardMakerCmds(false),"make preview")
-#endif
     region.PlaceCommandBlocksStartingAt(MAKE_SEEDED_CARD,bingoCardMakerCmds(true),"make pixel art and checker")
-#if ITEM_FRAME
-    let cloneIntoDisplayWallCmds =
-        [|
-            yield O ""
-            for i = 1 to 28 do
-                yield U (sprintf "clone %s %s 12 3 %d" (BINGO_ITEMS_LOW.Offset(i-1,2,0).STR) (BINGO_ITEMS_LOW.Offset(i-1,2,0).STR) (2*i+11))
-            for i = 1 to 28 do
-                yield U (sprintf "clone %s %s 12 3 %d" (BINGO_ITEMS_LOW.Offset(i-1,1,0).STR) (BINGO_ITEMS_LOW.Offset(i-1,1,0).STR) (2*i+11+56))
-            for i = 1 to 28 do
-                yield U (sprintf "clone %s %s 12 3 %d" (BINGO_ITEMS_LOW.Offset(i-1,0,0).STR) (BINGO_ITEMS_LOW.Offset(i-1,0,0).STR) (2*i+11+56+56))
-            yield U (sprintf "fill %d %d -4 %d %d -4 stone" BINGO_ITEMS_LOW.X BINGO_ITEMS_LOW.Y (BINGO_ITEMS_LOW.X+28-1) (BINGO_ITEMS_LOW.Y+3-1))
-        |]
-    region.PlaceCommandBlocksStartingAt(9,3,10,cloneIntoDisplayWallCmds,"display wall of 28x3 item frames (clone cmds)")
-    let displayWallCmds = 
-        [|
-            yield O ""
-            yield U "summon ArmorStand ~ ~ ~ {NoGravity:1,Tags:[\"whereToPlaceItemFrame\"]}"
-            for i = 1 to 28 do
-                yield U (sprintf "tp @e[tag=whereToPlaceItemFrame] %d %d -3" (BINGO_ITEMS_LOW.X-1+i) (BINGO_ITEMS_LOW.Y+2))
-                yield U "say REPLACE"
-            for i = 1 to 28 do
-                yield U (sprintf "tp @e[tag=whereToPlaceItemFrame] %d %d -3" (BINGO_ITEMS_LOW.X-1+i) (BINGO_ITEMS_LOW.Y+1))
-                yield U "say REPLACE"
-            for i = 1 to 28 do
-                yield U (sprintf "tp @e[tag=whereToPlaceItemFrame] %d %d -3" (BINGO_ITEMS_LOW.X-1+i) (BINGO_ITEMS_LOW.Y+0))
-                yield U "say REPLACE"
-        |]
-    region.PlaceCommandBlocksStartingAt(12,3,10,displayWallCmds, "display wall of 28x3 item frames (actually run)")
-#endif
 
     // want to have grid of 300x300 spawn points, marked -150 to 150 (skipping 0s)
     let spawnIndices = List.append [-150 .. -1] [1 .. 150] |> Array.ofList 
@@ -4151,4 +4075,4 @@ do
         System.IO.File.Delete(fil+".new")
         r.Write(fil+".new")
         System.IO.File.Copy(fil+".new", fil, true)
-#endif    
+#endif   
