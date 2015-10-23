@@ -5,7 +5,8 @@ let BIOMES =
       10,"Frozen Ocean";11,"FrozenRiver";12,"Ice Plains";13,"Ice Mountains";14,"MushroomIsland";15,"MushroomIslandShore";16,"Beach";17,"DesertHills";18,"ForestHills";19,"TaigaHills";
       20,"Extreme Hills Edge";21,"Jungle";22,"Jungle Hills";23,"Jungle Edge";24,"Deep Ocean";25,"Stone Beach";26,"Cold Beach";27,"Birch Forest";28,"Birch Forest Hills";29,"Roofed Forest";
       30,"Cold Taiga";31,"Cold Taiga Hills";32,"Mega Taiga";33,"Mega Taiga Hills";34,"Extreme Hills+";35,"Savanna";36,"Savanna Plateau";37,"Mesa";38,"Mesa Plateau F";39,"Mesa Plateau";
-      129,"Sunflower Plains";
+      127,"The Void";
+      128,"Plains M";129,"Sunflower Plains";
       130,"Desert M";131,"Extreme Hills M";132,"Flower Forest";133,"Taiga M";134,"Swampland M";
       140,"Ice Plains Spikes";141,"Ice Mountains Spikes";149,"Jungle M";
       151,"JungleEdge M";155,"Birch Forest M";156,"Birch Forest Hills M";157,"Roofed Forest M";158,"Cold Taiga M";
@@ -55,11 +56,35 @@ let BIOMES_NEEDED_FOR_ADVENTURING_TIME =
 
 
 let ENCHANTS =
-    [|0,"Protection";1,"Fire Protection";2,"Feather Falling";3,"Blast Protection";4,"Projectile Protection";5,"Respiration";6,"Aqua Affinity";7,"Thorns";
-      16,"Sharpness";17,"Smite";18,"Bane of Arthropods";19,"Knockback";20,"Fire Aspect";21,"Looting";
-      32,"Efficiency";33,"Silk Touch";34,"Unbreaking";35,"Fortune";
-      48,"Power";49,"Punch";50,"Flame";51,"Infinity";
-      61,"Luck of the Sea";62,"Lure"|]
+    [|
+        "Protection","protection", 0 
+        "Fire Protection","fire_protection", 1 
+        "Feather Falling","feather_falling", 2 
+        "Blast Protection","blast_protection", 3 
+        "Projectile Protection","projectile_protection", 4 
+        "Respiration","respiration", 5 
+        "Aqua Affinity","aqua_affinity", 6 
+        "Thorns","thorns", 7 
+        "Depth Strider","depth_strider", 8 
+        "Frost Walker","frost_walker", 9 
+        "Sharpness","sharpness", 16 
+        "Smite","smite", 17 
+        "Bane of Arthropods","bane_of_arthropods", 18 
+        "Knockback","knockback", 19 
+        "Fire Aspect","fire_aspect", 20 
+        "Looting","looting", 21 
+        "Efficiency","efficiency", 32 
+        "Silk Touch","silk_touch", 33 
+        "Unbreaking","unbreaking", 34 
+        "Fortune","fortune", 35 
+        "Power","power", 48 
+        "Punch","punch", 49 
+        "Flame","flame", 50 
+        "Infinity","infinity", 51 
+        "Luck of the Sea","luck_of_the_sea", 61 
+        "Lure","lure", 62 
+        "Mending","mending", 70 
+    |]
 
 let POTION_EFFECTS =
     [|1,"Speed";2,"Slowness";3,"Haste";4,"Mining Fatigue";5,"Strength";6,"Instant Health";7,"Instant Damage";8,"Jump Boost";9,"Nausea";
@@ -993,7 +1018,9 @@ type RegionFile(filename) =
                     let nbt = NBT.Read(new BinaryReader2(s))
                     chunks.[cx,cz] <- nbt
                     if firstSeenDataVersion = -1 then
-                        firstSeenDataVersion <- match nbt.["DataVersion"] with NBT.Int(_,i) -> i   // TODO make not fail on Minecraft 1.8
+                        try
+                            firstSeenDataVersion <- match nbt.["DataVersion"] with NBT.Int(_,i) -> i   // TODO make not fail on Minecraft 1.8, see line below
+                        with e -> () // ignore failure, sloppy
     member this.RX = rx  // e.g. 1 means starts at x coord 512
     member this.RZ = rz
     member this.Write(outputFilename) =
@@ -1051,17 +1078,29 @@ type RegionFile(filename) =
             s2 <- (s2 + s1) % 65521
         s2*65536 + s1
     member private this.SetChunkDirty(x,z) = // x,z are world coordinates
-        let xx = ((x+5120)%512)/16
-        let zz = ((z+5120)%512)/16
+        let xx = ((x+51200)%512)/16
+        let zz = ((z+51200)%512)/16
         isChunkDirty.[xx,zz] <- true
     member this.GetOrCreateChunk(x,z) =  // x,z are world coordinates
-        let xx = ((x+5120)%512)/16
-        let zz = ((z+5120)%512)/16
+        let xx = ((x+51200)%512)/16
+        let zz = ((z+51200)%512)/16
         let theChunk = getOrCreateChunk(xx,zz)
         theChunk
+    member this.TryGetSection(x,y,z) =  // x,y,z are world coordinates
+        let xx = ((x+51200)%512)/16
+        let zz = ((z+51200)%512)/16
+        let theChunk = this.TryGetChunk(xx,zz)
+        match theChunk with
+        | None -> None
+        | Some theChunk ->
+            let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+            let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
+            match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
+            | Some x -> Some x
+            | None -> None
     member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
-        let xx = ((x+5120)%512)/16
-        let zz = ((z+5120)%512)/16
+        let xx = ((x+51200)%512)/16
+        let zz = ((z+51200)%512)/16
         let theChunk = getOrCreateChunk(xx,zz)
         let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
@@ -1086,6 +1125,8 @@ type RegionFile(filename) =
         match chunks.[cx,cz] with
         | End -> None
         | c -> Some c
+    member this.SetChunk(cx, cz, newChunk) =
+        chunks.[cx,cz] <- newChunk
     member this.GetBlockInfo(x, y, z) =
         match this.TryGetBlockInfo(x,y,z) with
         | Some r -> r
@@ -1122,10 +1163,10 @@ type RegionFile(filename) =
             | _ -> None
         Some(new BlockInfo(blocks.[i], blockDataAtI, tileEntity))
     member this.SetBlockIDAndDamage(x, y, z, blockID, damage) =
-        if (x+5120)/512 <> rx+10 || (z+5120)/512 <> rz+10 then failwith "coords outside this region"
+        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
         if damage > 15uy then failwith "invalid blockData"
         let theSection = this.GetOrCreateSection(x,y,z)
-        let dx, dy, dz = (x+5120) % 16, y % 16, (z+5120) % 16
+        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
         // BlockID
         let blocks = theSection |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
@@ -1196,9 +1237,9 @@ type RegionFile(filename) =
                 | C s -> 211uy,11uy,1uy,s,null
             this.SetBlockIDAndDamage(x,y,z,bid,bd)
             let nbts = if s = DUMMY then [||] else [|mkCmd(x,y,z,au,s,txt)|]
-            if (x+5120)/512 <> rx+10 || (z+5120)/512 <> rz+10 then failwith "coords outside this region"
-            let xx = ((x+5120)%512)/16
-            let zz = ((z+5120)%512)/16
+            if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+            let xx = ((x+51200)%512)/16
+            let zz = ((z+51200)%512)/16
             if xx <> prevcx || zz <> prevcz then
                 // store out old TE as we move out of this chunk
                 if prevcx <> -1 then
@@ -1886,6 +1927,78 @@ let writeZoneFromString(r:RegionFile,x,y,z,s:string) =
                 r.SetBlockIDAndDamage(x+i, y+j, z+k, bid, data)
                 strIndex <- strIndex + 2
 
+let findAllLoot(regionFolder:string) =
+    let counts = new System.Collections.Generic.Dictionary<_,_>()
+    for fil in System.IO.Directory.EnumerateFiles(regionFolder,"*.mca") do
+        let r = new RegionFile(fil)
+        for cx = 0 to 31 do
+            for cz = 0 to 31 do
+                match r.TryGetChunk(cx,cz) with
+                | None -> ()
+                | Some c ->
+                    let theChunkLevel = match c with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                    let lookAllItems(nbta:NBT[]) =
+                        let items = match nbta |> Array.find(fun x -> x.Name = "Items") with | List(_,Compounds(cs)) -> cs
+                        let ebs = ResizeArray()
+                        for item in items do
+                            if item |> Array.exists(function NBT.String("id","minecraft:enchanted_book") -> true | _ -> false) then
+                                let enchs = ResizeArray()
+                                match item |> Array.find(fun x -> x.Name = "tag") with
+                                | Compound(_,cs) ->
+                                    match cs |> Array.find(fun x -> x.Name = "StoredEnchantments") with
+                                    | List(_,Compounds(xs)) ->
+                                        for x in xs do
+                                            let id = x |> Array.find (fun x -> x.Name = "id") |> function Short(_,v) -> v
+                                            let lvl = x |> Array.find (fun x -> x.Name = "lvl") |> function Short(_,v) -> v
+                                            let name,_,_ = ENCHANTS |> Array.find(fun (_,_,i) -> i = int(id)) 
+                                            enchs.Add(name,lvl)
+                                ebs.Add(enchs)
+                        ebs
+                    let tileEntities = 
+                        match theChunkLevel.["TileEntities"] with 
+                        | List(_,Compounds(cs)) -> cs
+                        | _ -> [||]
+                    for nbta in tileEntities do
+                        if nbta |> Array.exists (function NBT.String("id","Chest") -> true | _ -> false) then
+                            let ebs = lookAllItems(nbta)
+                            if ebs.Count > 0 then
+                                let x = nbta |> Array.find (fun x -> x.Name = "x") |> function Int(_,v) -> v
+                                let y = nbta |> Array.find (fun x -> x.Name = "y") |> function Int(_,v) -> v
+                                let z = nbta |> Array.find (fun x -> x.Name = "z") |> function Int(_,v) -> v
+                                printfn "Found Chest at (%d,%d,%d) with" x y z
+                                for eb in ebs do
+                                    for ench in eb do
+                                        let name,lvl = ench
+                                        printf "%30s %2d   " name lvl
+                                        if counts.ContainsKey(name) then
+                                            counts.[name] <- counts.[name]+1
+                                        else
+                                            counts.[name] <- 1
+                                    printfn ""
+                    let entities = 
+                        match theChunkLevel.["Entities"] with 
+                        | List(_,Compounds(cs)) -> cs
+                        | _ -> [||]
+                    for nbta in entities do
+                        if nbta |> Array.exists (function NBT.String("id","MinecartChest") -> true | _ -> false) then
+                            let ebs = lookAllItems(nbta)
+                            if ebs.Count > 0 then
+                                let x,y,z = nbta |> Array.find (fun x -> x.Name = "Pos") |> function List(_,Payload.Doubles([|x;y;z|])) -> x,y,z
+                                printfn "Found MinecartChest at (%4.2f,%4.2f,%4.2f) with" x y z
+                                for eb in ebs do
+                                    for ench in eb do
+                                        let name,lvl = ench
+                                        printf "%30s %2d   " name lvl
+                                        if counts.ContainsKey(name) then
+                                            counts.[name] <- counts.[name]+1
+                                        else
+                                            counts.[name] <- 1
+                                    printfn ""
+    for v,n in counts |> Seq.map (function KeyValue(n,v) -> v,n) |> Seq.sortBy fst do
+        printfn "%3d %s" v n
+    ()
+
+
 let testing() =
     let fil = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca"""
     let r = new RegionFile(fil)
@@ -1909,6 +2022,187 @@ let testing2() =
     let writePath = """C:\Users\brianmcn\Documents\Visual Studio 2012\Projects\MinecraftMapManipulator\MinecraftMapManipulator\Tutorial.fsx"""
     System.IO.File.WriteAllLines(writePath, arr)
 
+let mixTerrain() =
+    let extremeHillsBiomeIDs = BIOMES |> Seq.filter(fun (_,n) -> n.StartsWith("Ex")) |> Seq.map fst |> Seq.map byte |> Set.ofSeq 
+    for rx in [-1;0] do
+        for rz in [-1;0] do
+            let RI1 = new RegionFile(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed5Normal\region\r.%d.%d.mca""" rx rz)
+            let RI2 = new RegionFile(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed6Normal\region\r.%d.%d.mca""" rx rz)
+            let ROFile = sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed5Mix6\region\r.%d.%d.mca""" rx rz
+            let RO  = new RegionFile(ROFile)
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    match RI1.TryGetChunk(cx,cz),RI2.TryGetChunk(cx,cz) with
+                    | Some ci1, Some ci2 ->
+(*
+                        let chunkLevel = match ci1 with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+                        match chunkLevel with 
+                        | Compound(n,nbts) -> 
+                            let biomes = nbts |> Array.find (fun nbt -> nbt.Name = "Biomes")
+                            match biomes with
+                            | NBT.ByteArray(_,a) ->
+                                if a |> Array.exists (fun b -> extremeHillsBiomeIDs.Contains(b)) then
+                                    // there's extreme hills in this chunk
+                                    printfn "XH %d, %d  ---   %d, %d"  rx rz  cx cz
+                                    RO.SetChunk(cx,cz,ci2)
+                                else
+                                    printfn "NN %d, %d  ---   %d, %d"  rx rz  cx cz
+                                    RO.SetChunk(cx,cz,ci1)
+*)
+                        printfn "OK %d, %d  ---   %d, %d"  rx rz  cx cz
+                        if (cx + cz) % 2 = 0 then
+                            RO.SetChunk(cx,cz,ci1)
+                        else
+                            RO.SetChunk(cx,cz,ci2)
+                    | Some _, None -> 
+                                    printfn "no Amp  data for %d, %d  ---   %d, %d"  rx rz  cx cz
+                    | None, Some _-> 
+                                    printfn "no Norm data for %d, %d  ---   %d, %d"  rx rz  cx cz
+                    | None, None -> 
+                                    printfn "no Any  data for %d, %d  ---   %d, %d"  rx rz  cx cz
+            RO.Write(ROFile+".new")
+    ()
+
+let findStrongholds() =
+    let world = "43a"
+    for rx in [-16 .. 15] do
+        for rz in [-16 .. 15] do
+            let file = sprintf """r.%d.%d.mca""" rx rz
+            let region = new RegionFile((sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\""" world) + file)
+//            printfn "scanning %s" file
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    match region.TryGetChunk(cx,cz) with
+                    | None -> ()
+                    | _ ->
+                        let x = rx * 512 + cx * 16
+                        let z = rz * 512 + cz * 16
+                        for sy = 0 to 15 do
+                            let y = 16 * sy
+                            match region.TryGetSection(x,y,z) with
+                            | None -> ()
+                            | Some s ->
+                                let blocks = s |> Array.find (fun nbt -> nbt.Name = "Blocks")
+                                match blocks with ByteArray(_,a) ->
+                                    if a |> Array.exists (fun b -> b = 120uy) then // 120 = end portal frame
+                                        if y < 64 then // below ground
+                                            printfn "end portal at (%6d, %3d, %6d)" x y z
+    ()
+    (*
+
+RAW
+end portal at ( -6944,  32,   -416)
+end portal at ( -6944,  32,   -400)
+end portal at ( -6752,  32,   2160)
+end portal at ( -6752,  32,   2176)
+end portal at ( -6736,  32,   2160)
+end portal at ( -6736,  32,   2176)
+end portal at ( -5376,  16,  -2544)
+end portal at ( -5392,  16,   4384)
+end portal at ( -5392,  16,   4400)
+end portal at ( -5376,  16,   4384)
+end portal at ( -5376,  16,   4400)
+end portal at ( -4976,  16,  -5136)
+end portal at ( -4960,  16,  -5136)
+end portal at ( -3120,  16,    992)
+end portal at ( -3120,  16,   1008)
+end portal at ( -3344,  16,   1136)
+end portal at ( -3344,  16,   1152)
+end portal at ( -2608,  32,  -6304)
+end portal at ( -2848,  32,   4912)
+end portal at ( -1120,  32,    448)
+end portal at ( -1040,  16,   6784)
+end portal at ( -1024,  16,   6784)
+end portal at (  -176,  16,  -5792)
+end portal at (   144,  32,   -592)
+end portal at (   144,  32,   -576)
+end portal at (   752,  32,  -2688)
+end portal at (   672,  32,  -2560)
+end portal at (   672,  16,    496)
+end portal at (  1280,  32,   5840)
+end portal at (  2304,  32,  -6400)
+end portal at (  2304,  32,  -6384)
+end portal at (  2080,  32,   2048)
+end portal at (  2528,  16,   2496)
+end portal at (  2544,  16,   2496)
+end portal at (  3248,  32,   5088)
+end portal at (  4352,  16,  -5088)
+end portal at (  4928,  32,   3664)
+end portal at (  4928,  32,   3680)
+end portal at (  4944,  32,   3664)
+end portal at (  4944,  32,   3680)
+end portal at (  5696,  16,  -2896)
+end portal at (  5872,  16,   1664)
+end portal at (  6848,  16,   -688)
+end portal at (  6864,  16,   -688)
+end portal at (  6896,  32,   8000)
+end portal at (  6896,  32,   8016)
+
+COOKED
+    end portal at ( -6944,  32,   -416)
+    end portal at ( -6752,  32,   2160)
+    end portal at ( -5376,  16,  -2544)
+    end portal at ( -5392,  16,   4384)
+    end portal at ( -4976,  16,  -5136)
+    end portal at ( -3120,  16,    992)
+    end portal at ( -3344,  16,   1136)
+    end portal at ( -2608,  32,  -6304)
+    end portal at ( -2848,  32,   4912)
+    end portal at ( -1120,  32,    448)
+    end portal at ( -1040,  16,   6784)
+    end portal at (  -176,  16,  -5792)
+    end portal at (   144,  32,   -592)
+    end portal at (   752,  32,  -2688)
+    end portal at (   672,  32,  -2560)
+    end portal at (   672,  16,    496)
+    end portal at (  1280,  32,   5840)
+    end portal at (  2304,  32,  -6400)
+    end portal at (  2080,  32,   2048)
+    end portal at (  2528,  16,   2496)
+    end portal at (  3248,  32,   5088)
+    end portal at (  4352,  16,  -5088)
+    end portal at (  4928,  32,   3664)
+    end portal at (  5696,  16,  -2896)
+    end portal at (  5872,  16,   1664)
+    end portal at (  6848,  16,   -688)
+    end portal at (  6896,  32,   8000)
+
+    *)
+
+/////////////////////////////
+
+let makeWrittenBookTags(author, title, pages) =
+    (*
+    //    /give @p minecraft:written_book 1 0 {title:"hello"}
+    NBT.Byte("Count",1uy)
+    NBT.Short("Damage",0s)
+    NBT.String("id","minecraft:written_book")
+    NBT.Compound("tag",[||])
+    *)
+    [|
+    NBT.Byte("resolved",0uy)  // player can open book and have his name appear in it :)
+    NBT.Int("generation",0)
+    NBT.String("author",author)
+    NBT.String("title",title)
+    NBT.List("pages",Strings(pages))   //      "[\"line1\\n\",\"line2\"]", ...
+    |]
+
+// TODO below does not work if '^' is in the original text
+let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
+let escape2(s) = escape(escape(s))
+
+let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
+    let sb = System.Text.StringBuilder()
+    sb.Append(sprintf "/give @p minecraft:written_book 1 0 {resolved:0b,generation:0,author:\"%s\",title:\"%s\",pages:[" author title) |> ignore
+    for i = 0 to pages.Length-2 do
+        sb.Append("\"") |> ignore
+        sb.Append(escape pages.[i]) |> ignore
+        sb.Append("\",") |> ignore
+    sb.Append("\"") |> ignore
+    sb.Append(escape pages.[pages.Length-1]) |> ignore
+    sb.Append("\"") |> ignore
+    sb.Append("]}") |> ignore
+    sb.ToString()
 
 /////////////////////////////
 
@@ -2138,6 +2432,7 @@ let placeCommandBlocksInTheWorld(fil) =
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
 
+    // TODO set render distance to 32 at spawn, ensure no extra chunks gen'd, or gen them
     let MAP_UPDATE_ROOM_LOW = Coords(59,8,69)
     let MAP_UPDATE_ROOM = MAP_UPDATE_ROOM_LOW.Offset(3,2,3)
     let WAITING_ROOM_LOW = Coords(69,8,69)
@@ -2265,6 +2560,95 @@ let placeCommandBlocksInTheWorld(fil) =
 
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-2,LOBBYY,LOBBYZ,makeLobbyCmds,"build lobby walls") // TODO remove 'build lobby' commands from final version (but not the signs - enable/disable)
+    let bingo30testers = // TODO finish this list if more
+        [|
+            "Cacille"
+            "ConeDodger"
+            "DucksEatFree"
+            "Shook50"
+            "gothfaerie"
+            "obesity84"
+            "Insmanity"
+        |] |> Array.sortBy (fun s -> s.ToLower()) 
+    let bingo20testers = 
+        [|
+            "GrannyGamer1"
+            "gothfaerie"
+            "ConeDodger"
+            "phedran"
+            "jahg1977"
+            "Zhuria"
+            "Meroka"
+            "Alzorath"
+            "NihonTiger"
+            "DireDwarf"
+            "iSuchtel"
+            "Blitzkriegsler"
+            "IronStoneMine"
+            "mod1982"
+            "VanRyderLP"
+            "generikb"
+            "Trazlander"
+            "three_two"
+            "kurtjmac"
+            "Bergasms"
+            "FixxxerTV"
+            "Grim"
+            "LZmiljoona"
+            "GreatScottLP"
+            "LDShadowLady"
+            "CthulhuToo"
+            "Shook50"
+            "DucksEatFree"
+        |] |> Array.sortBy (fun s -> s.ToLower()) 
+    let formatBingoTesters(a) =
+        let sb = System.Text.StringBuilder() 
+        for s:string in a do
+            sb.Append(s).Append("\n") |> ignore
+        let r = sb.ToString()
+        r.Substring(0,r.Length-1)
+    // TODO make 'BINGO Card' always be in color or something
+    let gameplayBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Gameplay", [|
+            // TODO finalize prose
+            """{"text":"Minecraft BINGO is a vanilla-survival scavenger hunt mini-game. Players must punch trees, craft tools, and kill monsters, as in normal Minecraft, but with a goal..."}"""
+            """{"text":"Players are given a 'BINGO Card' map picturing 25 different items. The goal is to race to collect these items as fast as possible to get a 5-in-a-row BINGO..."}"""
+            """{"text":"Each time you get an item on the card, a fireworks sound will play, your score will update, and a text notification will appear in the chat..."}"""
+            """{"text":"You can see which items you have so far by 'updating your map': hold your maps, and then drop one copy on the ground..."}"""
+            """{"text":"Any number of players is supported. On a multi-player server, 4 team colors allow players to collaborate or race against each other..."}"""
+            """{"text":"In single-player, you can still compete against others by choosing 'seeds'; the same seed number always yields the same BINGO Card and spawn point."}"""
+            |] )
+    let gameModesBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Major game modes", [|
+            // TODO finalize prose
+            """{"text":"Minecraft BINGO supports a variety of different game modes; the most basic is to play for a 'BINGO' (5 in a row, column, or diagonal) to win..."}"""
+            """{"text":"For extra challenge, you can play for the 'blackout': getting all 25 items on the card..."}"""
+            """{"text":"Another game mode is to gather as many items as possible within 25 minutes (1500 seconds) as a timed challenge..."}"""
+            """{"text":"Each match always supports all these modes (there's nothing to configure); BINGO, blackout, and 25-minute scores are detected and printed automatically..."}"""
+            """{"text":"But you're free to make your own rules; if you see a nice mountain and want to build a cabin instead, do it! Minecraft is very flexible :)"}"""
+            |] )
+    let customTerrainBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom terrain", [|
+            // TODO finalize prose
+            """{"text":"Minecraft BINGO is played in a normal Minecraft world, with just 3 small changes to default world generation..."}"""
+            """{"text":"First, the biome size is set to 'tiny', so that you do not need to travel for hours to find a jungle or a swamp; most biomes are close by..."}"""
+            """{"text":"Second, dungeons frequency is increased to maximum, so that all players have a good chance of finding dungeon loot in the first 10 minutes..."}"""
+            """{"text":"Finally, granite, diorite, and andesite are removed, so that your inventory is not filled with extra stone types while trying to collect items."}"""
+            |] )
+    let thanksBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Thanks", [|
+            // TODO finalize prose
+            """{"text":"I've spent more than 200 hours developing MinecraftBINGO, but I got a lot of help along the way.\n\nThanks to..."}"""
+            sprintf """{"text":"Version 3.0 playtesters:\n\n%s"}""" (formatBingoTesters bingo30testers)
+            sprintf """{"text":"Version 2.x playtesters:\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[0..9] ["..."]))
+            sprintf """{"text":"Version 2.x playtesters (cont'd):\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[10..19] ["..."]))
+            sprintf """{"text":"Version 2.x playtesters (cont'd):\n\n%s"}""" (formatBingoTesters bingo20testers.[20..])
+            """{"text":"Special thanks to\nAntVenom\nwho gave me the idea for Version 1.0, and\nBergasms\nwho helped me test and implement the first version."}"""
+            """{"text":"And of course, to you,\n","extra":[{"selector":"@p"},{"text":"\nthanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
+            |] )
+    // TODO
+    let customModesBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Lockout/customization", [|
+            // TODO finalize prose
+            """{"text":"Minecraft BINGO supports TODO..."}"""
+            |] )
+    // community (reddit, twitter)
+    // (in custom room) about customization
     let placeSigns(enabled) =
         [|
             yield O ""
@@ -2282,24 +2666,25 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "starting chest" "per team" "+night vision" STARTING_CHEST_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, and each team starts with chest of items"
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "go to tutorial" "" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "pick random" "seed" RANDOM_SEED_BUTTON true "black"
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "Go to" "TUTORIAL" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "Make RANDOM" "card" RANDOM_SEED_BUTTON true "black"
             if not enabled then
                 yield U (sprintf """blockdata %d %d %d {Text3:"(ends any game",Text4:"in progress)"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8))
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "seed the" "card" CHOOSE_SEED_BUTTON true "black"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "Choose SEED" "for card" CHOOSE_SEED_BUTTON true "black"
             if not enabled then
                 yield U (sprintf """blockdata %d %d %d {Text3:"(ends any game",Text4:"in progress)"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6))
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+4) 5 "start the" "game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "join red" "" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "join blue" "" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "join yellow" "" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "join green" "" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+4) 5 "START" "the game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "Join team" "RED" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "Join team" "BLUE" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "Join team" "YELLOW" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "Join team" "GREEN" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             // interior layout - info room
-            for i = 0 to 4 do
-                for j = 0 to 3 do
-                    yield! makeWallSign (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2+j) (LOBBYZ+6+i) 4 "head" "" "" ""
+            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+5) 4 "Learn about" "basic rules" "and gameplay" (escape2 gameplayBookCmd) "" true "black"
+            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+6) 4 "Learn about" "various" "game modes" (escape2 gameModesBookCmd) "" true "black"
+            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+7) 4 "Learn about" "this world's" "custom terrain" (escape2 customTerrainBookCmd) "" true "black"
+            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+8) 4 "Learn about" "all the folks" "who helped" (escape2 thanksBookCmd) "" true "black"
             yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "offering" "" "" ""
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "show" "items" SHOW_ITEMS_BUTTON true "black"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "Show all" "possible items" SHOW_ITEMS_BUTTON true "black"
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "version" "" "" ""
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
             // start platform has a disable-able sign
@@ -2660,7 +3045,7 @@ let placeCommandBlocksInTheWorld(fil) =
         // TODO consider just re-hardcoding TIMER_CYCLE_LENGTH
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
-        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TimeKeeper"]}""" // TODO deal with duration (re-seed -> entitydata all AECs?)
+        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TimeKeeper"]}"""
         // start ticklagdebug // TODO eventually remove this
         yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TickLagDebug"]}"""
         yield U "fill 100 4 6 100 4 16 wool"  // todo coords
@@ -2718,7 +3103,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield O ""
         // make AECs for teleportBasedOnScore, e.g. to move N spaces with a score of N
         for i = 60 downto 1 do  // 60 is nice, not too many, divides 1-6, makes the 300 X/Z spawns manageable
-            yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)   // TODO deal with expiration (999999 = 13 hours)
+            yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)
             yield U "scoreboard players add @e[tag=Z] S 1"
         yield U (sprintf "fill %d %d %d %d %d %d stone" 0 MAPY (MAPZ-1) 127 MAPY (MAPZ-1)) // stone above top row, to prevent shading on top line
         |]
@@ -2846,6 +3231,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "setblock %s wool" (GOT_BINGO_REDSTONE(t).STR))
             yield U (sprintf "setblock %s wool" (GOT_LOCKOUT_REDSTONE(t).STR))
             yield U (sprintf "setblock %s wool" (GOT_MEGA_BINGO_REDSTONE(t).STR))
+        // ensure long-lived AECs stay alive
+        yield U "entitydata @e[type=AreaEffectCloud] {Duration:999999}"
         |]
     region.PlaceCommandBlocksStartingAt(RESET_SCORES_LOGIC,resetScoresLogic,"reset scores")
 
@@ -2856,7 +3243,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
-        yield U "scoreboard players operation Z Calc += @r[type=AreaEffectCloud,tag=Z] S"  // insert some 'real' randomness by adding rand(60) before re-PRNG
+        yield U "scoreboard players operation Z Calc += @r[type=AreaEffectCloud,tag=Z] S"  // this will insert some 'real' randomness by adding rand(60) before re-PRNG
         yield U """tellraw @a ["Choosing random seed..."]"""
         yield U "scoreboard players set modRandomSeed S 899"
         yield! PRNG("seed","is","modRandomSeed","S")
@@ -3671,6 +4058,7 @@ let placeCommandBlocksInTheWorldTemp(fil) =
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
 
+
 ////////////////////////////////////////////////////
 
 
@@ -3696,12 +4084,17 @@ do
     //testing2()
     //placeCommandBlocksInTheWorldTemp("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""")
 
+    //mixTerrain()
+    //findStrongholds()
+
+    //printfn "%s" (makeCommandGivePlayerWrittenBook("Lorgon111", "BestTitle", [|"""["line1\n","line2"]"""; """["p2line1\n","p2line2",{"selector":"@p"}]"""|]))
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\level.dat""")
     
     //editMapDat("""C:\Users\brianmcn\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
     //testing2()
     //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat""")
+#if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     //removeAllTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
@@ -3721,6 +4114,8 @@ do
 
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
+#endif
+    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\desert\region\""")
 #if FUN
     placeCommandBlocksInTheWorldTemp("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\fun with clone\region\r.0.0.mca""")
 #endif
