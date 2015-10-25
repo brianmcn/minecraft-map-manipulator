@@ -625,6 +625,157 @@ let textureFilenamesToBlockIDandDataMappingForHeads =
         "wool_colored_yellow",35,4
     |]
 
+let MAP_COLOR_TABLE =
+    [|
+        0,(0,0,0)  // Transparent Not explored 
+        1,(0,0,0)
+        2,(0,0,0)
+        3,(0,0,0)
+        4,(88,124,39)
+        5,(108,151,47)
+        6,(125,176,55)
+        7,(66,93,29)
+        8,(172,162,114)
+        9,(210,199,138)
+        10,(244,230,161)
+        11,(128,122,85)
+        12,(138,138,138)
+        13,(169,169,169)
+        14,(197,197,197)
+        15,(104,104,104)
+        16,(178,0,0)
+        17,(217,0,0)
+        18,(252,0,0)
+        19,(133,0,0)
+        20,(111,111,178)
+        21,(136,136,217)
+        22,(158,158,252)
+        23,(83,83,133)
+        24,(116,116,116)
+        25,(142,142,142)
+        26,(165,165,165)
+        27,(87,87,87)
+        28,(0,86,0)
+        29,(0,105,0)
+        30,(0,123,0)
+        31,(0,64,0)
+        32,(178,178,178)
+        33,(217,217,217)
+        34,(252,252,252)
+        35,(133,133,133)
+        36,(114,117,127)
+        37,(139,142,156)
+        38,(162,166,182)
+        39,(85,87,96)
+        40,(105,75,53)
+        41,(128,93,65)
+        42,(149,108,76)
+        43,(78,56,39)
+        44,(78,78,78)
+        45,(95,95,95)
+        46,(111,111,111)
+        47,(58,58,58)
+        48,(44,44,178)
+        49,(54,54,217)
+        50,(63,63,252)
+        51,(33,33,133)
+        52,(99,83,49)
+        53,(122,101,61)
+        54,(141,118,71)
+        55,(74,62,38)
+        56,(178,175,170)
+        57,(217,214,208)
+        58,(252,249,242)
+        59,(133,131,127)
+        60,(150,88,36)
+        61,(184,108,43)
+        62,(213,125,50)
+        63,(113,66,27)
+        64,(124,52,150)
+        65,(151,64,184)
+        66,(176,75,213)
+        67,(93,39,113)
+        68,(71,107,150)
+        69,(87,130,184)
+        70,(101,151,213)
+        71,(53,80,113)
+        72,(159,159,36)
+        73,(195,195,43)
+        74,(226,226,50)
+        75,(120,120,27)
+        76,(88,142,17)
+        77,(108,174,21)
+        78,(125,202,25)
+        79,(66,107,13)
+        80,(168,88,115)
+        81,(206,108,140)
+        82,(239,125,163)
+        83,(126,66,86)
+        84,(52,52,52)
+        85,(64,64,64)
+        86,(75,75,75)
+        87,(39,39,39)
+        88,(107,107,107)
+        89,(130,130,130)
+        90,(151,151,151)
+        91,(80,80,80)
+        92,(52,88,107)
+        93,(64,108,130)
+        94,(75,125,151)
+        95,(39,66,80)
+        96,(88,43,124)
+        97,(108,53,151)
+        98,(125,62,176)
+        99,(66,33,93)
+        100,(36,52,124)
+        101,(43,64,151)
+        102,(50,75,176)
+        103,(27,39,93)
+        104,(71,52,36)
+        105,(87,64,43)
+        106,(101,75,50)
+        107,(53,39,27)
+        108,(71,88,36)
+        109,(87,108,43)
+        110,(101,125,50)
+        111,(53,66,27)
+        112,(107,36,36)
+        113,(130,43,43)
+        114,(151,50,50)
+        115,(80,27,27)
+        116,(17,17,17)
+        117,(21,21,21)
+        118,(25,25,25)
+        119,(13,13,13)
+        120,(174,166,53)
+        121,(212,203,65)
+        122,(247,235,76)
+        123,(130,125,39)
+        124,(63,152,148)
+        125,(78,186,181)
+        126,(91,216,210)
+        127,(47,114,111)
+        128,(51,89,178)
+        129,(62,109,217)
+        130,(73,129,252)
+        131,(39,66,133)
+        132,(0,151,39)
+        133,(0,185,49)
+        134,(0,214,57)
+        135,(0,113,30)
+        136,(90,59,34)
+        137,(110,73,41)
+        138,(127,85,48)
+        139,(67,44,25)
+        140,(78,1,0)
+        141,(95,1,0)
+        142,(111,2,0)
+        143,(58,1,0)
+    |]
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 let rand = new System.Random()
 let swap (a: _[]) x y =
     let tmp = a.[x]
@@ -1840,13 +1991,30 @@ let editMapDat(file) =
     printfn "%s" (nbt.ToString())
     writeDatFile(file+".new", nbt)
 
+let mapDatToPng(mapDatFile:string, newPngFilename:string) =
+    let nbt = readDatFile(mapDatFile)
+    let out = new System.Drawing.Bitmap(128, 128)
+    let nbt = cataNBT (fun nbt -> 
+        match nbt with 
+        | NBT.Compound("data",a) ->
+            match a |> Array.find(fun x -> x.Name = "colors") with
+            | ByteArray(_,colorArray) ->
+                for x = 0 to 127 do
+                    for y = 0 to 127 do
+                        let b = colorArray.[x+128*y]
+                        let r,g,b = MAP_COLOR_TABLE |> Array.find (fun (x,y) -> x = int b) |> snd
+                        out.SetPixel(x,y,System.Drawing.Color.FromArgb(r,g,b))
+            id nbt
+        | _ -> nbt) id nbt
+    out.Save(newPngFilename, System.Drawing.Imaging.ImageFormat.Png)
 
 let dumpPlayerDat(file) =
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
-    let nbt = cataNBT (fun nbt -> match nbt with |NBT.List("Pos",Payload.Doubles(a)) -> List("Pos",Doubles[|0.0;0.0;0.0|]) | _ -> nbt) id nbt
-    printfn "%s" (nbt.ToString())
-    writeDatFile(file+".new", nbt)
+//    let nbt = cataNBT (fun nbt -> match nbt with |NBT.List("Pos",Payload.Doubles(a)) -> List("Pos",Doubles[|0.0;0.0;0.0|]) | _ -> nbt) id nbt
+//    printfn "%s" (nbt.ToString())
+//    writeDatFile(file+".new", nbt)
+
     (*
     // allow commands
     match nbt with
@@ -1939,6 +2107,7 @@ let writeZoneFromString(r:RegionFile,x,y,z,s:string) =
 
 let findAllLoot(regionFolder:string) =
     let counts = new System.Collections.Generic.Dictionary<_,_>()
+    let total = ref 0
     for fil in System.IO.Directory.EnumerateFiles(regionFolder,"*.mca") do
         let r = new RegionFile(fil)
         for cx = 0 to 31 do
@@ -1947,11 +2116,11 @@ let findAllLoot(regionFolder:string) =
                 | None -> ()
                 | Some c ->
                     let theChunkLevel = match c with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-                    let lookAllItems(nbta:NBT[]) =
-                        let items = match nbta |> Array.find(fun x -> x.Name = "Items") with | List(_,Compounds(cs)) -> cs
+                    let lookAllItemsCore(items:NBT[][]) =
                         let ebs = ResizeArray()
                         for item in items do
                             if item |> Array.exists(function NBT.String("id","minecraft:enchanted_book") -> true | _ -> false) then
+                                total := !total + 1
                                 let enchs = ResizeArray()
                                 match item |> Array.find(fun x -> x.Name = "tag") with
                                 | Compound(_,cs) ->
@@ -1963,7 +2132,17 @@ let findAllLoot(regionFolder:string) =
                                             let name,_,_ = ENCHANTS |> Array.find(fun (_,_,i) -> i = int(id)) 
                                             enchs.Add(name,lvl)
                                 ebs.Add(enchs)
+                        for eb in ebs do
+                            for ench in eb do
+                                let name,lvl = ench
+                                if counts.ContainsKey(name) then
+                                    counts.[name] <- counts.[name]+1
+                                else
+                                    counts.[name] <- 1
                         ebs
+                    let lookAllItems(nbta:NBT[]) =
+                        let items = match nbta |> Array.find(fun x -> x.Name = "Items") with | List(_,Compounds(cs)) -> cs
+                        lookAllItemsCore(items)
                     let tileEntities = 
                         match theChunkLevel.["TileEntities"] with 
                         | List(_,Compounds(cs)) -> cs
@@ -1975,39 +2154,64 @@ let findAllLoot(regionFolder:string) =
                                 let x = nbta |> Array.find (fun x -> x.Name = "x") |> function Int(_,v) -> v
                                 let y = nbta |> Array.find (fun x -> x.Name = "y") |> function Int(_,v) -> v
                                 let z = nbta |> Array.find (fun x -> x.Name = "z") |> function Int(_,v) -> v
-                                printfn "Found Chest at (%d,%d,%d) with" x y z
+                                //printfn "Found Chest at (%d,%d,%d) with" x y z
                                 for eb in ebs do
                                     for ench in eb do
                                         let name,lvl = ench
-                                        printf "%30s %2d   " name lvl
-                                        if counts.ContainsKey(name) then
-                                            counts.[name] <- counts.[name]+1
-                                        else
-                                            counts.[name] <- 1
-                                    printfn ""
+                                        //printf "%30s %2d   " name lvl
+                                        ()
+                                    //printfn ""
                     let entities = 
                         match theChunkLevel.["Entities"] with 
                         | List(_,Compounds(cs)) -> cs
                         | _ -> [||]
                     for nbta in entities do
+                        if nbta |> Array.exists (function NBT.String("id","Item") -> true | _ -> false) then
+                            let item = nbta |> Array.find (function NBT.Compound("Item",_) -> true | _ -> false) |> (function NBT.Compound("Item",tags) -> tags)
+                            lookAllItemsCore [| item |] |> ignore
                         if nbta |> Array.exists (function NBT.String("id","MinecartChest") -> true | _ -> false) then
                             let ebs = lookAllItems(nbta)
                             if ebs.Count > 0 then
                                 let x,y,z = nbta |> Array.find (fun x -> x.Name = "Pos") |> function List(_,Payload.Doubles([|x;y;z|])) -> x,y,z
-                                printfn "Found MinecartChest at (%4.2f,%4.2f,%4.2f) with" x y z
+                                //printfn "Found MinecartChest at (%4.2f,%4.2f,%4.2f) with" x y z
                                 for eb in ebs do
                                     for ench in eb do
                                         let name,lvl = ench
-                                        printf "%30s %2d   " name lvl
-                                        if counts.ContainsKey(name) then
-                                            counts.[name] <- counts.[name]+1
-                                        else
-                                            counts.[name] <- 1
-                                    printfn ""
+                                        //printf "%30s %2d   " name lvl
+                                        ()
+                                    //printfn ""
     for v,n in counts |> Seq.map (function KeyValue(n,v) -> v,n) |> Seq.sortBy fst do
-        printfn "%3d %s" v n
+        printfn "%4.1f%%  %-30s  (%4d/%4d)" (100.0 * float v / float (!total)) n v (!total)
+    printfn "%d books" !total
     ()
-
+(*
+     0.2%  Projectile Protection           (  16/6982)
+     1.9%  Feather Falling                 ( 135/6982)
+     2.2%  Silk Touch                      ( 151/6982)
+     2.3%  Thorns                          ( 158/6982)
+     2.4%  Infinity                        ( 169/6982)
+     3.5%  Blast Protection                ( 243/6982)
+     4.1%  Punch                           ( 286/6982)
+     4.1%  Respiration                     ( 287/6982)
+     4.1%  Lure                            ( 288/6982)
+     4.2%  Frost Walker                    ( 292/6982)
+     4.2%  Fortune                         ( 294/6982)
+     4.2%  Depth Strider                   ( 296/6982)
+     4.3%  Flame                           ( 302/6982)
+     4.4%  Fire Aspect                     ( 308/6982)
+     4.4%  Aqua Affinity                   ( 310/6982)
+     4.7%  Luck of the Sea                 ( 326/6982)
+     4.8%  Looting                         ( 332/6982)
+     9.0%  Bane of Arthropods              ( 628/6982)
+     9.3%  Smite                           ( 649/6982)
+     9.8%  Fire Protection                 ( 681/6982)
+    10.8%  Knockback                       ( 754/6982)
+    11.3%  Unbreaking                      ( 792/6982)
+    17.8%  Sharpness                       (1244/6982)
+    19.5%  Protection                      (1360/6982)
+    20.3%  Efficiency                      (1414/6982)
+    20.7%  Power                           (1443/6982)
+*)
 
 let testing() =
     let fil = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca"""
@@ -2550,6 +2754,8 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "setblock %d %d %d chest" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            // put heads
+            yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 0.5) (float (LOBBYZ+1) - 0.0))
             // put enabled signs
             yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-4) LOBBYY LOBBYZ)
@@ -2651,6 +2857,15 @@ let placeCommandBlocksInTheWorld(fil) =
             """{"text":"Special thanks to\nAntVenom\nwho gave me the idea for Version 1.0, and\nBergasms\nwho helped me test and implement the first version."}"""
             """{"text":"And of course, to you,\n","extra":[{"selector":"@p"},{"text":"\nthanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
             |] )
+    let versionInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Versions", [|
+            // TODO finalize prose
+            """{"text":"You're playing MinecraftBINGO\n\nVersion ","extra":[{"text":"3.0",color:"red"},{"text":"\n\nTo get the latest version, click\n\n"},{"text":"@MinecraftBINGO","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
+            """{"text":"Version History\n\n3.0 - TODO/MM/DD\n\nRewrote everything from scratch using new Minecraft 1.9 command blocks. So much more efficient!"}"""
+            """{"text":"Version History\n\n2.5 - 2014/11/27\n\nUpdate for Minecraft 1.8.1, which changed map colors.\n\n2.4 - 2014/09/12\n\nAdded 'seed' game mode to specify card and spawn point via a seed number."}"""
+            """{"text":"Version History\n\n2.3 - 2014/06/17\n\nAdded more items and lockout mode.\n\n2.2 - 2014/05/29\n\nAdded multiplayer team gameplay."}"""
+            """{"text":"Version History\n\n2.1 - 2014/05/12\n\nCustomized terrain with tiny biomes and many dungeons.\n\n2.0 - 2014/04/09\n\nRandomize the 25 items on the card."}"""
+            """{"text":"Version History\n\n1.0 - 2013/10/03\n\nOriginal Minecraft 1.6 version. Only one fixed card, dispensed buckets of water to circle items on the map. (pre-dates /setblock!)"}"""
+            |] )
     // TODO
     let customModesBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Lockout/customization", [|
             // TODO finalize prose
@@ -2694,9 +2909,9 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+6) 4 "Learn about" "various" "game modes" (escape2 gameModesBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+7) 4 "Learn about" "this world's" "custom terrain" (escape2 customTerrainBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+8) 4 "Learn about" "all the folks" "who helped" (escape2 thanksBookCmd) "" true "black"
-            yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "offering" "" "" ""
+            yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "Thanks for" "playing!" "" ""
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "Show all" "possible items" SHOW_ITEMS_BUTTON true "black"
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "version" "" "" ""
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "Version" "Info" "" (escape2 versionInfoBookCmd) "" true "black"
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
             // start platform has a disable-able sign
             let GTT = NEW_PLAYER_PLATFORM_LO.Offset(7,1,6)
@@ -2918,12 +3133,12 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "tp @e[tag=whereToTpBackTo] @p[tag=playerThatIsMapUpdating]"  // a tick after summoning, tp marker to player, to preserve facing direction
         yield U (sprintf "tp @p[tag=playerThatIsMapUpdating] %s 180 0" MAP_UPDATE_ROOM.STR)
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
-        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound entity.endermen.teleport @a"
         yield! nTicksLater(30) // TODO adjust timing?
         yield U "tp @p[tag=playerThatIsMapUpdating] @e[tag=whereToTpBackTo]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ entitydata @e[type=!Player,r=72] {PersistenceRequired:0}"  // don't leak mobs
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
-        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound mob.endermen.portal @a"
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound entity.endermen.teleport @a"
         yield U (sprintf "setworldspawn %s" MAP_UPDATE_ROOM.STR)
         yield U "scoreboard players tag @p[tag=playerThatIsMapUpdating] remove playerThatIsMapUpdating"
         yield U "scoreboard players set hasAnyoneUpdatedMap S 1"
@@ -3374,13 +3589,13 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
         yield! nTicksLater(20)
         yield U """tellraw @a ["3"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
+        yield U "execute @a ~ ~ ~ playsound block.note.harp @p ~ ~ ~ 1 0.6"
         yield! nTicksLater(20)
         yield U """tellraw @a ["2"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
+        yield U "execute @a ~ ~ ~ playsound block.note.harp @p ~ ~ ~ 1 0.6"
         yield! nTicksLater(20)
         yield U """tellraw @a ["1"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
+        yield U "execute @a ~ ~ ~ playsound block.note.harp @p ~ ~ ~ 1 0.6"
         yield! nTicksLater(20)
         // once more, re-tp anyone who maybe moved, the cheaters!
         for t = 0 to 3 do
@@ -3400,7 +3615,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U "time set 0"
         yield U "effect @a clear"
         yield U """tellraw @a ["Start! Go!!!"]"""
-        yield U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 1.2"
+        yield U "execute @a ~ ~ ~ playsound block.note.harp @p ~ ~ ~ 1 1.2"
         // start worldborder timer
         yield U "worldborder set 10000000"
         yield U "worldborder add 10000000 500000"
@@ -3466,6 +3681,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U "time set 500"
             yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
             yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
+            yield U "clear @a"
             yield! nTicksLater(2)
             // turn on check-for-item-checkers
             for t = 0 to 3 do
@@ -3562,7 +3778,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield U (sprintf """tellraw @a [{"selector":"@a[team=%s]"}," got an item! (",{"score":{"name":"@p[team=%s]","objective":"Score"}}," in ",{"score":{"name":"Time","objective":"Score"}},"s)"]""" team team)
             yield U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
             yield C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
-            yield U "execute @a ~ ~ ~ playsound fireworks.launch @p ~ ~ ~"
+            yield U "execute @a ~ ~ ~ playsound entity.firework.launch @p ~ ~ ~"
             // check for win
             for x = 0 to 4 do
                 yield U (sprintf "scoreboard players test %s_x%d S 5 *" team x)
@@ -3651,7 +3867,7 @@ let placeCommandBlocksInTheWorld(fil) =
     let timekeeper25min =
         [|
             O ""
-            U "execute @a ~ ~ ~ playsound note.harp @p ~ ~ ~ 1 0.6"
+            U "execute @a ~ ~ ~ playsound block.note.harp @p ~ ~ ~ 1 0.6"
             U """execute @a ~ ~ ~ tellraw @a [{"selector":"@p"}," got ",{"score":{"name":"@p","objective":"Score"}}," in 25 mins"]"""
         |]
     region.PlaceCommandBlocksStartingAt(TIMEKEEPER_25MIN_REDSTONE.Offset(0,0,1),timekeeper25min,"timekeeper 25min")
@@ -3784,7 +4000,7 @@ let placeCommandBlocksInTheWorld(fil) =
                 yield U "execute @e[tag=tpas] ~ ~ ~ testforblock ~ ~ ~ air 0"
                 yield U "testforblock ~ ~ ~-1 chain_command_block -1 {SuccessCount:0}"
                 yield C "tp @e[tag=tpas] ~ ~2 ~"
-                yield C "execute @e[tag=tpas] ~ ~ ~ fill ~ ~-2 ~ ~ ~-1 ~ stone"
+                yield C "execute @e[tag=tpas] ~ ~ ~ fill ~ ~-2 ~ ~ ~-1 ~ dirt"
         |]
     region.PlaceCommandBlocksStartingAt(PILLAR_UP_THE_ARMOR_STAND,pillarUpTheArmorStand, "pillar up the armor stand")
     // compute Y coordinate of armor stand
@@ -4013,11 +4229,15 @@ do
 
     //printfn "%s" (makeCommandGivePlayerWrittenBook("Lorgon111", "BestTitle", [|"""["line1\n","line2"]"""; """["p2line1\n","p2line2",{"selector":"@p"}]"""|]))
     //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
-    //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp1\level.dat""")
+    //dumpPlayerDat("""C:\Users\brianmcn\Desktop\igloo_bottom.nbt""")
+
     
     //editMapDat("""C:\Users\brianmcn\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
     //testing2()
     //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat""")
+
+    //mapDatToPng("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.dat""", """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.png""")
+    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
@@ -4035,11 +4255,13 @@ do
                         sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" save, true)
     System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
                         sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\level.dat""" save, true)
+    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\icon.png""",
+                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\icon.png""" save, true)
 
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
 #endif
-    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\desert\region\""")
+
 #if FUN
     placeCommandBlocksInTheWorldTemp("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\fun with clone\region\r.0.0.mca""")
 #endif
