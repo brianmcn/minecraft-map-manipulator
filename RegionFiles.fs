@@ -264,6 +264,50 @@ type RegionFile(filename) =
         this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
         printfn "%s%d commands being placed - %s" (if startz + cmds.Length > 180 then "***WARN*** - " else "") cmds.Length comment
+        let preprocessForBackpatching(a:_[]) =
+            // n is a single character
+            // C/U BLOCKDATA ON n
+            // C/U BLOCKDATA OFF n
+            // O   TAG n
+            let tagIndexes = new System.Collections.Generic.Dictionary<_,_>()
+            for i = 0 to a.Length-1 do
+                match a.[i] with
+                | O s ->
+                    if s.StartsWith("TAG ") then
+                        if s.Length <> 5 then
+                            failwith "bad TAG string length"
+                        let n = s.Substring(4)
+                        if tagIndexes.ContainsKey(n) then
+                            failwith "duplicate TAG"
+                        tagIndexes.Add(n, i)
+                        a.[i] <- O ""
+                | _ -> ()
+            for i = 0 to a.Length-1 do
+                match a.[i] with
+                | U s | C s ->
+                    if s.StartsWith("BLOCKDATA ON ") then
+                        if s.Length <> 14 then
+                            failwith "bad BLOCKDATA string length"
+                        let n = s.Substring(13)
+                        match a.[i+1] with
+                        | U s | C s ->
+                            if not( s.StartsWith("BLOCKDATA OFF "+n) ) then
+                                failwith "BLOCKDATA ON must be followed by BLOCKDATA OFF"
+                        | _ -> failwith "BLOCKDATA ON must be followed by BLOCKDATA OFF"
+                        if not( tagIndexes.ContainsKey(n) ) then
+                            failwith "try to BLOCKDATA a non-existent TAG"
+                        let tagI = tagIndexes.[n]
+                        let diff = tagI - i
+                        match a.[i] with
+                        | U _ -> a.[i] <- U (sprintf "blockdata ~ ~ ~%d {auto:1b}" diff)
+                        | C _ -> a.[i] <- C (sprintf "blockdata ~ ~ ~%d {auto:1b}" diff)
+                        | _ -> failwith "impossible"
+                        match a.[i+1] with
+                        | U _ -> a.[i+1] <- U (sprintf "blockdata ~ ~ ~%d {auto:0b}" (diff-1))
+                        | C _ -> a.[i+1] <- C (sprintf "blockdata ~ ~ ~%d {auto:0b}" (diff-1))
+                        | _ -> failwith "impossible"
+                | _ -> ()
+        preprocessForBackpatching(cmds)
         numCommandBlocksPlaced <- numCommandBlocksPlaced + cmds.Length 
         let cmds = Seq.append cmds [| O DUMMY |] |> Array.ofSeq  // dummy will put air at end - ensure not chain into existing blocks from world
 #if DEBUG_DETAIL
