@@ -281,6 +281,8 @@ let placeCommandBlocksInTheWorld(fil) =
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
+
+    let NOTICE_DROPPED_MAP_CMDS = Coords(103,3,10)
     
     //////////////////////////////
     // lobby
@@ -524,33 +526,33 @@ let placeCommandBlocksInTheWorld(fil) =
     loadout([||],[||],VANILLA_LOADOUT,"vanillaLoadout")
     let nightVisionLoadout =
         [|
-            U "effect @a 16 9999 1 true"
+            U "effect @a night_vision 9999 1 true"
         |],
         [|
-            U "effect @a[tag=justRespawned] 16 9999 1 true"
+            U "effect @a[tag=justRespawned] night_vision 9999 1 true"
         |], 
         NIGHT_VISION_LOADOUT, "nightVisionLoadout"
     loadout(nightVisionLoadout)
     let saddledHorseNightVisionLoadout =
         [|
-            U "effect @a 16 9999 1 true"
+            U "effect @a night_vision 9999 1 true"
             U """execute @a ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
         |],
         [|
-            U "effect @a[tag=justRespawned] 16 9999 1 true"
+            U "effect @a[tag=justRespawned] night_vision 9999 1 true"
         |], 
         SADDLED_HORSE_NIGHT_VISION_LOADOUT, "saddledHorseNightVisionLoadout"
     loadout(saddledHorseNightVisionLoadout)
     let startingChestNightVisionLoadout =
         [|
-            U "effect @a 16 9999 1 true"
+            U "effect @a night_vision 9999 1 true"
             U (sprintf "execute @p[team=red] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             U (sprintf "execute @p[team=blue] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             U (sprintf "execute @p[team=yellow] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             U (sprintf "execute @p[team=green] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
         |],
         [|
-            U "effect @a[tag=justRespawned] 16 9999 1 true"
+            U "effect @a[tag=justRespawned] night_vision 9999 1 true"
         |], 
         STARTING_CHEST_NIGHT_VISION_LOADOUT, "startingChestNightVisionLoadout"
     loadout(startingChestNightVisionLoadout)
@@ -740,15 +742,17 @@ let placeCommandBlocksInTheWorld(fil) =
         C "blockdata ~ ~ ~2 {auto:1b}"
         C "blockdata ~ ~ ~1 {auto:0b}"
         O ""
-        U "scoreboard players set @a hasMaps 0"
-        U """scoreboard players set @a hasMaps 1 {Inventory:[{id:"minecraft:filled_map",Damage:0s}]}"""
-        U """give @a[score_hasMaps=0] filled_map 64 0 {display:{Name:"BINGO Card"}}"""
+        U """scoreboard players remove @a hasMaps 1"""
+        U """scoreboard players set @a hasMaps 5 {Inventory:[{id:"minecraft:filled_map",Damage:0s}]}"""
+        U """give @a[score_hasMaps=0] filled_map 32 0 {display:{Name:"BINGO Card"}}"""
+        U """scoreboard players set @a[score_hasMaps=0] hasMaps 5"""   // just in case give it to them but inventory full, keep the delay before giving again
         |]
     let cmdsTriggerHome =
         [|
         P "scoreboard players test Time S 0 0"
         C (sprintf "tp @a[score_home_min=1] %s 180 0" OFFERING_SPOT.STR)
         C "scoreboard players set @a home 0"
+        C "scoreboard players enable @a home"  // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
         |]
     let cmdsTutorialState =
         [|
@@ -785,23 +789,36 @@ let placeCommandBlocksInTheWorld(fil) =
         P "scoreboard players test Time S 0 0"
         C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_PLAYER_LOCATION.STR)
         C "gamemode 0 @a[tag=!playerHasBeenSeen]"
+        C "effect @a[tag=!playerHasBeenSeen] night_vision 9999 1 true"
         C "scoreboard players tag @a[tag=!playerHasBeenSeen] add playerHasBeenSeen"
         |]
     let cmdsOnRespawn =
         [|
         yield P "scoreboard players test Time S 0 0"
         yield C "testfor @p[score_Deaths_min=1]"
-        yield C "blockdata ~ ~ ~2 {auto:1b}"
-        yield C "blockdata ~ ~ ~1 {auto:0b}"
-        yield O ""
+        // run prelude
+        yield C "BLOCKDATA ON 1"
+        yield C "BLOCKDATA OFF 1"
+        // run user-commands (firewalled)
+        yield C "BLOCKDATA ON 2"
+        yield C "BLOCKDATA OFF 2"
+        // run coda
+        yield C "BLOCKDATA ON 3"
+        yield C "BLOCKDATA OFF 3"
+
+        yield O "TAG 1"
         // note that @a[score_d_min=1] will target while on respawn screen, whereas @p[score_d_min=1] targets after resspawn
         // as a result, run @p multiple times
         // tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
         yield U (sprintf "%s scoreboard players tag @p[score_Deaths_min=1,tag=!justRespawned] add justRespawned" (nTimesDo 8))
         // run customized on-respawn command blocks
-        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
+        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~2" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
+
+        yield O "TAG 2"  // firewall the user-contributed CCBs, so if they screw them up, it doesn't break program logic
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
+
+        yield O "TAG 3"
         // untag
         yield U "scoreboard players tag @a[score_Deaths_min=1] remove justRespawned"
         // reset deaths of players who respawned
@@ -812,7 +829,7 @@ let placeCommandBlocksInTheWorld(fil) =
 #endif
     region.PlaceCommandBlocksStartingAt(101,3,10,cmdsnTicksLater,"nTicksLater")
     region.PlaceCommandBlocksStartingAt(102,3,10,timerCmds,"clock every N ticks")
-    region.PlaceCommandBlocksStartingAt(103,3,10,cmdsFindPlayerWhoDroppedMap,"notice player that drops map")
+    region.PlaceCommandBlocksStartingAt(NOTICE_DROPPED_MAP_CMDS,cmdsFindPlayerWhoDroppedMap,"notice player that drops map")
     region.PlaceCommandBlocksStartingAt(104,3,10,cmdsNoMoreMaps,"give maps to players without")
     region.PlaceCommandBlocksStartingAt(105,3,10,cmdsTriggerHome,"trigger home checker")
     region.PlaceCommandBlocksStartingAt(106,3,10,cmdsTutorialState,"tutorial state checker")
@@ -880,10 +897,10 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "blockdata %s {auto:0b}" TUTORIAL_CMDS.STR)
         // debug stuff
         yield! nTicksLater(3)
-        yield U (sprintf """blockdata %d %d %d {Command:"effect @a 16 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2))
+        yield U (sprintf """blockdata %d %d %d {Command:"effect @a night_vision 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2))
         yield U (sprintf """blockdata %d %d %d {Command:"gamemode 1 @a"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+1))
         yield U (sprintf """blockdata %d %d %d {Command:"tellraw @a [{\"selector\":\"@a[tag=justRespawned]\"},\" just respawned\"]"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2))
-        yield U (sprintf """blockdata %d %d %d {Command:"effect @a 16 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+1))
+        yield U (sprintf """blockdata %d %d %d {Command:"effect @a night_vision 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+1))
         |]
     region.PlaceCommandBlocksStartingAtSelfDestruct(3,3,10,cmdsInit1,"init1 all")
     let cmdsInit2 =
@@ -1099,6 +1116,8 @@ let placeCommandBlocksInTheWorld(fil) =
         yield C "blockdata ~ ~ ~2 {auto:1b}"
         yield C "blockdata ~ ~ ~1 {auto:0b}"
         yield O ""
+        // turn off dropped-map checker
+        yield U (sprintf "setblock %s wool" (NOTICE_DROPPED_MAP_CMDS.Offset(0,1,0).STR))
         // cancel out any pending seed choice
         yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         // clear player scores again (in case player joined server after card gen'd)
@@ -1216,12 +1235,15 @@ let placeCommandBlocksInTheWorld(fil) =
         // option to get back
         yield U """tellraw @a ["(If you need quit before getting BINGO, you can"]"""
         yield U """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        // turn on dropped-map checker
+        yield U (sprintf "setblock %s redstone_block" (NOTICE_DROPPED_MAP_CMDS.Offset(0,1,0).STR))
+        // prep for customized on-respawn command blocks
+        yield U "scoreboard players set @a Deaths 0"
         // run customized on-start command blocks
         yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
-        // prep for customized on-respawn command blocks
-        yield U "scoreboard players set @a Deaths 0"
+        // NOTE, customized on-start commands must be last, to firewall them
         |]
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_1,startGameButtonPart1,"start game1")
     region.PlaceCommandBlocksStartingAt(START_GAME_PART_2,startGameButtonPart2,"start game2")
@@ -1748,6 +1770,29 @@ let placeCommandBlocksInTheWorld(fil) =
     System.IO.File.Move(fil+".new",fil)
 
 
+////////////////////////////////////////////////////
+
+let testBackpatching(fil) =
+    let r = new RegionFile(fil)
+    r.PlaceCommandBlocksStartingAt(1,5,1,[|
+        O ""
+        U "say 1"
+        U "BLOCKDATA ON 1"
+        U "BLOCKDATA OFF 1"
+        U "say 2"
+        C "BLOCKDATA ON 2"
+        C "BLOCKDATA OFF 2"
+        U "say 3"
+        O "TAG 2"
+        U "say 6"
+        U "say 7"
+        O "TAG 1"
+        U "say 4"
+        U "say 5"
+        |],"yadda")
+    r.Write(fil+".new")
+    System.IO.File.Delete(fil)
+    System.IO.File.Move(fil+".new",fil)
 
 
 
@@ -1790,6 +1835,7 @@ do
 
     //mapDatToPng("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.dat""", """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.png""")
     //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
+    //testBackpatching("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\r.0.0.mca""")
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
