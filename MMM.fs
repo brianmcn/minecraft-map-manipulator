@@ -278,6 +278,8 @@ let placeCommandBlocksInTheWorld(fil) =
     let NIGHT_VISION_LOADOUT = Coords(71,3,10)
     let SADDLED_HORSE_NIGHT_VISION_LOADOUT = Coords(72,3,10)
     let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10)
+    let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10)
+    let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10)
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -478,9 +480,11 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at" "respawn" "" ""
             let mkLoadout x y z d txt1 txt2 txt3 (c:Coords) tellPlayers =
                 makeWallSignDo x y z d txt1 txt2 txt3 (sprintf """tellraw @a [\\\"%s\\\"]""" tellPlayers) (sprintf "clone %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2)) enabled (if enabled then "black" else "gray")
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "night vision" "" "" NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn"
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "vanilla" "" "" VANILLA_LOADOUT "Game configured: Vanilla gameplay (no on-start/on-respawn commands)"
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "saddled horse" "+night vision" "" SADDLED_HORSE_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, as well as an invulnerable saddled horse at game start"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "night vision" "" "" NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "vanilla" "" "" VANILLA_LOADOUT "Game configured: Vanilla gameplay (no on-start/on-respawn commands)"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "spammable" "iron sword" "+night vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "saddled horse" "+night vision" "" SADDLED_HORSE_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, as well as an invulnerable saddled horse at game start"
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "elytra" "+frost walker" "+night vision" ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT "Game configured: Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "starting chest" "per team" "+night vision" STARTING_CHEST_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, and each team starts with chest of items"
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
@@ -556,6 +560,31 @@ let placeCommandBlocksInTheWorld(fil) =
         |], 
         STARTING_CHEST_NIGHT_VISION_LOADOUT, "startingChestNightVisionLoadout"
     loadout(startingChestNightVisionLoadout)
+    let spammableSwordNightVisionLoadout =
+        [|
+            U "effect @a night_vision 9999 1 true"
+            U """/give @a minecraft:iron_sword 1 0 {display:{Name:"Spammable unbreakable sword"},Unbreakable:1,AttributeModifiers:[{AttributeName:"generic.attackSpeed",Name:"Speed",Slot:"mainhand",Amount:1020.0,Operation:0,UUIDLeast:111l,UUIDMost:111l},{AttributeName:"generic.attackDamage",Name:"Damage",Slot:"mainhand",Amount:4.0,Operation:0,UUIDLeast:222l,UUIDMost:222l}]}"""
+        |],
+        [|
+            U "effect @a[tag=justRespawned] night_vision 9999 1 true"
+        |], 
+        SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT, "spammableSwordNightVisionLoadout"
+    loadout(spammableSwordNightVisionLoadout)
+    let elytraJumpBoostFrostWalkerNightVisionLoadout =
+        [|
+            U "effect @a night_vision 9999 1 true"
+            U """replaceitem entity @a slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
+            U """replaceitem entity @a slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
+            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+        |],
+        [|
+            U "effect @a[tag=justRespawned] night_vision 9999 1 true"
+            U """replaceitem entity @a[tag=justRespawned] slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+        |], 
+        ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT, "elytraJumpBoostFrostWalkerNightVisionLoadout"
+    loadout(elytraJumpBoostFrostWalkerNightVisionLoadout)
 
     //////////////////////////////
     // tutorial
