@@ -815,7 +815,7 @@ let testing2() =
     System.IO.File.WriteAllLines(writePath, arr)
 
 let mixTerrain() =
-    let extremeHillsBiomeIDs = BIOMES |> Seq.filter(fun (_,n) -> n.StartsWith("Ex")) |> Seq.map fst |> Seq.map byte |> Set.ofSeq 
+    let extremeHillsBiomeIDs = BIOMES |> Seq.filter(fun (_,n,_) -> n.StartsWith("Ex")) |> Seq.map (fun (x,_,_) -> x) |> Seq.map byte |> Set.ofSeq 
     for rx in [-1;0] do
         for rz in [-1;0] do
             let RI1 = new RegionFile(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed5Normal\region\r.%d.%d.mca""" rx rz)
@@ -1035,4 +1035,36 @@ let placeCommandBlocksInTheWorldTemp(fil) =
     region.Write(fil+".new")
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
+
+let makeBiomeMap() =
+    //let image = new System.Drawing.Bitmap(1024,1024)
+    let image = new System.Drawing.Bitmap(512*32,512*32)
+    for rx in [-16..15] do
+        for rz in [-16..15] do
+    //for rx in [-1;0] do
+        //for rz in [-1;0] do
+            //let RI = new RegionFile(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed6Normal\region\r.%d.%d.mca""" rx rz)
+            let RI = new RegionFile(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\43aAt8200\region\r.%d.%d.mca""" rx rz)
+            printfn "%d %d" rx rz
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    match RI.TryGetChunk(cx,cz) with
+                    | Some c ->
+                        let chunkLevel = match c with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+                        match chunkLevel with 
+                        | Compound(n,nbts) -> 
+                            let biomes = nbts |> Array.find (fun nbt -> nbt.Name = "Biomes")
+                            match biomes with
+                            | NBT.ByteArray(_,a) ->
+                                for x = 0 to 15 do
+                                    for y = 0 to 15 do
+                                        let i = 16*y+x
+                                        let biome = int a.[i]
+                                        let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=biome) |> (fun (_,_,color) -> color)
+                                        let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
+                                        assert(mci = mapColorIndex)
+                                        let xx = rx * 512 + cx * 16 + x + 512*16
+                                        let yy = rz * 512 + cz * 16 + y + 512*16
+                                        image.SetPixel(xx, yy, System.Drawing.Color.FromArgb(r,g,b))
+    image.Save("""C:\Users\brianmcn\Desktop\out.png""")
 
