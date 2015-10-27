@@ -581,9 +581,24 @@ let dumpPlayerDat(file) =
 
 
 let findAllLoot(regionFolder:string) =
+    let mutable abandonedMineshaftChestCount = 0
+    let mutable desertPyramidChestCount = 0
+    let mutable iglooChestCount = 0
+    let mutable jungleTempleChestCount = 0
+    let mutable simpleDungeonChestCount = 0
+    let mutable strongholdCorridorChestCount = 0
+    let mutable strongholdCrossingChestCount = 0
+    let mutable strongholdLibraryChestCount = 0
+    let mutable villageBlacksmithChestCount = 0
+
+    (*
     let counts = new System.Collections.Generic.Dictionary<_,_>()
     let total = ref 0
-    for fil in System.IO.Directory.EnumerateFiles(regionFolder,"*.mca") do
+    *)
+    let files = System.IO.Directory.EnumerateFiles(regionFolder,"*.mca") |> Seq.toArray 
+    for i = 0 to files.Length-1 do
+        printfn "%d of %d" i files.Length 
+        let fil = files.[i]
         let r = new RegionFile(fil)
         for cx = 0 to 31 do
             for cz = 0 to 31 do
@@ -591,6 +606,7 @@ let findAllLoot(regionFolder:string) =
                 | None -> ()
                 | Some c ->
                     let theChunkLevel = match c with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                    (*
                     let lookAllItemsCore(items:NBT[][]) =
                         let ebs = ResizeArray()
                         for item in items do
@@ -618,17 +634,69 @@ let findAllLoot(regionFolder:string) =
                     let lookAllItems(nbta:NBT[]) =
                         let items = match nbta |> Array.find(fun x -> x.Name = "Items") with | List(_,Compounds(cs)) -> cs
                         lookAllItemsCore(items)
+                    *)
                     let tileEntities = 
                         match theChunkLevel.["TileEntities"] with 
                         | List(_,Compounds(cs)) -> cs
                         | _ -> [||]
                     for nbta in tileEntities do
+                        try
                         if nbta |> Array.exists (function NBT.String("id","Chest") -> true | _ -> false) then
+                            let x = nbta |> Array.find (fun x -> x.Name = "x") |> function Int(_,v) -> v
+                            let y = nbta |> Array.find (fun x -> x.Name = "y") |> function Int(_,v) -> v
+                            let z = nbta |> Array.find (fun x -> x.Name = "z") |> function Int(_,v) -> v
+                            // determine type of chest
+                            let bi = r.GetBlockInfo(x,y-1,z)
+                            if bi.BlockID = 24uy then   // sandstone
+                                desertPyramidChestCount <- desertPyramidChestCount + 1
+                            elif bi.BlockID = 47uy then   // bookshelf
+                                strongholdLibraryChestCount <- strongholdLibraryChestCount + 1
+                            elif bi.BlockID = 5uy then   // wood planks
+                                if r.GetBlockInfo(x+1,y,z).BlockID = 0uy && 
+                                   r.GetBlockInfo(x-1,y,z).BlockID = 0uy && 
+                                   r.GetBlockInfo(x,y,z+1).BlockID = 0uy && 
+                                   r.GetBlockInfo(x,y,z-1).BlockID = 0uy then
+                                    strongholdCrossingChestCount <- strongholdCrossingChestCount + 1  // has air all around
+                                else
+                                    strongholdLibraryChestCount <- strongholdLibraryChestCount + 1  // against a wall
+                            elif bi.BlockID = 98uy then   // stone brick
+                                if (let b = r.GetBlockInfo(x+1,y-1,z) in b.BlockID = 98uy && b.BlockData.Value = 3uy) ||  // chiseled
+                                   (let b = r.GetBlockInfo(x-1,y-1,z) in b.BlockID = 98uy && b.BlockData.Value = 3uy) || 
+                                   (let b = r.GetBlockInfo(x,y-1,z+1) in b.BlockID = 98uy && b.BlockData.Value = 3uy) || 
+                                   (let b = r.GetBlockInfo(x,y-1,z-1) in b.BlockID = 98uy && b.BlockData.Value = 3uy) then
+                                    iglooChestCount <- iglooChestCount + 1
+                                else
+                                    strongholdCorridorChestCount <- strongholdCorridorChestCount + 1
+                            elif bi.BlockID = 48uy || bi.BlockID = 4uy then   // moss stone or cobblestone
+                                if y > 60 then // once had dungeon intersect stronghold, got marked as jungle temple, this is good extra check
+                                    if r.GetBlockInfo(x+1,y,z).BlockID = 5uy ||  // planks
+                                       r.GetBlockInfo(x-1,y,z).BlockID = 5uy || 
+                                       r.GetBlockInfo(x,y,z+1).BlockID = 5uy || 
+                                       r.GetBlockInfo(x,y,z-1).BlockID = 5uy then
+                                        villageBlacksmithChestCount <- villageBlacksmithChestCount + 1
+                                    elif r.GetBlockInfo(x+1,y+1,z).BlockID = 23uy ||   // dispenser
+                                       r.GetBlockInfo(x-1,y+1,z).BlockID = 23uy || 
+                                       r.GetBlockInfo(x,y+1,z+1).BlockID = 23uy || 
+                                       r.GetBlockInfo(x,y+1,z-1).BlockID = 23uy then
+                                        //printfn "jung %d %d %d had %d" x y z bi.BlockID 
+                                        jungleTempleChestCount <- jungleTempleChestCount + 1
+                                    elif r.GetBlockInfo(x+1,y+1,z).BlockID = 98uy ||   // (chiseled) stone brick
+                                         r.GetBlockInfo(x-1,y+1,z).BlockID = 98uy || 
+                                         r.GetBlockInfo(x,y+1,z+1).BlockID = 98uy || 
+                                         r.GetBlockInfo(x,y+1,z-1).BlockID = 98uy then
+                                        //printfn "jung %d %d %d had %d" x y z bi.BlockID 
+                                        jungleTempleChestCount <- jungleTempleChestCount + 1
+                                    else
+                                        simpleDungeonChestCount <- simpleDungeonChestCount + 1
+                                else
+                                    simpleDungeonChestCount <- simpleDungeonChestCount + 1
+                            else
+                                printfn "%d %d %d had %d" x y z bi.BlockID 
+                                if bi.BlockID = 0uy then   // air is most likely a dungeon intersecting a cave
+                                    simpleDungeonChestCount <- simpleDungeonChestCount + 1
+                                (*
                             let ebs = lookAllItems(nbta)
                             if ebs.Count > 0 then
-                                let x = nbta |> Array.find (fun x -> x.Name = "x") |> function Int(_,v) -> v
-                                let y = nbta |> Array.find (fun x -> x.Name = "y") |> function Int(_,v) -> v
-                                let z = nbta |> Array.find (fun x -> x.Name = "z") |> function Int(_,v) -> v
                                 //printfn "Found Chest at (%d,%d,%d) with" x y z
                                 for eb in ebs do
                                     for ench in eb do
@@ -636,15 +704,22 @@ let findAllLoot(regionFolder:string) =
                                         //printf "%30s %2d   " name lvl
                                         ()
                                     //printfn ""
+                                *)
+                        with e ->
+                            printfn "coords outside region? %s" (e.Message)  // swallow exception
                     let entities = 
                         match theChunkLevel.["Entities"] with 
                         | List(_,Compounds(cs)) -> cs
                         | _ -> [||]
                     for nbta in entities do
+                        (*
                         if nbta |> Array.exists (function NBT.String("id","Item") -> true | _ -> false) then
                             let item = nbta |> Array.find (function NBT.Compound("Item",_) -> true | _ -> false) |> (function NBT.Compound("Item",tags) -> tags)
                             lookAllItemsCore [| item |] |> ignore
+                            *)
                         if nbta |> Array.exists (function NBT.String("id","MinecartChest") -> true | _ -> false) then
+                            abandonedMineshaftChestCount <- abandonedMineshaftChestCount + 1
+                                (*
                             let ebs = lookAllItems(nbta)
                             if ebs.Count > 0 then
                                 let x,y,z = nbta |> Array.find (fun x -> x.Name = "Pos") |> function List(_,Payload.Doubles([|x;y;z|])) -> x,y,z
@@ -655,10 +730,38 @@ let findAllLoot(regionFolder:string) =
                                         //printf "%30s %2d   " name lvl
                                         ()
                                     //printfn ""
+                                *)
+    (*
     for v,n in counts |> Seq.map (function KeyValue(n,v) -> v,n) |> Seq.sortBy fst do
         printfn "%4.1f%%  %-30s  (%4d/%4d)" (100.0 * float v / float (!total)) n v (!total)
     printfn "%d books" !total
+    *)
+    printfn "%5d   abandonedMineshaftChestCount" abandonedMineshaftChestCount
+    printfn "%5d   desertPyramidChestCount" desertPyramidChestCount
+    printfn "%5d   iglooChestCount" iglooChestCount 
+    printfn "%5d   jungleTempleChestCount" jungleTempleChestCount
+    printfn "%5d   simpleDungeonChestCount" simpleDungeonChestCount
+    printfn "%5d   strongholdCorridorChestCount" strongholdCorridorChestCount 
+    printfn "%5d   strongholdCrossingChestCount" strongholdCrossingChestCount 
+    printfn "%5d   strongholdLibraryChestCount" strongholdLibraryChestCount 
+    printfn "%5d   villageBlacksmithChestCount" villageBlacksmithChestCount
     ()
+(*
+
+    18739   abandonedMineshaftChestCount
+      144   desertPyramidChestCount
+       22   iglooChestCount
+       42   jungleTempleChestCount
+    13682   simpleDungeonChestCount
+      100   strongholdCorridorChestCount
+       27   strongholdCrossingChestCount
+       91   strongholdLibraryChestCount
+       31   villageBlacksmithChestCount
+
+
+*)
+
+
 (*
      0.2%  Projectile Protection           (  16/6982)
      1.9%  Feather Falling                 ( 135/6982)
