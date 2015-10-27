@@ -1,17 +1,17 @@
 module MC_Constants
 
-let BIOMES = 
-    [|0,"Ocean";1,"Plains";2,"Desert";3,"Extreme Hills";4,"Forest";5,"Taiga";6,"Swampland";7,"River";8,"Hell";9,"Sky";
-      10,"Frozen Ocean";11,"FrozenRiver";12,"Ice Plains";13,"Ice Mountains";14,"MushroomIsland";15,"MushroomIslandShore";16,"Beach";17,"DesertHills";18,"ForestHills";19,"TaigaHills";
-      20,"Extreme Hills Edge";21,"Jungle";22,"Jungle Hills";23,"Jungle Edge";24,"Deep Ocean";25,"Stone Beach";26,"Cold Beach";27,"Birch Forest";28,"Birch Forest Hills";29,"Roofed Forest";
-      30,"Cold Taiga";31,"Cold Taiga Hills";32,"Mega Taiga";33,"Mega Taiga Hills";34,"Extreme Hills+";35,"Savanna";36,"Savanna Plateau";37,"Mesa";38,"Mesa Plateau F";39,"Mesa Plateau";
-      127,"The Void";
-      128,"Plains M";129,"Sunflower Plains";
-      130,"Desert M";131,"Extreme Hills M";132,"Flower Forest";133,"Taiga M";134,"Swampland M";
-      140,"Ice Plains Spikes";141,"Ice Mountains Spikes";149,"Jungle M";
-      151,"JungleEdge M";155,"Birch Forest M";156,"Birch Forest Hills M";157,"Roofed Forest M";158,"Cold Taiga M";
-      160,"Mega Spruce Taiga";161,"Mega Spruce Taiga";162,"Extreme Hills+ M";163,"Savanna M";164,"Savanna Plateau M";165,"Mesa (Bryce)";166,"Mesa Plateau F M";167,"Mesa Plateau M";
-      -1,"(Uncalculated)"|]
+let BIOMES = // id, name, good-map-color-Brian-chose
+    [|0,"Ocean",48;1,"Plains",6;2,"Desert",10;3,"Extreme Hills",26;4,"Forest",5;5,"Taiga",31;6,"Swampland",4;7,"River",50;8,"Hell",142;9,"Sky",73;
+      10,"Frozen Ocean",20;11,"FrozenRiver",22;12,"Ice Plains",34;13,"Ice Mountains",32;14,"MushroomIsland",64;15,"MushroomIslandShore",66;16,"Beach",9;17,"DesertHills",8;18,"ForestHills",7;19,"TaigaHills",28;
+      20,"Extreme Hills Edge",25;21,"Jungle",78;22,"Jungle Hills",77;23,"Jungle Edge",76;24,"Deep Ocean",51;25,"Stone Beach",46;26,"Cold Beach",44;27,"Birch Forest",110;28,"Birch Forest Hills",109;29,"Roofed Forest",111;
+      30,"Cold Taiga",132;31,"Cold Taiga Hills",135;32,"Mega Taiga",106;33,"Mega Taiga Hills",105;34,"Extreme Hills+",26;35,"Savanna",120;36,"Savanna Plateau",123;37,"Mesa",114;38,"Mesa Plateau F",113;39,"Mesa Plateau",112;
+      127,"The Void",0;
+      128,"Plains M",6;129,"Sunflower Plains",6;
+      130,"Desert M",10;131,"Extreme Hills M",26;132,"Flower Forest",5;133,"Taiga M",31;134,"Swampland M",4;
+      140,"Ice Plains Spikes",21;141,"Ice Mountains Spikes",20;149,"Jungle M",78;
+      151,"JungleEdge M",76;155,"Birch Forest M",110;156,"Birch Forest Hills M",109;157,"Roofed Forest M",111;158,"Cold Taiga M",132;
+      160,"Mega Spruce Taiga",106;161,"Mega Spruce Taiga",106;162,"Extreme Hills+ M",26;163,"Savanna M",120;164,"Savanna Plateau M",123;165,"Mesa (Bryce)",114;166,"Mesa Plateau F M",113;167,"Mesa Plateau M",113;
+      -1,"(Uncalculated)",0|]
 
 let BIOMES_NEEDED_FOR_ADVENTURING_TIME = 
     [|
