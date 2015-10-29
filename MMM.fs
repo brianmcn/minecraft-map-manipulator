@@ -1868,69 +1868,71 @@ let testBackpatching(fil) =
 
 [<System.STAThread()>]  
 do   
+    //let user = "brianmcn"
+    let user = "Admin1"
     //killAllEntities()
-    //dumpChunkInfo("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Mandelbrot 1_9\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Learning\region\r.0.0.mca""")
-    //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca""",
-      //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca.new""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
+    //dumpChunkInfo("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Mandelbrot 1_9\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Learning\region\r.0.0.mca""")
+    //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca""",
+      //              """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca.new""")
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
     //placeCertainEntitiesInTheWorld()
     // 45,000,012
-    //dumpTileTicks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Purple\region\r.0.0.mca""")
+    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Purple\region\r.0.0.mca""")
     //placeCertainBlocksInTheSky()
-    //placeCommnadBlocksInTheWorld("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
-    //diffRegionFiles("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
-      //              """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
+    //placeCommnadBlocksInTheWorld("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
+    //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
+      //              """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
     //testing2()
-    //placeCommandBlocksInTheWorldTemp("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""")
+    //placeCommandBlocksInTheWorldTemp("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""")
 
     //mixTerrain()
     //findStrongholds()
 
     //printfn "%s" (makeCommandGivePlayerWrittenBook("Lorgon111", "BestTitle", [|"""["line1\n","line2"]"""; """["p2line1\n","p2line2",{"selector":"@p"}]"""|]))
-    //dumpPlayerDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
-    //dumpPlayerDat("""C:\Users\brianmcn\Desktop\igloo_bottom.nbt""")
+    //dumpPlayerDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
+    //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo_bottom.nbt""")
 
     
-    //editMapDat("""C:\Users\brianmcn\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
+    //editMapDat("""C:\Users\"""+user+"""\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
     //testing2()
-    //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat""")
+    //editMapDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat""")
 
-    //mapDatToPng("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.dat""", """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.png""")
-    //findAllLootBookItems("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
-    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed5Normal\region\""")
-    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\43aAt8200\region\""")
-    //testBackpatching("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\r.0.0.mca""")
+    //mapDatToPng("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.dat""", """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.png""")
+    //findAllLootBookItems("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
+    //findAllLoot("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed5Normal\region\""")
+    //findAllLoot("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\43aAt8200\region\""")
+    //testBackpatching("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\VoidLoot\region\r.0.0.mca""")
     //makeBiomeMap()
 #if BINGO
     let save = "tmp9"
-    //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
-    //removeAllTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.0.0.mca""",
-                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save, true)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.0.-1.mca""",
-                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.-1.mca""" save, true)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.-1.0.mca""",
-                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" save, true)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
-                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" save, true)
-    placeCommandBlocksInTheWorld(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat.new""",
-                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" save, true)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
-                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\level.dat""" save, true)
-    System.IO.File.Copy("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp3\icon.png""",
-                        sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\icon.png""" save, true)
+    //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
+    //removeAllTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.0.0.mca""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save, true)
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.0.-1.mca""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.-1.mca""" user save, true)
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.0.mca""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" user save, true)
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" user save, true)
+    placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save)
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat.new""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" user save, true)
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\level.dat""" user save, true)
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\icon.png""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\icon.png""" user save, true)
 
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\region\r.0.0.mca""")
+    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
 #endif
 
 #if FUN
-    placeCommandBlocksInTheWorldTemp("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\fun with clone\region\r.0.0.mca""")
+    placeCommandBlocksInTheWorldTemp("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\region\r.0.0.mca""")
 #endif
 
