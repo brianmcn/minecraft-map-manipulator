@@ -294,21 +294,24 @@ let placeCommandBlocksInTheWorld(fil) =
     let LOBBYX, LOBBYY, LOBBYZ = 50, 6, 50
     let NEW_PLAYER_PLATFORM_LO = Coords(60,LOBBYY,30)
     let NEW_PLAYER_LOCATION = NEW_PLAYER_PLATFORM_LO.Offset(5,2,5)
+    let NEW_MAP_PLATFORM_LO = Coords(60,LOBBYY,90)
+    let NEW_MAP_LOCATION = NEW_MAP_PLATFORM_LO.Offset(5,2,5)
     let CFG_ROOM_IWIDTH = 7
     let MAIN_ROOM_IWIDTH = 7
     let INFO_ROOM_IWITDH = 7
     let TOTAL_WIDTH = 1 + CFG_ROOM_IWIDTH + 2 + MAIN_ROOM_IWIDTH + 2 + INFO_ROOM_IWITDH + 1
     let ILENGTH = 13
     let LENGTH = ILENGTH + 2
-    let HEIGHT = 9
+    let HEIGHT = 6
     let NUM_CONFIG_COMMANDS = 7
     let OFFERING_SPOT = Coords(LOBBYX+TOTAL_WIDTH-INFO_ROOM_IWITDH/2-2,LOBBYY+1,LOBBYZ+2)
-    let LOBBY_CENTER_LOCATION = Coords(LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3, LOBBYY+2, LOBBYZ+4)
-    let makeWallSign x y z dmg txt1 txt2 txt3 txt4 =
+    let LOBBY_CENTER_LOCATION = Coords(LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3, LOBBYY+2, LOBBYZ+3)
+    let makeSign kind x y z dmg txt1 txt2 txt3 txt4 =
         [|
-            U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
+            U (sprintf "setblock %d %d %d %s %d" x y z kind dmg)
             U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\",\"bold\":\"true\"}",Text2:"{\"text\":\"%s\",\"bold\":\"true\"}",Text3:"{\"text\":\"%s\",\"bold\":\"true\"}",Text4:"{\"text\":\"%s\",\"bold\":\"true\"}"}""" x y z x y z txt1 txt2 txt3 txt4)
         |]
+    let makeWallSign x y z dmg txt1 txt2 txt3 txt4 = makeSign "wall_sign" x y z dmg txt1 txt2 txt3 txt4 
     let makeWallSignActivate x y z dmg txt1 txt2 (a:Coords) isBold color =
         let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
         let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"blockdata %d %d %d {auto:1b}\"} """ a.X a.Y a.Z else ""
@@ -317,39 +320,52 @@ let placeCommandBlocksInTheWorld(fil) =
             U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
             U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s%s}"}"""  x y z x y z txt1 bc c1 txt2 bc c2)
         |]
-    let makeSignDo kind x y z dmg txt1 txt2 txt3 cmd1 cmd2 isBold color =
+    let makeSignDoAction kind x y z dmg txt1 txt2 txt3 a1 cmd1 a2 cmd2 isBold color =
         let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
-        let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd1 else ""
-        let c2 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd2 else ""
+        let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"} """ a1 cmd1 else ""
+        let c2 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"} """ a2 cmd2 else ""
         [|
             U (sprintf "setblock %d %d %d %s %d" x y z kind dmg)
             U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s%s}",Text3:"{\"text\":\"%s\"%s}"}""" x y z x y z txt1 bc c1 txt2 bc c2 txt3 bc)
         |]
+    let makeSignDo kind x y z dmg txt1 txt2 txt3 cmd1 cmd2 isBold color = makeSignDoAction kind x y z dmg txt1 txt2 txt3 "run_command" cmd1 "run_command" cmd2 isBold color 
     let makeWallSignDo x y z dmg txt1 txt2 txt3 cmd1 cmd2 isBold color =
         makeSignDo "wall_sign" x y z dmg txt1 txt2 txt3 cmd1 cmd2 isBold color
     let makeLobbyCmds =
         [|
+            let wall = "minecraft:stained_hardened_clay 3"
             yield O ""
             // clear
             yield U (sprintf "fill %d %d %d %d %d %d air" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
             // z walls
-            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) LOBBYZ)
-            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY (LOBBYZ+LENGTH-1) (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d %s" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) LOBBYZ wall)
+            yield U (sprintf "fill %d %d %d %d %d %d %s" LOBBYX LOBBYY (LOBBYZ+LENGTH-1) (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1) wall)
+            // z windows
+            yield U (sprintf "fill %d %d %d %d %d %d barrier" (LOBBYX+CFG_ROOM_IWIDTH+4) (LOBBYY+1) LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH-1) (LOBBYY+3) LOBBYZ)
+            yield U (sprintf "fill %d %d %d %d %d %d barrier" (LOBBYX+2) (LOBBYY+1) (LOBBYZ+LENGTH-1) (LOBBYX+CFG_ROOM_IWIDTH-1) (LOBBYY+3) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d barrier" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+4) (LOBBYY+1) (LOBBYZ+LENGTH-1) (LOBBYX+TOTAL_WIDTH-3) (LOBBYY+3) (LOBBYZ+LENGTH-1))
             // x walls
-            yield U (sprintf "fill %d %d %d %d %d %d stone" LOBBYX LOBBYY LOBBYZ LOBBYX (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
-            yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+CFG_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d %s" LOBBYX LOBBYY LOBBYZ LOBBYX (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1) wall)
+            yield U (sprintf "fill %d %d %d %d %d %d %s" (LOBBYX+CFG_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1) wall)
             yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-5) (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+4) (LOBBYZ+LENGTH-2))
-            yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d %s" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1) wall)
             yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+LENGTH-5) (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) (LOBBYY+4) (LOBBYZ+LENGTH-2))
-            yield U (sprintf "fill %d %d %d %d %d %d stone" (LOBBYX+TOTAL_WIDTH-1) LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
-            // floor
+            yield U (sprintf "fill %d %d %d %d %d %d %s" (LOBBYX+TOTAL_WIDTH-1) LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1) wall)
+            // room colors
+            yield U (sprintf "fill %d %d %d %d %d %d minecraft:stained_hardened_clay 6 replace minecraft:stained_hardened_clay" LOBBYX LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d minecraft:stained_hardened_clay 8 replace minecraft:stained_hardened_clay" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
+            // floor & ceiling
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX (LOBBYY+HEIGHT) LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT) (LOBBYZ+LENGTH-1))
             // cfg room blocks
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "setblock %d %d %d chest" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             // put heads
             yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 0.5) (float (LOBBYZ+1) - 0.0))
+            yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 0.5) (float (LOBBYZ+14) - 0.0))
+            yield! nTicksLater(1)
+            yield U "tp @e[tag=asToReverse] ~ ~ ~ 180 0"
             // put enabled signs
             yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-4) LOBBYY LOBBYZ)
@@ -488,7 +504,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "starting chest" "per team" "+night vision" STARTING_CHEST_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, and each team starts with chest of items"
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "Go to" "TUTORIAL" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
+            // TODO need this? yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "Go to" "TUTORIAL" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "Make RANDOM" "card" RANDOM_SEED_BUTTON true "black"
             if not enabled then
                 yield U (sprintf """blockdata %d %d %d {Text3:"(ends any game",Text4:"in progress)"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8))
@@ -500,11 +516,14 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "Join team" "BLUE" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "Join team" "YELLOW" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "Join team" "GREEN" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY+2) (LOBBYZ+13) 2 "Custom" "Settings" "====>" ""
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+13) 2 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY+2) (LOBBYZ+13) 2 "Game" "Info" "<====" ""
             // interior layout - info room
-            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+5) 4 "Learn about" "basic rules" "and gameplay" (escape2 gameplayBookCmd) "" true "black"
+            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+4) 4 "Learn about" "basic rules" "and gameplay" (escape2 gameplayBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+6) 4 "Learn about" "various" "game modes" (escape2 gameModesBookCmd) "" true "black"
-            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+7) 4 "Learn about" "this world's" "custom terrain" (escape2 customTerrainBookCmd) "" true "black"
-            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+8) 4 "Learn about" "all the folks" "who helped" (escape2 thanksBookCmd) "" true "black"
+            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+8) 4 "Learn about" "this world's" "custom terrain" (escape2 customTerrainBookCmd) "" true "black"
+            yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+10) 4 "Learn about" "all the folks" "who helped" (escape2 thanksBookCmd) "" true "black"
             yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "Thanks for" "playing!" "" ""
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "Show all" "possible items" SHOW_ITEMS_BUTTON true "black"
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "Version" "Info" "" (escape2 versionInfoBookCmd) "" true "black"
@@ -635,10 +654,22 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSignActivate signX signY signZ 4 "Let's play!" "Click to start" END_TUTORIAL_BUTTON true "black"  // TODO multiplayer state testing of tutorial
             signZ <- signZ + 1
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
+            // first time map is loaded, players go here:
+            yield U (sprintf "fill %s %s sea_lantern" NEW_MAP_PLATFORM_LO.STR (NEW_MAP_PLATFORM_LO.Offset(10,0,10).STR))
+            let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,1,4)
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "This is version" "3.0 Beta" "of the map." ""
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+5) 4 "Do you have" "the latest" "version?" "Find out!"
+            // TODO figure out best URL
+            let downloadUrl = "https://twitter.com/MinecraftBINGO"
+            let downloadCmd1 = escape2 <| sprintf """tellraw @a {"text":"Press 't' (chat), then click line below to visit the official download page for MinecraftBINGO"}"""
+            let downloadCmd2 = escape2 <| sprintf """tellraw @a {"text":"%s","underlined":"true","clickEvent":{"action":"open_url","value":"%s"}}""" downloadUrl downloadUrl
+            yield! makeSignDo "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+6) 4 "Right-click this" "sign to go to" "official site" downloadCmd1 downloadCmd2 true "black"
+            yield! makeSignDo "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+7) 4 "Or right-click" "me to begin" "playing!" (sprintf "tp @p %s 90 180" NEW_PLAYER_LOCATION.STR) "" true "black"
             // new players go here:
             yield U (sprintf "fill %s %s sea_lantern" NEW_PLAYER_PLATFORM_LO.STR (NEW_PLAYER_PLATFORM_LO.Offset(10,0,10).STR))
             let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,1,4)
-            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "LOBBY" (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR) "" true "black"
+            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "LOBBY" (sprintf "tp @p %s 0 0" LOBBY_CENTER_LOCATION.STR) "" true "black"
             // Note: there is also a 'Go to Tutorial' sign, but it's coded as part of lobby, to turn it on/off
         |]
     region.PlaceCommandBlocksStartingAtSelfDestruct(TUTORIAL_CMDS,makeTutorialCmds,"build tutorial")
@@ -807,7 +838,7 @@ let placeCommandBlocksInTheWorld(fil) =
         U "scoreboard players test GameInProgress S 1 *"
         C "gamemode 3 @a[tag=InTutorial]"
         U "scoreboard players test GameInProgress S 1 *"
-        C (sprintf "tp @a[tag=InTutorial] %s 90 180" LOBBY_CENTER_LOCATION.STR)
+        C (sprintf "tp @a[tag=InTutorial] %s 0 0" LOBBY_CENTER_LOCATION.STR)
         U "scoreboard players test GameInProgress S 1 *"
         C """tellraw @a[tag=InTutorial] ["Please wait, a game is currently in progress"]"""
         U "scoreboard players test GameInProgress S 1 *"
@@ -816,10 +847,17 @@ let placeCommandBlocksInTheWorld(fil) =
     let cmdsFindNewPlayers =
         [|
         P "scoreboard players test Time S 0 0"
+        C "blockdata ~ ~ ~2 {auto:1b}"
+        C "blockdata ~ ~ ~1 {auto:0b}"
+        O ""
+        U "gamemode 0 @a[tag=!playerHasBeenSeen]"
+        U "effect @a[tag=!playerHasBeenSeen] night_vision 9999 1 true"
+        U "scoreboard players test HasTheMapEverBeenLoadedBefore Calc 1 1"
         C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_PLAYER_LOCATION.STR)
-        C "gamemode 0 @a[tag=!playerHasBeenSeen]"
-        C "effect @a[tag=!playerHasBeenSeen] night_vision 9999 1 true"
-        C "scoreboard players tag @a[tag=!playerHasBeenSeen] add playerHasBeenSeen"
+        U "testforblock ~ ~ ~-2 chain_command_block -1 {SuccessCount:0}"
+        C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_MAP_LOCATION.STR)
+        C "scoreboard players set HasTheMapEverBeenLoadedBefore Calc 1"
+        U "scoreboard players tag @a[tag=!playerHasBeenSeen] add playerHasBeenSeen"
         |]
     let cmdsOnRespawn =
         [|
@@ -949,7 +987,7 @@ let placeCommandBlocksInTheWorld(fil) =
         // gen a card
         yield U (sprintf "blockdata %s {auto:1b}" RANDOM_SEED_BUTTON.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RANDOM_SEED_BUTTON.STR)
-        yield U (sprintf "tp @p %s 90 180" LOBBY_CENTER_LOCATION.STR)
+        yield U (sprintf "tp @p %s 0 0" LOBBY_CENTER_LOCATION.STR)
         yield U "clear @p"
         |]
     region.PlaceCommandBlocksStartingAtSelfDestruct(4,3,10,cmdsInit2,"init2 all")
@@ -1029,7 +1067,7 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U (sprintf "setblock %s wool" TIMEKEEPER_25MIN_REDSTONE.STR)
         // bring everyone back to lobby in survival if game just ended
         yield U "scoreboard players test GameInProgress S 1 *"
-        yield C (sprintf "tp @a %s 90 180" LOBBY_CENTER_LOCATION.STR)
+        yield C (sprintf "tp @a %s 0 0" LOBBY_CENTER_LOCATION.STR)
         yield C "gamemode 0 @a"
         yield C "spawnpoint @a"
         // note previous game has finished
@@ -1308,7 +1346,7 @@ let placeCommandBlocksInTheWorld(fil) =
                 let lo = ITEM_CHECKERS_REDSTONE_LOW(t)
                 yield U (sprintf "fill %d %d %d %s wool" lo.X lo.Y (lo.Z-1) (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
             // auto-gen a new card now; tp all to lobby, remove all InTutorial tags
-            yield U (sprintf "tp @a %s 90 180" LOBBY_CENTER_LOCATION.STR)
+            yield U (sprintf "tp @a %s 0 0" LOBBY_CENTER_LOCATION.STR)
             yield U "scoreboard players tag @a remove InTutorial"
             yield U (sprintf "blockdata %s {auto:1b}" RANDOM_SEED_BUTTON.STR)
             yield U (sprintf "blockdata %s {auto:0b}" RANDOM_SEED_BUTTON.STR)
@@ -1352,7 +1390,7 @@ let placeCommandBlocksInTheWorld(fil) =
             yield O ""
             yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"
             yield U (sprintf "%s give @p[tag=oneGuyToEnsureBingoCardCleared] filled_map 64 0" (nTimesDo 9))
-            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" LOBBY_CENTER_LOCATION.STR)
+            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 0 0" LOBBY_CENTER_LOCATION.STR)
             yield! nTicksLater(30)
             yield U "clear @p[tag=oneGuyToEnsureBingoCardCleared]"
         |]
@@ -1863,8 +1901,11 @@ do
     //editMapDat("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat""")
 
     //mapDatToPng("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.dat""", """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.png""")
-    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
+    //findAllLootBookItems("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
+    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed5Normal\region\""")
+    //findAllLoot("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\43aAt8200\region\""")
     //testBackpatching("""C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\VoidLoot\region\r.0.0.mca""")
+    //makeBiomeMap()
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
