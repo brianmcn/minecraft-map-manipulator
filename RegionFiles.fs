@@ -51,6 +51,16 @@ type RegionFile(filename) =
             | c -> c
     let mutable numCommandBlocksPlaced = 0
     do
+        if not(System.IO.File.Exists(filename)) then
+            // create file if does not exist
+            use file = new System.IO.FileStream(filename, System.IO.FileMode.CreateNew)
+            use bw = new BinaryWriter2(file)
+            bw.Seek(0, System.IO.SeekOrigin.Begin) |> ignore
+            for i = 0 to 1023 do
+                bw.Write(0)
+            for i = 0 to 1023 do
+                bw.Write(0)
+            bw.Close()
         // a set of 4KB sectors
         let chunkOffsetTable = Array.zeroCreate 1024 : int[]
         let timeStampInfo = Array.zeroCreate 1024 : int[]

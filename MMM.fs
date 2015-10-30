@@ -1865,6 +1865,72 @@ let testBackpatching(fil) =
 
 ////////////////////////////////////////////////////
 
+type MapFolder(folderName) =
+    let cachedRegions = new System.Collections.Generic.Dictionary<_,_>()
+    let getOrCreateRegion(rx,rz) =
+        let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
+        if cachedRegions.ContainsKey(fil) then
+            cachedRegions.[fil]
+        else
+            let r = new RegionFile(fil)
+            cachedRegions.Add(fil, r)
+            r
+    member this.SetBlockIDAndDamage(x,y,z,bid,d) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.SetBlockIDAndDamage(x,y,z,bid,d)
+    member this.WriteAll() =
+        for KeyValue(fil, r) in cachedRegions do
+            r.Write(fil+".new")
+            System.IO.File.Delete(fil)
+            System.IO.File.Move(fil+".new",fil)
+
+let preciseImageToBlocks(imageFilename:string,regionFolder) =
+    let image = new System.Drawing.Bitmap(imageFilename)
+    let m = new MapFolder(regionFolder)
+    let colorTable= new System.Collections.Generic.Dictionary<_,_>()
+    let knownColors = 
+        [|
+            (255uy, 51uy, 102uy, 153uy),   (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 35uy, 11uy))   // blue wool water
+            (255uy, 255uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 80uy, 0uy))    // white snow
+            (255uy, 0uy, 102uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 35uy, 13uy))   // green wool tree
+            (255uy, 102uy, 102uy, 102uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 7uy, 0uy))     // dark mountain
+            (255uy, 0uy, 204uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 2uy, 0uy))     // green grass
+            (255uy, 255uy, 51uy, 0uy),     (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 152uy, 0uy))   // red wall
+            (255uy, 153uy, 153uy, 153uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 1uy, 0uy))     // grey stone
+            (255uy, 255uy, 255uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 41uy, 0uy))    // gold thingy
+            (255uy, 204uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 174uy, 0uy))   // light blue ice
+            (255uy, 153uy, 102uy, 51uy),   (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 3uy, 2uy))     // brown podzol
+            (255uy, 0uy, 0uy, 0uy),        (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 49uy, 0uy))    // black obsidian
+            (255uy, 255uy, 102uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 86uy, 11uy))   // orange pumpkin
+            (255uy, 153uy, 51uy, 0uy),     (fun x y z -> ()) // TODO
+            (255uy, 0uy, 255uy, 0uy),      (fun x y z -> ()) // TODO
+            (255uy, 255uy, 204uy, 153uy),      (fun x y z -> ()) // TODO
+            (255uy, 153uy, 255uy, 102uy),      (fun x y z -> ()) // TODO
+        |]
+    knownColors |> Seq.iter (fun ((a,r,g,b),f) -> colorTable.Add(System.Drawing.Color.FromArgb(int a, int r, int g, int b), f))
+    let mutable nextNumber = 0
+    let XM = max (image.Width-1) 511
+    let ZM = max (image.Height-1) 511
+    for x = 0 to XM do
+        for z = 0 to ZM do
+            let c = image.GetPixel(x,z)
+            colorTable.[c] x 10 z
+            (*
+            let n =
+                if colorTable.ContainsKey(c) then 
+                    colorTable.[c] 
+                else
+                    colorTable.Add(c,nextNumber)
+                    nextNumber <- nextNumber + 1
+                    nextNumber - 1
+            r.SetBlockIDAndDamage(x, 10, z, 35uy, byte n)  // 35 = wool
+    colorTable |> Seq.map (fun (KeyValue(c,n)) -> n, (c.A, c.R, c.G, c.B)) |> Seq.sortBy fst |> Seq.iter (fun (_,c) -> printfn "%A" c)
+            *)
+        printfn "%d of %d" x XM
+    m.WriteAll()
+
 
 [<System.STAThread()>]  
 do   
@@ -1920,7 +1986,8 @@ do
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" user save, true)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" user save, true)
-    placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save)
+//    placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save)
+    preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_7.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat.new""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" user save, true)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
