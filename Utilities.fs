@@ -441,19 +441,22 @@ let renamer() =
 
 
 let placeCertainBlocksInTheWorld() =
-    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Photo\region\r.0.-2.mca"""
+    let filename = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks\region\r.0.0.mca"""
     let regionFile = new RegionFile(filename)
     printfn "%A" (PhotoToMinecraft.finalBmp = null)
-    let maxHeight = 60 + PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1
+    let maxHeight = 100 + PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1
     for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
         for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
             let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
+            if x = 0 then printfn "%3d %s" y filename
             let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
-            regionFile.SetBlockIDAndDamage( 400, maxHeight - y, -670 + x, byte bid, byte dmg)
+            regionFile.SetBlockIDAndDamage( 1, maxHeight - y, 100 + x, byte bid, byte dmg)
     regionFile.Write(filename+".new")
+    System.IO.File.Delete(filename)
+    System.IO.File.Move(filename+".new",filename)
 
 let placeCertainBlocksInTheSky() =
-    let filename = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\MinecraftBINGOv2_4update53\region\r.0.0.mca"""
+    let filename = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks\region\r.0.0.mca"""
     let regionFile = new RegionFile(filename)
     printfn "%A" (PhotoToMinecraft.finalBmp = null)
     for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do

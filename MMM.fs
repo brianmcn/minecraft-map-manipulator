@@ -2186,7 +2186,7 @@ do
     //placeCertainEntitiesInTheWorld()
     // 45,000,012
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Purple\region\r.0.0.mca""")
-    //placeCertainBlocksInTheSky()
+    placeCertainBlocksInTheWorld()
     //placeCommnadBlocksInTheWorld("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
       //              """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
@@ -2215,7 +2215,7 @@ do
     //makeBiomeMap()
     //repopulateAsAnotherBiome()
     //debugRegion()
-    findUndergroundAirSpaceConnectedComponents()
+    //findUndergroundAirSpaceConnectedComponents()
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)

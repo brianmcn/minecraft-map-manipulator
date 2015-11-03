@@ -488,9 +488,9 @@ let textureFilenamesToBlockIDandDataMapping =
         "emerald_block",133,0
         "emerald_ore",129,0
         "end_stone",121,0
-        "furnace_front_off",61,0
-        "furnace_front_on",62,0
-        "furnace_side",61,0 // TODO
+        "furnace_front_off",61,4
+        "furnace_front_on",62,4
+        "furnace_side",61,3
         "glowstone",89,0
         "gold_block",41,0
         "gold_ore",14,0
@@ -554,6 +554,7 @@ let textureFilenamesToBlockIDandDataMapping =
         "planks_jungle",5,3
         "planks_oak",5,0
         "planks_spruce",5,1
+        "prismarine_dark",168,0
         "pumpkin_face_off",86,0
         "pumpkin_face_on",91,0
         "pumpkin_side",86,1
@@ -587,6 +588,7 @@ let textureFilenamesToBlockIDandDataMapping =
         "stone_granite_smooth",1,2
         "stone_slab_side",43,0
         "stone_slab_top",43,8
+        "tnt_side",46,0
         "wool_colored_black",35,15
         "wool_colored_blue",35,11
         "wool_colored_brown",35,12

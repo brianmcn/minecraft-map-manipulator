@@ -8,13 +8,15 @@ open System.Windows.Media
 open System.Windows.Media.Imaging 
 open System.Threading 
 
-//let blocksDir = """C:\Users\brianmcn\Desktop\MCjustblocks"""
-//let blocksDirSuffix = ".png"
-let blocksDir = """C:\Users\brianmcn\Desktop\MCjustMapSolidColors"""
-let blocksDirSuffix = ".bmp"
+let blocksDir = """C:\Users\Admin1\Desktop\MCjustblocks"""
+let blocksDirSuffix = ".png"
+//let blocksDir = """C:\Users\Admin1\Desktop\MCjustMapSolidColors"""
+//let blocksDirSuffix = ".bmp"
 //let targetImage = """C:\Users\brianmcn\Desktop\charliebrown.jpg"""
 //let targetImage = """C:\Users\brianmcn\Desktop\KurtBrianPic.jpg"""
-let targetImage = """C:\Users\brianmcn\Desktop\dontpanic_1024.jpg"""
+//let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\jeff-bridges.jpg"""
+//let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\Jeff-Bridges2.png"""
+let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\Jeff-Bridges6.jpg"""
 //let targetImage = """C:\Users\brianmcn\Desktop\pi.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\brian_and_mooshrooms_by_terra_wah-d5k8rgb.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\TSMS.jpg"""
