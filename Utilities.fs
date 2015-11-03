@@ -439,6 +439,27 @@ let renamer() =
     printfn "%s" (newNbt.ToString())
     writeDatFile(file + ".new", newNbt)
 
+let ALPHABET5 = 
+    [|
+    "XXXX.XXX..XXXX.XXX..XXXX.XXXX.XXXX.X..X.XXXX....X.X..X.X....X..X.X..X.XXXX.XXXX.XXXX.XXXX.XXXX.XXXX.X..X.X..X.X..X.X..X.X..X.XXXX..X.X...XX..........."
+    "X..X.X..X.X....X..X.X....X....X....X..X..XX.....X.X..X.X....XXXX.XX.X.X..X.X..X.X..X.X..X.X.....XX..X..X.X..X.X..X.X..X.X..X....X..X.X....X..........."
+    "XXXX.XXX..X....X..X.XXXX.XXXX.X.XX.XXXX..XX.....X.XXX..X....X..X.X.XX.X..X.XXXX.X..X.XXXX.XXXX..XX..X..X.X..X.X..X..XX...XX...XX......................"
+    "X..X.X..X.X....X..X.X....X....X..X.X..X..XX..X..X.X..X.X....X..X.X..X.X..X.X....X.XX.X.X.....X..XX..X..X.XXXX.XXXX.X..X..XX..X...............XX...XX.."
+    "X..X.XXX..XXXX.XXXX.XXXX.X....XXXX.X..X.XXXX..XX..X..X.XXXX.X..X.X..X.XXXX.X....XXXX.X..X.XXXX..XX..XXXX..XX..X..X.X..X..XX..XXXX............XX....X.."
+    |]
+let ALPHABET5INDEX(c) =
+    if c >= 'A' && c <= 'Z' then
+        Some(int c - int 'A')
+    elif c = '"' then
+        Some 26
+    elif c = ''' then
+        Some 27
+    elif c = '.' then
+        Some 28
+    elif c = ',' then
+        Some 29
+    else 
+        None
 
 let placeCertainBlocksInTheWorld() =
     let filename = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks\region\r.0.0.mca"""
@@ -451,6 +472,30 @@ let placeCertainBlocksInTheWorld() =
             if x = 0 then printfn "%3d %s" y filename
             let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
             regionFile.SetBlockIDAndDamage( 1, maxHeight - y, 100 + x, byte bid, byte dmg)
+    // caption (on 128-wide image, can fit about 24 letters across a line)
+    //          123456789012345678901234
+    let center24(s:string) = (String.replicate ((24 - s.Length)/2) " ") + s
+    let top1 = center24 "\"ALL THESE BRIDGES"
+    let top2 = center24 "POSTS ARE DUMB\""
+    let bot1 = center24 "THAT'S LIKE..."
+    let bot2 = center24 "YOUR OPINION, MAN"
+    let caption(x, topy, leftz, text:string) =
+        let mutable z = leftz
+        for c in text do
+            match ALPHABET5INDEX c with
+            | Some i ->
+                for j = 0 to 4 do
+                    for k = 0 to 4 do
+                        if ALPHABET5.[4-j].[5*i+k] = 'X' then
+                            regionFile.SetBlockIDAndDamage( x, topy+j, z+k, 155uy, 0uy)  // 155 = quartz block
+                        else
+                            regionFile.SetBlockIDAndDamage( x, topy+j, z+k, 173uy, 0uy)  // 173 = coal block
+            | None -> ()
+            z <- z + 5
+    caption(1, 220, 105, top1)
+    caption(1, 213, 105, top2)
+    caption(1, 117, 105, bot1)
+    caption(1, 110, 105, bot2)
     regionFile.Write(filename+".new")
     System.IO.File.Delete(filename)
     System.IO.File.Move(filename+".new",filename)

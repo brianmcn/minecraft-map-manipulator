@@ -1876,6 +1876,11 @@ type MapFolder(folderName) =
             let r = new RegionFile(fil)
             cachedRegions.Add(args, r)
             r
+    member this.GetHeightMap(x,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetHeightMap(x,z)
     member this.SetBlockIDAndDamage(x,y,z,bid,d) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
@@ -2079,7 +2084,7 @@ let findUndergroundAirSpaceConnectedComponents() =
         for i = 1 to MAXI do
             for k = 1 to MAXK do
                 let x,y,z = XYZ(i,j,k)
-                if not(x/16 = curx/16 && y/16 = cury/16 && z/16 = curz/16) then
+                if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
                     currentSectionBlocks <- map.GetOrCreateSection(x,y,z) |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
                     curx <- x
                     cury <- y
@@ -2087,7 +2092,8 @@ let findUndergroundAirSpaceConnectedComponents() =
                 let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
                 if currentSectionBlocks.[bix] = 0uy then // air
-                    a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(j=MAXJ)))
+                    //a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(j=MAXJ)))
+                    a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(y>=map.GetHeightMap(x,z))))
     // connected-components them
     for j = 1 to MAXJ-1 do
         printfn "CONNECT %d" j
@@ -2113,56 +2119,83 @@ let findUndergroundAirSpaceConnectedComponents() =
                         else
                             goodCCs.[v.Point].Add(PT(i,j,k)) |> ignore
     printfn "There are %d CCs with the desired property" goodCCs.Count 
-    let hs = goodCCs.Values |> Seq.toList |> List.head 
-    let XYZP(pt) =
-        let i = pt / (MAXJ*MAXK)
-        let k = (pt % (MAXJ*MAXK)) / MAXJ
-        let j = pt % MAXJ
-        XYZ(i,j,k)
-    let IJK(x,y,z) =
-        let i = x+1 - LOX
-        let j = y+1 - LOY
-        let k = z+1 - LOZ
-        i,j,k
-    let mutable bestX,bestY,bestZ = 0,0,0
-    for p in hs do
-        let x,y,z = XYZP(p)
-        if y > bestY then
-            bestX <- x
-            bestY <- y
-            bestZ <- z
-    // have a point at the top of the CC, now find furthest low point away (Dijkstra variant)
-    let dist = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) 999999   // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-    let prev = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) (0,0,0)  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-    let q = new System.Collections.Generic.Queue<_>()
-    let bi,bj,bk = IJK(bestX,bestY,bestZ)
-    q.Enqueue(bi,bj,bk)
-    dist.[bi,bj,bk] <- 0
-    let mutable besti,bestj,bestk = bi, bj, bk
-    while q.Count > 0 do
-        let i,j,k = q.Dequeue()
-        let d = dist.[i,j,k]
-        for di,dj,dk in [1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1] do
-            if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
-                dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
-                prev.[i+di,j+dj,k+dk] <- (i,j,k)
-                q.Enqueue(i+di,j+dj,k+dk)
-                if j = 1 then  // low point
-                    if dist.[besti,bestj,bestk] < d+1 then
+    for hs in goodCCs.Values do
+        let XYZP(pt) =
+            let i = pt / (MAXJ*MAXK)
+            let k = (pt % (MAXJ*MAXK)) / MAXJ
+            let j = pt % MAXJ
+            XYZ(i,j,k)
+        let IJK(x,y,z) =
+            let i = x+1 - LOX
+            let j = y+1 - LOY
+            let k = z+1 - LOZ
+            i,j,k
+        let mutable bestX,bestY,bestZ = 0,0,0
+        for p in hs do
+            let x,y,z = XYZP(p)
+            if y > bestY then
+                bestX <- x
+                bestY <- y
+                bestZ <- z
+        // have a point at the top of the CC, now find furthest low point away (Dijkstra variant)
+        let dist = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) 999999   // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+        let prev = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) (0,0,0)  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+        let q = new System.Collections.Generic.Queue<_>()
+        let bi,bj,bk = IJK(bestX,bestY,bestZ)
+        q.Enqueue(bi,bj,bk)
+        dist.[bi,bj,bk] <- 0
+        let mutable besti,bestj,bestk = bi, bj, bk
+        while q.Count > 0 do
+            let i,j,k = q.Dequeue()
+            let d = dist.[i,j,k]
+            for di,dj,dk in [1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1] do
+                if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
+                    dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
+                    prev.[i+di,j+dj,k+dk] <- (i,j,k)
+                    q.Enqueue(i+di,j+dj,k+dk)
+                    if j = 1 then  // low point
+                        if dist.[besti,bestj,bestk] < d+1 then
+                            besti <- i+di
+                            bestj <- j+dj
+                            bestk <- k+dk
+        // now find shortest from that bottom to top
+        let dist = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) 999999   // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+        let prev = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) (0,0,0)  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+        let bi,bj,bk = besti,bestj,bestk
+        q.Enqueue(bi,bj,bk)
+        dist.[bi,bj,bk] <- 0
+        let mutable besti,bestj,bestk = bi, bj, bk
+        while q.Count > 0 do
+            let i,j,k = q.Dequeue()
+            let d = dist.[i,j,k]
+            for di,dj,dk in [1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1] do
+                if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
+                    dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
+                    prev.[i+di,j+dj,k+dk] <- (i,j,k)
+                    q.Enqueue(i+di,j+dj,k+dk)
+                    if j = MAXJ then  // high point
+                        // found shortest
                         besti <- i+di
                         bestj <- j+dj
                         bestk <- k+dk
-    let sx,sy,sz = XYZ(bi,bj,bk)
-    let ex,ey,ez = XYZ(besti,bestj,bestk)
-    printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
-    let mutable i,j,k = besti,bestj,bestk
-    while i<>bi || j<>bj || k<>bk do
-        let x,y,z = XYZ(i,j,k)
-        map.SetBlockIDAndDamage(x,y,z,152uy,0uy)  // 152 = block of redstone
-        let ni,nj,nk = prev.[i,j,k]
-        i <- ni
-        j <- nj
-        k <- nk
+                        while q.Count > 0 do
+                            q.Dequeue() |> ignore
+        // found a path
+        let sx,sy,sz = XYZ(bi,bj,bk)
+        let ex,ey,ez = XYZ(besti,bestj,bestk)
+        printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
+        let mutable i,j,k = besti,bestj,bestk
+        while i<>bi || j<>bj || k<>bk do
+            // put stripe on the ground (TODO vertical through air)
+            let mutable pi,pj,pk = i,j,k
+            while a.[pi,pj,pk]<>null do
+                pj <- pj - 1
+            let x,y,z = XYZ(pi,pj,pk)
+            map.SetBlockIDAndDamage(x,y,z,152uy,0uy)  // 152 = block of redstone
+            let ni,nj,nk = prev.[i,j,k]
+            i <- ni
+            j <- nj
+            k <- nk
     map.WriteAll()
 
 
@@ -2186,7 +2219,7 @@ do
     //placeCertainEntitiesInTheWorld()
     // 45,000,012
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Purple\region\r.0.0.mca""")
-    placeCertainBlocksInTheWorld()
+    //placeCertainBlocksInTheWorld()
     //placeCommnadBlocksInTheWorld("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
       //              """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
@@ -2215,7 +2248,7 @@ do
     //makeBiomeMap()
     //repopulateAsAnotherBiome()
     //debugRegion()
-    //findUndergroundAirSpaceConnectedComponents()
+    findUndergroundAirSpaceConnectedComponents()
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)

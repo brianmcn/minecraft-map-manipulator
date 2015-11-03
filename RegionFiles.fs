@@ -23,19 +23,24 @@ type Coords(x:int,y:int,z:int) =
 [<Literal>]
 let DUMMY = "say dummy"
 
+let DIV(x,m) = (x+10000*m)/m - 10000
+let MOD(x,m) = (x+10000*m)%m
+
 type RegionFile(filename) =
     let rx, rz =
         let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new|\.old)?$""")
         int m.Groups.[1].Value, int m.Groups.[2].Value
     let isChunkDirty = Array2D.create 32 32 false
+    let chunkHeightMapCache : int[,][,] = Array2D.create 32 32 null   // chunkHeightMapCache.[cx,cz].[x,z], (TODO currently just read once, never updated)
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
     let mutable firstSeenDataVersion = -1
-    let getOrCreateChunk(xx,zz) =
-            match chunks.[xx,zz] with
+    let getOrCreateChunk(cx,cz) =
+        let chunk = 
+            match chunks.[cx,cz] with
             | End ->
                 let newChunk = Compound("",[|NBT.Compound("Level", [|
-                                                                    NBT.Int("xPos",xx); NBT.Int("zPos",zz); NBT.Long("LastUpdate", 0L);
+                                                                    NBT.Int("xPos",cx); NBT.Int("zPos",cz); NBT.Long("LastUpdate", 0L);
                                                                     NBT.Byte("LightPopulated",0uy); NBT.Byte("TerrainPopulated",1uy); // TODO best TerrainPopulated value?
                                                                     NBT.Byte("V",1uy); NBT.Long("InhabitedTime",0L);
                                                                     NBT.IntArray("HeightMap", Array.zeroCreate 256)
@@ -46,9 +51,19 @@ type RegionFile(filename) =
                                                          )
                                              NBT.Int("DataVersion",firstSeenDataVersion)
                                              NBT.End|])
-                chunks.[xx,zz] <- newChunk
+                chunks.[cx,cz] <- newChunk
                 newChunk
             | c -> c
+        if chunkHeightMapCache.[cx,cz] = null then
+            let chunkLevel = match chunk with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+            match chunkLevel with 
+            | Compound(n,nbts) -> 
+                let i = nbts |> Array.findIndex (fun nbt -> nbt.Name = "HeightMap")
+                match nbts.[i] with
+                | NBT.IntArray(_,flatArray) ->
+                    let squareArray = Array2D.init 16 16 (fun x z -> flatArray.[z*16+x])
+                    chunkHeightMapCache.[cx,cz] <- squareArray
+        chunk
     let mutable numCommandBlocksPlaced = 0
     do
         if not(System.IO.File.Exists(filename)) then
@@ -161,7 +176,7 @@ type RegionFile(filename) =
             s2 <- (s2 + s1) % 65521
         s2*65536 + s1
     member private this.SetChunkDirty(x,z) = // x,z are world coordinates
-        let xx = ((x+51200)%512)/16
+        let xx = ((x+51200)%512)/16   // TODO start using DIV and MOD
         let zz = ((z+51200)%512)/16
         isChunkDirty.[xx,zz] <- true
     member this.GetOrCreateChunk(x,z) =  // x,z are world coordinates
@@ -265,6 +280,14 @@ type RegionFile(filename) =
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
         this.SetChunkDirty(x,z)
+    member this.GetHeightMap(x, z) =
+        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        let cx = ((x+51200)%512)/16
+        let cz = ((z+51200)%512)/16
+        let heightMap = chunkHeightMapCache.[cx,cz]
+        if heightMap = null then
+            failwith "no HeightMap cached"
+        heightMap.[MOD(x,16),MOD(z,16)]
     member this.PlaceCommandBlocksStartingAtSelfDestruct(c:Coords,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAtSelfDestruct(c.X,c.Y,c.Z,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(c:Coords,cmds:_[],comment) =
