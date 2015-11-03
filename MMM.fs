@@ -516,9 +516,9 @@ let placeCommandBlocksInTheWorld(fil) =
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "Join team" "BLUE" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "Join team" "YELLOW" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "Join team" "GREEN" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY+2) (LOBBYZ+13) 2 "Custom" "Settings" "====>" ""
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY+2) (LOBBYZ+13) 2 "Custom" "Settings" """----->\",\"strikethrough\":\"true""" ""
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+13) 2 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY+2) (LOBBYZ+13) 2 "Game" "Info" "<====" ""
+            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY+2) (LOBBYZ+13) 2 "Game" "Info" """<-----\",\"strikethrough\":\"true""" ""
             // interior layout - info room
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+4) 4 "Learn about" "basic rules" "and gameplay" (escape2 gameplayBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+6) 4 "Learn about" "various" "game modes" (escape2 gameModesBookCmd) "" true "black"
@@ -1867,43 +1867,56 @@ let testBackpatching(fil) =
 
 type MapFolder(folderName) =
     let cachedRegions = new System.Collections.Generic.Dictionary<_,_>()
-    let getOrCreateRegion(rx,rz) =
-        let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
-        if cachedRegions.ContainsKey(fil) then
-            cachedRegions.[fil]
+    let getOrCreateRegion(args) =
+        if cachedRegions.ContainsKey(args) then
+            cachedRegions.[args]
         else
+            let rx,rz = args
+            let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
             let r = new RegionFile(fil)
-            cachedRegions.Add(fil, r)
+            cachedRegions.Add(args, r)
             r
     member this.SetBlockIDAndDamage(x,y,z,bid,d) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.SetBlockIDAndDamage(x,y,z,bid,d)
+    member this.GetOrCreateSection(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetOrCreateSection(x,y,z)
+    member this.GetBlockInfo(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetBlockInfo(x,y,z)
     member this.WriteAll() =
-        for KeyValue(fil, r) in cachedRegions do
+        for KeyValue(args, r) in cachedRegions do
+            let rx,rz = args
+            let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
             r.Write(fil+".new")
             System.IO.File.Delete(fil)
             System.IO.File.Move(fil+".new",fil)
 
-let preciseImageToBlocks(imageFilename:string,regionFolder) =
+let preciseImageToBlocks(imageFilename:string,regionFolder, baseY) =
     let image = new System.Drawing.Bitmap(imageFilename)
     let m = new MapFolder(regionFolder)
     let colorTable= new System.Collections.Generic.Dictionary<_,_>()
     let knownColors = 
         [|
-            (255uy, 51uy, 102uy, 153uy),   (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 35uy, 11uy))   // blue wool water
-            (255uy, 255uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 80uy, 0uy))    // white snow
-            (255uy, 0uy, 102uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 35uy, 13uy))   // green wool tree
-            (255uy, 102uy, 102uy, 102uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 7uy, 0uy))     // dark mountain
-            (255uy, 0uy, 204uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 2uy, 0uy))     // green grass
-            (255uy, 255uy, 51uy, 0uy),     (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 152uy, 0uy))   // red wall
-            (255uy, 153uy, 153uy, 153uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 1uy, 0uy))     // grey stone
-            (255uy, 255uy, 255uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 41uy, 0uy))    // gold thingy
-            (255uy, 204uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 174uy, 0uy))   // light blue ice
-            (255uy, 153uy, 102uy, 51uy),   (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 3uy, 2uy))     // brown podzol
-            (255uy, 0uy, 0uy, 0uy),        (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 49uy, 0uy))    // black obsidian
-            (255uy, 255uy, 102uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, 10, z, 86uy, 11uy))   // orange pumpkin
+            (255uy, 51uy, 102uy, 153uy),   (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 95uy, 11uy))   // blue glass water
+            (255uy, 255uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 80uy, 0uy))    // white snow
+            (255uy, 0uy, 102uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 35uy, 13uy))   // green wool tree
+            (255uy, 102uy, 102uy, 102uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 7uy, 0uy))     // dark mountain
+            (255uy, 0uy, 204uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 2uy, 0uy))     // green grass
+            (255uy, 255uy, 51uy, 0uy),     (fun x y z -> for dy in [0;1;2;3] do m.SetBlockIDAndDamage(x, baseY+dy, z, 152uy, 0uy))   // red wall
+            (255uy, 153uy, 153uy, 153uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 1uy, 0uy))     // grey stone
+            (255uy, 255uy, 255uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 41uy, 0uy))    // gold thingy
+            (255uy, 204uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 174uy, 0uy))   // light blue ice
+            (255uy, 153uy, 102uy, 51uy),   (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 3uy, 2uy))     // brown podzol
+            (255uy, 0uy, 0uy, 0uy),        (fun x y z -> ())                                               // black means air
+            (255uy, 255uy, 102uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 86uy, 11uy))   // orange pumpkin
             (255uy, 153uy, 51uy, 0uy),     (fun x y z -> ()) // TODO
             (255uy, 0uy, 255uy, 0uy),      (fun x y z -> ()) // TODO
             (255uy, 255uy, 204uy, 153uy),      (fun x y z -> ()) // TODO
@@ -1931,6 +1944,231 @@ let preciseImageToBlocks(imageFilename:string,regionFolder) =
         printfn "%d of %d" x XM
     m.WriteAll()
 
+////////////////////////////////////////////
+
+let repopulateAsAnotherBiome() =
+    //let user = "brianmcn"
+    let user = "Admin1"
+    let fil = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w44b\region\r.0.0.mca"""
+    let regionFile = new RegionFile(fil)
+    //let newBiome = 32uy // mega taiga
+    //let newBiome = 8uy // hell // didn't do anything interesting?
+    //let newBiome = 13uy // ice plains // freezes ocean, adds snow layer
+    //let newBiome = 129uy // sunflower plains, saw lakes added
+    //let newBiome = 140uy // ice plains spikes (did not generate spikes) // freezes ocean, adds snow layer, re-freezes lakes that formed on/under ocean, ha
+    //let newBiome = 38uy // mesa plateau f (did not change stone to clay)
+    let newBiome = 6uy // swamp (did not see any witch huts, but presumably seed based?)
+    for cx = 0 to 31 do
+        for cz = 0 to 31 do
+            match regionFile.TryGetChunk(cx,cz) with
+            | None -> ()
+            | Some theChunk ->
+                let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                // replace biomes
+                match theChunkLevel.["Biomes"] with
+                | NBT.ByteArray(_,a) -> for i = 0 to a.Length-1 do a.[i] <- newBiome
+                // replace terrain-populated
+                match theChunkLevel with
+                | NBT.Compound(_,a) ->
+                    for i = 0 to a.Length-1 do
+                        if a.[i].Name = "TerrainPopulated" then
+                            a.[i] <- NBT.Byte("TerrainPopulated", 0uy)
+    regionFile.Write(fil+".new")
+    System.IO.File.Delete(fil)
+    System.IO.File.Move(fil+".new",fil)
+
+////////////////////////////////////////////
+
+
+let debugRegion() =
+    //let user = "brianmcn"
+    let user = "Admin1"
+    let rx = 5
+    let rz = 0
+    let fil = """C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\pregenED\region\r.%d.%d.mca""" rx rz)
+    let regionFile = new RegionFile(fil)
+    for cx = 0 to 31 do
+        for cz = 0 to 31 do
+            match regionFile.TryGetChunk(cx,cz) with
+            | None -> ()
+            | Some theChunk ->
+                printf "%5d,%5d: " (cx*16+rx*512) (cz*16+rz*512)
+                let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                match theChunkLevel.["TerrainPopulated"] with
+                | NBT.Byte(_,b) -> printf "TP=%d  " b
+                match theChunkLevel.["LightPopulated"] with
+                | NBT.Byte(_,b) -> printf "LP=%d  " b
+                match theChunkLevel.["Entities"] with
+                | NBT.List(_,Compounds(a)) -> printf "E=%d  " a.Length 
+                match theChunkLevel.["TileEntities"] with
+                | NBT.List(_,Compounds(a)) -> printf "TE=%d  " a.Length 
+                match theChunkLevel.TryGetFromCompound("TileTicks") with
+                | Some(NBT.List(_,Compounds(a))) -> printf "TT=%d  " a.Length 
+                | None -> printf "TT=0  "
+                printfn ""
+                // replace terrain-populated
+                match theChunkLevel with
+                | NBT.Compound(_,a) ->
+                    for i = 0 to a.Length-1 do
+                        if a.[i].Name = "TerrainPopulated" then
+                            a.[i] <- NBT.Byte("TerrainPopulated", 1uy)
+    regionFile.Write(fil+".new")
+                
+
+////////////////////////////////////////////
+
+type Thingy(point:int, isLeft:bool, isRight:bool) =
+    let mutable isLeft = isLeft
+    let mutable isRight = isRight
+    member this.Point = point
+    member this.IsLeft with get() = isLeft and set(x) = isLeft <- x
+    member this.IsRight with get() = isRight and set(x) = isRight <- x
+
+// A partition is a mutable set of values, where one arbitrary value in the set 
+// is chosen as the canonical representative for that set. 
+[<AllowNullLiteral>]
+type Partition(orig : Thingy) as this =  
+    [<DefaultValue(false)>] val mutable parent : Partition
+    [<DefaultValue(false)>] val mutable rank : int 
+    let rec FindHelper(x : Partition) = 
+        if System.Object.ReferenceEquals(x.parent, x) then 
+            x 
+        else 
+            x.parent <- FindHelper(x.parent) 
+            x.parent 
+    do this.parent <- this 
+    // The representative element in this partition 
+    member this.Find() = 
+        FindHelper(this) 
+    // The original value of this element 
+    member this.Value = orig 
+    // Merges two partitions 
+    member this.Union(other : Partition) = 
+        let thisRoot = this.Find() 
+        let otherRoot = other.Find() 
+        if thisRoot.rank < otherRoot.rank then 
+            otherRoot.parent <- thisRoot
+            thisRoot.Value.IsLeft <- thisRoot.Value.IsLeft || otherRoot.Value.IsLeft 
+            thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
+        elif thisRoot.rank > otherRoot.rank then 
+            thisRoot.parent <- otherRoot 
+            otherRoot.Value.IsLeft <- otherRoot.Value.IsLeft || thisRoot.Value.IsLeft 
+            otherRoot.Value.IsRight <- otherRoot.Value.IsRight || thisRoot.Value.IsRight
+        elif not (System.Object.ReferenceEquals(thisRoot, otherRoot)) then 
+            otherRoot.parent <- thisRoot 
+            thisRoot.Value.IsLeft <- thisRoot.Value.IsLeft || otherRoot.Value.IsLeft 
+            thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
+            thisRoot.rank <- thisRoot.rank + 1 
+
+let findUndergroundAirSpaceConnectedComponents() =
+    let user = "Admin1"
+    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
+    let LOX, LOY, LOZ = -512, 11, -512
+    let MAXI, MAXJ, MAXK = 1024, 50, 1024
+    let PT(i,j,k) = i*MAXJ*MAXK + k*MAXJ + j
+    let a = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) null   // +2s because we have sentinels guarding array index out of bounds
+    let mutable currentSectionBlocks,curx,cury,curz = null,-1000,-1000,-1000
+    let XYZ(i,j,k) =
+        let x = i-1 + LOX
+        let y = j-1 + LOY
+        let z = k-1 + LOZ
+        x,y,z
+    // find all the air spaces in the underground
+    for j = 1 to MAXJ do
+        printfn "FIND %d" j
+        for i = 1 to MAXI do
+            for k = 1 to MAXK do
+                let x,y,z = XYZ(i,j,k)
+                if not(x/16 = curx/16 && y/16 = cury/16 && z/16 = curz/16) then
+                    currentSectionBlocks <- map.GetOrCreateSection(x,y,z) |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
+                    curx <- x
+                    cury <- y
+                    curz <- z
+                let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+                let bix = dy*256 + dz*16 + dx
+                if currentSectionBlocks.[bix] = 0uy then // air
+                    a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(j=MAXJ)))
+    // connected-components them
+    for j = 1 to MAXJ-1 do
+        printfn "CONNECT %d" j
+        for i = 1 to MAXI-1 do
+            for k = 1 to MAXK-1 do
+                if a.[i,j,k]<>null && a.[i+1,j,k]<>null then
+                    a.[i,j,k].Union(a.[i+1,j,k])
+                if a.[i,j,k]<>null && a.[i,j+1,k]<>null then
+                    a.[i,j,k].Union(a.[i,j+1,k])
+                if a.[i,j,k]<>null && a.[i,j,k+1]<>null then
+                    a.[i,j,k].Union(a.[i,j,k+1])
+    // look for 'good' ones
+    let goodCCs = new System.Collections.Generic.Dictionary<_,_>()
+    for j = 1 to MAXJ do
+        printfn "ANALYZE %d" j
+        for i = 1 to MAXI do
+            for k = 1 to MAXK do
+                if a.[i,j,k]<>null then
+                    let v = a.[i,j,k].Find().Value 
+                    if v.IsLeft && v.IsRight then
+                        if not(goodCCs.ContainsKey(v.Point)) then
+                            goodCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())
+                        else
+                            goodCCs.[v.Point].Add(PT(i,j,k)) |> ignore
+    printfn "There are %d CCs with the desired property" goodCCs.Count 
+    let hs = goodCCs.Values |> Seq.toList |> List.head 
+    let XYZP(pt) =
+        let i = pt / (MAXJ*MAXK)
+        let k = (pt % (MAXJ*MAXK)) / MAXJ
+        let j = pt % MAXJ
+        XYZ(i,j,k)
+    let IJK(x,y,z) =
+        let i = x+1 - LOX
+        let j = y+1 - LOY
+        let k = z+1 - LOZ
+        i,j,k
+    let mutable bestX,bestY,bestZ = 0,0,0
+    for p in hs do
+        let x,y,z = XYZP(p)
+        if y > bestY then
+            bestX <- x
+            bestY <- y
+            bestZ <- z
+    // have a point at the top of the CC, now find furthest low point away (Dijkstra variant)
+    let dist = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) 999999   // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+    let prev = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) (0,0,0)  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+    let q = new System.Collections.Generic.Queue<_>()
+    let bi,bj,bk = IJK(bestX,bestY,bestZ)
+    q.Enqueue(bi,bj,bk)
+    dist.[bi,bj,bk] <- 0
+    let mutable besti,bestj,bestk = bi, bj, bk
+    while q.Count > 0 do
+        let i,j,k = q.Dequeue()
+        let d = dist.[i,j,k]
+        for di,dj,dk in [1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1] do
+            if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
+                dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
+                prev.[i+di,j+dj,k+dk] <- (i,j,k)
+                q.Enqueue(i+di,j+dj,k+dk)
+                if j = 1 then  // low point
+                    if dist.[besti,bestj,bestk] < d+1 then
+                        besti <- i+di
+                        bestj <- j+dj
+                        bestk <- k+dk
+    let sx,sy,sz = XYZ(bi,bj,bk)
+    let ex,ey,ez = XYZ(besti,bestj,bestk)
+    printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
+    let mutable i,j,k = besti,bestj,bestk
+    while i<>bi || j<>bj || k<>bk do
+        let x,y,z = XYZ(i,j,k)
+        map.SetBlockIDAndDamage(x,y,z,152uy,0uy)  // 152 = block of redstone
+        let ni,nj,nk = prev.[i,j,k]
+        i <- ni
+        j <- nj
+        k <- nk
+    map.WriteAll()
+
+
+
+
+////////////////////////////////////////////
 
 [<System.STAThread()>]  
 do   
@@ -1962,6 +2200,7 @@ do
     //printfn "%s" (makeCommandGivePlayerWrittenBook("Lorgon111", "BestTitle", [|"""["line1\n","line2"]"""; """["p2line1\n","p2line2",{"selector":"@p"}]"""|]))
     //dumpPlayerDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
     //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo_bottom.nbt""")
+    //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\seed21\data\Mineshaft.dat""")
 
     
     //editMapDat("""C:\Users\"""+user+"""\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
@@ -1974,6 +2213,9 @@ do
     //findAllLoot("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\43aAt8200\region\""")
     //testBackpatching("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\VoidLoot\region\r.0.0.mca""")
     //makeBiomeMap()
+    //repopulateAsAnotherBiome()
+    //debugRegion()
+    findUndergroundAirSpaceConnectedComponents()
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
@@ -1986,8 +2228,12 @@ do
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" user save, true)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" user save, true)
-//    placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save)
-    preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_7.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save)
+    placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save)
+    (*
+    preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_6.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 36)
+    preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_7.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 32)
+    preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_8.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 28)
+    *)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat.new""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" user save, true)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
