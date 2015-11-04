@@ -1876,6 +1876,59 @@ type MapFolder(folderName) =
             let r = new RegionFile(fil)
             cachedRegions.Add(args, r)
             r
+    member this.AddOrReplaceTileEntities(tes) =
+        // partition by region,chunk
+        let data = new System.Collections.Generic.Dictionary<_,_>()
+        for te in tes do
+            let x = te |> Array.pick (function Int("x",x) -> Some x | _ -> None)
+            let y = te |> Array.pick (function Int("y",y) -> Some y | _ -> None)
+            let z = te |> Array.pick (function Int("z",z) -> Some z | _ -> None)
+            let rx = (x + 512000) / 512 - 1000
+            let rz = (z + 512000) / 512 - 1000
+            if not(data.ContainsKey(rx,rz)) then
+                data.Add((rx,rz), Array2D.init 32 32 (fun _ _ -> ResizeArray()))
+            let cx = ((x+512000)%512)/16
+            let cz = ((z+512000)%512)/16
+            data.[(rx,rz)].[cx,cz].Add(te)
+        for (KeyValue((rx,rz),tesPerChunk)) in data do
+            let r = getOrCreateRegion(rx, rz)
+            // load each chunk TEs
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    if tesPerChunk.[cx,cz].Count > 0 then
+                        let chunk = r.GetChunk(cx,cz)
+                        let a = match chunk with Compound(_,[|Compound(_,a);_|]) | Compound(_,[|Compound(_,a);_;_|]) -> a
+                        let mutable found = false
+                        let mutable i = 0
+                        while not found && i < a.Length-1 do
+                            match a.[i] with
+                            | List("TileEntities",Compounds(existingTEs)) ->
+                                // there are TEs already, remove any with xyz that we'll overwrite, and add new ones
+                                found <- true
+                                let finalTEs = ResizeArray()
+                                for ete in existingTEs do
+                                    let mutable willGetOverwritten = false
+                                    for nte in tesPerChunk.[cx,cz] do
+                                        let x = nte |> Array.pick (function Int("x",x) -> Some x)
+                                        let y = nte |> Array.pick (function Int("y",y) -> Some y)
+                                        let z = nte |> Array.pick (function Int("z",z) -> Some z)
+                                        let alreadyThere = Array.exists (fun o -> o=Int("x",x)) ete && Array.exists (fun o -> o=Int("y",y)) ete && Array.exists (fun o -> o=Int("z",z)) ete
+                                        if alreadyThere then
+                                            willGetOverwritten <- true
+                                    if willGetOverwritten then
+                                        failwith "TODO overwriting TE, care?"
+                                    else
+                                        finalTEs.Add(ete)
+                                for nte in tesPerChunk.[cx,cz] do
+                                    finalTEs.Add(nte)
+                                a.[i] <- List("TileEntities",Compounds(finalTEs |> Array.ofSeq))
+                            | _ -> ()
+                            i <- i + 1
+                        if not found then // no TileEntities yet, write the entry
+                            match chunk with 
+                            | Compound(_,([|Compound(n,a);_|] as r)) 
+                            | Compound(_,([|Compound(n,a);_;_|] as r)) -> 
+                                r.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tesPerChunk.[cx,cz] |> Array.ofSeq)) |] |> Array.ofSeq)
     member this.GetHeightMap(x,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
@@ -2198,9 +2251,142 @@ let findUndergroundAirSpaceConnectedComponents() =
             k <- nk
     map.WriteAll()
 
+////
+(* MAP DEFAULTS 
+ore    size tries
+-----------------
+dirt     33 10              3
+gravel   33  8              13
+granite  33 10        stone 1  1
+diorite  33 10                 3
+andesite 33 10                 5
+coal     17 20              16
+iron      9 20              15
+gold      9  2              14
+redstone  8  8              73 and 74
+diamond   8  1              56
+lapis     7  1              21
+(emerald  1  3?  only extreme hills)   129
+*)
+
+let blockSubstitutionsEmpty =  // TODO want different ones, both as a function of x/z (difficulty in regions of map), biome?, and y (no spawners in wall above 63), anything else?
+    [|
+          3uy,0uy,    3uy,0uy;     // dirt -> 
+         13uy,0uy,   13uy,0uy;     // gravel -> 
+          1uy,1uy,    1uy,1uy;     // granite -> 
+          1uy,3uy,    1uy,3uy;     // diorite -> 
+          1uy,5uy,    1uy,5uy;     // andesite -> 
+         16uy,0uy,   16uy,0uy;     // coal -> 
+         15uy,0uy,   15uy,0uy;     // iron -> 
+         14uy,0uy,   14uy,0uy;     // gold -> 
+         73uy,0uy,   73uy,0uy;     // redstone -> 
+         74uy,0uy,   74uy,0uy;     // lit_redstone -> 
+         56uy,0uy,   56uy,0uy;     // diamond -> 
+         21uy,0uy,   21uy,0uy;     // lapis -> 
+        129uy,0uy,  129uy,0uy;     // emerald -> 
+    |]
+
+let blockSubstitutionsTrial =
+    [|
+          1uy,0uy,   97uy,0uy;     // stone -> silverfish
+          1uy,3uy,   57uy,0uy;     // diorite -> diamond block
+    |] // TODO what about tile entities like mob spawners? want to cache them per-chunk and then write them to chunks at end
+
+let substituteBlocks() =
+    let user = "Admin1"
+    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
+    let LOX, LOY, LOZ = -512, 11, -512
+    let MAXI, MAXJ, MAXK = 1024, 50, 1024
+    let mutable currentSectionBlocks,currentSectionBlockData,curx,cury,curz = null,null,-1000,-1000,-1000
+    let XYZ(i,j,k) =
+        let x = i-1 + LOX
+        let y = j-1 + LOY
+        let z = k-1 + LOZ
+        x,y,z
+    for j = 1 to MAXJ do
+        printfn "SUBST %d" j
+        for i = 1 to MAXI do
+            for k = 1 to MAXK do
+                let x,y,z = XYZ(i,j,k)
+                if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
+                    let sect = map.GetOrCreateSection(x,y,z)
+                    currentSectionBlocks <- sect |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
+                    currentSectionBlockData <- sect |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
+                    curx <- x
+                    cury <- y
+                    curz <- z
+                let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+                let bix = dy*256 + dz*16 + dx
+                let bid = currentSectionBlocks.[bix]
+                let dmg = if bix%2=1 then currentSectionBlockData.[bix/2] >>> 4 else currentSectionBlockData.[bix/2] &&& 0xFuy
+                for obid, odmg, nbid, ndmg in blockSubstitutionsTrial do
+                    if bid = obid && dmg = odmg then
+                        currentSectionBlocks.[bix] <- nbid
+                        let mutable tmp = currentSectionBlockData.[bix/2]
+                        if bix%2 = 0 then
+                            tmp <- tmp &&& 0xF0uy
+                            tmp <- tmp + ndmg
+                        else
+                            tmp <- tmp &&& 0x0Fuy
+                            tmp <- tmp + (ndmg<<< 4)
+                        currentSectionBlockData.[bix/2] <- tmp
+    map.SetBlockIDAndDamage(-342, 11, 97, 52uy, 0uy) // 52 = monster spawner
+    map.AddOrReplaceTileEntities [|
+                                    [|
+                                        Int("x", -342)
+                                        Int("y", 11)
+                                        Int("z", 97)
+                                        String("id","MobSpawner")
+                                        Short("RequiredPlayerRange",16s)
+                                        Short("SpawnCount",4s)
+                                        Short("SpawnRange",4s)
+                                        Short("MaxNearbyEntities",6s)
+                                        Short("Delay",-1s)
+                                        Short("MinSpawnDelay",200s)
+                                        Short("MaxSpawnDelay",800s)
+                                        Compound("SpawnData",[|String("id","Skeleton");End|])
+                                        List("SpawnPotentials",Compounds[|
+                                                                            [|
+                                                                            Compound("Entity",[|String("id","Skeleton");End|])
+                                                                            Int("Weight",1)
+                                                                            End
+                                                                            |]
+                                                                        |])
+                                        End
+                                    |]
+                                 |]
+    map.WriteAll()
+                            
 
 
+// mappings: should probably be to a chance set that's a function of difficulty or something...
+// given that I can customize them, but want same custom settings for whole world generation, just consider as N buckets, but can e.g. customize the granite etc for more 'choice'...
+// custom: dungeons at 100, probably lava/water lakes less frequent, biome size 3?
 
+// customized preset code
+
+// types of things
+// stone -> silverfish probably
+// -> spawners (multiple kinds, with some harder than others in different areas)
+// -> primed tnt (and normal tnt? cue?)
+// -> hidden lava pockets? (e.g. if something was like 1-40 for size-tries, can perforate area with tiny bits of X)
+// -> glowstone or sea lanterns (block lights)
+// -> some ore, but less and guarded
+// moss stone -> netherrack in hell biome, for example
+// -> coal/iron/gold/diamond _blocks_ rather than ore in some spots (coal burns!)
+
+// set pieces (my own dungeons, persistent entities)
+
+// in addition to block substitution, need .dat info for e.g. 'witch areas' or guardian zones'
+
+// also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
+
+
+//works:
+// setblock ~ ~ ~20 mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Zombie},Weight:1,Properties:[]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+
+
+// {MaxNearbyEntities:6s,RequiredPlayerRange:16s,SpawnCount:4s,SpawnData:{id:"Skeleton"},MaxSpawnDelay:800s,Delay:329s,x:99977,y:39,z:-24,id:"MobSpawner",SpawnRange:4s,MinSpawnDelay:200s,SpawnPotentials:[0:{Entity:{id:"Skeleton"},Weight:1}]}
 ////////////////////////////////////////////
 
 [<System.STAThread()>]  
@@ -2233,7 +2419,6 @@ do
     //printfn "%s" (makeCommandGivePlayerWrittenBook("Lorgon111", "BestTitle", [|"""["line1\n","line2"]"""; """["p2line1\n","p2line2",{"selector":"@p"}]"""|]))
     //dumpPlayerDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
     //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo_bottom.nbt""")
-    //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\seed21\data\Mineshaft.dat""")
 
     
     //editMapDat("""C:\Users\"""+user+"""\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
@@ -2248,7 +2433,9 @@ do
     //makeBiomeMap()
     //repopulateAsAnotherBiome()
     //debugRegion()
-    findUndergroundAirSpaceConnectedComponents()
+    //findUndergroundAirSpaceConnectedComponents()
+    //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
+    //substituteBlocks()
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)

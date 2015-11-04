@@ -32,6 +32,7 @@ type RegionFile(filename) =
         int m.Groups.[1].Value, int m.Groups.[2].Value
     let isChunkDirty = Array2D.create 32 32 false
     let chunkHeightMapCache : int[,][,] = Array2D.create 32 32 null   // chunkHeightMapCache.[cx,cz].[x,z], (TODO currently just read once, never updated)
+    let chunkSectionsCache : NBT[][][,] = Array2D.init 32 32 (fun _ _ -> Array.zeroCreate 16)   // chunkSectionsCache.[cx,cz].[sy]
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
     let mutable firstSeenDataVersion = -1
@@ -187,34 +188,34 @@ type RegionFile(filename) =
     member this.TryGetSection(x,y,z) =  // x,y,z are world coordinates
         let xx = ((x+51200)%512)/16
         let zz = ((z+51200)%512)/16
-        let theChunk = this.TryGetChunk(xx,zz)
-        match theChunk with
-        | None -> None
-        | Some theChunk ->
-            let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-            let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
-            match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
-            | Some x -> Some x
-            | None -> None
+        let sy = y/16
+        match chunkSectionsCache.[xx,zz].[sy] with
+        | null -> None
+        | x -> Some x
     member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
         let xx = ((x+51200)%512)/16
         let zz = ((z+51200)%512)/16
-        let theChunk = getOrCreateChunk(xx,zz)
-        let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-        let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
-        let theSection = 
-            match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
-            | Some x -> x
-            | None ->
-                let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", Array.zeroCreate 4096); NBT.ByteArray("Data", Array.zeroCreate 2048); 
-                                    NBT.ByteArray("BlockLight",Array.create 2048 0uy); NBT.ByteArray("SkyLight",Array.create 2048 0uy); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
-                match theChunkLevel with
-                | Compound(_,a) ->
-                    let i = a |> Array.findIndex (fun x -> x.Name="Sections")
-                    a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
-                    isChunkDirty.[xx,zz] <- true
-                    newSection
-        theSection
+        let theChunk = getOrCreateChunk(xx,zz) // do this even though we don't "need" it, to avoid having sections without parent chunks
+        let sy = y/16
+        match chunkSectionsCache.[xx,zz].[sy] with
+        | null -> 
+            let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+            let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
+            let theSection = 
+                match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
+                | Some x -> x
+                | None ->
+                    let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", Array.zeroCreate 4096); NBT.ByteArray("Data", Array.zeroCreate 2048); 
+                                        NBT.ByteArray("BlockLight",Array.create 2048 0uy); NBT.ByteArray("SkyLight",Array.create 2048 0uy); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
+                    match theChunkLevel with
+                    | Compound(_,a) ->
+                        let i = a |> Array.findIndex (fun x -> x.Name="Sections")
+                        a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
+                        isChunkDirty.[xx,zz] <- true
+                        newSection
+            chunkSectionsCache.[xx,zz].[sy] <- theSection
+            theSection
+        | x -> x
     member this.GetChunk(cx, cz) =
         match chunks.[cx,cz] with
         | End -> failwith "chunk not represented, NYI"
@@ -418,8 +419,8 @@ type RegionFile(filename) =
                 |> Seq.filter (fun te -> 
                     let alreadyThere = Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te
                     if alreadyThere then
-                        //failwith "uh-oh, overwriting blocks"
-                        printfn "******WARN***** overwriting blocks"
+                        failwith "uh-oh, overwriting blocks"
+                        //printfn "******WARN***** overwriting blocks"
                     not(alreadyThere) )
                 |> Seq.append nbts |> (fun x -> ResizeArray x)
             z <- z + 1
@@ -433,9 +434,9 @@ type RegionFile(filename) =
         for cx = 0 to 31 do
             for cz = 0 to 31 do
                 if chunks.[cx,cz] <> End then
-                    let theChunkLevel = match chunks.[cx,cz] with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-                    let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
-                    for s in sections do
-                        let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
-                        let data = s |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
-                        f blocks data
+                    for sy = 0 to 15 do
+                        let s = chunkSectionsCache.[cx,cz].[sy]
+                        if s <> null then
+                            let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
+                            let data = s |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
+                            f blocks data
