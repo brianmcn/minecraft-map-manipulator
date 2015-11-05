@@ -1909,14 +1909,14 @@ type MapFolder(folderName) =
                                 for ete in existingTEs do
                                     let mutable willGetOverwritten = false
                                     for nte in tesPerChunk.[cx,cz] do
-                                        let x = nte |> Array.pick (function Int("x",x) -> Some x)
-                                        let y = nte |> Array.pick (function Int("y",y) -> Some y)
-                                        let z = nte |> Array.pick (function Int("z",z) -> Some z)
+                                        let x = nte |> Array.pick (function Int("x",x) -> Some x | _ -> None)
+                                        let y = nte |> Array.pick (function Int("y",y) -> Some y | _ -> None)
+                                        let z = nte |> Array.pick (function Int("z",z) -> Some z | _ -> None)
                                         let alreadyThere = Array.exists (fun o -> o=Int("x",x)) ete && Array.exists (fun o -> o=Int("y",y)) ete && Array.exists (fun o -> o=Int("z",z)) ete
                                         if alreadyThere then
                                             willGetOverwritten <- true
                                     if willGetOverwritten then
-                                        failwith "TODO overwriting TE, care?"
+                                        () // TODO failwith "TODO overwriting TE, care?"
                                     else
                                         finalTEs.Add(ete)
                                 for nte in tesPerChunk.[cx,cz] do
@@ -1956,6 +1956,47 @@ type MapFolder(folderName) =
             r.Write(fil+".new")
             System.IO.File.Delete(fil)
             System.IO.File.Move(fil+".new",fil)
+
+////////////////////////////////////////////
+
+    //map.SetBlockIDAndDamage(-342, 11, 97, 52uy, 0uy) // 52 = monster spawner
+type MobSpawnerInfo() =
+    member val RequiredPlayerRange =  16s with get, set
+    member val SpawnCount          =   4s with get, set
+    member val SpawnRange          =   4s with get, set
+    member val MaxNearbyEntities   =   6s with get, set
+    member val Delay               =  -1s with get, set
+    member val MinSpawnDelay       = 200s with get, set
+    member val MaxSpawnDelay       = 800s with get, set
+    member val x = 0 with get, set 
+    member val y = 0 with get, set 
+    member val z = 0 with get, set 
+    member val BasicMob = "Zombie" with get, set  // TODO more advanced SpawnPotentials/SpawnData
+    member this.AsNbtTileEntity() =
+        [|
+            Int("x", this.x)
+            Int("y", this.y)
+            Int("z", this.z)
+            String("id","MobSpawner")
+            Short("RequiredPlayerRange",this.RequiredPlayerRange)
+            Short("SpawnCount",this.SpawnCount)
+            Short("SpawnRange",this.SpawnRange)
+            Short("MaxNearbyEntities",this.MaxNearbyEntities)
+            Short("Delay",this.Delay)
+            Short("MinSpawnDelay",this.MinSpawnDelay)
+            Short("MaxSpawnDelay",this.MaxSpawnDelay)
+            Compound("SpawnData",[|String("id",this.BasicMob);End|])
+            List("SpawnPotentials",Compounds[|
+                                                [|
+                                                Compound("Entity",[|String("id",this.BasicMob);End|])
+                                                Int("Weight",1)
+                                                End
+                                                |]
+                                            |])
+            End
+        |]
+
+////////////////////////////////////////////
 
 let preciseImageToBlocks(imageFilename:string,regionFolder, baseY) =
     let image = new System.Drawing.Bitmap(imageFilename)
@@ -2001,6 +2042,7 @@ let preciseImageToBlocks(imageFilename:string,regionFolder, baseY) =
             *)
         printfn "%d of %d" x XM
     m.WriteAll()
+
 
 ////////////////////////////////////////////
 
@@ -2118,9 +2160,7 @@ type Partition(orig : Thingy) as this =
             thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
             thisRoot.rank <- thisRoot.rank + 1 
 
-let findUndergroundAirSpaceConnectedComponents() =
-    let user = "Admin1"
-    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
+let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
     let LOX, LOY, LOZ = -512, 11, -512
     let MAXI, MAXJ, MAXK = 1024, 50, 1024
     let PT(i,j,k) = i*MAXJ*MAXK + k*MAXJ + j
@@ -2132,8 +2172,9 @@ let findUndergroundAirSpaceConnectedComponents() =
         let z = k-1 + LOZ
         x,y,z
     // find all the air spaces in the underground
+    printf "FIND"
     for j = 1 to MAXJ do
-        printfn "FIND %d" j
+        printf "."
         for i = 1 to MAXI do
             for k = 1 to MAXK do
                 let x,y,z = XYZ(i,j,k)
@@ -2147,9 +2188,11 @@ let findUndergroundAirSpaceConnectedComponents() =
                 if currentSectionBlocks.[bix] = 0uy then // air
                     //a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(j=MAXJ)))
                     a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(y>=map.GetHeightMap(x,z))))
+    printfn ""
+    printf "CONNECT"
     // connected-components them
     for j = 1 to MAXJ-1 do
-        printfn "CONNECT %d" j
+        printf "."
         for i = 1 to MAXI-1 do
             for k = 1 to MAXK-1 do
                 if a.[i,j,k]<>null && a.[i+1,j,k]<>null then
@@ -2158,10 +2201,12 @@ let findUndergroundAirSpaceConnectedComponents() =
                     a.[i,j,k].Union(a.[i,j+1,k])
                 if a.[i,j,k]<>null && a.[i,j,k+1]<>null then
                     a.[i,j,k].Union(a.[i,j,k+1])
+    printfn ""
+    printf "ANALYZE"
     // look for 'good' ones
     let goodCCs = new System.Collections.Generic.Dictionary<_,_>()
     for j = 1 to MAXJ do
-        printfn "ANALYZE %d" j
+        printf "."
         for i = 1 to MAXI do
             for k = 1 to MAXK do
                 if a.[i,j,k]<>null then
@@ -2171,6 +2216,7 @@ let findUndergroundAirSpaceConnectedComponents() =
                             goodCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())
                         else
                             goodCCs.[v.Point].Add(PT(i,j,k)) |> ignore
+    printfn ""
     printfn "There are %d CCs with the desired property" goodCCs.Count 
     for hs in goodCCs.Values do
         let XYZP(pt) =
@@ -2213,7 +2259,7 @@ let findUndergroundAirSpaceConnectedComponents() =
                             bestk <- k+dk
         // now find shortest from that bottom to top
         let dist = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) 999999   // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-        let prev = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) (0,0,0)  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+        let prev = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) (0,0,0,false,false,false)  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
         let bi,bj,bk = besti,bestj,bestk
         q.Enqueue(bi,bj,bk)
         dist.[bi,bj,bk] <- 0
@@ -2224,9 +2270,10 @@ let findUndergroundAirSpaceConnectedComponents() =
             for di,dj,dk in [1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1] do
                 if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
                     dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
-                    prev.[i+di,j+dj,k+dk] <- (i,j,k)
+                    prev.[i+di,j+dj,k+dk] <- (i,j,k,(di=0),(dj=0),(dk=0))  // booleans here help us track 'normal' to the path
                     q.Enqueue(i+di,j+dj,k+dk)
-                    if j = MAXJ then  // high point
+                    let x,y,z = XYZ(i,j,k)
+                    if (y>=map.GetHeightMap(x,z)) then // surface
                         // found shortest
                         besti <- i+di
                         bestj <- j+dj
@@ -2238,18 +2285,72 @@ let findUndergroundAirSpaceConnectedComponents() =
         let ex,ey,ez = XYZ(besti,bestj,bestk)
         printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
         let mutable i,j,k = besti,bestj,bestk
+        let fullDist = dist.[besti,bestj,bestk]
+        let mutable count = 0
+        let rng = System.Random()
+        let spawnerTileEntities = ResizeArray()
         while i<>bi || j<>bj || k<>bk do
+            let ni,nj,nk,ii,jj,kk = prev.[i,j,k]   // ii/jj/kk track 'normal' to the path
+            // maybe put mob spawner nearby
+            let pct = float count / float fullDist
+            if rng.NextDouble() < pct then
+                let xx,yy,zz = XYZ(i,j,k)
+                let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
+                let mutable ok = false
+                while not ok do
+                    let feesh = ResizeArray()
+                    let xs = if ii then [xx-spread .. xx+spread] else [xx]
+                    let ys = if jj then [yy-spread .. yy+spread] else [yy]
+                    let zs = if kk then [zz-spread .. zz+spread] else [zz]
+                    for x in xs do
+                        for y in ys do
+                            for z in zs do
+                                if map.GetBlockInfo(x,y,z).BlockID = 97uy then // if silverfish
+                                    feesh.Add(x,y,z)
+                    if feesh.Count > 0 then
+                        let x,y,z = feesh.[rng.Next(feesh.Count-1)]
+                        map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
+                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton")
+                        spawnerTileEntities.Add(ms.AsNbtTileEntity())
+                        ok <- true
+                    spread <- spread + 1
+                    if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
+                        ok <- true
             // put stripe on the ground (TODO vertical through air)
             let mutable pi,pj,pk = i,j,k
             while a.[pi,pj,pk]<>null do
                 pj <- pj - 1
             let x,y,z = XYZ(pi,pj,pk)
-            map.SetBlockIDAndDamage(x,y,z,152uy,0uy)  // 152 = block of redstone
-            let ni,nj,nk = prev.[i,j,k]
+            map.SetBlockIDAndDamage(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
             i <- ni
             j <- nj
             k <- nk
-    map.WriteAll()
+            count <- count + 1
+        // write out all the spawner data we just placed
+        map.AddOrReplaceTileEntities(spawnerTileEntities)
+        // put beacon at top end
+        for x = ex-2 to ex+2 do
+            for y = ey-4 to ey-1 do
+                for z = ez-2 to ez+2 do
+                    map.SetBlockIDAndDamage(x,y,z,166uy,0uy)  // barrier
+        map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
+        for x = ex-1 to ex+1 do
+            for z = ez-1 to ez+1 do
+                map.SetBlockIDAndDamage(x,ey-3,z,42uy,0uy)  // iron block
+        // put treasure at bottom end
+        for x = sx-2 to sx+2 do
+            for z = sz-2 to sz+2 do
+                map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
+                map.SetBlockIDAndDamage(x,sy+3,z,22uy,0uy)  // lapis block
+        map.SetBlockIDAndDamage(sx,sy,sz,89uy,0uy)  // glowstone
+        for x = sx-2 to sx+2 do
+            for y = sy+1 to sy+2 do
+                for z = sz-2 to sz+2 do
+                    map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
+        map.SetBlockIDAndDamage(sx,sy+1,sz,54uy,2uy)  // chest
+        map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy+1); Int("z",sz); String("id","Chest"); List("Items",Compounds[| |]); String("Lock",""); String("CustomName","Lootz!"); End |] |])
+    // end foreach CC
+    ()
 
 ////
 (* MAP DEFAULTS 
@@ -2292,9 +2393,7 @@ let blockSubstitutionsTrial =
           1uy,3uy,   57uy,0uy;     // diorite -> diamond block
     |] // TODO what about tile entities like mob spawners? want to cache them per-chunk and then write them to chunks at end
 
-let substituteBlocks() =
-    let user = "Admin1"
-    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
+let substituteBlocks(map:MapFolder) =
     let LOX, LOY, LOZ = -512, 11, -512
     let MAXI, MAXJ, MAXK = 1024, 50, 1024
     let mutable currentSectionBlocks,currentSectionBlockData,curx,cury,curz = null,null,-1000,-1000,-1000
@@ -2303,8 +2402,9 @@ let substituteBlocks() =
         let y = j-1 + LOY
         let z = k-1 + LOZ
         x,y,z
+    printf "SUBST"
     for j = 1 to MAXJ do
-        printfn "SUBST %d" j
+        printf "."
         for i = 1 to MAXI do
             for k = 1 to MAXK do
                 let x,y,z = XYZ(i,j,k)
@@ -2330,34 +2430,7 @@ let substituteBlocks() =
                             tmp <- tmp &&& 0x0Fuy
                             tmp <- tmp + (ndmg<<< 4)
                         currentSectionBlockData.[bix/2] <- tmp
-    map.SetBlockIDAndDamage(-342, 11, 97, 52uy, 0uy) // 52 = monster spawner
-    map.AddOrReplaceTileEntities [|
-                                    [|
-                                        Int("x", -342)
-                                        Int("y", 11)
-                                        Int("z", 97)
-                                        String("id","MobSpawner")
-                                        Short("RequiredPlayerRange",16s)
-                                        Short("SpawnCount",4s)
-                                        Short("SpawnRange",4s)
-                                        Short("MaxNearbyEntities",6s)
-                                        Short("Delay",-1s)
-                                        Short("MinSpawnDelay",200s)
-                                        Short("MaxSpawnDelay",800s)
-                                        Compound("SpawnData",[|String("id","Skeleton");End|])
-                                        List("SpawnPotentials",Compounds[|
-                                                                            [|
-                                                                            Compound("Entity",[|String("id","Skeleton");End|])
-                                                                            Int("Weight",1)
-                                                                            End
-                                                                            |]
-                                                                        |])
-                                        End
-                                    |]
-                                 |]
-    map.WriteAll()
-                            
-
+    printfn ""
 
 // mappings: should probably be to a chance set that's a function of difficulty or something...
 // given that I can customize them, but want same custom settings for whole world generation, just consider as N buckets, but can e.g. customize the granite etc for more 'choice'...
@@ -2380,6 +2453,15 @@ let substituteBlocks() =
 // in addition to block substitution, need .dat info for e.g. 'witch areas' or guardian zones'
 
 // also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
+
+let makeCrazyMap() =
+    let user = "Admin1"
+    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
+    substituteBlocks(map)
+    findUndergroundAirSpaceConnectedComponents(map)
+    printfn "saving results..."
+    map.WriteAll()
+    printfn "...done!"
 
 
 //works:
@@ -2436,6 +2518,7 @@ do
     //findUndergroundAirSpaceConnectedComponents()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
+    makeCrazyMap()
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
@@ -2468,4 +2551,4 @@ do
 #if FUN
     placeCommandBlocksInTheWorldTemp("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\region\r.0.0.mca""")
 #endif
-
+    ()
