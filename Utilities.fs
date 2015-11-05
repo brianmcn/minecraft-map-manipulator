@@ -7,9 +7,11 @@ open NBT_Manipulation
 open RegionFiles
 
 
-let readDatFile(filename : string) =
-    use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.Open), System.IO.Compression.CompressionMode.Decompress)
+let readDatFileStream(fs : System.IO.Stream) =
+    use s = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress)
     NBT.Read(new BinaryReader2(s))
+
+let readDatFile(filename : string) = readDatFileStream(new System.IO.FileStream(filename, System.IO.FileMode.Open))
 
 let writeDatFile(filename : string, nbt : NBT) =
     use s = new System.IO.Compression.GZipStream(new System.IO.FileStream(filename, System.IO.FileMode.CreateNew), System.IO.Compression.CompressionMode.Compress)
@@ -198,14 +200,14 @@ let diffRegionFiles(regionFile1,regionFile2) =
     let r2 = new RegionFile(regionFile2)
     diffRegions(r1,r2,regionFile1,regionFile2)
 
-let diffDatFiles(datFile1,datFile2) =
+let diffDatFileStreams(datFile1,datFile2) =
     skipUnchangedChunks <- false
     namesToIgnore <- [| |]
     skipUnchangedValues <- false
     startExpanded <- false
     let tv = new TreeView()
-    let r1 = readDatFile(datFile1)
-    let r2 = readDatFile(datFile2)
+    let r1 = readDatFileStream(datFile1)
+    let r2 = readDatFileStream(datFile2)
     tv.Items.Add(new TreeViewItem(Header=datFile1,Background=Brushes.Red)) |> ignore
     tv.Items.Add(new TreeViewItem(Header=datFile2,Background=Brushes.Yellow)) |> ignore
     let n = new TreeViewItem(Header="<root>")
@@ -214,9 +216,78 @@ let diffDatFiles(datFile1,datFile2) =
         tv.Items.Add(n) |> ignore
     if startExpanded then
         n.ExpandSubtree()
+    tv
+
+let diffDatFilesGui(datFile1,datFile2) =
+    let tv = diffDatFileStreams(datFile1,datFile2)
     let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
     let app = new Application()
     app.Run(window) |> ignore
+
+let diffDatFilesText(datFile1,datFile2) =
+    let tv = diffDatFileStreams(datFile1,datFile2)
+    let a = ResizeArray()
+    let (===) a b = System.Object.ReferenceEquals(a,b)
+    let itemsAsSeq (c:System.Windows.Controls.ItemCollection) =
+        seq {
+            for x in c do
+                yield x
+            }
+    let rec traverse(xs:seq<obj>, depth) =
+        for i in xs do
+            match i with
+            | :? TreeViewItem as tvi ->
+                let txt = tvi.Header :?> string
+                let bg = tvi.Background 
+                if bg === Brushes.Red then
+                    a.Add((String.replicate (depth-1) "    ") + ("--- ") + txt)
+                elif bg === Brushes.Yellow then
+                    a.Add((String.replicate (depth-1) "    ") + ("+++ ") + txt)
+                elif bg === Brushes.Orange then
+                    a.Add((String.replicate (depth-1) "    ") + (">   ") + txt)
+                traverse(itemsAsSeq tvi.Items, depth+1)
+            | _ -> ()
+    traverse(itemsAsSeq tv.Items, 1)
+    for s in a do
+        printfn "%s" s
+
+let diffStringArrays(a1:_[],a2:_[]) =
+    // very naive diff
+    let mutable i1, i2 = 0, 0
+    while i1 < a1.Length && i2 < a2.Length do
+        while i1 < a1.Length && i2 < a2.Length && a1.[i1] = a2.[i2] do
+            i1 <- i1 + 1
+            i2 <- i2 + 1
+        // diff, look ahead to try to resync
+        let mutable d2 = i2
+        while i1 < a1.Length && d2 < a2.Length && a1.[i1] <> a2.[d2] do
+            d2 <- d2 + 1
+        if i1 < a1.Length && d2 < a2.Length && a1.[i1] = a2.[d2] then
+            for x = i2 to d2-1 do
+                printfn "+++ %s" a2.[x]
+            i2 <- d2
+        else
+            let mutable d1 = i1
+            while d1 < a1.Length && i2 < a2.Length && a1.[d1] <> a2.[i2] do
+                d1 <- d1 + 1
+            if d1 < a1.Length && i2 < a2.Length && a1.[d1] = a2.[i2] then
+                for x = i1 to d1-1 do
+                    printfn "--- %s" a1.[x]
+                i1 <- d1
+            elif i1 < a1.Length && i2 < a2.Length then
+                // no resync for next item of a1 or a2
+                printfn "--- %s" a1.[i1]
+                printfn "+++ %s" a2.[i2]
+                i1 <- i1 + 1
+                i2 <- i2 + 1
+    // at least one is exhausted
+    while i1 < a1.Length do
+        printfn "--- %s" a1.[i1]
+        i1 <- i1 + 1
+    while i2 < a2.Length do
+        printfn "+++ %s" a2.[i2]
+        i2 <- i2 + 1
+
 
 ///////////////////////////////////////
 

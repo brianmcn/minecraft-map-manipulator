@@ -2471,6 +2471,51 @@ let makeCrazyMap() =
 // {MaxNearbyEntities:6s,RequiredPlayerRange:16s,SpawnCount:4s,SpawnData:{id:"Skeleton"},MaxSpawnDelay:800s,Delay:329s,x:99977,y:39,z:-24,id:"MobSpawner",SpawnRange:4s,MinSpawnDelay:200s,SpawnPotentials:[0:{Entity:{id:"Skeleton"},Weight:1}]}
 ////////////////////////////////////////////
 
+open System.IO.Compression
+
+let compareMinecraftAssets(jar1, jar2) =
+    use archive1 = ZipFile.OpenRead(jar1)
+    use archive2 = ZipFile.OpenRead(jar2)
+    let a1 = ResizeArray()
+    let a2 = ResizeArray()
+    for e in archive1.Entries do
+        if e.FullName.StartsWith("assets/minecraft/loot_tables") ||
+                e.FullName.StartsWith("assets/minecraft/structures") ||
+                e.FullName.StartsWith("assets/minecraft/texts") then
+            a1.Add(e.FullName)
+    for e in archive2.Entries do
+        if e.FullName.StartsWith("assets/minecraft/loot_tables") ||
+                e.FullName.StartsWith("assets/minecraft/structures") ||
+                e.FullName.StartsWith("assets/minecraft/texts") then
+            a2.Add(e.FullName)
+    a1.Sort()
+    a2.Sort()
+    printfn "FILE LIST DIFF"
+    diffStringArrays(a1.ToArray(), a2.ToArray())
+    printfn "=============="
+    for name in a1 do
+        let entry1 = archive1.GetEntry(name)
+        let entry2 = archive2.GetEntry(name)
+        if entry1 <> null && entry2 <> null then
+            if System.IO.Path.GetExtension(name) = "nbt" then
+                printfn "%s" (name.ToUpper())
+                diffDatFilesText(entry1.Open(), entry2.Open())
+                printfn "=============="
+            else
+                printfn "%s" (name.ToUpper())
+                let a1 = ResizeArray()
+                let s1 = new System.IO.StreamReader(entry1.Open())
+                while not s1.EndOfStream do
+                    a1.Add(s1.ReadLine())
+                let a2 = ResizeArray()
+                let s2 = new System.IO.StreamReader(entry2.Open())
+                while not s2.EndOfStream do
+                    a2.Add(s2.ReadLine())
+                diffStringArrays(a1.ToArray(), a2.ToArray())
+                printfn "=============="
+
+////////////////////////////////////////////
+
 [<System.STAThread()>]  
 do   
     //let user = "brianmcn"
@@ -2518,7 +2563,10 @@ do
     //findUndergroundAirSpaceConnectedComponents()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
-    makeCrazyMap()
+    //makeCrazyMap()
+    //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
+    //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
