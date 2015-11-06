@@ -595,7 +595,9 @@ let dumpTileTicks(file) =
                     let y = (t |> Array.find(fun n -> n.Name="y") |> fun x -> x.ToString())
                     let z = (t |> Array.find(fun n -> n.Name="z") |> fun x -> x.ToString())
                     let i = (t |> Array.find(fun n -> n.Name="i") |> fun x -> x.ToString())
-                    printfn "%s %s %s     %s" x y z i
+                    let tt = (t |> Array.find(fun n -> n.Name="t") |> fun x -> x.ToString())
+                    let p = (t |> Array.find(fun n -> n.Name="p") |> fun x -> x.ToString())
+                    printfn "%s %s %s     %s %s %s" x y z i tt p
             with e ->
                 ()
 

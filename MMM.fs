@@ -1949,6 +1949,11 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetBlockInfo(x,y,z)
+    member this.AddTileTick(id,t,p,x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.AddTileTick(id,t,p,x,y,z)
     member this.WriteAll() =
         for KeyValue(args, r) in cachedRegions do
             let rx,rz = args
@@ -2160,6 +2165,24 @@ type Partition(orig : Thingy) as this =
             thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
             thisRoot.rank <- thisRoot.rank + 1 
 
+let putTreasureBoxAt(map:MapFolder,sx,sy,sz) =
+    for x = sx-2 to sx+2 do
+        for z = sz-2 to sz+2 do
+            map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
+            map.SetBlockIDAndDamage(x,sy+3,z,22uy,0uy)  // lapis block
+    //map.SetBlockIDAndDamage(sx,sy,sz,89uy,0uy)  // glowstone  // TODO does not glow, need to recompute light somehow
+    // to have Minecraft recompute the light, use a command block and a tile tick
+    map.SetBlockIDAndDamage(sx,sy,sz,137uy,0uy)  // command block
+    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command","setblock ~ ~ ~ glowstone"); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
+    map.AddTileTick("minecraft:command_block",1,0,sx,sy,sz)
+    for x = sx-2 to sx+2 do
+        for y = sy+1 to sy+2 do
+            for z = sz-2 to sz+2 do
+                map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
+    map.SetBlockIDAndDamage(sx,sy+1,sz,54uy,2uy)  // chest
+    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy+1); Int("z",sz); String("id","Chest"); List("Items",Compounds[| |]); String("Lock",""); String("CustomName","Lootz!"); End |] |])
+
+
 let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
     let LOX, LOY, LOZ = -512, 11, -512
     let MAXI, MAXJ, MAXK = 1024, 50, 1024
@@ -2338,17 +2361,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
             for z = ez-1 to ez+1 do
                 map.SetBlockIDAndDamage(x,ey-3,z,42uy,0uy)  // iron block
         // put treasure at bottom end
-        for x = sx-2 to sx+2 do
-            for z = sz-2 to sz+2 do
-                map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
-                map.SetBlockIDAndDamage(x,sy+3,z,22uy,0uy)  // lapis block
-        map.SetBlockIDAndDamage(sx,sy,sz,89uy,0uy)  // glowstone
-        for x = sx-2 to sx+2 do
-            for y = sy+1 to sy+2 do
-                for z = sz-2 to sz+2 do
-                    map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
-        map.SetBlockIDAndDamage(sx,sy+1,sz,54uy,2uy)  // chest
-        map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy+1); Int("z",sz); String("id","Chest"); List("Items",Compounds[| |]); String("Lock",""); String("CustomName","Lootz!"); End |] |])
+        putTreasureBoxAt(map,sx,sy,sz)
     // end foreach CC
     ()
 
@@ -2493,9 +2506,36 @@ let findSomeMountainPeaks(map:MapFolder) =
                     s <- s + map.GetHeightMap(a,b)
             s
         with _ -> 0  // deal with array index out of bounds
-    printfn "The high points are:"
-    for (x,z) in highPoints |> Seq.sortByDescending score |> Seq.take 5 do
+    let distance2(a,b,c,d) = (a-c)*(a-c)+(b-d)*(b-d)
+    let bestHighPoints = ResizeArray()
+    for hx,hz in highPoints |> Seq.sortByDescending score do
+        if hx > -480 && hx < 480 && hz > -480 && hz < 480 then  // not at edge of bounds
+            if bestHighPoints |> Seq.forall (fun (ex,ez) -> distance2(ex,ez,hx,hz) > 200*200) then   // spaced apart
+                bestHighPoints.Add( (hx,hz) )
+    printfn "The best high points are:"
+    for (x,z) in bestHighPoints do
         printfn "  (%4d,%4d)" x z
+    // decorate map with dungeon ascent
+    let spawnerTileEntities = ResizeArray()
+    let rng = System.Random()
+    for (x,z) in bestHighPoints do
+        let y = map.GetHeightMap(x,z)
+        putTreasureBoxAt(map,x,y,z)   // TODO heightmap, blocklight, skylight
+        for i = x-20 to x+20 do
+            for j = z-20 to z+20 do
+                if abs(x-i) > 4 || abs(z-j) > 4 then
+                    let dist = abs(x-i) + abs(z-j)
+                    let pct = float (40-dist) / 200.0
+                    if rng.NextDouble() < pct then
+                        let x = i
+                        let z = j
+                        let y = map.GetHeightMap(x,z)
+                        map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton")
+                        spawnerTileEntities.Add(ms.AsNbtTileEntity())
+    map.AddOrReplaceTileEntities(spawnerTileEntities)
+    map.WriteAll()
+
 
 let makeCrazyMap() =
     let user = "Admin1"
@@ -2577,7 +2617,6 @@ do
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
     //placeCertainEntitiesInTheWorld()
     // 45,000,012
-    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Purple\region\r.0.0.mca""")
     //placeCertainBlocksInTheWorld()
     //placeCommnadBlocksInTheWorld("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
@@ -2610,6 +2649,14 @@ do
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
     makeCrazyMap()
+    (*
+    let fil = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w45a\region\r.0.0.mca"""
+    let r = RegionFile(fil)
+    r.AddTileTick("minecraft:command_block",1,0,27,67,33)
+    r.Write(fil+".new")
+    *)
+    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w45a\region\r.0.0.mca""")
+    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\seed31Copy\region\r.0.0.mca""")
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")

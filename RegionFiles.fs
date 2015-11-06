@@ -440,3 +440,19 @@ type RegionFile(filename) =
                             let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
                             let data = s |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
                             f blocks data
+    member this.AddTileTick(id,t,p,x,y,z) =
+        let cx = ((x+51200)%512)/16
+        let cz = ((z+51200)%512)/16
+        let theChunk = this.GetChunk(cx,cz)
+        let tick = [| String("i",id); Int("t",t); Int("p",p); Int("x",x); Int("y",y); Int("z",z); End |]
+        let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+        match theChunkLevel with
+        | Compound(_,a) ->
+            match a |> Array.tryFindIndex (fun x -> x.Name = "TileTicks") with
+            | Some i ->
+                match a.[i] with
+                | List(n,Compounds(cs)) ->
+                   a.[i] <-  List(n,Compounds(Seq.append cs [tick] |> Seq.toArray))
+            | _ ->
+                match theChunk with 
+                | Compound(_,arr) -> arr.[0] <- Compound("Level", Seq.append [List("TileTicks",Compounds[|tick|])] a |> Seq.toArray)  // 'a' retains the "End" at the end
