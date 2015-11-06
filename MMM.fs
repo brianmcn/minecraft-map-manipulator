@@ -2602,6 +2602,99 @@ let compareMinecraftAssets(jar1, jar2) =
 
 ////////////////////////////////////////////
 
+type Function =
+    | SetCount of int * int
+    | SetData of int
+    | EnchantWithLevels of int * int * bool // min, max, treasure
+    | SetDamage of float * float
+    | SetNbt of string
+    | EnchantRandomly of string list
+    | LootingEnchant of int * int
+    | FurnaceSmelt
+    //| SetAttributes of TODO
+type EntryDatum =
+    | Item of string * Function list // name, functions
+    | LootTable of string // name
+    | Empty
+type Entries = (EntryDatum * int * int)list // weight, quality
+type Rolls =
+    | Roll of int * int
+type Pool =
+    | Pool of Rolls * Entries // TODO * Condition[]
+type LootTable =
+    | Pools of Pool list
+    member this.Write(w:System.IO.TextWriter) =
+        let ICH s = s |> Seq.toArray |> (fun a -> Array.init a.Length (fun i -> a.[i], if i<>0 then "," else "")) // interspersed comma helper
+        w.WriteLine("""{"pools":[""")
+        for (Pool(Roll(ra,rb),entries)),c in ICH(match this with Pools x -> x) do
+            w.WriteLine(sprintf """    %s{"rolls":{"min":%d,"max":%d}, "entries":[""" c ra rb)
+            for (datum,weight,quality),c in ICH entries do
+                match datum with
+                | Item(name, fs) ->
+                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d, "type":"item", "name":"%s" """ c weight quality name)
+                    if fs.Length = 0 then
+                        w.WriteLine(sprintf """}""")
+                    else
+                        w.WriteLine()
+                        w.WriteLine(sprintf """         ,"functions": [""")
+                        for f,c in ICH fs do
+                            match f with
+                            | SetCount(a,b) -> w.WriteLine(sprintf """             %s{"function":"set_count","count":{"min":%d,"max":%d}}""" c a b)
+                            | SetData d -> w.WriteLine(sprintf """             %s{"function":"set_data","data":%d}""" c d)
+                            | EnchantWithLevels(a,b,t) -> w.WriteLine(sprintf """             %s{"function":"enchant_with_levels","levels":{"min":%d,"max":%d},"treasure":%A}""" c a b t)
+                            | SetDamage(a,b) -> w.WriteLine(sprintf """             %s{"function":"set_damage","damage":{"min":%f,"max":%f}}""" c a b)
+                            | SetNbt(s) -> w.WriteLine(sprintf """             %s{"function":"set_nbt","tag":"%s"}""" c s)
+                            | EnchantRandomly(a) -> 
+                                if a.Length = 0 then
+                                    w.WriteLine(sprintf """             %s{"function":"enchant_randomly"}""" c)
+                                else
+                                    w.WriteLine(sprintf """             %s{"function":"enchant_randomly","enchantments":[""" c)
+                                    for e,cc in ICH a do
+                                        w.WriteLine(sprintf """                 %s"%s" """ cc e)
+                                    w.WriteLine(sprintf """             ]}""")
+                            | LootingEnchant(a,b) -> w.WriteLine(sprintf """             %s{"function":"looting_enchant","count":{"min":%d,"max":%d}}""" c a b)
+                            | FurnaceSmelt -> w.WriteLine(sprintf """             %s{"function":"furnace_smelt"}""" c)
+                        w.WriteLine("""        ]}""")
+                | _ -> failwith "unhandled cases TODO"
+            w.WriteLine("""    ]}""")
+        w.WriteLine("""]}""")
+
+let simple_dungeon =
+    Pools [
+            Pool(Roll(1,3), [
+                    Item("minecraft:saddle",[]), 20, 0
+                    Item("minecraft:golden_apple",[]), 15, 0
+                    Item("minecraft:golden_apple",[SetData 1]), 2, 0
+                    Item("minecraft:record_13",[]), 15, 0
+                    Item("minecraft:record_cat",[]), 15, 0
+                    Item("minecraft:name_tag",[]), 20, 0
+                    Item("minecraft:golden_horse_armor",[]), 10, 0
+                    Item("minecraft:iron_horse_armor",[]), 15, 0
+                    Item("minecraft:diamond_horse_armor",[]), 5, 0
+                    Item("minecraft:book",[EnchantRandomly[]]), 5, 0
+                ])
+            Pool(Roll(1,4), [
+                    Item("minecraft:iron_ingot",[SetCount(1,4)]), 10, 0
+                    Item("minecraft:gold_ingot",[SetCount(1,4)]), 5, 0
+                    Item("minecraft:bread",[]), 20, 0
+                    Item("minecraft:wheat",[SetCount(1,4)]), 20, 0
+                    Item("minecraft:bucket",[]), 10, 0
+                    Item("minecraft:redstone",[SetCount(1,4)]), 15, 0
+                    Item("minecraft:coal",[SetCount(1,4)]), 15, 0
+                    Item("minecraft:melon_seeds",[SetCount(2,4)]), 10, 0
+                    Item("minecraft:pumpkin_seeds",[SetCount(2,4)]), 10, 0
+                    Item("minecraft:beetroot_seeds",[SetCount(2,4)]), 10, 0
+                ])
+            Pool(Roll(3,3), [
+                    Item("minecraft:bone",[SetCount(1,8)]), 10, 0
+                    Item("minecraft:gunpowder",[SetCount(1,8)]), 10, 0
+                    Item("minecraft:rotten_flesh",[SetCount(1,8)]), 10, 0
+                    Item("minecraft:string",[SetCount(1,8)]), 10, 0
+                ])
+        ]
+
+////////////////////////////////////////////
+
 [<System.STAThread()>]  
 do   
     //let user = "brianmcn"
@@ -2649,6 +2742,12 @@ do
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
     //makeCrazyMap()
+    let sb = new System.Text.StringBuilder()
+    let sw = new System.IO.StringWriter(sb)
+    simple_dungeon.Write(sw)
+    sw.Close()
+    printfn "%s" (sb.ToString())
+
     (*
     let fil = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w45a\region\r.0.0.mca"""
     let r = RegionFile(fil)
