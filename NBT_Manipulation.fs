@@ -72,7 +72,7 @@ and NBT =
     | ByteArray of Name * byte[]
     | String of Name * string // int16 length beforehand
     | List of Name * Payload // (name,kind,num,a)
-    | Compound of Name * NBT[]
+    | Compound of Name * ResizeArray<NBT>
     | IntArray of Name * int[] // int32 before data shows num elements
     member this.Name =
         match this with
@@ -90,7 +90,7 @@ and NBT =
         | IntArray(n,_) -> n
     member this.TryGetFromCompound(s:string) =
         match this with
-        | Compound(_n,a) -> a |> Array.tryFind (fun x -> x.Name = s)
+        | Compound(_n,a) -> a |> Seq.tryFind (fun x -> x.Name = s)
         | _ -> failwith "try to name-index into a non-compound"
     member this.Item(s:string) =
         match this.TryGetFromCompound(s) with
@@ -193,7 +193,7 @@ and NBT =
             List(n,payload)
         | 10uy ->
             let n = NBT.ReadName(s)
-            Compound(n, readCompoundPayload())
+            Compound(n, readCompoundPayload() |> ResizeArray)
         | 11uy -> let n = NBT.ReadName(s) in let len = s.ReadInt32() in let a = Array.init len (fun _ -> s.ReadInt32()) in IntArray(n,a)
         | bb -> failwithf "bad NBT tag: %d" bb
     static member WriteName(bw : BinaryWriter2, n : string) =
@@ -226,7 +226,7 @@ and NBT =
                               //if n = "TileEntities" then printfn "%d" a.Length
                               for x in a do (for y in x do y.Write(bw); assert(x.[x.Length-1] = End))
             | IntArrays(a) -> bw.Write(11uy); bw.Write(a.Length); for x in a do for y in x do bw.Write(y)
-        | Compound(n,xs) -> bw.Write(10uy); NBT.WriteName(bw,n); for x in xs do x.Write(bw); assert(xs.[xs.Length-1] = End)
+        | Compound(n,xs) -> bw.Write(10uy); NBT.WriteName(bw,n); for x in xs do x.Write(bw); assert(xs.[xs.Count-1] = End)
         | IntArray(n,xs) -> bw.Write(11uy); NBT.WriteName(bw,n); bw.Write(xs.Length); for x in xs do bw.Write(x)
     member this.Diff(other : NBT) =
         let rec diff(x,y,path) =
@@ -242,8 +242,8 @@ and NBT =
                 if x=y then None else 
                 match y with 
                 | Compound(yn,ys) -> 
-                    if xn=yn && xs.Length=ys.Length then 
-                        (None,xs,ys) |||> Array.fold2 (fun s xx yy -> match s with None -> diff(xx,yy,xn::path) | s -> s) 
+                    if xn=yn && xs.Count=ys.Count then 
+                        (None,xs,ys) |||> Seq.fold2 (fun s xx yy -> match s with None -> diff(xx,yy,xn::path) | s -> s) 
                     else Some(path,x,y)
                 | _ -> Some(path,x,y)
         and paydiff((List(_,xs) as x), (List(_,ys) as y), path) =
@@ -280,7 +280,7 @@ let rec cataNBT f g nbt =
     | String _
     | IntArray _ -> f nbt
     | List(n,pay) -> f (List(n, cataPayload f g pay))
-    | Compound(n,a) -> f (Compound(n, a |> Array.map (cataNBT f g)))
+    | Compound(n,a) -> f (Compound(n, a |> Seq.map (cataNBT f g) |> ResizeArray))
 and cataPayload f g pay =
     match pay with
     | Bytes _

@@ -48,18 +48,18 @@ type RegionFile(filename) =
                                                                     // a number of things can be absent
                                                                     NBT.List("Sections", Compounds([||]))
                                                                     NBT.End
-                                                                   |]
+                                                                   |] |> ResizeArray
                                                          )
                                              NBT.Int("DataVersion",firstSeenDataVersion)
-                                             NBT.End|])
+                                             NBT.End|] |> ResizeArray)
                 chunks.[cx,cz] <- newChunk
                 newChunk
             | c -> c
         if chunkHeightMapCache.[cx,cz] = null then
-            let chunkLevel = match chunk with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+            let chunkLevel = match chunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
             match chunkLevel with 
             | Compound(n,nbts) -> 
-                let i = nbts |> Array.findIndex (fun nbt -> nbt.Name = "HeightMap")
+                let i = nbts.FindIndex (fun nbt -> nbt.Name = "HeightMap")
                 match nbts.[i] with
                 | NBT.IntArray(_,flatArray) ->
                     let squareArray = Array2D.init 16 16 (fun x z -> flatArray.[z*16+x])
@@ -133,10 +133,10 @@ type RegionFile(filename) =
             for cz = 0 to 31 do
                 if chunks.[cx,cz] <> End then
                     if isChunkDirty.[cx,cz] then
-                        let chunkLevel = match chunks.[cx,cz] with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+                        let chunkLevel = match chunks.[cx,cz] with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
                         match chunkLevel with 
                         | Compound(n,nbts) -> 
-                            let i = nbts |> Array.findIndex (fun nbt -> nbt.Name = "LightPopulated")
+                            let i = nbts.FindIndex (fun nbt -> nbt.Name = "LightPopulated")
                             nbts.[i] <- NBT.Byte("LightPopulated", 0uy)
                     let ms = new System.IO.MemoryStream()
                     use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionMode.Compress, true)
@@ -199,7 +199,7 @@ type RegionFile(filename) =
         let sy = y/16
         match chunkSectionsCache.[xx,zz].[sy] with
         | null -> 
-            let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+            let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
             let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
             let theSection = 
                 match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
@@ -209,7 +209,7 @@ type RegionFile(filename) =
                                         NBT.ByteArray("BlockLight",Array.create 2048 0uy); NBT.ByteArray("SkyLight",Array.create 2048 0uy); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
                     match theChunkLevel with
                     | Compound(_,a) ->
-                        let i = a |> Array.findIndex (fun x -> x.Name="Sections")
+                        let i = a.FindIndex (fun x -> x.Name="Sections")
                         a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
                         isChunkDirty.[xx,zz] <- true
                         newSection
@@ -248,13 +248,13 @@ type RegionFile(filename) =
             let blockData = Array.init 4096 (fun x -> if (x+51200)%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
             blockData.[i])
         let theChunk = this.GetOrCreateChunk(x,z)
-        let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+        let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         // TileEntities
         let tileEntity = 
             match theChunkLevel.["TileEntities"] with 
             | List(_,Compounds(cs)) ->
                 let tes = cs |> Array.choose (fun te -> 
-                    let te = Compound("unnamedDummyToCarryAPayload",te)
+                    let te = Compound("unnamedDummyToCarryAPayload",te |> ResizeArray)
                     if te.["x"]=Int("x",x) && te.["y"]=Int("y",y) && te.["z"]=Int("z",z) then Some te else None)
                 if tes.Length = 0 then None
                 elif tes.Length = 1 then Some tes.[0]
@@ -369,25 +369,19 @@ type RegionFile(filename) =
         let mutable prevcz = -1
         let mutable tepayload = ResizeArray<NBT[]>()
         let storeIt(prevcx,prevcz,tepayload) =
-            let a = match getOrCreateChunk(prevcx, prevcz) with Compound(_,[|Compound(_,a);_|]) | Compound(_,[|Compound(_,a);_;_|]) -> a
+            let a = match getOrCreateChunk(prevcx, prevcz) with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
             let mutable found = false
             let mutable i = 0
-            for te in tepayload do
-                let sb = new System.Text.StringBuilder()
-                for nbt in te do
-                    sb.Append(nbt.ToString()).Append("   ") |> ignore
-                //printfn "%s" (let s = sb.ToString() in s.Substring(0,min 90 s.Length))
-            //printfn "-----"
-            while not found && i < a.Length-1 do
+            while not found && i < a.Count-1 do
                 if a.[i].Name = "TileEntities" then
                     found <- true
                     a.[i] <- List("TileEntities",Compounds(tepayload |> Array.ofSeq))
                 i <- i + 1
             if not found then
                 match chunks.[prevcx, prevcz] with 
-                | Compound(_,([|Compound(n,a);_|] as r)) 
-                | Compound(_,([|Compound(n,a);_;_|] as r)) -> 
-                    r.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tepayload |> Array.ofSeq)) |] |> Array.ofSeq)
+                | Compound(_,rsa) ->
+                    match rsa.[0] with 
+                    | Compound(n,a) -> rsa.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tepayload |> Array.ofSeq)) |] |> ResizeArray)
         for c in cmds do
             let bid, bd, au, s,txt = 
                 match c with
@@ -407,8 +401,7 @@ type RegionFile(filename) =
                     storeIt(prevcx,prevcz,tepayload)
                 // load in initial TE as we move into next chunk
                 let newChunk = match getOrCreateChunk(xx,zz) with 
-                               | Compound(_,[|Compound(_,_) as c;_|]) 
-                               | Compound(_,[|Compound(_,_) as c;_;_|]) -> c
+                               | Compound(_,rsa) -> rsa.[0]
                 tepayload <- match newChunk.TryGetFromCompound("TileEntities") with | Some (List(_,Compounds(cs))) -> ResizeArray(cs) | None -> ResizeArray()
                 prevcx <- xx
                 prevcz <- zz
@@ -445,14 +438,13 @@ type RegionFile(filename) =
         let cz = ((z+51200)%512)/16
         let theChunk = this.GetChunk(cx,cz)
         let tick = [| String("i",id); Int("t",t); Int("p",p); Int("x",x); Int("y",y); Int("z",z); End |]
-        let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+        let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         match theChunkLevel with
-        | Compound(_,a) ->
-            match a |> Array.tryFindIndex (fun x -> x.Name = "TileTicks") with
-            | Some i ->
+        | Compound(level,a) ->
+            match a.FindIndex (fun x -> x.Name = "TileTicks") with
+            | -1 -> 
+                a.Insert(0, List("TileTicks",Compounds[|tick|]))
+            | i ->
                 match a.[i] with
                 | List(n,Compounds(cs)) ->
                    a.[i] <-  List(n,Compounds(Seq.append cs [tick] |> Seq.toArray))
-            | _ ->
-                match theChunk with 
-                | Compound(_,arr) -> arr.[0] <- Compound("Level", Seq.append [List("TileTicks",Compounds[|tick|])] a |> Seq.toArray)  // 'a' retains the "End" at the end

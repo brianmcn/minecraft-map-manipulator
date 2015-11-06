@@ -1897,10 +1897,10 @@ type MapFolder(folderName) =
                 for cz = 0 to 31 do
                     if tesPerChunk.[cx,cz].Count > 0 then
                         let chunk = r.GetChunk(cx,cz)
-                        let a = match chunk with Compound(_,[|Compound(_,a);_|]) | Compound(_,[|Compound(_,a);_;_|]) -> a
+                        let a = match chunk with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
                         let mutable found = false
                         let mutable i = 0
-                        while not found && i < a.Length-1 do
+                        while not found && i < a.Count-1 do
                             match a.[i] with
                             | List("TileEntities",Compounds(existingTEs)) ->
                                 // there are TEs already, remove any with xyz that we'll overwrite, and add new ones
@@ -1926,9 +1926,9 @@ type MapFolder(folderName) =
                             i <- i + 1
                         if not found then // no TileEntities yet, write the entry
                             match chunk with 
-                            | Compound(_,([|Compound(n,a);_|] as r)) 
-                            | Compound(_,([|Compound(n,a);_;_|] as r)) -> 
-                                r.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tesPerChunk.[cx,cz] |> Array.ofSeq)) |] |> Array.ofSeq)
+                            | Compound(_,rsa) -> 
+                                match rsa.[0] with 
+                                | Compound(n,a) -> rsa.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tesPerChunk.[cx,cz] |> Array.ofSeq)) |] |> ResizeArray)
     member this.GetHeightMap(x,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
@@ -1990,10 +1990,10 @@ type MobSpawnerInfo() =
             Short("Delay",this.Delay)
             Short("MinSpawnDelay",this.MinSpawnDelay)
             Short("MaxSpawnDelay",this.MaxSpawnDelay)
-            Compound("SpawnData",[|String("id",this.BasicMob);End|])
+            Compound("SpawnData",[|String("id",this.BasicMob);End|] |> ResizeArray)
             List("SpawnPotentials",Compounds[|
                                                 [|
-                                                Compound("Entity",[|String("id",this.BasicMob);End|])
+                                                Compound("Entity",[|String("id",this.BasicMob);End|] |> ResizeArray)
                                                 Int("Weight",1)
                                                 End
                                                 |]
@@ -2068,14 +2068,14 @@ let repopulateAsAnotherBiome() =
             match regionFile.TryGetChunk(cx,cz) with
             | None -> ()
             | Some theChunk ->
-                let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
                 // replace biomes
                 match theChunkLevel.["Biomes"] with
                 | NBT.ByteArray(_,a) -> for i = 0 to a.Length-1 do a.[i] <- newBiome
                 // replace terrain-populated
                 match theChunkLevel with
                 | NBT.Compound(_,a) ->
-                    for i = 0 to a.Length-1 do
+                    for i = 0 to a.Count-1 do
                         if a.[i].Name = "TerrainPopulated" then
                             a.[i] <- NBT.Byte("TerrainPopulated", 0uy)
     regionFile.Write(fil+".new")
@@ -2098,7 +2098,7 @@ let debugRegion() =
             | None -> ()
             | Some theChunk ->
                 printf "%5d,%5d: " (cx*16+rx*512) (cz*16+rz*512)
-                let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
                 match theChunkLevel.["TerrainPopulated"] with
                 | NBT.Byte(_,b) -> printf "TP=%d  " b
                 match theChunkLevel.["LightPopulated"] with
@@ -2114,7 +2114,7 @@ let debugRegion() =
                 // replace terrain-populated
                 match theChunkLevel with
                 | NBT.Compound(_,a) ->
-                    for i = 0 to a.Length-1 do
+                    for i = 0 to a.Count-1 do
                         if a.[i].Name = "TerrainPopulated" then
                             a.[i] <- NBT.Byte("TerrainPopulated", 1uy)
     regionFile.Write(fil+".new")
@@ -2648,7 +2648,7 @@ do
     //findUndergroundAirSpaceConnectedComponents()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
-    makeCrazyMap()
+    //makeCrazyMap()
     (*
     let fil = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w45a\region\r.0.0.mca"""
     let r = RegionFile(fil)

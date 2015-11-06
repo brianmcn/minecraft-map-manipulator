@@ -33,8 +33,8 @@ let LIST_ITEM = "<list item>"
 
 let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewItem) =
     let hasDiff = ref false
-    let xnames = x |> Array.map (fun z -> z.Name) |> set
-    let ynames = y |> Array.map (fun z -> z.Name) |> set
+    let xnames = x |> Seq.map (fun z -> z.Name) |> set
+    let ynames = y |> Seq.map (fun z -> z.Name) |> set
     let names = (Set.union xnames ynames).Remove(END_NAME)
     let names = Set.difference names (set namesToIgnore)
     for n in names do
@@ -78,7 +78,7 @@ let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewIt
                                     let localDiff = ref false
                                     let BODY(i) =
                                         if i = -1 then
-                                            MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
+                                            MakeTreeDiff (Compound("",x|>ResizeArray)) (Compound("",ResizeArray())) tvj |> ignore
                                             tvj.Background <- Brushes.Red
                                             tvi.Background <- Brushes.Orange
                                             hasDiff := true
@@ -86,7 +86,7 @@ let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewIt
                                         else
                                             let y = ya.[i]
                                             ya.RemoveAt(i)
-                                            if MakeTreeDiff (Compound("",x)) (Compound("",y)) tvj then
+                                            if MakeTreeDiff (Compound("",x|>ResizeArray)) (Compound("",y|>ResizeArray)) tvj then
                                                 tvj.Background <- Brushes.Orange
                                                 tvi.Background <- Brushes.Orange
                                                 hasDiff := true
@@ -119,7 +119,7 @@ let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewIt
                                         BODY(i)
                                     // TODO other kinds of heuristic matches?
                                     else
-                                        MakeTreeDiff (Compound("",x)) (Compound("",[||])) tvj |> ignore
+                                        MakeTreeDiff (Compound("",x|>ResizeArray)) (Compound("",ResizeArray())) tvj |> ignore
                                         tvj.Background <- Brushes.Red
                                         tvi.Background <- Brushes.Orange
                                         hasDiff := true
@@ -127,7 +127,7 @@ let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewIt
                                         tvi.Items.Add(tvj) |> ignore
                                 for y in ya do
                                     let tvj = new TreeViewItem(Header=LIST_ITEM)
-                                    MakeTreeDiff (Compound("",[||])) (Compound("",y)) tvj |> ignore
+                                    MakeTreeDiff (Compound("",ResizeArray())) (Compound("",y|>ResizeArray)) tvj |> ignore
                                     tvj.Background <- Brushes.Yellow
                                     tvi.Background <- Brushes.Orange
                                     hasDiff := true
@@ -176,13 +176,13 @@ let diffRegions(r1:RegionFile,r2:RegionFile,regionFile1:string,regionFile2:strin
                 elif not skipUnchangedChunks then
                     tv.Items.Add(n) |> ignore
             | Some c1, _ ->
-                if MakeTreeDiff c1 (Compound("",[||])) n then
+                if MakeTreeDiff c1 (Compound("",ResizeArray())) n then
                     n.Background <- Brushes.Red 
                     tv.Items.Add(n) |> ignore
                 elif not skipUnchangedChunks then
                     tv.Items.Add(n) |> ignore
             | _, Some c2 ->
-                if MakeTreeDiff (Compound("",[||])) c2 n then
+                if MakeTreeDiff (Compound("",ResizeArray())) c2 n then
                     n.Background <- Brushes.Yellow
                     tv.Items.Add(n) |> ignore
                 elif not skipUnchangedChunks then
@@ -299,13 +299,14 @@ let killAllEntities() =
         for cz = 0 to 15 do
             let nbt = regionFile.GetChunk(cx, cz)
             match nbt with 
-            Compound(_,[|theChunk;_|]) ->
+            Compound(_,rsa) ->
+                let theChunk = rsa.[0]
                 match theChunk.TryGetFromCompound("Entities") with 
                 | None -> ()
                 | Some _ -> 
                     match theChunk with 
                     Compound(_cname,a) ->
-                        let i = a |> Array.findIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
+                        let i = a.FindIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
                         a.[i] <- NBT.List("Entities",Compounds[||])
     regionFile.Write(filename+".new")
 
@@ -328,13 +329,14 @@ let placeCertainEntitiesInTheWorld(entities,filename) =
         for cz = 0 to 15 do
             let nbt = regionFile.TryGetChunk(cx, cz)
             match nbt with 
-            | Some( Compound(_,[|theChunk;_;_|]) ) | Some( Compound(_,[|theChunk;_|]) ) ->
+            | Some( Compound(_,rsa) ) ->
+                let theChunk = rsa.[0]
                 match theChunk.TryGetFromCompound("Entities") with 
                 | None -> ()
                 | Some _ -> 
                     match theChunk with 
                     Compound(cname,a) ->
-                        let i = a |> Array.findIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
+                        let i = a.FindIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
                         let es = entities |> Seq.choose (fun (e,(x,z)) -> if x/16=cx && z/16=cz then Some e else None) |> Seq.toArray 
                         a.[i] <- NBT.List("Entities",Compounds es)
             | None -> ()
@@ -351,9 +353,7 @@ let dumpSomeCommandBlocks(fil) =
             for cz = 0 to 31 do
                 try
                     let nbt = regionFile.GetChunk(cx, cz)
-                    let theChunk = match nbt with Compound(_,[|c;_|]) -> c 
-                                                | Compound(_,[|c;_;_|]) -> c 
-                                                | _ -> failwith "unexpected cpdf"
+                    let theChunk = match nbt with Compound(_,rsa) -> rsa.[0]
                     match theChunk.TryGetFromCompound("TileEntities") with 
                     | None -> ()
                     | Some te -> 
@@ -502,10 +502,11 @@ let renamer() =
     //printfn "%s" (nbt.ToString())
     let newNbt =
         match nbt with
-        | Compound("",[|Compound("Data",a);End|]) -> 
-            let a = a |> Array.filter (function String("LevelName",_) -> false | _ -> true)
-            let a = a |> Array.append [|String("LevelName","Snake Game by Lorgon111")|]
-            Compound("",[|Compound("Data",a);End|])
+        | Compound("",rsa) -> 
+            match rsa.[0], rsa.[1] with Compound("Data",a), End -> 
+                let a = a |> Seq.filter (function String("LevelName",_) -> false | _ -> true)
+                let a = a |> Seq.append [|String("LevelName","Snake Game by Lorgon111")|]
+                Compound("",[|Compound("Data",a|>ResizeArray);End|]|>ResizeArray)
         | _ -> failwith "bummer"
     printfn "%s" (newNbt.ToString())
     writeDatFile(file + ".new", newNbt)
@@ -546,10 +547,10 @@ let placeCertainBlocksInTheWorld() =
     // caption (on 128-wide image, can fit about 24 letters across a line)
     //          123456789012345678901234
     let center24(s:string) = (String.replicate ((24 - s.Length)/2) " ") + s
-    let top1 = center24 "\"ALL THESE BRIDGES"
-    let top2 = center24 "POSTS ARE DUMB\""
-    let bot1 = center24 "THAT'S LIKE..."
-    let bot2 = center24 "YOUR OPINION, MAN"
+    let top1 = center24 ""
+    let top2 = center24 "DUDE"
+    let bot1 = center24 "FAR OUT, MAN"
+    let bot2 = center24 ""
     let caption(x, topy, leftz, text:string) =
         let mutable z = leftz
         for c in text do
@@ -588,7 +589,7 @@ let dumpTileTicks(file) =
         for z = 0 to 31 do
             try
                 let theChunk = region.GetChunk(x,z)
-                let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
                 let ticks = match theChunkLevel.["TileTicks"] with List(_,Compounds(cs)) -> cs
                 for t in ticks do
                     let x = (t |> Array.find(fun n -> n.Name="x") |> fun x -> x.ToString())
@@ -607,10 +608,10 @@ let removeAllTileTicks(fil) =
         for z = 0 to 31 do
             try
                 let theChunk = region.GetChunk(x,z)
-                let theChunkLevel = match theChunk with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
                 match theChunkLevel with
                 | Compound(_n,a) ->
-                    let i = a |> Array.findIndex(fun x -> x.Name = "TileTicks")
+                    let i = a.FindIndex(fun x -> x.Name = "TileTicks")
                     a.[i] <- List("TileTicks",Compounds[||])
             with e ->
                 ()
@@ -632,7 +633,7 @@ let editMapDat(file) =
                                                     Int("zCenter",64)
                                                     ByteArray("colors",Array.zeroCreate 16384)
                                                     End
-                                                    |])
+                                                    |] |> ResizeArray)
         | _ -> nbt) id nbt
     printfn "%s" (nbt.ToString())
     writeDatFile(file+".new", nbt)
@@ -643,7 +644,7 @@ let mapDatToPng(mapDatFile:string, newPngFilename:string) =
     let nbt = cataNBT (fun nbt -> 
         match nbt with 
         | NBT.Compound("data",a) ->
-            match a |> Array.find(fun x -> x.Name = "colors") with
+            match a |> Seq.find(fun x -> x.Name = "colors") with
             | ByteArray(_,colorArray) ->
                 for x = 0 to 127 do
                     for y = 0 to 127 do
@@ -726,7 +727,7 @@ let findAllLoot(regionFolder:string) =
                 match r.TryGetChunk(cx,cz) with
                 | None -> ()
                 | Some c ->
-                    let theChunkLevel = match c with Compound(_,[|c;_|]) | Compound(_,[|c;_;_|]) -> c // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                    let theChunkLevel = match c with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
                     (*
                     let lookAllItemsCore(items:NBT[][]) =
                         let ebs = ResizeArray()
@@ -1171,10 +1172,10 @@ let makeBiomeMap() =
                 for cz = 0 to 31 do
                     match RI.TryGetChunk(cx,cz) with
                     | Some c ->
-                        let chunkLevel = match c with Compound(_,[|c;_|]) -> c | Compound(_,[|c;_;_|]) -> c  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+                        let chunkLevel = match c with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
                         match chunkLevel with 
                         | Compound(n,nbts) -> 
-                            let biomes = nbts |> Array.find (fun nbt -> nbt.Name = "Biomes")
+                            let biomes = nbts |> Seq.find (fun nbt -> nbt.Name = "Biomes")
                             match biomes with
                             | NBT.ByteArray(_,a) ->
                                 for x = 0 to 15 do
