@@ -1518,13 +1518,13 @@ let placeCommandBlocksInTheWorld(fil) =
         yield U """tellraw @a ["You can keep playing, or"]"""
         yield U """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
         // fireworks
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~3 ~0 ~0 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}"""
+        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~3 ~0 ~0 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}"""
         yield! nTicksLater(8)
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~3 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:0,Trail:1,Colors:[13172728],FadeColors:[16777215]},]}}}}"""
+        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~3 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:0,Trail:1,Colors:[13172728],FadeColors:[16777215]},]}}}}"""
         yield! nTicksLater(8)
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~-3 ~0 ~0 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:0,Colors:[16777074],FadeColors:[16777215]},]}}}}"""
+        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~-3 ~0 ~0 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:0,Colors:[16777074],FadeColors:[16777215]},]}}}}"""
         yield! nTicksLater(8)
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~-3 {LifeTime:20,FireworksItem:{id:401,Count:1,tag:{Fireworks:{Explosions:[{Type:3,Flicker:1,Trail:1,Colors:[6160227],FadeColors:[16777215]}]}}}}"""
+        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~-3 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:3,Flicker:1,Trail:1,Colors:[6160227],FadeColors:[16777215]}]}}}}"""
         |]
     region.PlaceCommandBlocksStartingAt(GOT_WIN_COMMON_LOGIC,gotAWinCommonLogic,"someone won coda")
     let timekeeperLogic =
@@ -2454,14 +2454,60 @@ let substituteBlocks(map:MapFolder) =
 
 // also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
 
+let findSomeMountainPeaks(map:MapFolder) =
+    let a = Array2D.zeroCreateBased -512 -512 1024 1024
+    // find all points height over threshold
+    for x = -512 to 511 do
+        for z = -512 to 511 do
+            map.GetBlockInfo(x,1,z) |> ignore // to cache height map
+            let h = map.GetHeightMap(x,z)
+            if h > 80 then
+                a.[x,z] <- new Partition(new Thingy(0 (*x*1024+z*),false,(h>100)))   // 80 and 100 for connnectedness and goodness
+    // connected-components them
+    for x = -512 to 511-1 do
+        for z = -512 to 511-1 do
+            if a.[x,z] <> null && a.[x,z+1] <> null then
+                a.[x,z].Union(a.[x,z+1])
+            if a.[x,z] <> null && a.[x+1,z] <> null then
+                a.[x,z].Union(a.[x+1,z])
+    let CCs = new System.Collections.Generic.Dictionary<_,_>()
+    for x = -512 to 511 do
+        for z = -512 to 511 do
+            if a.[x,z] <> null then
+                let rep = a.[x,z].Find()
+                if rep.Value.IsRight then
+                    if not(CCs.ContainsKey(rep)) then
+                        CCs.Add(rep, new System.Collections.Generic.HashSet<_>())
+                    CCs.[rep].Add( (x,z) ) |> ignore
+    let highPoints = ResizeArray()
+    // pick highest in each CC
+    for hs in CCs.Values do
+        let p = hs |> Seq.maxBy (fun (x,z) -> map.GetHeightMap(x,z))
+        highPoints.Add(p)
+    // find the 'best' ones based on which have lots of high ground near them
+    let score(x,z) =
+        try
+            let mutable s = 0
+            for a = x-3 to x+3 do
+                for b = z-3 to z+3 do
+                    s <- s + map.GetHeightMap(a,b)
+            s
+        with _ -> 0  // deal with array index out of bounds
+    printfn "The high points are:"
+    for (x,z) in highPoints |> Seq.sortByDescending score |> Seq.take 5 do
+        printfn "  (%4d,%4d)" x z
+
 let makeCrazyMap() =
     let user = "Admin1"
     let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
+    findSomeMountainPeaks(map)
+    (*
     substituteBlocks(map)
     findUndergroundAirSpaceConnectedComponents(map)
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
+    *)
 
 
 //works:
@@ -2563,10 +2609,10 @@ do
     //findUndergroundAirSpaceConnectedComponents()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
-    //makeCrazyMap()
+    makeCrazyMap()
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
+    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
 #if BINGO
     let save = "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
