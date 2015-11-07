@@ -12,7 +12,7 @@ open Utilities
 
 let mutable signZ = 0
 
-let placeCommandBlocksInTheWorld(fil) =
+let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let region = new RegionFile(fil)
 #if AWESOME_CONWAY_LIFE
     let DURATION = 999999
@@ -196,6 +196,12 @@ let placeCommandBlocksInTheWorld(fil) =
                 if x = 8 then
                     x <- 0
                     z <- z + 1
+    if onlyPlaceArtThenFail then 
+        region.PlaceCommandBlocksStartingAtSelfDestruct(0,0,0,[| O "clone 1 0 1 150 0 150 1 3 1"; U "clone 1 1 1 150 1 150 1 4 1"; U "give @p filled_map 64 0"; U "give @p filled_map 64 1" |],"relight/heightmap and give map")
+        region.Write(fil+".new")
+        System.IO.File.Delete(fil)
+        System.IO.File.Move(fil+".new",fil)
+        failwith "throwing"
     let MAPX, MAPY, MAPZ = 0, 19, 0
     AA.writeZoneFromString(region, MAPX, MAPY, MAPZ, AA.mapTopLeft)
     AA.writeZoneFromString(region, MAPX+64, MAPY, MAPZ, AA.mapTopRight)
@@ -1976,7 +1982,8 @@ type MobSpawnerInfo() =
     member val x = 0 with get, set 
     member val y = 0 with get, set 
     member val z = 0 with get, set 
-    member val BasicMob = "Zombie" with get, set  // TODO more advanced SpawnPotentials/SpawnData
+    member val BasicMob = "Zombie" with get, set  // TODO multiple choice SpawnPotentials
+    member val ExtraNbt = [] with get, set // Ex: skel jockey  Passengers:[{id:Skeleton,HandItems:[{id:bow,Count:1},{}]}]  ->    [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
     member this.AsNbtTileEntity() =
         [|
             Int("x", this.x)
@@ -1993,7 +2000,7 @@ type MobSpawnerInfo() =
             Compound("SpawnData",[|String("id",this.BasicMob);End|] |> ResizeArray)
             List("SpawnPotentials",Compounds[|
                                                 [|
-                                                Compound("Entity",[|String("id",this.BasicMob);End|] |> ResizeArray)
+                                                Compound("Entity",[|yield String("id",this.BasicMob); yield! this.ExtraNbt; yield End|] |> ResizeArray)
                                                 Int("Weight",1)
                                                 End
                                                 |]
@@ -2531,7 +2538,8 @@ let findSomeMountainPeaks(map:MapFolder) =
                         let z = j
                         let y = map.GetHeightMap(x,z)
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton")
+                        //let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton")
+                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Spider", ExtraNbt=[ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
                         spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     map.WriteAll()
@@ -2551,7 +2559,20 @@ let makeCrazyMap() =
 
 
 //works:
-// setblock ~ ~ ~20 mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Zombie},Weight:1,Properties:[]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Zombie},Weight:1,Properties:[]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+// hmm:
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Type:{id:Spider},Weight:1,Properties:[{id:Spider,Passengers:[{"id":"Skeleton"}]}]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Type:Spider,Weight:1,Properties:[{Passengers:[{"id":"Skeleton"}]}]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Type:Spider,Weight:1,Properties:[{id:Spider,Passengers:[{"id":"Skeleton"}]}]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{"id":"Skeleton"}]},Weight:1}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+
+//works:
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{id:Skeleton}]},Weight:1}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{id:Skeleton}]},Weight:1}],Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+// with bow
+// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{id:Skeleton,HandItems:[{id:bow,Count:1},{}]}]},Weight:1}],Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
+
 
 
 // {MaxNearbyEntities:6s,RequiredPlayerRange:16s,SpawnCount:4s,SpawnData:{id:"Skeleton"},MaxSpawnDelay:800s,Delay:329s,x:99977,y:39,z:-24,id:"MobSpawner",SpawnRange:4s,MinSpawnDelay:200s,SpawnPotentials:[0:{Entity:{id:"Skeleton"},Weight:1}]}
@@ -2728,7 +2749,7 @@ do
     
     //editMapDat("""C:\Users\"""+user+"""\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
     //testing2()
-    //editMapDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat""")
+    //editMapDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_1.dat""")
 
     //mapDatToPng("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.dat""", """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.png""")
     //findAllLootBookItems("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
@@ -2742,11 +2763,13 @@ do
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
     //makeCrazyMap()
+    (*
     let sb = new System.Text.StringBuilder()
     let sw = new System.IO.StringWriter(sb)
     simple_dungeon.Write(sw)
     sw.Close()
     printfn "%s" (sb.ToString())
+    *)
 
     (*
     let fil = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w45a\region\r.0.0.mca"""
@@ -2760,7 +2783,8 @@ do
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
 #if BINGO
-    let save = "tmp9"
+    let onlyArt = false
+    let save = if onlyArt then "BingoArt" else "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     //removeAllTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.0.0.mca""",
@@ -2771,7 +2795,7 @@ do
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" user save, true)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" user save, true)
-    placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save)
+    try placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save, onlyArt) with e -> ()
     (*
     preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_6.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 36)
     preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_7.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 32)
@@ -2779,11 +2803,13 @@ do
     *)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_0.dat.new""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\data\map_0.dat""" user save, true)
-    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
-                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\level.dat""" user save, true)
-    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\icon.png""",
-                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\icon.png""" user save, true)
-
+    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_1.dat.new""",
+                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\data\map_1.dat""" user save, true)
+    if not onlyArt then
+        System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
+                            sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\level.dat""" user save, true)
+        System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\icon.png""",
+                            sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\icon.png""" user save, true)
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
 #endif

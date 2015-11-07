@@ -629,7 +629,7 @@ let editMapDat(file) =
                                                     Byte("dimension",0uy)
                                                     Short("height",128s)
                                                     Short("width",128s)
-                                                    Int("xCenter",64)
+                                                    Int("xCenter",64+128)
                                                     Int("zCenter",64)
                                                     ByteArray("colors",Array.zeroCreate 16384)
                                                     End
