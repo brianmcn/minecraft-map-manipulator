@@ -554,7 +554,9 @@ let textureFilenamesToBlockIDandDataMapping =
         "planks_jungle",5,3
         "planks_oak",5,0
         "planks_spruce",5,1
-        "prismarine_dark",168,0
+        "prismarine",168,0
+        "prismarine_bricks",168,1
+        "prismarine_dark",168,2
         "pumpkin_face_off",86,0
         "pumpkin_face_on",91,0
         "pumpkin_side",86,1

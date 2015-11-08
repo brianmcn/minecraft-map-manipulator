@@ -548,8 +548,8 @@ let placeCertainBlocksInTheWorld() =
     //          123456789012345678901234
     let center24(s:string) = (String.replicate ((24 - s.Length)/2) " ") + s
     let top1 = center24 ""
-    let top2 = center24 "DUDE"
-    let bot1 = center24 "FAR OUT, MAN"
+    let top2 = center24 "" //"DUDE"
+    let bot1 = center24 "CREAMY!" //"FAR OUT, MAN"
     let bot2 = center24 ""
     let caption(x, topy, leftz, text:string) =
         let mutable z = leftz

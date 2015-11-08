@@ -350,6 +350,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %d %d %d %d %d %d barrier" (LOBBYX+CFG_ROOM_IWIDTH+4) (LOBBYY+1) LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH-1) (LOBBYY+3) LOBBYZ)
             yield U (sprintf "fill %d %d %d %d %d %d barrier" (LOBBYX+2) (LOBBYY+1) (LOBBYZ+LENGTH-1) (LOBBYX+CFG_ROOM_IWIDTH-1) (LOBBYY+3) (LOBBYZ+LENGTH-1))
             yield U (sprintf "fill %d %d %d %d %d %d barrier" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+4) (LOBBYY+1) (LOBBYZ+LENGTH-1) (LOBBYX+TOTAL_WIDTH-3) (LOBBYY+3) (LOBBYZ+LENGTH-1))
+            // light up what's visible through the windows
+            yield U "fill 1 0 1 128 0 128 sea_lantern 0 replace air"
             // x walls
             yield U (sprintf "fill %d %d %d %d %d %d %s" LOBBYX LOBBYY LOBBYZ LOBBYX (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1) wall)
             yield U (sprintf "fill %d %d %d %d %d %d %s" (LOBBYX+CFG_ROOM_IWIDTH+1) LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+2) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1) wall)
@@ -363,15 +365,21 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             // floor & ceiling
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX (LOBBYY+HEIGHT) LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT) (LOBBYZ+LENGTH-1))
+            // carpet
+            yield U (sprintf "fill %d %d %d %d %d %d carpet 13 replace air" LOBBYX (LOBBYY+1) LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+1) (LOBBYZ+LENGTH-1))
+            yield U (sprintf "fill %d %d %d %d %d %d carpet 8 replace carpet" (LOBBYX+3) (LOBBYY+1) (LOBBYZ+3) (LOBBYX+5) (LOBBYY+1) (LOBBYZ+LENGTH-3))
+            yield U (sprintf "fill %d %d %d %d %d %d carpet 8 replace carpet" (LOBBYX+CFG_ROOM_IWIDTH+5) (LOBBYY+1) (LOBBYZ+3) (LOBBYX+CFG_ROOM_IWIDTH+7) (LOBBYY+1) (LOBBYZ+LENGTH-3))
+            yield U (sprintf "fill %d %d %d %d %d %d carpet 8 replace carpet" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+7) (LOBBYY+1) (LOBBYZ+3) (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+9) (LOBBYY+1) (LOBBYZ+LENGTH-3))
+            yield U (sprintf "fill %d %d %d %d %d %d carpet 8 replace carpet" (LOBBYX+3) (LOBBYY+1) (LOBBYZ+LENGTH-4) (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+8) (LOBBYY+1) (LOBBYZ+LENGTH-3))
             // cfg room blocks
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
-            yield U (sprintf "setblock %d %d %d chest" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            yield U (sprintf "setblock %d %d %d chest 5" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             // put heads
             yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 0.5) (float (LOBBYZ+1) - 0.0))
             yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 0.5) (float (LOBBYZ+14) - 0.0))
             yield! nTicksLater(1)
-            yield U "tp @e[tag=asToReverse] ~ ~ ~ 180 0"
+            yield U "tp @e[tag=asToReverse] ~ ~ ~-0.01 180 0"
             // put enabled signs
             yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-4) LOBBYY LOBBYZ)
@@ -2731,8 +2739,6 @@ do
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
     //placeCertainEntitiesInTheWorld()
     // 45,000,012
-    //placeCertainBlocksInTheWorld()
-    //placeCommnadBlocksInTheWorld("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BingoConcepts\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
       //              """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
@@ -2782,6 +2788,7 @@ do
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
+    //placeCertainBlocksInTheWorld()
 #if BINGO
     let onlyArt = false
     let save = if onlyArt then "BingoArt" else "tmp9"
