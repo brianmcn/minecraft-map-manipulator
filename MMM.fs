@@ -267,6 +267,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let TPZ_LOW = Coords(41,3,10)
     let TPY_LOW = Coords(42,3,10)
 
+    let FINALIZE_PRIOR_GAME_LOGIC = Coords(47,3,10)
     let RESET_SCORES_LOGIC = Coords(48,3,10)
     let RANDOM_SEED_BUTTON = Coords(49,3,10)
     let CHOOSE_SEED_BUTTON = Coords(50,3,10)
@@ -280,12 +281,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let ENSURE_CARD_UPDATED_LOGIC = Coords(59,3,10)
     let SEND_TO_WAITING_ROOM = Coords(60,3,10)
 
-    let VANILLA_LOADOUT = Coords(70,3,10)
-    let NIGHT_VISION_LOADOUT = Coords(71,3,10)
-    let SADDLED_HORSE_NIGHT_VISION_LOADOUT = Coords(72,3,10)
-    let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10)
-    let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10)
-    let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10)
+    let VANILLA_LOADOUT = Coords(70,3,10), "Vanilla gameplay (no on-start/on-respawn commands)"
+    let NIGHT_VISION_LOADOUT = Coords(71,3,10), "Players get night vision at start & respawn"
+    let SADDLED_HORSE_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision at start & respawn, as well as an invulnerable saddled horse at game start"
+    let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10), "Players get night vision at start & respawn, and each team starts with chest of items"
+    let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10), "Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
+    let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
+    let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; SADDLED_HORSE_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT]
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -508,14 +510,14 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 #endif
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at" "start" "" ""
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at" "respawn" "" ""
-            let mkLoadout x y z d txt1 txt2 txt3 (c:Coords) tellPlayers =
-                makeWallSignDo x y z d txt1 txt2 txt3 (sprintf """tellraw @a [\\\"%s\\\"]""" tellPlayers) (sprintf "clone %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2)) enabled (if enabled then "black" else "gray")
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "night vision" "" "" NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn"
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "vanilla" "" "" VANILLA_LOADOUT "Game configured: Vanilla gameplay (no on-start/on-respawn commands)"
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "spammable" "iron sword" "+night vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "saddled horse" "+night vision" "" SADDLED_HORSE_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, as well as an invulnerable saddled horse at game start"
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "elytra" "+frost walker" "+night vision" ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT "Game configured: Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "starting chest" "per team" "+night vision" STARTING_CHEST_NIGHT_VISION_LOADOUT "Game configured: Players get night vision at start & respawn, and each team starts with chest of items"
+            let mkLoadout x y z d txt1 txt2 txt3 ((c:Coords),tellPlayers) =
+                makeWallSignDo x y z d txt1 txt2 txt3 (sprintf """tellraw @a [{\\\"text\\\":\\\"Game configured: %s\\\",\\\"color\\\":\\\"green\\\"}]""" tellPlayers) (sprintf "clone %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2)) enabled (if enabled then "black" else "gray")
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "night vision" "" "" NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "vanilla" "" "" VANILLA_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "spammable" "iron sword" "+night vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "saddled horse" "+night vision" "" SADDLED_HORSE_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "elytra" "+frost walker" "+night vision" ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "starting chest" "per team" "+night vision" STARTING_CHEST_NIGHT_VISION_LOADOUT
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
             // TODO need this? yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "Go to" "TUTORIAL" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
@@ -560,7 +562,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             region.PlaceCommandBlocksStartingAt(c.Offset(0,2,0),s,comment)
             let r = Array.init NUM_CONFIG_COMMANDS (fun i -> if i < respawn.Length then respawn.[i] else U "")
             region.PlaceCommandBlocksStartingAt(c.Offset(0,0,0),r,comment)
-    loadout([||],[||],VANILLA_LOADOUT,"vanillaLoadout")
+    loadout([||],[||],fst VANILLA_LOADOUT,"vanillaLoadout")
     let nightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
@@ -568,7 +570,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
         |], 
-        NIGHT_VISION_LOADOUT, "nightVisionLoadout"
+        fst NIGHT_VISION_LOADOUT, "nightVisionLoadout"
     loadout(nightVisionLoadout)
     let saddledHorseNightVisionLoadout =
         [|
@@ -578,7 +580,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
         |], 
-        SADDLED_HORSE_NIGHT_VISION_LOADOUT, "saddledHorseNightVisionLoadout"
+        fst SADDLED_HORSE_NIGHT_VISION_LOADOUT, "saddledHorseNightVisionLoadout"
     loadout(saddledHorseNightVisionLoadout)
     let startingChestNightVisionLoadout =
         [|
@@ -591,7 +593,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
         |], 
-        STARTING_CHEST_NIGHT_VISION_LOADOUT, "startingChestNightVisionLoadout"
+        fst STARTING_CHEST_NIGHT_VISION_LOADOUT, "startingChestNightVisionLoadout"
     loadout(startingChestNightVisionLoadout)
     let spammableSwordNightVisionLoadout =
         [|
@@ -601,7 +603,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
         |], 
-        SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT, "spammableSwordNightVisionLoadout"
+        fst SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT, "spammableSwordNightVisionLoadout"
     loadout(spammableSwordNightVisionLoadout)
     let elytraJumpBoostFrostWalkerNightVisionLoadout =
         [|
@@ -616,7 +618,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             U """replaceitem entity @a[tag=justRespawned] slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
             U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
         |], 
-        ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT, "elytraJumpBoostFrostWalkerNightVisionLoadout"
+        fst ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT, "elytraJumpBoostFrostWalkerNightVisionLoadout"
     loadout(elytraJumpBoostFrostWalkerNightVisionLoadout)
 
     //////////////////////////////
@@ -1069,6 +1071,26 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     /////////////////////// 
     // choose seed
     ///////////////////////
+    let finalizePriorGameLogic =
+        [|
+            yield O ""
+            // bring everyone back to lobby in survival, clear inventories, remind game mode, if game just ended
+            yield U (sprintf "tp @a %s 0 0" LOBBY_CENTER_LOCATION.STR)
+            yield U "gamemode 0 @a"
+            yield U "spawnpoint @a"
+            yield U "clear @a"
+            yield U """tellraw @a ["Reminder: current game is configured as"]"""
+            yield U "scoreboard players set LoadoutTestForBlocksFound S 0"
+            for (c,desc) in ALL_LOADOUTS do
+                yield U "scoreboard players test LoadoutTestForBlocksFound S 0 0"
+                yield C (sprintf "testforblocks %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2))
+                yield C (sprintf """tellraw @a [{"text":"%s","color":"green"}]""" desc)
+                yield C "scoreboard players set LoadoutTestForBlocksFound S 1"
+            yield U "scoreboard players test LoadoutTestForBlocksFound S 0 0"
+            yield C (sprintf """tellraw @a ["Some custom configuration (command blocks programmed manually)"]""")
+        |]
+    region.PlaceCommandBlocksStartingAt(FINALIZE_PRIOR_GAME_LOGIC,finalizePriorGameLogic,"end prior game")
+
     let resetScoresLogic =
         [|
         yield O ""
@@ -1079,11 +1101,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // turn off timekeeper
         yield U (sprintf "setblock %s wool" TIMEKEEPER_REDSTONE.STR)
         yield U (sprintf "setblock %s wool" TIMEKEEPER_25MIN_REDSTONE.STR)
-        // bring everyone back to lobby in survival if game just ended
+        // if game just ended, do some housekeeping/usability
         yield U "scoreboard players test GameInProgress S 1 *"
-        yield C (sprintf "tp @a %s 0 0" LOBBY_CENTER_LOCATION.STR)
-        yield C "gamemode 0 @a"
-        yield C "spawnpoint @a"
+        yield C (sprintf "blockdata %s {auto:1b}" FINALIZE_PRIOR_GAME_LOGIC.STR)
+        yield C (sprintf "blockdata %s {auto:0b}" FINALIZE_PRIOR_GAME_LOGIC.STR)
         // note previous game has finished
         yield U "scoreboard players set GameInProgress S 0"
         // clear player scores
@@ -1115,6 +1136,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
+        yield! nTicksLater(3)  // let reset score print some text before we print ours
         yield U "scoreboard players operation Z Calc += @r[type=AreaEffectCloud,tag=Z] S"  // this will insert some 'real' randomness by adding rand(60) before re-PRNG
         yield U """tellraw @a ["Choosing random seed..."]"""
         yield U "scoreboard players set modRandomSeed S 899"
@@ -1139,6 +1161,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield O ""
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
+        yield! nTicksLater(3)  // let reset score print some text before we print ours
         // select seed and generate
         yield U "scoreboard players set seed is -2147483648"
         yield U "scoreboard players set @a PlayerSeed -2147483648"
