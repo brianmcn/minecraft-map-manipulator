@@ -314,11 +314,12 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let NUM_CONFIG_COMMANDS = 7
     let OFFERING_SPOT = Coords(LOBBYX+TOTAL_WIDTH-INFO_ROOM_IWITDH/2-2,LOBBYY+1,LOBBYZ+2)
     let LOBBY_CENTER_LOCATION = Coords(LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3, LOBBYY+2, LOBBYZ+3)
-    let makeSign kind x y z dmg txt1 txt2 txt3 txt4 =
+    let makeSignBoldness kind x y z dmg txt1 b1 txt2 b2 txt3 b3 txt4 b4 =
         [|
             U (sprintf "setblock %d %d %d %s %d" x y z kind dmg)
-            U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\",\"bold\":\"true\"}",Text2:"{\"text\":\"%s\",\"bold\":\"true\"}",Text3:"{\"text\":\"%s\",\"bold\":\"true\"}",Text4:"{\"text\":\"%s\",\"bold\":\"true\"}"}""" x y z x y z txt1 txt2 txt3 txt4)
+            U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\",\"bold\":\"%s\"}",Text2:"{\"text\":\"%s\",\"bold\":\"%s\"}",Text3:"{\"text\":\"%s\",\"bold\":\"%s\"}",Text4:"{\"text\":\"%s\",\"bold\":\"%s\"}"}""" x y z x y z txt1 b1 txt2 b2 txt3 b3 txt4 b4)
         |]
+    let makeSign kind x y z dmg txt1 txt2 txt3 txt4 = makeSignBoldness kind x y z dmg txt1 "true" txt2 "true" txt3 "true" txt4 "true"
     let makeWallSign x y z dmg txt1 txt2 txt3 txt4 = makeSign "wall_sign" x y z dmg txt1 txt2 txt3 txt4 
     let makeWallSignActivate x y z dmg txt1 txt2 (a:Coords) isBold color =
         let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
@@ -378,8 +379,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "setblock %d %d %d chest 5" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             // put heads
-            yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 0.5) (float (LOBBYZ+1) - 0.0))
-            yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 0.5) (float (LOBBYZ+14) - 0.0))
+            yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.1) (float (LOBBYZ+1) - 0.0))
+            yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.1) (float (LOBBYZ+14) - 0.0))
             yield! nTicksLater(1)
             yield U "tp @e[tag=asToReverse] ~ ~ ~-0.01 180 0"
             // put enabled signs
@@ -508,8 +509,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
 #endif
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+4) (LOBBYZ+5) 4 "run at" "start" "" ""
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+5) 4 "run at" "respawn" "" ""
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+3) (LOBBYZ+1) 4 "run at" "start" "" ""
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+1) (LOBBYZ+1) 4 "run at" "respawn" "" ""
             let mkLoadout x y z d txt1 txt2 txt3 ((c:Coords),tellPlayers) =
                 makeWallSignDo x y z d txt1 txt2 txt3 (sprintf """tellraw @a [{\\\"text\\\":\\\"Game configured: %s\\\",\\\"color\\\":\\\"green\\\"}]""" tellPlayers) (sprintf "clone %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2)) enabled (if enabled then "black" else "gray")
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "night vision" "" "" NIGHT_VISION_LOADOUT
@@ -532,21 +533,22 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "Join team" "BLUE" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "Join team" "YELLOW" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "Join team" "GREEN" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY+2) (LOBBYZ+13) 2 "Custom" "Settings" """----->\",\"strikethrough\":\"true""" ""
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+13) 2 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY+2) (LOBBYZ+13) 2 "Game" "Info" """<-----\",\"strikethrough\":\"true""" ""
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ+13) 8 "Custom" "Settings" """----->\",\"strikethrough\":\"true""" ""
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+1) (LOBBYZ+13) 8 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY+1) (LOBBYZ+13) 8 "Game" "Info" """<-----\",\"strikethrough\":\"true""" ""
             // interior layout - info room
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+4) 4 "Learn about" "basic rules" "and gameplay" (escape2 gameplayBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+6) 4 "Learn about" "various" "game modes" (escape2 gameModesBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+8) 4 "Learn about" "this world's" "custom terrain" (escape2 customTerrainBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+10) 4 "Learn about" "all the folks" "who helped" (escape2 thanksBookCmd) "" true "black"
-            yield! makeWallSign (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+2) (LOBBYZ+1) 3 "Thanks for" "playing!" "" ""
+            yield! makeSign "standing_sign" (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+1) (LOBBYZ+1) 0 "Thanks for" "playing!" "" ""
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "Show all" "possible items" SHOW_ITEMS_BUTTON true "black"
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "Version" "Info" "" (escape2 versionInfoBookCmd) "" true "black"
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
             // start platform has a disable-able sign
-            let GTT = NEW_PLAYER_PLATFORM_LO.Offset(7,1,6)
-            yield! makeSignDo "standing_sign" GTT.X GTT.Y GTT.Z 4 "Right-click" "me to go to" "TUTORIAL" (sprintf "blockdata %s {auto:1b}" START_TUTORIAL_BUTTON.STR) (sprintf "blockdata %s {auto:0b}" START_TUTORIAL_BUTTON.STR) enabled (if enabled then "black" else "gray")
+            let GTT = NEW_PLAYER_PLATFORM_LO.Offset(7,2,6)
+            yield U (sprintf "setblock %s stone" (GTT.Offset(1,0,0).STR))
+            yield! makeSignDo "wall_sign" GTT.X GTT.Y GTT.Z 4 "Right-click" "me to go to" "TUTORIAL" (sprintf "blockdata %s {auto:1b}" START_TUTORIAL_BUTTON.STR) (sprintf "blockdata %s {auto:0b}" START_TUTORIAL_BUTTON.STR) enabled (if enabled then "black" else "gray")
         |]
     region.PlaceCommandBlocksStartingAt(LOBBYX-3,LOBBYY,LOBBYZ,placeSigns(false),"disabled signs")
     region.PlaceCommandBlocksStartingAt(LOBBYX-4,LOBBYY,LOBBYZ,placeSigns(true),"enabled signs")
@@ -627,14 +629,14 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let TUTORIAL_LOCATION = Coords(-90, 2, -120)
     let TUTORIAL_PLAYER_START = TUTORIAL_LOCATION.Offset(-2,2,2)
     let TUTORIAL_CMDS = Coords(80,3,10)
-    let makeWallSignIncZ args = 
-        let r = makeWallSign args
+    let makeStandingSignIncZ args = 
+        let r = makeSign "standing_sign" args
         signZ <- signZ + 1
         r
     let makeTutorialCmds =
         [|
             let tut = TUTORIAL_LOCATION
-            let signY = TUTORIAL_LOCATION.Y+2
+            let signY = TUTORIAL_LOCATION.Y+1
             let signX = TUTORIAL_LOCATION.X-1
             yield O ""
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,-1).STR) (tut.Offset(-5,4,-1).STR))
@@ -642,50 +644,55 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %s %s stone" (tut.Offset(-5,0, 0).STR) (tut.Offset(-5,4,30).STR))
             yield U (sprintf "fill %s %s sea_lantern" (tut.Offset(-5,0,0).STR) (tut.Offset(0,0,30).STR))
             signZ <- TUTORIAL_LOCATION.Z + 1
-            yield! makeWallSignIncZ signX signY signZ 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
-            yield! makeWallSignIncZ signX signY signZ 4 "MinecraftBINGO" "uses" "clickable signs" ""
-            yield! makeWallSignDo signX signY signZ 4 "Right-click" "this sign" "to continue" (sprintf "tp @p %s 90 180" (TUTORIAL_PLAYER_START.Offset(0,0,5).STR)) "" true "black"
+            yield! makeStandingSignIncZ signX signY signZ 4  "(In this map," "_wall_ signs" "can be" "right-clicked)"
+            yield! makeStandingSignIncZ signX signY signZ 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
+            yield! makeStandingSignIncZ signX signY signZ 4 "MinecraftBINGO" "uses" "clickable signs" ""
+            yield! makeWallSignDo signX (signY+1) signZ 4 "Right-click" "this sign" "to continue" (sprintf "tp @p %s 90 180" (TUTORIAL_PLAYER_START.Offset(0,0,5).STR)) "" true "black"
             signZ <- signZ + 2
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
             signZ <- signZ + 2
-            yield! makeWallSignIncZ signX signY signZ 4 "MinecraftBINGO" "plays as" "new-world" "survival Minecraft"
-            yield! makeWallSignIncZ signX signY signZ 4 "You'll need to" "punch trees," "craft tools," "and eat"
-            yield! makeWallSignIncZ signX signY signZ 4 "But you're" "in a race" "to complete" "a goal"
+            yield! makeStandingSignIncZ signX signY signZ 4 "MinecraftBINGO" "plays as" "new-world" "survival Minecraft"
+            yield! makeStandingSignIncZ signX signY signZ 4 "You'll need to" "punch trees," "craft tools," "and eat"
+            yield! makeStandingSignIncZ signX signY signZ 4 "But you're" "in a race" "to complete" "a goal"
             signZ <- signZ + 1
-            yield! makeWallSignIncZ signX signY signZ 4 "There are" "25 items" "pictured on" "the BINGO card"
-            yield! makeWallSignIncZ signX signY signZ 4 "You want to" "get items" "as fast as" "you can"
-            yield! makeWallSignIncZ signX signY signZ 4 "Goal is 'BINGO'" "5 in a row," "column, or" "diagonal"
+            yield! makeStandingSignIncZ signX signY signZ 4 "There are" "25 items" "pictured on" "the BINGO card"
+            yield! makeStandingSignIncZ signX signY signZ 4 "You want to" "get items" "as fast as" "you can"
+            yield! makeStandingSignIncZ signX signY signZ 4 "Goal is 'BINGO'" "5 in a row," "column, or" "diagonal"
             signZ <- signZ + 1
-            yield! makeWallSignIncZ signX signY signZ 4 "Try getting" "an item now" "" ""
-            yield! makeWallSignIncZ signX signY signZ 4 "Punch down some" "sugar cane" "and craft it" "into sugar"
+            yield! makeStandingSignIncZ signX signY signZ 4 "Try getting" "an item now" "" ""
+            yield! makeStandingSignIncZ signX signY signZ 4 "Punch down some" "sugar cane" "and craft it" "into sugar"
             signZ <- signZ + 1
-            yield! makeWallSignIncZ signX signY signZ 4 "When you get" "an item," "your score" "will update"
-            yield! makeWallSignIncZ signX signY signZ 4 "You can see" "what items" "you've gotten" "by..."
-            yield! makeWallSignIncZ signX signY signZ 4 "...holding" "your maps and" "dropping" "one copy"
-            yield! makeWallSignIncZ signX signY signZ 4 "(The 'drop'" "key is 'Q'" "by default)" ""
-            yield! makeWallSignIncZ signX signY signZ 4 "Try it now!" "(drop a" "BINGO Card)" ""
+            yield! makeStandingSignIncZ signX signY signZ 4 "When you get" "an item," "your score" "will update"
+            yield! makeStandingSignIncZ signX signY signZ 4 "You can see" "what items" "you've gotten" "by..."
+            yield! makeStandingSignIncZ signX signY signZ 4 "...holding" "your maps and" "dropping" "one copy"
+            yield! makeStandingSignIncZ signX signY signZ 4 "(The 'drop'" "key is 'Q'" "by default)" ""
+            yield! makeStandingSignIncZ signX signY signZ 4 "Try it now!" "(drop a" "BINGO Card)" ""
             signZ <- signZ + 1
-            yield! makeWallSignIncZ signX signY signZ 4 "Once you get" "5 in a row," "you win!" ""
-            yield! makeWallSignIncZ signX signY signZ 4 "Other game" "modes exist," "learn more" "in the lobby"
-            yield! makeWallSignActivate signX signY signZ 4 "Let's play!" "Click to start" END_TUTORIAL_BUTTON true "black"  // TODO multiplayer state testing of tutorial
+            yield! makeStandingSignIncZ signX signY signZ 4 "Once you get" "5 in a row," "you win!" ""
+            yield! makeStandingSignIncZ signX signY signZ 4 "Other game" "modes exist," "learn more" "in the lobby"
+            yield! makeWallSignActivate signX (signY+1) signZ 4 "Let's play!" "Click to start" END_TUTORIAL_BUTTON true "black"  // TODO multiplayer state testing of tutorial
             signZ <- signZ + 1
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
             // first time map is loaded, players go here:
             yield U (sprintf "fill %s %s sea_lantern" NEW_MAP_PLATFORM_LO.STR (NEW_MAP_PLATFORM_LO.Offset(10,0,10).STR))
             let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,1,4)
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "This is version" "3.0 Beta" "of the map." ""
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+5) 4 "Do you have" "the latest" "version?" "Find out!"
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "This is version" "3.0 Beta" "of the map." ""
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "Do you have" "the latest" "version?" "Find out!"
             // TODO figure out best URL
             let downloadUrl = "https://twitter.com/MinecraftBINGO"
             let downloadCmd1 = escape2 <| sprintf """tellraw @a {"text":"Press 't' (chat), then click line below to visit the official download page for MinecraftBINGO"}"""
             let downloadCmd2 = escape2 <| sprintf """tellraw @a {"text":"%s","underlined":"true","clickEvent":{"action":"open_url","value":"%s"}}""" downloadUrl downloadUrl
-            yield! makeSignDo "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+6) 4 "Right-click this" "sign to go to" "official site" downloadCmd1 downloadCmd2 true "black"
-            yield! makeSignDo "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+7) 4 "Or right-click" "me to begin" "playing!" (sprintf "tp @p %s 90 180" NEW_PLAYER_LOCATION.STR) "" true "black"
+            yield U (sprintf "fill %d %d %d %d %d %d stone" (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+5) (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+6))
+            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+5) 4 "Right-click this" "sign to go to" "official site" downloadCmd1 downloadCmd2 true "black"
+            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+6) 4 "Or right-click" "me to begin" "playing!" (sprintf "tp @p %s 90 180" NEW_PLAYER_LOCATION.STR) "" true "black"
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+7) 4 "(In this map," "_wall_ signs" "can be" "right-clicked)"
+            yield! makeSignBoldness "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+8) 4 "server" "true" "properties" "true" "enable-command-" "false" "block = true" "false"
             // new players go here:
             yield U (sprintf "fill %s %s sea_lantern" NEW_PLAYER_PLATFORM_LO.STR (NEW_PLAYER_PLATFORM_LO.Offset(10,0,10).STR))
-            let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,1,4)
-            yield! makeSignDo "standing_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "LOBBY" (sprintf "tp @p %s 0 0" LOBBY_CENTER_LOCATION.STR) "" true "black"
+            let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,2,4)
+            yield U (sprintf "setblock %s stone" (GTL.Offset(1,0,0).STR))
+            yield! makeSignDo "wall_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "LOBBY" (sprintf "tp @p %s 0 0" LOBBY_CENTER_LOCATION.STR) "" true "black"
             // Note: there is also a 'Go to Tutorial' sign, but it's coded as part of lobby, to turn it on/off
         |]
     region.PlaceCommandBlocksStartingAtSelfDestruct(TUTORIAL_CMDS,makeTutorialCmds,"build tutorial")
@@ -863,10 +870,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let cmdsFindNewPlayers =
         [|
         P "scoreboard players test Time S 0 0"
+        C "testfor @a[tag=!playerHasBeenSeen]"
         C "blockdata ~ ~ ~2 {auto:1b}"
         C "blockdata ~ ~ ~1 {auto:0b}"
         O ""
         U "gamemode 0 @a[tag=!playerHasBeenSeen]"
+        U (sprintf "tp @a[tag=!playerHasBeenSeen] %s 0 0" LOBBY_CENTER_LOCATION.STR)
+        U "spawnpoint @a[tag=!playerHasBeenSeen]"
         U "effect @a[tag=!playerHasBeenSeen] night_vision 9999 1 true"
         U "scoreboard players test HasTheMapEverBeenLoadedBefore Calc 1 1"
         C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_PLAYER_LOCATION.STR)
@@ -1407,12 +1417,12 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U "scoreboard teams join red @a"
             yield U "scoreboard players tag @a add InTutorial"
             yield U "gamemode 0 @a"
-            yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(1,0,17).STR))
-            yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(0,-1,17).STR))
-            yield U (sprintf "setblock %s water" (TUTORIAL_LOCATION.Offset(0,0,17).STR))
-            yield U (sprintf "setblock %s dirt"  (TUTORIAL_LOCATION.Offset(-1,0,17).STR))
-            yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,1,17).STR))
-            yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,2,17).STR))
+            yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(1,0,18).STR))
+            yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(0,-1,18).STR))
+            yield U (sprintf "setblock %s water" (TUTORIAL_LOCATION.Offset(0,0,18).STR))
+            yield U (sprintf "setblock %s dirt"  (TUTORIAL_LOCATION.Offset(-1,0,18).STR))
+            yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,1,18).STR))
+            yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,2,18).STR))
             yield U "scoreboard players set Seed Score 447960"
             yield U "scoreboard players set Z Calc 447960"
             yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
