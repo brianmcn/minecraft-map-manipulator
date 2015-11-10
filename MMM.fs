@@ -153,7 +153,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
             [|  -1, "bone", AA.bone                         ; -1, "bone", AA.bone                       ; -1, "bone", AA.bone                       |]
             [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "ender_pearl", AA.ender_pearl         |]
-            [|  -1, "deadbush", AA.deadbush                 ; +2, "tallgrass", AA.fern                  ; -1, "vine", AA.vine                       |]
+            [|  -1, "vine", AA.vine                         ; +2, "tallgrass", AA.fern                  ; -1, "deadbush", AA.deadbush               |]
             [|  -1, "brick", AA.brick                       ; -1, "brick", AA.brick                     ; -1, "brick", AA.brick                     |]
             [|  -1, "glass_bottle", AA.glass_bottle         ; -1, "glass_bottle", AA.glass_bottle       ; -1, "glass_bottle", AA.glass_bottle       |]
             [|  -1, "melon", AA.melon_slice                 ; -1, "melon", AA.melon_slice               ; -1, "speckled_melon", AA.speckled_melon   |]
@@ -288,6 +288,11 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10), "Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
     let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
     let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; SADDLED_HORSE_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT]
+(*
+    let BUILTIN_START_LOADOUT = Coords(76,3,10)
+    let BUILTIN_RESPAWN_LOADOUT = Coords(77,3,10)
+    let BL_NIGHT_VISION, BL_SADDLED_HORSE, BL_STARTING_CHEST, BL_SPAMMABLE_SWORD, BL_ELYTRA_JUMP_BOOST, BL_FROST_WALKER = 0,1,2,3,4,5
+*)
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -303,7 +308,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let NEW_PLAYER_PLATFORM_LO = Coords(60,LOBBYY,30)
     let NEW_PLAYER_LOCATION = NEW_PLAYER_PLATFORM_LO.Offset(5,2,5)
     let NEW_MAP_PLATFORM_LO = Coords(60,LOBBYY,90)
-    let NEW_MAP_LOCATION = NEW_MAP_PLATFORM_LO.Offset(5,2,5)
+    let NEW_MAP_LOCATION = NEW_MAP_PLATFORM_LO.Offset(3,2,5)
     let CFG_ROOM_IWIDTH = 7
     let MAIN_ROOM_IWIDTH = 7
     let INFO_ROOM_IWITDH = 7
@@ -556,6 +561,72 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     //////////////////////////////
     // loadouts
     //////////////////////////////
+(*
+    region.PlaceCommandBlocksStartingAt(BUILTIN_START_LOADOUT,
+        [|
+            U "effect @a night_vision 9999 1 true"
+            U ""
+            U ""
+            U ""
+
+            U """execute @a ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
+            U ""
+            U ""
+            U ""
+
+            U (sprintf "execute @p[team=red] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U (sprintf "execute @p[team=blue] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U (sprintf "execute @p[team=yellow] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U (sprintf "execute @p[team=green] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+
+            U """/give @a minecraft:iron_sword 1 0 {display:{Name:"Spammable unbreakable sword"},Unbreakable:1,AttributeModifiers:[{AttributeName:"generic.attackSpeed",Name:"Speed",Slot:"mainhand",Amount:1020.0,Operation:0,UUIDLeast:111l,UUIDMost:111l},{AttributeName:"generic.attackDamage",Name:"Damage",Slot:"mainhand",Amount:4.0,Operation:0,UUIDLeast:222l,UUIDMost:222l}]}"""
+            U ""
+            U ""
+            U ""
+
+            U """replaceitem entity @a slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
+            U """replaceitem entity @a slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
+            U ""
+            U ""
+
+            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+            U ""
+            U ""
+            U ""
+        |],"builtin start loadouts")
+    region.PlaceCommandBlocksStartingAt(BUILTIN_RESPAWN_LOADOUT,
+        [|
+            U "effect @a[tag=justRespawned] night_vision 9999 1 true"
+            U ""
+            U ""
+            U ""
+
+            U """execute @a[tag=justRespawned] ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
+            U ""
+            U ""
+            U ""
+
+            U (sprintf "execute @a[tag=justRespawned] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U ""
+            U ""
+            U ""
+
+            U """/give @a[tag=justRespawned] minecraft:iron_sword 1 0 {display:{Name:"Spammable unbreakable sword"},Unbreakable:1,AttributeModifiers:[{AttributeName:"generic.attackSpeed",Name:"Speed",Slot:"mainhand",Amount:1020.0,Operation:0,UUIDLeast:111l,UUIDMost:111l},{AttributeName:"generic.attackDamage",Name:"Damage",Slot:"mainhand",Amount:4.0,Operation:0,UUIDLeast:222l,UUIDMost:222l}]}"""
+            U ""
+            U ""
+            U ""
+
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
+            U """replaceitem entity @a[tag=justRespawned] slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
+            U ""
+            U ""
+
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+            U ""
+            U ""
+            U ""
+        |],"builtin respawn loadouts")
+*)
     let loadout(start:_[], respawn:_[], c:Coords, comment) =
         if start.Length > NUM_CONFIG_COMMANDS || respawn .Length > NUM_CONFIG_COMMANDS then
             failwith "too many cmds"
@@ -629,7 +700,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     // tutorial
     //////////////////////////////
     let TUTORIAL_LOCATION = Coords(-90, 2, -120)
-    let TUTORIAL_PLAYER_START = TUTORIAL_LOCATION.Offset(-2,2,2)
+    let TUTORIAL_PLAYER_START = TUTORIAL_LOCATION.Offset(-3,2,2)
     let TUTORIAL_CMDS = Coords(80,3,10)
     let makeStandingSignIncZ args = 
         let r = makeSign "standing_sign" args
@@ -906,9 +977,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // as a result, run @p multiple times
         // tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
         yield U (sprintf "%s scoreboard players tag @p[score_Deaths_min=1,tag=!justRespawned] add justRespawned" (nTimesDo 8))
-        // run customized on-respawn command blocks
+        // run customized on-respawn loadout command blocks
         yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~2" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
 
+(*        TODO if BUILTIN loadout *)
         yield O "TAG 2"  // firewall the user-contributed CCBs, so if they screw them up, it doesn't break program logic
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
@@ -1357,7 +1429,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U (sprintf "setblock %s redstone_block" (NOTICE_DROPPED_MAP_CMDS.Offset(0,1,0).STR))
         // prep for customized on-respawn command blocks
         yield U "scoreboard players set @a Deaths 0"
-        // run customized on-start command blocks
+(*        TODO if BUILTIN loadout *)
+        // run customized on-start loadout command blocks
         yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
@@ -2519,15 +2592,14 @@ let substituteBlocks(map:MapFolder) =
 
 // also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
 
-let findSomeMountainPeaks(map:MapFolder) =
-    let a = Array2D.zeroCreateBased -512 -512 1024 1024
+let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, bestNearbyDist) =
+    let a = Array2D.zeroCreateBased -512 -512 1024 1024  // TODO factor constants
     // find all points height over threshold
     for x = -512 to 511 do
         for z = -512 to 511 do
-            map.GetBlockInfo(x,1,z) |> ignore // to cache height map
-            let h = map.GetHeightMap(x,z)
-            if h > 80 then
-                a.[x,z] <- new Partition(new Thingy(0 (*x*1024+z*),false,(h>100)))   // 80 and 100 for connnectedness and goodness
+            let h = heightMap.[x,z]
+            if h > connectedThreshold then
+                a.[x,z] <- new Partition(new Thingy(0 (*x*1024+z*),false,(h>goodThreshold)))
     // connected-components them
     for x = -512 to 511-1 do
         for z = -512 to 511-1 do
@@ -2547,23 +2619,30 @@ let findSomeMountainPeaks(map:MapFolder) =
     let highPoints = ResizeArray()
     // pick highest in each CC
     for hs in CCs.Values do
-        let p = hs |> Seq.maxBy (fun (x,z) -> map.GetHeightMap(x,z))
+        let p = hs |> Seq.maxBy (fun (x,z) -> heightMap.[x,z])
         highPoints.Add(p)
     // find the 'best' ones based on which have lots of high ground near them
     let score(x,z) =
         try
             let mutable s = 0
-            for a = x-3 to x+3 do
-                for b = z-3 to z+3 do
-                    s <- s + map.GetHeightMap(a,b)
+            let D = bestNearbyDist
+            for a = x-D to x+D do
+                for b = z-D to z+D do
+                    s <- s + heightMap.[a,b]
             s
         with _ -> 0  // deal with array index out of bounds
     let distance2(a,b,c,d) = (a-c)*(a-c)+(b-d)*(b-d)
     let bestHighPoints = ResizeArray()
+    let bestHighPointsScores = ResizeArray()
     for hx,hz in highPoints |> Seq.sortByDescending score do
         if hx > -480 && hx < 480 && hz > -480 && hz < 480 then  // not at edge of bounds
-            if bestHighPoints |> Seq.forall (fun (ex,ez) -> distance2(ex,ez,hx,hz) > 200*200) then   // spaced apart
+            if bestHighPoints |> Seq.forall (fun (ex,ez) -> distance2(ex,ez,hx,hz) > 200*200) then   // spaced apart TODO factor constants
                 bestHighPoints.Add( (hx,hz) )
+                bestHighPointsScores.Add( score(hx,hz) )
+    bestHighPoints, bestHighPointsScores
+
+let findSomeMountainPeaks(map:MapFolder,hm) =
+    let bestHighPoints,_ = findBestPeaksAlgorithm(hm,80,100,3)
     printfn "The best high points are:"
     for (x,z) in bestHighPoints do
         printfn "  (%4d,%4d)" x z
@@ -2587,16 +2666,44 @@ let findSomeMountainPeaks(map:MapFolder) =
                         let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Spider", ExtraNbt=[ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
                         spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
-    map.WriteAll()
 
+let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
+    // convert height map to 'goodness' function that looks for similar-height blocks nearby
+    // then treat 'goodness' as 'height', and the existing 'find mountain peaks' algorithm may work
+    let a = Array2D.zeroCreateBased -512 -512 1024 1024
+    let fScores = [| 100; 90; 75; 50; 0; -100; -999 |]
+    let f(h1,h2) =
+        let diff = abs(h1-h2)
+        fScores.[min diff (fScores.Length-1)]
+    let D = 10
+    for x = -512+D to 511-D do
+        for z = -512+D to 511-D do
+            let h = if hm.[x,z] > 65 && hm.[x,z] < 90 then hm.[x,z] else 255  // only pick points above sea level but not too high
+            let mutable score = 0
+            for dx = -D to D do
+                for dz = -D to D do
+                    let ds = f(h,hm.[x+dx,z+dz])
+                    score <- score + ds
+            a.[x,z] <- score
+    let bestFlatPoints,scores = findBestPeaksAlgorithm(a,2000,3000,D)
+    printfn "The best flat points are:"
+    for (x,z),s in Seq.map2 (fun x y -> x,y) bestFlatPoints scores do
+        printfn "  (%4d,%4d) - %d" x z s
 
 let makeCrazyMap() =
     let user = "Admin1"
     let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
-    findSomeMountainPeaks(map)
+    let hm = Array2D.zeroCreateBased -512 -512 1024 1024
+    for x = -512 to 511 do
+        for z = -512 to 511 do
+            map.GetBlockInfo(x,1,z) |> ignore // to cache height map
+            let h = map.GetHeightMap(x,z)
+            hm.[x,z] <- h
+    //findSomeMountainPeaks(map,hm)
+    findSomeFlatAreas(map,hm)
+    //substituteBlocks(map)
+    //findUndergroundAirSpaceConnectedComponents(map)
     (*
-    substituteBlocks(map)
-    findUndergroundAirSpaceConnectedComponents(map)
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
@@ -2985,7 +3092,6 @@ do
     //findUndergroundAirSpaceConnectedComponents()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
-    //makeCrazyMap()
     (*
     let sb = new System.Text.StringBuilder()
     let sw = new System.IO.StringWriter(sb)
@@ -3006,7 +3112,8 @@ do
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
     //placeCertainBlocksInTheWorld()
-    writeAllLootTables()
+    //writeAllLootTables()
+    makeCrazyMap()
 
 #if BINGO
     let onlyArt = false
