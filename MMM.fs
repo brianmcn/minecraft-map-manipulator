@@ -283,7 +283,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 
     let VANILLA_LOADOUT = Coords(70,3,10), "Vanilla gameplay (no on-start/on-respawn commands)"
     let NIGHT_VISION_LOADOUT = Coords(71,3,10), "Players get night vision at start & respawn"
-    let SADDLED_HORSE_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision at start & respawn, as well as an invulnerable saddled horse at game start"
+    let SADDLED_HORSE_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision and frost walker at start & respawn, as well as an invulnerable saddled horse at game start"
     let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10), "Players get night vision at start & respawn, and each team starts with chest of items"
     let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10), "Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
     let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
@@ -516,7 +516,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "night vision" "" "" NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "vanilla" "" "" VANILLA_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "spammable" "iron sword" "+night vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "saddled horse" "+night vision" "" SADDLED_HORSE_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "saddled horse" "+frost walker" "+night vision" SADDLED_HORSE_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "elytra" "+frost walker" "+night vision" ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "starting chest" "per team" "+night vision" STARTING_CHEST_NIGHT_VISION_LOADOUT
             // TODO reset everything ('circuit breaker?')
@@ -577,10 +577,12 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let saddledHorseNightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
+            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
             U """execute @a ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
         |],
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
         |], 
         fst SADDLED_HORSE_NIGHT_VISION_LOADOUT, "saddledHorseNightVisionLoadout"
     loadout(saddledHorseNightVisionLoadout)
@@ -1235,8 +1237,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // cancel out any pending seed choice
         yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         // clear player scores again (in case player joined server after card gen'd)
+        yield U "scoreboard players operation Seed Calc = Seed Score"  // save seed
         yield U "scoreboard players reset * Score"
         yield U "scoreboard players set @a Score 0"
+        yield U "scoreboard players operation Seed Score = Seed Calc"  // restore seed
         // set up lockout goal if lockout mode selected (teamCount 2/3/4 -> goal 13/9/7)
         yield U "scoreboard players test isLockoutMode S 1 *"
         yield C "scoreboard players test teamCount S 1 1"
@@ -2717,7 +2721,12 @@ type LootTable =
                             | LootingEnchant(a,b) -> w.WriteLine(sprintf """             %s{"function":"looting_enchant","count":{"min":%d,"max":%d}}""" c a b)
                             | FurnaceSmelt -> w.WriteLine(sprintf """             %s{"function":"furnace_smelt"}""" c)
                         w.WriteLine("""        ]}""")
-                | _ -> failwith "unhandled cases TODO"
+                | LootTable(name) ->
+                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d, "type":"loot_table", "name":"%s"} """ c weight quality name)
+                    w.WriteLine()
+                | Empty ->
+                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d, "type":"empty"} """ c weight quality)
+                    w.WriteLine()
             w.WriteLine("""    ]}""")
         w.WriteLine("""]}""")
 
@@ -2754,6 +2763,181 @@ let simple_dungeon =
                     Item("minecraft:string",[SetCount(1,8)]), 10, 0
                 ])
         ]
+
+// ench books, anvils, bottles
+// blocks
+// heals? IH1/2, R1/2, gapple
+// aesthetic blocks
+
+// wood tier: player acquires on own on surface, can grind for better
+// stone tier: dungeons & mineshafts
+// gold tier: surface dungeons I make
+// iron tier: best loot from ribbons and mountains
+
+// loot tables: e.g. armor.[1], tool.[3], etc
+
+// mobs: drop stuff at their tier and rarely a next tier thing
+
+let LOOT_ARMOR =
+    [|
+        // tier 1
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:leather_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:leather_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:leather_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:leather_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
+                               ])]
+        // tier 2
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:gold_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:gold_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:gold_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:gold_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
+                               ])]
+        // tier 3
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:iron_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
+                               ])]
+        // tier 4
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:iron_helmet",     [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_chestplate", [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_leggings",   [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_boots",      [EnchantWithLevels(16,30,false)]), 1, 0
+                               ])]
+    |]
+
+let LOOT_TOOLS =
+    [|
+        // tier 1
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:wooden_sword",   [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:wooden_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:wooden_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:wooden_axe",     [EnchantWithLevels(16,30,false)]), 1, 0
+                               ])]
+        // tier 2
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:stone_sword",   [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:stone_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:stone_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:stone_axe",     [EnchantWithLevels(16,30,false)]), 1, 0
+                               ])]
+        // tier 3
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:iron_sword",   []), 1, 0
+                        Item("minecraft:iron_pickaxe", []), 1, 0
+                        Item("minecraft:iron_shovel",  []), 1, 0
+                        Item("minecraft:iron_axe",     []), 1, 0
+                        Item("minecraft:iron_sword",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_pickaxe", [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_shovel",  [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_axe",     [EnchantWithLevels(1,15,false)]), 1, 0
+                               ])]
+        // tier 4
+        Pools [Pool(Roll(1,1), [
+                        Item("minecraft:iron_sword",   [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_axe",     [EnchantWithLevels(16,30,false)]), 1, 0
+                               ])]
+    |]
+
+let LOOT_FOOD =
+    [|
+        // tier 1
+        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(3,8)]), 1, 0])]
+        // tier 2
+        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0])]
+        // tier 3
+        Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0])]
+        // tier 4
+        Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0])]
+    |]
+
+// TODO cobblestone
+
+let LOOT_NS_PREFIX = "BrianLoot"
+let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
+type LOOT_KIND = | ARMOR | TOOLS | FOOD //| TODO 
+let P11 x = Pool(Roll(1,1),x)
+let OneOfAtNPercent(entryData, n) = 
+    assert(n>=0 && n <=100)
+    let weight = (entryData |> Seq.length)*(100-n)
+    P11[yield (Empty, weight, 0); for ed in entryData do yield (ed, n, 0)]
+let tierNLootData n kinds = 
+    [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) ]
+let tierxyLootPct x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
+    assert(n>=0 && n <=100)
+    let weight = (kinds|>Seq.length) * (1000-10*n-n)
+    P11[yield (Empty, weight, 0)
+        for ed in tierNLootData x kinds do 
+            yield (ed, 10*n, 0)
+        for ed in tierNLootData y kinds do 
+            yield (ed, n, 0)
+       ]
+let cobblePile = [Item("minecraft:cobblestone", [SetCount(4,9)])]
+let LOOT_FROM_DEFAULT_MOBS =
+    [|
+//        "minecraft:entities/bat"
+//        "minecraft:entities/chicken
+//        "minecraft:entities/cow
+//        "minecraft:entities/endermite
+//        "minecraft:entities/giant
+//        "minecraft:entities/horse
+//        "minecraft:entities/iron_golem
+//        "minecraft:entities/mushroom_cow
+//        "minecraft:entities/ocelot
+//        "minecraft:entities/pig
+//        "minecraft:entities/rabbit
+//        "minecraft:entities/sheep
+//        "minecraft:entities/snowman
+//        "minecraft:entities/squid
+//        "minecraft:entities/wolf
+
+//        "minecraft:entities/blaze", Pools [P11 [LT ARMOR 1 10; LT ARMOR 2 1]; P11 [LT TOOLS 1 1]]
+//        "minecraft:entities/cave_spider
+//        "minecraft:entities/creeper
+//        "minecraft:entities/elder_guardian
+//        "minecraft:entities/enderman
+//        "minecraft:entities/ghast
+//        "minecraft:entities/guardian
+//        "minecraft:entities/magma_cube
+//        "minecraft:entities/shulker
+//        "minecraft:entities/silverfish
+        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 16; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent(cobblePile,10)]
+//        "minecraft:entities/skeleton_horse
+//        "minecraft:entities/slime
+        "minecraft:entities/spider", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent(cobblePile,10)]
+//        "minecraft:entities/witch
+//        "minecraft:entities/wither_skeleton
+        "minecraft:entities/zombie", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent(cobblePile,10)]
+//        "minecraft:entities/zombie_horse
+//        "minecraft:entities/zombie_pigman
+    |]
+let writeLootTables(tables, worldSaveFolder) =
+    for (name:string, table:LootTable) in tables do
+        let pathBits = name.Split [|':';'/'|]
+        let wslt = System.IO.Path.Combine [| yield worldSaveFolder; yield "data"; yield "loot_tables" |]
+        let filename = System.IO.Path.Combine [| yield wslt; yield! pathBits |]
+        let filename = filename + ".json"
+        if System.IO.File.Exists(filename) then
+            System.IO.File.Delete(filename)
+        System.IO.Directory.CreateDirectory( System.IO.Path.GetDirectoryName(filename) ) |> ignore
+        use stream = new System.IO.StreamWriter( System.IO.File.OpenWrite(filename) )
+        table.Write(stream)
+let writeAllLootTables() =
+    writeLootTables(LOOT_FROM_DEFAULT_MOBS, """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks""")
+    let otherTables = [|
+            for i = 1 to 4 do
+                yield (LOOT_FORMAT"armor"i, LOOT_ARMOR.[i-1])
+                yield (LOOT_FORMAT"tools"i, LOOT_TOOLS.[i-1])
+                yield (LOOT_FORMAT"food"i,  LOOT_FOOD.[i-1])
+        |]
+    writeLootTables(otherTables, """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks""")
 
 ////////////////////////////////////////////
 
@@ -2822,6 +3006,8 @@ do
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
     //placeCertainBlocksInTheWorld()
+    writeAllLootTables()
+
 #if BINGO
     let onlyArt = false
     let save = if onlyArt then "BingoArt" else "tmp9"
