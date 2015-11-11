@@ -151,10 +151,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let bingoItems =
         [|
             [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
-            [|  -1, "bone", AA.bone                         ; -1, "bone", AA.bone                       ; -1, "bone", AA.bone                       |]
+            [|  -1, "bone", AA.bone                         ; +8, "dye", AA.gray_dye                    ; +8, "dye", AA.gray_dye                    |]
             [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "ender_pearl", AA.ender_pearl         |]
             [|  -1, "vine", AA.vine                         ; +2, "tallgrass", AA.fern                  ; -1, "deadbush", AA.deadbush               |]
-            [|  -1, "brick", AA.brick                       ; -1, "brick", AA.brick                     ; -1, "brick", AA.brick                     |]
+            [|  -1, "brick", AA.brick                       ; -1, "flower_pot", AA.flower_pot           ; -1, "flower_pot", AA.flower_pot           |]
             [|  -1, "glass_bottle", AA.glass_bottle         ; -1, "glass_bottle", AA.glass_bottle       ; -1, "glass_bottle", AA.glass_bottle       |]
             [|  -1, "melon", AA.melon_slice                 ; -1, "melon", AA.melon_slice               ; -1, "speckled_melon", AA.speckled_melon   |]
             [|  +0, "dye", AA.ink_sac                       ; -1, "book", AA.book                       ; -1, "writable_book", AA.book_and_quill    |]
@@ -165,11 +165,12 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  -1, "rail", AA.rail                         ; -1, "rail", AA.rail                       ; -1, "rail", AA.rail                       |]
             [|  -1, "mushroom_stew", AA.mushroom_stew       ; -1, "mushroom_stew", AA.mushroom_stew     ; -1, "mushroom_stew", AA.mushroom_stew     |]
             [|  -1, "sugar", AA.sugar                       ; -1, "spider_eye", AA.spider_eye           ; -1, "fermented_spider_eye", AA.fermented_spider_eye |]
-            [|  +2, "dye", AA.cactus_dye                    ; +4, "dye", AA.lapis                       ; +6, "dye", AA.cyan_dye                    |]
+            [|  +2, "dye", AA.cactus_dye                    ; +2, "dye", AA.cactus_dye                  ;+10, "dye", AA.lime_dye                    |]
+            [|  +4, "dye", AA.lapis                         ; +5, "dye", AA.purple_dye                  ; +6, "dye", AA.cyan_dye                    |]
             [|  -1, "emerald", AA.emerald                   ; -1, "emerald", AA.emerald                 ; -1, "emerald", AA.emerald                 |]
             [|  -1, "minecart", AA.minecart                 ; -1, "chest_minecart", AA.chest_minecart   ; -1, "tnt_minecart", AA.tnt_minecart       |]
             [|  -1, "gunpowder", AA.gunpowder               ; -1, "gunpowder", AA.gunpowder             ; -1, "gunpowder", AA.gunpowder             |]
-            [|  -1, "compass", AA.compass                   ; -1, "compass", AA.compass                 ; -1, "compass", AA.compass                 |]
+            [|  -1, "compass", AA.compass                   ; -1, "compass", AA.compass                 ; -1, "map", AA.empty_map                   |]
             [|  +1, "sapling", AA.spruce_sapling            ; +1, "sapling", AA.spruce_sapling          ; -1, "slime_ball", AA.slime_ball           |]
             [|  -1, "cauldron", AA.cauldron                 ; -1, "cauldron", AA.cauldron               ; -1, "cauldron", AA.cauldron               |]
             [|  -1, "name_tag", AA.name_tag                 ; -1, "saddle", AA.saddle                   ; -1, "enchanted_book", AA.enchanted_book   |]
@@ -178,6 +179,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  -1, "sign", AA.sign                         ; -1, "item_frame", AA.item_frame           ; -1, "painting", AA.painting               |]
             [|  -1, "golden_sword", AA.golden_sword         ; -1, "clock", AA.clock                     ; -1, "golden_rail", AA.golden_rail         |]
             [|  -1, "hopper", AA.hopper                     ; -1, "hopper", AA.hopper                   ; -1, "hopper", AA.hopper                   |]
+            [|  -1, "repeater", AA.repeater                 ; -1, "repeater", AA.repeater               ; -1, "repeater", AA.repeater               |]
         |]
     // store bingo art in the world
     let mutable x = 0
@@ -317,7 +319,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let LENGTH = ILENGTH + 2
     let HEIGHT = 6
     let NUM_CONFIG_COMMANDS = 7
-    let OFFERING_SPOT = Coords(LOBBYX+TOTAL_WIDTH-INFO_ROOM_IWITDH/2-2,LOBBYY+1,LOBBYZ+2)
+    let OFFERING_SPOT = Coords(LOBBYX+TOTAL_WIDTH-INFO_ROOM_IWITDH/2-2,LOBBYY+1,LOBBYZ+4)
     let LOBBY_CENTER_LOCATION = Coords(LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3, LOBBYY+2, LOBBYZ+3)
     let makeSignBoldness kind x y z dmg txt1 b1 txt2 b2 txt3 b3 txt4 b4 =
         [|
@@ -383,6 +385,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "fill %d %d %d %d %d %d chain_command_block 3" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
             yield U (sprintf "setblock %d %d %d chest 5" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+1) (LOBBYY) (LOBBYZ+1)) // wool under chest
             // put heads
             yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.1) (float (LOBBYZ+1) - 0.0))
             yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.1) (float (LOBBYZ+14) - 0.0))
@@ -516,6 +519,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 #endif
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+3) (LOBBYZ+1) 4 "run at" "start" "" ""
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+1) (LOBBYZ+1) 4 "run at" "respawn" "" ""
+            yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY) (LOBBYZ+1)) // wool under sign
             let mkLoadout x y z d txt1 txt2 txt3 ((c:Coords),tellPlayers) =
                 makeWallSignDo x y z d txt1 txt2 txt3 (sprintf """tellraw @a [{\\\"text\\\":\\\"Game configured: %s\\\",\\\"color\\\":\\\"green\\\"}]""" tellPlayers) (sprintf "clone %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2)) enabled (if enabled then "black" else "gray")
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "night vision" "" "" NIGHT_VISION_LOADOUT
@@ -541,12 +545,16 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ+13) 8 "Custom" "Settings" """----->\",\"strikethrough\":\"true""" ""
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+1) (LOBBYZ+13) 8 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY+1) (LOBBYZ+13) 8 "Game" "Info" """<-----\",\"strikethrough\":\"true""" ""
+            yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY) (LOBBYZ+13)) // wool under sign
+            yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY) (LOBBYZ+13)) // wool under sign
+            yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY) (LOBBYZ+13)) // wool under sign
             // interior layout - info room
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+4) 4 "Learn about" "basic rules" "and gameplay" (escape2 gameplayBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+6) 4 "Learn about" "various" "game modes" (escape2 gameModesBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+8) 4 "Learn about" "this world's" "custom terrain" (escape2 customTerrainBookCmd) "" true "black"
             yield! makeWallSignDo (LOBBYX+TOTAL_WIDTH-2) (LOBBYY+2) (LOBBYZ+10) 4 "Learn about" "all the folks" "who helped" (escape2 thanksBookCmd) "" true "black"
             yield! makeSign "standing_sign" (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+1) (LOBBYZ+1) 0 "Thanks for" "playing!" "" ""
+            yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+TOTAL_WIDTH-5) (LOBBYY) (LOBBYZ+1)) // wool under sign
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "Show all" "possible items" SHOW_ITEMS_BUTTON true "black"
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "Version" "Info" "" (escape2 versionInfoBookCmd) "" true "black"
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
@@ -2149,7 +2157,22 @@ do
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w44b.zip""","""C:\Users\Admin1\Desktop\15w45a.zip""")
     //placeCertainBlocksInTheWorld()
     //writeAllLootTables()
-    TerrainAnalysisAndManipulation.makeCrazyMap()
+    //TerrainAnalysisAndManipulation.makeCrazyMap()
+
+
+
+
+
+    let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
+    let r = new RegionFile(fil)
+    let arr = ResizeArray()
+    let s = AA.readZoneIntoString(r,147,3,93,16,1,16)
+    arr.Add(sprintf """let xxx = "%s" """ s)
+    let writePath = """C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\Temp.txt"""
+    System.IO.File.WriteAllLines(writePath, arr)
+    (*
+      *)
+
 
 #if BINGO
     let onlyArt = false
