@@ -448,3 +448,103 @@ type RegionFile(filename) =
                 match a.[i] with
                 | List(n,Compounds(cs)) ->
                    a.[i] <-  List(n,Compounds(Seq.append cs [tick] |> Seq.toArray))
+
+////////////////////////////////////////////////////
+
+type MapFolder(folderName) =
+    let cachedRegions = new System.Collections.Generic.Dictionary<_,_>()
+    let getOrCreateRegion(args) =
+        if cachedRegions.ContainsKey(args) then
+            cachedRegions.[args]
+        else
+            let rx,rz = args
+            let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
+            let r = new RegionFile(fil)
+            cachedRegions.Add(args, r)
+            r
+    member this.AddOrReplaceTileEntities(tes) =
+        // partition by region,chunk
+        let data = new System.Collections.Generic.Dictionary<_,_>()
+        for te in tes do
+            let x = te |> Array.pick (function Int("x",x) -> Some x | _ -> None)
+            let y = te |> Array.pick (function Int("y",y) -> Some y | _ -> None)
+            let z = te |> Array.pick (function Int("z",z) -> Some z | _ -> None)
+            let rx = (x + 512000) / 512 - 1000
+            let rz = (z + 512000) / 512 - 1000
+            if not(data.ContainsKey(rx,rz)) then
+                data.Add((rx,rz), Array2D.init 32 32 (fun _ _ -> ResizeArray()))
+            let cx = ((x+512000)%512)/16
+            let cz = ((z+512000)%512)/16
+            data.[(rx,rz)].[cx,cz].Add(te)
+        for (KeyValue((rx,rz),tesPerChunk)) in data do
+            let r = getOrCreateRegion(rx, rz)
+            // load each chunk TEs
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    if tesPerChunk.[cx,cz].Count > 0 then
+                        let chunk = r.GetChunk(cx,cz)
+                        let a = match chunk with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
+                        let mutable found = false
+                        let mutable i = 0
+                        while not found && i < a.Count-1 do
+                            match a.[i] with
+                            | List("TileEntities",Compounds(existingTEs)) ->
+                                // there are TEs already, remove any with xyz that we'll overwrite, and add new ones
+                                found <- true
+                                let finalTEs = ResizeArray()
+                                for ete in existingTEs do
+                                    let mutable willGetOverwritten = false
+                                    for nte in tesPerChunk.[cx,cz] do
+                                        let x = nte |> Array.pick (function Int("x",x) -> Some x | _ -> None)
+                                        let y = nte |> Array.pick (function Int("y",y) -> Some y | _ -> None)
+                                        let z = nte |> Array.pick (function Int("z",z) -> Some z | _ -> None)
+                                        let alreadyThere = Array.exists (fun o -> o=Int("x",x)) ete && Array.exists (fun o -> o=Int("y",y)) ete && Array.exists (fun o -> o=Int("z",z)) ete
+                                        if alreadyThere then
+                                            willGetOverwritten <- true
+                                    if willGetOverwritten then
+                                        () // TODO failwith "TODO overwriting TE, care?"
+                                    else
+                                        finalTEs.Add(ete)
+                                for nte in tesPerChunk.[cx,cz] do
+                                    finalTEs.Add(nte)
+                                a.[i] <- List("TileEntities",Compounds(finalTEs |> Array.ofSeq))
+                            | _ -> ()
+                            i <- i + 1
+                        if not found then // no TileEntities yet, write the entry
+                            match chunk with 
+                            | Compound(_,rsa) -> 
+                                match rsa.[0] with 
+                                | Compound(n,a) -> rsa.[0] <- Compound(n, a |> Seq.append [| List("TileEntities",Compounds(tesPerChunk.[cx,cz] |> Array.ofSeq)) |] |> ResizeArray)
+    member this.GetHeightMap(x,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetHeightMap(x,z)
+    member this.SetBlockIDAndDamage(x,y,z,bid,d) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.SetBlockIDAndDamage(x,y,z,bid,d)
+    member this.GetOrCreateSection(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetOrCreateSection(x,y,z)
+    member this.GetBlockInfo(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetBlockInfo(x,y,z)
+    member this.AddTileTick(id,t,p,x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.AddTileTick(id,t,p,x,y,z)
+    member this.WriteAll() =
+        for KeyValue(args, r) in cachedRegions do
+            let rx,rz = args
+            let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
+            r.Write(fil+".new")
+            System.IO.File.Delete(fil)
+            System.IO.File.Move(fil+".new",fil)
+
