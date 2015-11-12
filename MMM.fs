@@ -282,6 +282,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let START_TUTORIAL_BUTTON = Coords(58,3,10)
     let ENSURE_CARD_UPDATED_LOGIC = Coords(59,3,10)
     let SEND_TO_WAITING_ROOM = Coords(60,3,10)
+    let COMPUTE_LOCKOUT_GOAL = Coords(61,3,10)
 
     let VANILLA_LOADOUT = Coords(70,3,10), "Vanilla gameplay (no on-start/on-respawn commands)"
     let NIGHT_VISION_LOADOUT = Coords(71,3,10), "Players get night vision at start & respawn"
@@ -306,7 +307,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     //////////////////////////////
 
     // IWIDTH/ILENGTH are interior measures, not including walls
-    let LOBBYX, LOBBYY, LOBBYZ = 50, 6, 50
+    let LOBBYX, LOBBYY, LOBBYZ = 50, 6, 50  // alcove goes to Z-1
     let NEW_PLAYER_PLATFORM_LO = Coords(60,LOBBYY,30)
     let NEW_PLAYER_LOCATION = NEW_PLAYER_PLATFORM_LO.Offset(5,2,5)
     let NEW_MAP_PLATFORM_LO = Coords(60,LOBBYY,90)
@@ -336,15 +337,17 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             U (sprintf "setblock %d %d %d wall_sign %d" x y z dmg)
             U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s%s}"}"""  x y z x y z txt1 bc c1 txt2 bc c2)
         |]
-    let makeSignDoAction kind x y z dmg txt1 txt2 txt3 txt4 a1 cmd1 a2 cmd2 isBold color =
+    let makeSignDoAction kind x y z dmg txt1 txt2 txt3 txt4 a1 cmd1 a2 cmd2 a3 cmd3 a4 cmd4 isBold color =
         let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
         let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"} """ a1 cmd1 else ""
         let c2 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"} """ a2 cmd2 else ""
+        let c3 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"} """ a3 cmd3 else ""
+        let c4 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"%s\",\"value\":\"%s\"} """ a4 cmd4 else ""
         [|
             U (sprintf "setblock %d %d %d %s %d" x y z kind dmg)
-            U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" x y z x y z txt1 bc c1 txt2 bc c2 txt3 bc txt4 bc)
+            U (sprintf """blockdata %d %d %d {x:%d,y:%d,z:%d,id:"Sign",Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s%s}",Text3:"{\"text\":\"%s\"%s%s}",Text4:"{\"text\":\"%s\"%s%s}"}""" x y z x y z txt1 bc c1 txt2 bc c2 txt3 bc c3 txt4 bc c4)
         |]
-    let makeSignDo kind x y z dmg txt1 txt2 txt3 txt4 cmd1 cmd2 isBold color = makeSignDoAction kind x y z dmg txt1 txt2 txt3 txt4 "run_command" cmd1 "run_command" cmd2 isBold color 
+    let makeSignDo kind x y z dmg txt1 txt2 txt3 txt4 cmd1 cmd2 isBold color = makeSignDoAction kind x y z dmg txt1 txt2 txt3 txt4 "run_command" cmd1 "run_command" cmd2 "run_command" "" "run_command" "" isBold color 
     let makeWallSignDo x y z dmg txt1 txt2 txt3 txt4 cmd1 cmd2 isBold color =
         makeSignDo "wall_sign" x y z dmg txt1 txt2 txt3 txt4 cmd1 cmd2 isBold color
     let makeLobbyCmds =
@@ -372,7 +375,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             // room colors
             yield U (sprintf "fill %d %d %d %d %d %d minecraft:stained_hardened_clay 6 replace minecraft:stained_hardened_clay" LOBBYX LOBBYY LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
             yield U (sprintf "fill %d %d %d %d %d %d minecraft:stained_hardened_clay 8 replace minecraft:stained_hardened_clay" (LOBBYX+CFG_ROOM_IWIDTH+2+MAIN_ROOM_IWIDTH+2) LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT-1) (LOBBYZ+LENGTH-1))
-            yield U (sprintf "fill %d %d %d %d %d %d minecraft:stained_hardened_clay 10 replace minecraft:stained_hardened_clay" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY+1) LOBBYZ (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+3) LOBBYZ)
+            // lockout alcove
+            yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ) (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+3) (LOBBYZ))
+            yield U (sprintf "fill %d %d %d %d %d %d minecraft:stained_hardened_clay 10" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ-1) (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+3) (LOBBYZ-1))
+            yield U (sprintf "fill %d %d %d %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY) (LOBBYZ-1) (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY) (LOBBYZ-1))
             // floor & ceiling
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX (LOBBYY+HEIGHT) LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT) (LOBBYZ+LENGTH-1))
@@ -502,18 +508,23 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"Version History\n\n2.1 - 2014/05/12\n\nCustomized terrain with tiny biomes and many dungeons.\n\n2.0 - 2014/04/09\n\nRandomize the 25 items on the card."}"""
             """{"text":"Version History\n\n1.0 - 2013/10/03\n\nOriginal Minecraft 1.6 version. Only one fixed card, dispensed buckets of water to circle items on the map. (pre-dates /setblock!)"}"""
             |] )
-    // TODO
-    let customModesBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Lockout/customization", [|
+    let customConfigBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom game config", [|
             // TODO finalize prose
-            """{"text":"Minecraft BINGO supports TODO..."}"""
+            """{"text":"MinecraftBINGO allows you to customize the gameplay with extra command blocks. There are two banks of command blocks you can customize."}"""
+            """{"text":"The first bank of command blocks contains commands that run at the start of the game.\n\nThe second bank runs when a player respawns after death."}"""
+            """{"text":"You can modify these command blocks (in creative mode) to do a variety of things. But also..."}"""
+            """{"text":"There are various right-clickable signs labelled 'Load config' which you click to populate the command blocks with various fun pre-set configs."}"""
+            """{"text":"So you can choose one of the 'pre-set' configs just by clicking a sign, or if you know command blocks, you can create your own."}"""
             |] )
-    // community (reddit, twitter)
-    // (in custom room) about customization
+    // TODO community (reddit, twitter)
     let placeSigns(enabled) =
         [|
             yield O ""
             // interior layout - cfg room
-            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ+1) 3 "toggle lockout" "" TOGGLE_LOCKOUT_BUTTON enabled (if enabled then "black" else "gray")
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ) 0 "Lockout mode:" "Once one team" "gets a square," "no other"
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+1) (LOBBYZ) 0 "team can get" "that square." "Every square" "is a race!"
+            yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+1) (LOBBYZ) 0 "First to BINGO" "or get score" "'LockoutGoal'" "wins the game!"
+            yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ) 3 "Toggle" "Lockout Mode" TOGGLE_LOCKOUT_BUTTON enabled (if enabled then "black" else "gray")
 #if DEBUG
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
@@ -523,6 +534,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY) (LOBBYZ+1)) // wool under sign
             let mkLoadout x y z d txt1 txt2 txt3 ((c:Coords),tellPlayers) =
                 makeWallSignDo x y z d "Load config:" txt1 txt2 txt3 (sprintf """tellraw @a [{\\\"text\\\":\\\"Configuration loaded: %s\\\",\\\"color\\\":\\\"green\\\"}]""" tellPlayers) (sprintf "clone %s %s %d %d %d masked" c.STR (c.Offset(0,2,NUM_CONFIG_COMMANDS-1).STR) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2)) enabled (if enabled then "black" else "gray")
+            yield! makeWallSignDo (LOBBYX+1) (LOBBYY+2) (LOBBYZ+13) 5 "Learn about" "custom game" "configs" "" (escape2 customConfigBookCmd) "" true "black"
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "Vanilla" "(no extra" "commands)" VANILLA_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "Night Vision" "" "" NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "Spammable" "Iron Sword" "+Night Vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT
@@ -539,10 +551,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             if not enabled then
                 yield U (sprintf """blockdata %d %d %d {Text3:"(ends any game",Text4:"in progress)"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6))
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+4) 5 "START" "the game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "Join team" "RED" "" "" "scoreboard teams join red @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "Join team" "BLUE" "" "" "scoreboard teams join blue @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "Join team" "YELLOW" "" "" "scoreboard teams join yellow @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "Join team" "GREEN" "" "" "scoreboard teams join green @p" "scoreboard players set @p Score 0" enabled (if enabled then "black" else "gray")
+            yield! makeSignDoAction "wall_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "Join team" "RED"    "" "" "run_command" "scoreboard teams join red @p"    "run_command" "scoreboard players set @p Score 0" "run_command" (sprintf "blockdata %s {auto:1b}" COMPUTE_LOCKOUT_GOAL.STR) "run_command" (sprintf "blockdata %s {auto:0b}" COMPUTE_LOCKOUT_GOAL.STR) enabled (if enabled then "black" else "gray")
+            yield! makeSignDoAction "wall_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "Join team" "BLUE"   "" "" "run_command" "scoreboard teams join blue @p"   "run_command" "scoreboard players set @p Score 0" "run_command" (sprintf "blockdata %s {auto:1b}" COMPUTE_LOCKOUT_GOAL.STR) "run_command" (sprintf "blockdata %s {auto:0b}" COMPUTE_LOCKOUT_GOAL.STR) enabled (if enabled then "black" else "gray")
+            yield! makeSignDoAction "wall_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+7) 4 "Join team" "YELLOW" "" "" "run_command" "scoreboard teams join yellow @p" "run_command" "scoreboard players set @p Score 0" "run_command" (sprintf "blockdata %s {auto:1b}" COMPUTE_LOCKOUT_GOAL.STR) "run_command" (sprintf "blockdata %s {auto:0b}" COMPUTE_LOCKOUT_GOAL.STR) enabled (if enabled then "black" else "gray")
+            yield! makeSignDoAction "wall_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+8) 4 "Join team" "GREEN"  "" "" "run_command" "scoreboard teams join green @p"  "run_command" "scoreboard players set @p Score 0" "run_command" (sprintf "blockdata %s {auto:1b}" COMPUTE_LOCKOUT_GOAL.STR) "run_command" (sprintf "blockdata %s {auto:0b}" COMPUTE_LOCKOUT_GOAL.STR) enabled (if enabled then "black" else "gray")
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ+13) 8 "Custom" "Settings" """----->\",\"strikethrough\":\"true""" ""
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+1) (LOBBYZ+13) 8 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+6) (LOBBYY+1) (LOBBYZ+13) 8 "Game" "Info" """<-----\",\"strikethrough\":\"true""" ""
@@ -1328,18 +1340,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players set @a Score 0"
         yield U "scoreboard players operation Seed Score = Seed Calc"  // restore seed
         // set up lockout goal if lockout mode selected (teamCount 2/3/4 -> goal 13/9/7)
-        yield U "scoreboard players test isLockoutMode S 1 *"
-        yield C "scoreboard players test teamCount S 1 1"
-        yield C "scoreboard players set LockoutGoal Score 25"
-        yield U "scoreboard players test isLockoutMode S 1 *"
-        yield C "scoreboard players test teamCount S 2 2"
-        yield C "scoreboard players set LockoutGoal Score 13"
-        yield U "scoreboard players test isLockoutMode S 1 *"
-        yield C "scoreboard players test teamCount S 3 3"
-        yield C "scoreboard players set LockoutGoal Score 9"
-        yield U "scoreboard players test isLockoutMode S 1 *"
-        yield C "scoreboard players test teamCount S 4 4"
-        yield C "scoreboard players set LockoutGoal Score 7"
+        yield U (sprintf "blockdata %s {auto:1b}" (COMPUTE_LOCKOUT_GOAL.STR))
+        yield U (sprintf "blockdata %s {auto:0b}" (COMPUTE_LOCKOUT_GOAL.STR))
         // disable other buttons
         yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-3) LOBBYY LOBBYZ)
         yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-3) LOBBYY LOBBYZ)
@@ -1473,7 +1475,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             C "scoreboard players reset LockoutGoal Score"
             U "testforblock ~ ~ ~-2 chain_command_block -1 {SuccessCount:0}"
             C "scoreboard players set isLockoutMode S 1"
-            C "scoreboard players set LockoutGoal Score -1"
+            C (sprintf "blockdata %s {auto:1b}" (COMPUTE_LOCKOUT_GOAL.STR))
+            C (sprintf "blockdata %s {auto:0b}" (COMPUTE_LOCKOUT_GOAL.STR))
         |]
     region.PlaceCommandBlocksStartingAt(TOGGLE_LOCKOUT_BUTTON,toggleLockoutButton,"toggle lockout button")
     let endTutorialButton =
@@ -1965,6 +1968,27 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         C (sprintf "tp @a[tag=!oneGuyToTeleport] %s 180 0" WAITING_ROOM.STR)
         |]
     region.PlaceCommandBlocksStartingAt(SEND_TO_WAITING_ROOM,sendToWaitingRoom, "sendToWaitingRoom")
+    let computeLockoutGoal =
+        [|
+        yield O ""
+        yield U "scoreboard players set teamCount S 0"
+        for t in TEAMS do
+            yield U (sprintf "execute @p[team=%s] ~ ~ ~ scoreboard players add teamCount S 1" t)
+        // set up lockout goal if lockout mode selected (teamCount 2/3/4 -> goal 13/9/7)
+        yield U "scoreboard players test isLockoutMode S 1 *"
+        yield C "scoreboard players test teamCount S 1 1"
+        yield C "scoreboard players set LockoutGoal Score 25"
+        yield U "scoreboard players test isLockoutMode S 1 *"
+        yield C "scoreboard players test teamCount S 2 2"
+        yield C "scoreboard players set LockoutGoal Score 13"
+        yield U "scoreboard players test isLockoutMode S 1 *"
+        yield C "scoreboard players test teamCount S 3 3"
+        yield C "scoreboard players set LockoutGoal Score 9"
+        yield U "scoreboard players test isLockoutMode S 1 *"
+        yield C "scoreboard players test teamCount S 4 4"
+        yield C "scoreboard players set LockoutGoal Score 7"
+        |]
+    region.PlaceCommandBlocksStartingAt(COMPUTE_LOCKOUT_GOAL,computeLockoutGoal, "computeLockoutGoal")
 
 
     printfn ""
