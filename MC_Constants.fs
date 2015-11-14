@@ -93,6 +93,11 @@ let POTION_EFFECTS =
 
 let WOOL_COLORS = [|0,"White";1,"Orange";2,"Magenta";3,"Light Blue";4,"Yellow";5,"Lime";6,"Pink";7,"Gray";8,"Light Gray";9,"Cyan";10,"Purple";11,"Blue";12,"Brown";13,"Green";14,"Red";15,"Black"|]
 
+// map top-blocks to map colors here:
+// https://gist.githubusercontent.com/codewarrior0/6754728d68e3f28241ce/raw/17469d3c209b105b03c319ff197b8c6c80ee12fe/color_indexes.json
+// map block descriptions to damage value here:
+// https://github.com/mcedit/mcedit2/blob/master/src/mceditlib/blocktypes/idmapping_raw.json
+
 let BLOCK_IDS =
     [|0,"Air";1,"Stone";2,"Grass Block";3,"Dirt";4,"Cobblestone";5,"Wood Planks";6,"Saplings";7,"Bedrock";8,"Water";9,"Stationary water";
       10,"Lava";11,"Stationary lava";12,"Sand";13,"Gravel";14,"Gold Ore";15,"Iron Ore";16,"Coal Ore";17,"Wood";18,"Leaves";19,"Sponge";

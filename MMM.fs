@@ -152,16 +152,16 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
             [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
             [|  -1, "bone", AA.bone                         ; +8, "dye", AA.gray_dye                    ; +8, "dye", AA.gray_dye                    |]
-            [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "ender_pearl", AA.ender_pearl         |]
+            [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "slime_ball", AA.slime_ball           |]
             [|  -1, "vine", AA.vine                         ; +2, "tallgrass", AA.fern                  ; -1, "deadbush", AA.deadbush               |]
             [|  -1, "brick", AA.brick                       ; -1, "flower_pot", AA.flower_pot           ; -1, "flower_pot", AA.flower_pot           |]
             [|  -1, "glass_bottle", AA.glass_bottle         ; -1, "glass_bottle", AA.glass_bottle       ; -1, "glass_bottle", AA.glass_bottle       |]
             [|  -1, "melon", AA.melon_slice                 ; -1, "melon", AA.melon_slice               ; -1, "speckled_melon", AA.speckled_melon   |]
             [|  +0, "dye", AA.ink_sac                       ; -1, "book", AA.book                       ; -1, "writable_book", AA.book_and_quill    |]
-            [|  -1, "apple", AA.apple                       ; -1, "gold_ingot", AA.gold_ingot           ; -1, "golden_apple", AA.golden_apple       |]
+            [|  -1, "apple", AA.apple                       ; -1, "golden_shovel", AA.golden_shovel     ; -1, "golden_apple", AA.golden_apple       |]
             [|  -1, "flint", AA.flint                       ; -1, "flint", AA.flint                     ; -1, "flint_and_steel", AA.flint_and_steel |]
             [|  -1, "cookie", AA.cookie                     ; -1, "cookie", AA.cookie                   ; -1, "cookie", AA.cookie                   |]
-            [|  -1, "pumpkin_seeds", AA.pumpkin_seeds       ; -1, "pumpkin_seeds", AA.pumpkin_seeds     ; -1, "rabbit_hide", AA.rabbit_hide         |]
+            [|  -1, "pumpkin_seeds", AA.pumpkin_seeds       ; -1, "pumpkin_seeds", AA.pumpkin_seeds     ; -1, "pumpkin_pie", AA.pumpkin_pie         |]
             [|  -1, "rail", AA.rail                         ; -1, "rail", AA.rail                       ; -1, "rail", AA.rail                       |]
             [|  -1, "mushroom_stew", AA.mushroom_stew       ; -1, "mushroom_stew", AA.mushroom_stew     ; -1, "mushroom_stew", AA.mushroom_stew     |]
             [|  -1, "sugar", AA.sugar                       ; -1, "spider_eye", AA.spider_eye           ; -1, "fermented_spider_eye", AA.fermented_spider_eye |]
@@ -171,7 +171,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  -1, "minecart", AA.minecart                 ; -1, "chest_minecart", AA.chest_minecart   ; -1, "tnt_minecart", AA.tnt_minecart       |]
             [|  -1, "gunpowder", AA.gunpowder               ; -1, "gunpowder", AA.gunpowder             ; -1, "gunpowder", AA.gunpowder             |]
             [|  -1, "compass", AA.compass                   ; -1, "compass", AA.compass                 ; -1, "map", AA.empty_map                   |]
-            [|  +1, "sapling", AA.spruce_sapling            ; +1, "sapling", AA.spruce_sapling          ; -1, "slime_ball", AA.slime_ball           |]
+            [|  +1, "sapling", AA.spruce_sapling            ; +1, "sapling", AA.spruce_sapling          ; +4, "sapling", AA.acacia_sapling          |]
             [|  -1, "cauldron", AA.cauldron                 ; -1, "cauldron", AA.cauldron               ; -1, "cauldron", AA.cauldron               |]
             [|  -1, "name_tag", AA.name_tag                 ; -1, "saddle", AA.saddle                   ; -1, "enchanted_book", AA.enchanted_book   |]
             [|  -1, "milk_bucket", AA.milk_bucket           ; -1, "egg", AA.egg                         ; -1, "cake", AA.cake                       |]
@@ -237,10 +237,18 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         s.Substring(0, s.Length-1) + "]}"
     let otherChest2 =
         let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
-        for i = 9 to otherItems.Count-1 do
+        for i = 9 to 17 do
             for j = 0 to 2 do
                 let dmg,item,_art = otherItems.[i].[j]
                 sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db,Damage:%ds},""" (i-9+(9*j)) item 1 (if dmg = -1 then 0 else dmg)) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    let otherChest3 =
+        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        for i = 18 to otherItems.Count-1 do
+            for j = 0 to 2 do
+                let dmg,item,_art = otherItems.[i].[j]
+                sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db,Damage:%ds},""" (i-18+(9*j)) item 1 (if dmg = -1 then 0 else dmg)) |> ignore
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
 
@@ -569,6 +577,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeSign "standing_sign" (LOBBYX+TOTAL_WIDTH-5) (LOBBYY+1) (LOBBYZ+1) 0 "Thanks for" "playing!" "" ""
             yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+TOTAL_WIDTH-5) (LOBBYY) (LOBBYZ+1)) // wool under sign
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+8) 5 "Show all" "possible items" SHOW_ITEMS_BUTTON true "black"
+            yield U (sprintf "setblock %d %d %d wool 8" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+7) (LOBBYY) (LOBBYZ+8)) // wool under chests
+            yield U (sprintf "setblock %d %d %d wool 8" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+9) (LOBBYY) (LOBBYZ+8)) // wool under chests
+            yield U (sprintf "setblock %d %d %d wool 8" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+7) (LOBBYY) (LOBBYZ+10)) // wool under chests
+            yield U (sprintf "setblock %d %d %d wool 8" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+9) (LOBBYY) (LOBBYZ+10)) // wool under chests
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "Version" "Info" "" "" (escape2 versionInfoBookCmd) "" true "black"
             yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
             // start platform has a disable-able sign
@@ -1457,14 +1469,16 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 
     let showItemsButton =
         [|
-            let x,y,z = (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5), (LOBBYY+2), (LOBBYZ+9)
+            let x,y,z = (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+6), (LOBBYY+2), (LOBBYZ+8)
             yield O ""
             yield U (sprintf "setblock %d %d %d chest" (x+1) (y-1) z)
             yield U (sprintf "blockdata %d %d %d %s" (x+1) (y-1) z anyDifficultyChest)
             yield U (sprintf "setblock %d %d %d chest" (x+3) (y-1) z)
             yield U (sprintf "blockdata %d %d %d %s" (x+3) (y-1) z otherChest1)
-            yield U (sprintf "setblock %d %d %d chest" (x+5) (y-1) z)
-            yield U (sprintf "blockdata %d %d %d %s" (x+5) (y-1) z otherChest2)
+            yield U (sprintf "setblock %d %d %d chest" (x+1) (y-1) (z+2))
+            yield U (sprintf "blockdata %d %d %d %s" (x+1) (y-1) (z+2) otherChest2)
+            yield U (sprintf "setblock %d %d %d chest" (x+3) (y-1) (z+2))
+            yield U (sprintf "blockdata %d %d %d %s" (x+3) (y-1) (z+2) otherChest3)
         |]
     region.PlaceCommandBlocksStartingAt(SHOW_ITEMS_BUTTON,showItemsButton,"show items button")
     let toggleLockoutButton =
@@ -2193,14 +2207,18 @@ do
 
 
 
-    (*
     let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
     let r = new RegionFile(fil)
     let arr = ResizeArray()
-    let s = AA.readZoneIntoString(r,147,3,93,16,1,16)
-    arr.Add(sprintf """let xxx = "%s" """ s)
+    let s = AA.readZoneIntoString(r,147,3,3,16,1,16)
+    arr.Add(sprintf """let gs = "%s" """ s)
+    let s = AA.readZoneIntoString(r,147,3,21,16,1,16)
+    arr.Add(sprintf """let pp = "%s" """ s)
+    let s = AA.readZoneIntoString(r,147,3,111,16,1,16)
+    arr.Add(sprintf """let as = "%s" """ s)
     let writePath = """C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\Temp.txt"""
     System.IO.File.WriteAllLines(writePath, arr)
+    (*
       *)
 
 
