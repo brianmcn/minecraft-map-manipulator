@@ -655,12 +655,16 @@ let mapDatToPng(mapDatFile:string, newPngFilename:string) =
         | _ -> nbt) id nbt
     out.Save(newPngFilename, System.Drawing.Imaging.ImageFormat.Png)
 
+let updateDat(file,f) =
+    let nbt = readDatFile(file)
+    printfn "%s" (nbt.ToString())
+    let nbt = cataNBT f id nbt
+    printfn "%s" (nbt.ToString())
+    writeDatFile(file+".new", nbt)
+
 let dumpPlayerDat(file) =
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
-//    let nbt = cataNBT (fun nbt -> match nbt with |NBT.List("Pos",Payload.Doubles(a)) -> List("Pos",Doubles[|0.0;0.0;0.0|]) | _ -> nbt) id nbt
-//    printfn "%s" (nbt.ToString())
-//    writeDatFile(file+".new", nbt)
 
     (*
     // allow commands

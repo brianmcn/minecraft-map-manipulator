@@ -192,18 +192,68 @@ let LOOT_FOOD =
         Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0])]
     |]
 
+let enchantmentsInTiers =
+    [|
+        [
+            // tier 1 has none
+        ]
+        [
+            "fire_protection"
+            "feather_falling"
+            "blast_protection"
+            "projectile_protection"
+            "respiration"
+            "aqua_affinity"
+            "thorns"
+            "smite"
+            "bane_of_arthropods"
+            "knockback"
+            "fire_aspect"
+            "efficiency"
+            "silk_touch"
+            "fortune"
+            "power"
+            "punch"
+            "flame"
+        ]
+        [
+            "protection"
+            "feather_falling"
+            "projectile_protection"
+            "depth_strider"
+            "frost_walker"
+            "sharpness"
+            "looting"
+            "efficiency"
+            "unbreaking"
+            "infinity"
+        ]
+        [
+            "protection"
+            "feather_falling"
+            "looting"
+            "infinity"
+            "mending"
+        ]
+    |]
+// unused
+//            "luck_of_the_sea"
+//            "lure"
+
+
+
 // TODO cobblestone
 
 let LOOT_NS_PREFIX = "BrianLoot"
 let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
-type LOOT_KIND = | ARMOR | TOOLS | FOOD //| TODO 
+type LOOT_KIND = | ARMOR | TOOLS | FOOD | BOOKS //| TODO 
 let P11 x = Pool(Roll(1,1),x)
 let OneOfAtNPercent(entryData, n) = 
     assert(n>=0 && n <=100)
     let weight = (entryData |> Seq.length)*(100-n)
     P11[yield (Empty, weight, 0); for ed in entryData do yield (ed, n, 0)]
 let tierNLootData n kinds = 
-    [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) ]
+    [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) | BOOKS -> yield LootTable(LOOT_FORMAT"books"n) ]
 let tierxyLootPct x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
     assert(n>=0 && n <=100)
     let weight = (kinds|>Seq.length) * (1000-10*n-n)
@@ -213,7 +263,7 @@ let tierxyLootPct x y kinds n = // tier x at n%, but instead tier y at n/10%....
         for ed in tierNLootData y kinds do 
             yield (ed, n, 0)
        ]
-let cobblePile = [Item("minecraft:cobblestone", [SetCount(4,9)])]
+let cobblePile = Item("minecraft:cobblestone", [SetCount(4,9)])
 let LOOT_FROM_DEFAULT_MOBS =
     [|
 //        "minecraft:entities/bat"
@@ -242,16 +292,36 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/magma_cube
 //        "minecraft:entities/shulker
 //        "minecraft:entities/silverfish
-        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 16; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent(cobblePile,10)]
+        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 16; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
-        "minecraft:entities/spider", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent(cobblePile,10)]
+        "minecraft:entities/spider", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent([cobblePile],10)]
 //        "minecraft:entities/witch
 //        "minecraft:entities/wither_skeleton
-        "minecraft:entities/zombie", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent(cobblePile,10)]
+        "minecraft:entities/zombie", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent([cobblePile],10)]
 //        "minecraft:entities/zombie_horse
 //        "minecraft:entities/zombie_pigman
     |]
+
+let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n]])
+let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
+
+let sampleTier2Chest =
+        Pools[ Pool(Roll(10,10),[tierNBookItem(2),1,0])
+               Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0])
+               tierxyLootPct 2 3 [FOOD] 16 
+               OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:iron_ingot",[SetCount(4,9)])],100)
+             ]
+
+let LOOT_FROM_DEFAULT_CHESTS =
+    [|
+        "minecraft:chests/simple_dungeon", sampleTier2Chest
+        "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
+        // TODO all the others
+    |]
+// TODO fix fishing
+
+
 let writeLootTables(tables, worldSaveFolder) =
     for (name:string, table:LootTable) in tables do
         let pathBits = name.Split [|':';'/'|]
@@ -264,14 +334,16 @@ let writeLootTables(tables, worldSaveFolder) =
         use stream = new System.IO.StreamWriter( System.IO.File.OpenWrite(filename) )
         table.Write(stream)
 let writeAllLootTables() =
-    writeLootTables(LOOT_FROM_DEFAULT_MOBS, """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks""")
+    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Ender Crystal"""
+    writeLootTables(LOOT_FROM_DEFAULT_MOBS, worldSaveFolder)
+    writeLootTables(LOOT_FROM_DEFAULT_CHESTS, worldSaveFolder)
     let otherTables = [|
             for i = 1 to 4 do
                 yield (LOOT_FORMAT"armor"i, LOOT_ARMOR.[i-1])
                 yield (LOOT_FORMAT"tools"i, LOOT_TOOLS.[i-1])
                 yield (LOOT_FORMAT"food"i,  LOOT_FOOD.[i-1])
         |]
-    writeLootTables(otherTables, """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks""")
+    writeLootTables(otherTables, worldSaveFolder)
 
 
 

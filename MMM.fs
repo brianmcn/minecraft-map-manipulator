@@ -534,8 +534,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+1) (LOBBYZ) 0 "First to BINGO" "or get score" "'LockoutGoal'" "wins the game!"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ) 3 "Toggle" "Lockout Mode" TOGGLE_LOCKOUT_BUTTON enabled (if enabled then "black" else "gray")
 #if DEBUG
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
 #endif
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+3) (LOBBYZ+1) 4 "Commands run" "at game" "start" "-->"
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+1) (LOBBYZ+1) 4 "Commands run" "at each death" "(respawn)" "-->"
@@ -2178,7 +2178,6 @@ do
     //repopulateAsAnotherBiome()
     //debugRegion()
     //findUndergroundAirSpaceConnectedComponents()
-    //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""")
     //substituteBlocks()
     (*
     let sb = new System.Text.StringBuilder()
@@ -2200,13 +2199,18 @@ do
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w45a.zip""","""C:\Users\Admin1\Desktop\15w46a.zip""")
     //placeCertainBlocksInTheWorld()
-    //writeAllLootTables()
+    //LootTables.writeAllLootTables()
     //TerrainAnalysisAndManipulation.makeCrazyMap()
+    let go = MC_Constants.defaultWorldWithCustomOreSpawns(1,100,TerrainAnalysisAndManipulation.oreSpawnCustom)
+    System.Windows.Clipboard.SetText(go)
+    updateDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""", 
+                 (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
 
 
 
 
 
+    (*
     let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
     let r = new RegionFile(fil)
     let arr = ResizeArray()
@@ -2218,7 +2222,6 @@ do
     arr.Add(sprintf """let as = "%s" """ s)
     let writePath = """C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\Temp.txt"""
     System.IO.File.WriteAllLines(writePath, arr)
-    (*
       *)
 
 

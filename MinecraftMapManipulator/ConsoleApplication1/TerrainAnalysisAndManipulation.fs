@@ -392,10 +392,25 @@ let blockSubstitutionsEmpty =  // TODO want different ones, both as a function o
         129uy,0uy,  129uy,0uy;     // emerald -> 
     |]
 
+let oreSpawnCustom =
+    [|
+        // block, Size, Count, MinHeight, MaxHeight
+        "dirt",     33, 10, 0, 256
+        "gravel",   33,  8, 0, 256
+        "granite",  33,  0, 0,  80
+        "diorite",  33,  0, 0,  80
+        "andesite",  1, 10, 0,  80
+        "coal",     17, 20, 0, 128
+        "iron",      9,  3, 0,  64
+        "gold",      9,  1, 0,  32
+        "redstone",  8,  3, 0,  24
+        "diamond",   4,  1, 0,  16
+    |]
 let blockSubstitutionsTrial =
     [|
           1uy,0uy,   97uy,0uy;     // stone -> silverfish
-          1uy,3uy,   57uy,0uy;     // diorite -> diamond block
+          //1uy,5uy,   uy,0uy;     // andesite -> TODO mob spawner
+          //73uy,0uy,   73uy,0uy;     // redstone -> TODO mob spawner
     |] // TODO what about tile entities like mob spawners? want to cache them per-chunk and then write them to chunks at end
 
 let substituteBlocks(map:MapFolder) =
