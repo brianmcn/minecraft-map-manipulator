@@ -2200,12 +2200,15 @@ do
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w45a.zip""","""C:\Users\Admin1\Desktop\15w46a.zip""")
     //placeCertainBlocksInTheWorld()
     //LootTables.writeAllLootTables()
-    //TerrainAnalysisAndManipulation.makeCrazyMap()
+    TerrainAnalysisAndManipulation.makeCrazyMap()
+    LootTables.writeAllLootTables()
+    
+    (*
     let go = MC_Constants.defaultWorldWithCustomOreSpawns(1,100,TerrainAnalysisAndManipulation.oreSpawnCustom)
     System.Windows.Clipboard.SetText(go)
     updateDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""", 
                  (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
-
+    *)
 
 
 

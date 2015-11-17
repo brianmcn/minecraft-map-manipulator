@@ -183,7 +183,7 @@ let LOOT_TOOLS =
 let LOOT_FOOD =
     [|
         // tier 1
-        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(3,8)]), 1, 0])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(5,10)]), 1, 0])]
         // tier 2
         Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0])]
         // tier 3
@@ -264,6 +264,7 @@ let tierxyLootPct x y kinds n = // tier x at n%, but instead tier y at n/10%....
             yield (ed, n, 0)
        ]
 let cobblePile = Item("minecraft:cobblestone", [SetCount(4,9)])
+let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])
 let LOOT_FROM_DEFAULT_MOBS =
     [|
 //        "minecraft:entities/bat"
@@ -282,12 +283,12 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/squid
 //        "minecraft:entities/wolf
 
-//        "minecraft:entities/blaze", Pools [P11 [LT ARMOR 1 10; LT ARMOR 2 1]; P11 [LT TOOLS 1 1]]
-//        "minecraft:entities/cave_spider
-//        "minecraft:entities/creeper
+        "minecraft:entities/blaze", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 33; tierxyLootPct 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10)]
+        "minecraft:entities/cave_spider", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 16; tierxyLootPct 2 2 [FOOD] 16; OneOfAtNPercent([ironPile],10)]
+        "minecraft:entities/creeper", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent([cobblePile],10)]
 //        "minecraft:entities/elder_guardian
 //        "minecraft:entities/enderman
-//        "minecraft:entities/ghast
+        "minecraft:entities/ghast", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 33; tierxyLootPct 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10)]
 //        "minecraft:entities/guardian
 //        "minecraft:entities/magma_cube
 //        "minecraft:entities/shulker
@@ -303,7 +304,7 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/zombie_pigman
     |]
 
-let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n]])
+let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
 let sampleTier2Chest =
@@ -311,13 +312,43 @@ let sampleTier2Chest =
                Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0])
                tierxyLootPct 2 3 [FOOD] 16 
                OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:iron_ingot",[SetCount(4,9)])],100)
+               Pool(Roll(0,1),
+                    [Item("minecraft:saddle",[]), 20, 0
+                     Item("minecraft:iron_horse_armor",[]), 15, 0
+                     Item("minecraft:diamond_horse_armor",[]), 5, 0])
              ]
+let sampleTier3Chest =
+        Pools[ Pool(Roll(10,10),[tierNBookItem(3),1,0])
+               Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0])
+               tierxyLootPct 3 4 [FOOD] 16 
+               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0])
+               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0])
+               Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(20,30)]),1,0])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"3),1,0])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"3),1,0])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0])
+             ]
+let sampleTier4Chest =
+        Pools[ Pool(Roll(15,15),[tierNBookItem(4),1,0])
+               Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0])
+               tierxyLootPct 4 4 [FOOD] 16 
+               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0])
+               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0])
+               Pool(Roll(1,1),[Item("minecraft:elytra",[]),1,0])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0])
+             ]
+
 
 let LOOT_FROM_DEFAULT_CHESTS =
     [|
         "minecraft:chests/simple_dungeon", sampleTier2Chest
         "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
         // TODO all the others
+        // hack to get mine there
+        sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
+        sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
     |]
 // TODO fix fishing
 
@@ -334,7 +365,7 @@ let writeLootTables(tables, worldSaveFolder) =
         use stream = new System.IO.StreamWriter( System.IO.File.OpenWrite(filename) )
         table.Write(stream)
 let writeAllLootTables() =
-    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Ender Crystal"""
+    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
     writeLootTables(LOOT_FROM_DEFAULT_MOBS, worldSaveFolder)
     writeLootTables(LOOT_FROM_DEFAULT_CHESTS, worldSaveFolder)
     let otherTables = [|

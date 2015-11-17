@@ -43,6 +43,11 @@ type MobSpawnerInfo() =
 
 ////////////////////////////////////////////
 
+let spiderJockeyMSI(x,y,z) = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Spider", ExtraNbt=[ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
+
+////////////////////////////////////////////
+
+
 let repopulateAsAnotherBiome() =
     //let user = "brianmcn"
     let user = "Admin1"
@@ -157,7 +162,7 @@ type Partition(orig : Thingy) as this =
             thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
             thisRoot.rank <- thisRoot.rank + 1 
 
-let putTreasureBoxAt(map:MapFolder,sx,sy,sz) =
+let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
     for x = sx-2 to sx+2 do
         for z = sz-2 to sz+2 do
             map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
@@ -172,16 +177,18 @@ let putTreasureBoxAt(map:MapFolder,sx,sy,sz) =
             for z = sz-2 to sz+2 do
                 map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
     map.SetBlockIDAndDamage(sx,sy+1,sz,54uy,2uy)  // chest
-    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy+1); Int("z",sz); String("id","Chest"); List("Items",Compounds[| |]); String("Lock",""); String("CustomName","Lootz!"); End |] |])
+    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy+1); Int("z",sz); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |] |])
 
+let MINIMUM = -1024
+let LENGTH = 2048
 
 let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
-    let LOX, LOY, LOZ = -512, 11, -512
-    let MAXI, MAXJ, MAXK = 1024, 50, 1024
+    let LOX, LOY, LOZ = MINIMUM, 11, MINIMUM
+    let MAXI, MAXJ, MAXK = LENGTH, 50, LENGTH
     let PT(i,j,k) = i*MAXJ*MAXK + k*MAXJ + j
     let a = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) null   // +2s because we have sentinels guarding array index out of bounds
     let mutable currentSectionBlocks,curx,cury,curz = null,-1000,-1000,-1000
-    let XYZ(i,j,k) =
+    let XYZ(i,j,k) =   // TODO can I get rid of this with based arrays?
         let x = i-1 + LOX
         let y = j-1 + LOY
         let z = k-1 + LOZ
@@ -325,7 +332,8 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
                     if feesh.Count > 0 then
                         let x,y,z = feesh.[rng.Next(feesh.Count-1)]
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
-                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton")
+                        let possibleSpawners = [|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)])
                         spawnerTileEntities.Add(ms.AsNbtTileEntity())
                         ok <- true
                     spread <- spread + 1
@@ -353,7 +361,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
             for z = ez-1 to ez+1 do
                 map.SetBlockIDAndDamage(x,ey-3,z,42uy,0uy)  // iron block
         // put treasure at bottom end
-        putTreasureBoxAt(map,sx,sy,sz)
+        putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
     // end foreach CC
     ()
 
@@ -414,8 +422,8 @@ let blockSubstitutionsTrial =
     |] // TODO what about tile entities like mob spawners? want to cache them per-chunk and then write them to chunks at end
 
 let substituteBlocks(map:MapFolder) =
-    let LOX, LOY, LOZ = -512, 11, -512
-    let MAXI, MAXJ, MAXK = 1024, 50, 1024
+    let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
+    let MAXI, MAXJ, MAXK = LENGTH, 120, LENGTH
     let mutable currentSectionBlocks,currentSectionBlockData,curx,cury,curz = null,null,-1000,-1000,-1000
     let XYZ(i,j,k) =
         let x = i-1 + LOX
@@ -475,25 +483,25 @@ let substituteBlocks(map:MapFolder) =
 // also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
 
 let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, bestNearbyDist) =
-    let a = Array2D.zeroCreateBased -512 -512 1024 1024  // TODO factor constants
+    let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     printfn "PART..."
     // find all points height over threshold
-    for x = -512 to 511 do
-        for z = -512 to 511 do
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
             let h = heightMap.[x,z]
             if h > connectedThreshold then
                 a.[x,z] <- new Partition(new Thingy(0 (*x*1024+z*),false,(h>goodThreshold)))
     printfn "CC..."
     // connected-components them
-    for x = -512 to 511-1 do
-        for z = -512 to 511-1 do
+    for x = MINIMUM to MINIMUM+LENGTH-2 do
+        for z = MINIMUM to MINIMUM+LENGTH-2 do
             if a.[x,z] <> null && a.[x,z+1] <> null then
                 a.[x,z].Union(a.[x,z+1])
             if a.[x,z] <> null && a.[x+1,z] <> null then
                 a.[x,z].Union(a.[x+1,z])
     let CCs = new System.Collections.Generic.Dictionary<_,_>()
-    for x = -512 to 511 do
-        for z = -512 to 511 do
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
             if a.[x,z] <> null then
                 let rep = a.[x,z].Find()
                 if rep.Value.IsRight then
@@ -528,6 +536,7 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
 
 let findSomeMountainPeaks(map:MapFolder,hm) =
     let bestHighPoints, scores = findBestPeaksAlgorithm(hm,80,100,3)
+    let bestHighPoints = bestHighPoints |> Seq.filter (fun (x,z) -> x*x+z*z > 200*200)
     printfn "The best high points are:"
     for (x,z),s in Seq.map2 (fun x y -> x,y) bestHighPoints scores do
         printfn "  (%4d,%4d) - %d" x z s
@@ -536,7 +545,7 @@ let findSomeMountainPeaks(map:MapFolder,hm) =
     let rng = System.Random()
     for (x,z) in bestHighPoints do
         let y = map.GetHeightMap(x,z)
-        putTreasureBoxAt(map,x,y,z)   // TODO heightmap, blocklight, skylight
+        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
         for i = x-20 to x+20 do
             for j = z-20 to z+20 do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
@@ -547,23 +556,25 @@ let findSomeMountainPeaks(map:MapFolder,hm) =
                         let z = j
                         let y = map.GetHeightMap(x,z)
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-                        //let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton")
-                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Spider", ExtraNbt=[ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
+                        let possibleSpawners = [|(5,"Spider"); (1,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)])
+                        if ms.BasicMob = "Spider" then
+                            ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
                         spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
 
 let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
     // then treat 'goodness' as 'height', and the existing 'find mountain peaks' algorithm may work
-    let a = Array2D.zeroCreateBased -512 -512 1024 1024
+    let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let fScores = [| 100; 90; 75; 50; 0; -100; -999 |]
     let f(h1,h2) =
         let diff = abs(h1-h2)
         fScores.[min diff (fScores.Length-1)]
     let D = 10
     printfn "PREP FLAT MAP..."
-    for x = -512+D to 511-D do
-        for z = -512+D to 511-D do
+    for x = MINIMUM+D to MINIMUM+LENGTH-1-D do
+        for z = MINIMUM+D to MINIMUM+LENGTH-1-D do
             let h = if hm.[x,z] > 65 && hm.[x,z] < 90 then hm.[x,z] else 255  // only pick points above sea level but not too high
             let mutable score = 0
             for dx = -D to D do
@@ -572,6 +583,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
                     score <- score + ds
             a.[x,z] <- score
     let bestFlatPoints,scores = findBestPeaksAlgorithm(a,2000,3000,D)
+    let bestFlatPoints = bestFlatPoints |> Seq.filter (fun (x,z) -> x*x+z*z > 200*200)
     printfn "The best flat points are:"
     let chosen = ResizeArray()
     for (x,z),s in Seq.map2 (fun x y -> x,y) bestFlatPoints scores do
@@ -584,7 +596,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
     let rng = System.Random()
     for (x,z) in bestFlatPoints do
         let y = map.GetHeightMap(x,z)
-        putTreasureBoxAt(map,x,y,z)   // TODO heightmap, blocklight, skylight
+        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
         for i = x-20 to x+20 do
             for j = z-20 to z+20 do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
@@ -596,8 +608,10 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
                         let y = map.GetHeightMap(x,z) + rng.Next(2)
                         if rng.Next(5+2*dist) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-                            //let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton")
-                            let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Spider", ExtraNbt=[ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
+                            let possibleSpawners = [|(5,"Spider"); (1,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                            let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)])
+                            if ms.BasicMob = "Spider" then
+                                ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
                             spawnerTileEntities.Add(ms.AsNbtTileEntity())
                         else
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
@@ -605,14 +619,14 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
 
 let makeCrazyMap() =
     let user = "Admin1"
-    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\seed31Copy\region\"""))
+    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\RandomCTM\region\"""))
     printfn "CACHE HM & double spawners..."
     let spawnerTileEntities = ResizeArray()
-    let hm = Array2D.zeroCreateBased -512 -512 1024 1024
-    for x = -512 to 511 do
+    let hm = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
         printfn "%d" x
-        for z = -512 to 511 do
-            for y = 40 downto 12 do  // down, because will put new ones above
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
+            for y = 80 downto 1 do  // down, because will put new ones above
                 let bi = map.GetBlockInfo(x,y,z) // caches height map as side effect
                 // double all existing mob spawners
                 if bi.BlockID = 52uy then // 52-mob spawner
@@ -623,7 +637,7 @@ let makeCrazyMap() =
                             | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
                     map.SetBlockIDAndDamage(x, y+1, z, 52uy, 0uy) // 52 = monster spawner
                     let ms = MobSpawnerInfo(x=x, y=y+1, z=z, BasicMob=(if kind = "CaveSpider" then "Skeleton" else "CaveSpider"), 
-                                            ExtraNbt=[ yield String("DeathLootTable","TODO")// TODO
+                                            ExtraNbt=[ //yield String("DeathLootTable","TODO")// TODO
                                                        if kind = "CaveSpider" then 
                                                             yield List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
                     spawnerTileEntities.Add(ms.AsNbtTileEntity())
@@ -631,10 +645,10 @@ let makeCrazyMap() =
                     let h = map.GetHeightMap(x,z)
                     hm.[x,z] <- h
     map.AddOrReplaceTileEntities(spawnerTileEntities)
-    //findSomeMountainPeaks(map,hm)
-    //findSomeFlatAreas(map,hm)
-    //substituteBlocks(map)
-    //findUndergroundAirSpaceConnectedComponents(map)
+    findSomeMountainPeaks(map,hm)
+    findSomeFlatAreas(map,hm)
+    substituteBlocks(map)
+    findUndergroundAirSpaceConnectedComponents(map)
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
