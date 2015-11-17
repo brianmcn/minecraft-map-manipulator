@@ -2,7 +2,7 @@ module RegionFiles
 
 open NBT_Manipulation
 
-type BlockInfo(blockID:byte, blockData:Lazy<byte>, tileEntity:NBT option) =
+type BlockInfo(blockID:byte, blockData:Lazy<byte>, tileEntity:Lazy<NBT option>) =
     member this.BlockID = blockID
     member this.BlockData = blockData
     member this.TileEntity = tileEntity
@@ -26,16 +26,23 @@ let DUMMY = "say dummy"
 let DIV(x,m) = (x+10000*m)/m - 10000
 let MOD(x,m) = (x+10000*m)%m
 
+[<AllowNullLiteral>]
 type RegionFile(filename) =
     let rx, rz =
         let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new|\.old)?$""")
         int m.Groups.[1].Value, int m.Groups.[2].Value
     let isChunkDirty = Array2D.create 32 32 false
     let chunkHeightMapCache : int[,][,] = Array2D.create 32 32 null   // chunkHeightMapCache.[cx,cz].[x,z], (TODO currently just read once, never updated)
-    let chunkSectionsCache : NBT[][][,] = Array2D.init 32 32 (fun _ _ -> Array.zeroCreate 16)   // chunkSectionsCache.[cx,cz].[sy]
+    let chunkSectionsCache : (NBT[]*byte[]*byte[])[][,] = Array2D.init 32 32 (fun _ _ -> Array.create 16 (null,null,null))   // chunkSectionsCache.[cx,cz].[sy]
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
     let mutable firstSeenDataVersion = -1
+    let ensureCorrectRegion(x,z) =
+        let xxxx = if x < 0 then x - 512 else x
+        let zzzz = if z < 0 then z - 512 else z
+        let xxxx = if xxxx < 0 then xxxx+1 else xxxx
+        let zzzz = if zzzz < 0 then zzzz+1 else zzzz
+        if xxxx/512 <> rx || zzzz/512 <> rz then failwith "coords outside this region"
     let getOrCreateChunk(cx,cz) =
         let chunk = 
             match chunks.[cx,cz] with
@@ -190,7 +197,7 @@ type RegionFile(filename) =
         let zz = ((z+51200)%512)/16
         let sy = y/16
         match chunkSectionsCache.[xx,zz].[sy] with
-        | null -> None
+        | null,null,null -> None
         | x -> Some x
     member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
         let xx = ((x+51200)%512)/16
@@ -198,21 +205,26 @@ type RegionFile(filename) =
         let theChunk = getOrCreateChunk(xx,zz) // do this even though we don't "need" it, to avoid having sections without parent chunks
         let sy = y/16
         match chunkSectionsCache.[xx,zz].[sy] with
-        | null -> 
+        | null, null, null -> 
             let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
             let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
             let theSection = 
                 match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
-                | Some x -> x
+                | Some x -> 
+                    let blocks = x |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
+                    let blockData = x |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
+                    x, blocks, blockData
                 | None ->
-                    let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", Array.zeroCreate 4096); NBT.ByteArray("Data", Array.zeroCreate 2048); 
+                    let blocks = Array.zeroCreate 4096
+                    let blockData = Array.zeroCreate 2048
+                    let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", blocks); NBT.ByteArray("Data", blockData); 
                                         NBT.ByteArray("BlockLight",Array.create 2048 0uy); NBT.ByteArray("SkyLight",Array.create 2048 0uy); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
                     match theChunkLevel with
                     | Compound(_,a) ->
                         let i = a.FindIndex (fun x -> x.Name="Sections")
                         a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
                         isChunkDirty.[xx,zz] <- true
-                        newSection
+                        newSection, blocks, blockData
             chunkSectionsCache.[xx,zz].[sy] <- theSection
             theSection
         | x -> x
@@ -226,31 +238,25 @@ type RegionFile(filename) =
         | c -> Some c
     member this.SetChunk(cx, cz, newChunk) =
         chunks.[cx,cz] <- newChunk
-    member this.GetBlockInfo(x, y, z) =
-        match this.TryGetBlockInfo(x,y,z) with
-        | Some r -> r
-        | None -> failwith "chunk not represented, NYI"
-    member this.TryGetBlockInfo(x, y, z) =
-        let xxxx = if x < 0 then x - 512 else x
-        let zzzz = if z < 0 then z - 512 else z
-        let xxxx = if xxxx < 0 then xxxx+1 else xxxx
-        let zzzz = if zzzz < 0 then zzzz+1 else zzzz
-        if xxxx/512 <> rx || zzzz/512 <> rz then failwith "coords outside this region"
-        let theSection = this.GetOrCreateSection(x,y,z)
+    member this.GetBlockId(x, y, z) = // will create unrepresented chunk/section
+        ensureCorrectRegion(x,z)
+        let _theSection, blocks, _blockData = this.GetOrCreateSection(x,y,z)
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
-        // BlockID
-        let blocks = theSection |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
-        // BlockData
-        let blockData = theSection |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
+        blocks.[i]
+    member this.GetBlockInfo(x, y, z) = // will create unrepresented chunk/section
+        ensureCorrectRegion(x,z)
+        let _theSection, blocks, blockData = this.GetOrCreateSection(x,y,z)
+        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+        let i = dy*256 + dz*16 + dx
         let blockDataAtI = Lazy.Create(fun() ->
             // expand 2048 half-bytes into 4096 for convenience of same indexing
             let blockData = Array.init 4096 (fun x -> if (x+51200)%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
             blockData.[i])
-        let theChunk = this.GetOrCreateChunk(x,z)
-        let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
         // TileEntities
-        let tileEntity = 
+        let tileEntity = Lazy.Create(fun() ->
+            let theChunk = this.GetOrCreateChunk(x,z)
+            let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
             match theChunkLevel.["TileEntities"] with 
             | List(_,Compounds(cs)) ->
                 let tes = cs |> Array.choose (fun te -> 
@@ -259,19 +265,15 @@ type RegionFile(filename) =
                 if tes.Length = 0 then None
                 elif tes.Length = 1 then Some tes.[0]
                 else failwith "unexpected: multiple TileEntities with same xyz coords"
-            | _ -> None
-        Some(new BlockInfo(blocks.[i], blockDataAtI, tileEntity))
+            | _ -> None)
+        new BlockInfo(blocks.[i], blockDataAtI, tileEntity)
     member this.SetBlockIDAndDamage(x, y, z, blockID, damage) =
         if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
         if damage > 15uy then failwith "invalid blockData"
-        let theSection = this.GetOrCreateSection(x,y,z)
+        let _theSection, blocks, blockData = this.GetOrCreateSection(x,y,z)
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
-        // BlockID
-        let blocks = theSection |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
         blocks.[i] <- blockID
-        // BlockData
-        let blockData = theSection |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
         let mutable tmp = blockData.[i/2]
         if i%2 = 0 then
             tmp <- tmp &&& 0xF0uy
@@ -428,10 +430,8 @@ type RegionFile(filename) =
             for cz = 0 to 31 do
                 if chunks.[cx,cz] <> End then
                     for sy = 0 to 15 do
-                        let s = chunkSectionsCache.[cx,cz].[sy]
+                        let s,blocks,data = chunkSectionsCache.[cx,cz].[sy]
                         if s <> null then
-                            let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
-                            let data = s |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
                             f blocks data
     member this.AddTileTick(id,t,p,x,y,z) =
         let cx = ((x+51200)%512)/16
@@ -452,15 +452,17 @@ type RegionFile(filename) =
 ////////////////////////////////////////////////////
 
 type MapFolder(folderName) =
-    let cachedRegions = new System.Collections.Generic.Dictionary<_,_>()
-    let getOrCreateRegion(args) =
-        if cachedRegions.ContainsKey(args) then
-            cachedRegions.[args]
+    let MMM = 100
+    let cachedRegions = Array2D.zeroCreateBased -MMM -MMM (2*MMM) (2*MMM)
+    let getOrCreateRegion(rx,rz) =
+        if rx < -MMM || rx > MMM-1 || rz < -MMM || rz > MMM-1 then
+            failwith "MapFolder can currently only do a fixed num regions"
+        if cachedRegions.[rx,rz] <> null then
+            cachedRegions.[rx,rz]
         else
-            let rx,rz = args
             let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
             let r = new RegionFile(fil)
-            cachedRegions.Add(args, r)
+            cachedRegions.[rx,rz] <- r
             r
     member this.AddOrReplaceTileEntities(tes) =
         // partition by region,chunk
@@ -530,6 +532,11 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetOrCreateSection(x,y,z)
+    member this.GetBlockId(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetBlockId(x,y,z)
     member this.GetBlockInfo(x,y,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
@@ -541,10 +548,12 @@ type MapFolder(folderName) =
         let r = getOrCreateRegion(rx, rz)
         r.AddTileTick(id,t,p,x,y,z)
     member this.WriteAll() =
-        for KeyValue(args, r) in cachedRegions do
-            let rx,rz = args
-            let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
-            r.Write(fil+".new")
-            System.IO.File.Delete(fil)
-            System.IO.File.Move(fil+".new",fil)
+        for rx = -MMM to MMM-1 do
+            for rz = -MMM to MMM-1 do
+                let r = cachedRegions.[rx,rz]
+                if r <> null then
+                    let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
+                    r.Write(fil+".new")
+                    System.IO.File.Delete(fil)
+                    System.IO.File.Move(fil+".new",fil)
 

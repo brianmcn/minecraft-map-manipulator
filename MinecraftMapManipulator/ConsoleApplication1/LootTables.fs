@@ -263,7 +263,7 @@ let tierxyLootPct x y kinds n = // tier x at n%, but instead tier y at n/10%....
         for ed in tierNLootData y kinds do 
             yield (ed, n, 0)
        ]
-let cobblePile = Item("minecraft:cobblestone", [SetCount(4,9)])
+let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])
 let LOOT_FROM_DEFAULT_MOBS =
     [|
@@ -285,7 +285,7 @@ let LOOT_FROM_DEFAULT_MOBS =
 
         "minecraft:entities/blaze", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 33; tierxyLootPct 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10)]
         "minecraft:entities/cave_spider", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 16; tierxyLootPct 2 2 [FOOD] 16; OneOfAtNPercent([ironPile],10)]
-        "minecraft:entities/creeper", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent([cobblePile],10)]
+        "minecraft:entities/creeper", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10)]
 //        "minecraft:entities/elder_guardian
 //        "minecraft:entities/enderman
         "minecraft:entities/ghast", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 33; tierxyLootPct 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10)]
@@ -293,13 +293,13 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/magma_cube
 //        "minecraft:entities/shulker
 //        "minecraft:entities/silverfish
-        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 16; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10)]
+        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 12; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],12)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
-        "minecraft:entities/spider", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent([cobblePile],10)]
+        "minecraft:entities/spider", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 8; tierxyLootPct 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8)]
 //        "minecraft:entities/witch
 //        "minecraft:entities/wither_skeleton
-        "minecraft:entities/zombie", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 10; OneOfAtNPercent([cobblePile],10)]
+        "minecraft:entities/zombie", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 8; tierxyLootPct 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8)]
 //        "minecraft:entities/zombie_horse
 //        "minecraft:entities/zombie_pigman
     |]
@@ -308,18 +308,20 @@ let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTie
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
 let sampleTier2Chest =
-        Pools[ Pool(Roll(10,10),[tierNBookItem(2),1,0])
-               Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0])
+        Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0])
+               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0])
                tierxyLootPct 2 3 [FOOD] 16 
-               OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:iron_ingot",[SetCount(4,9)])],100)
+               tierxyLootPct 2 3 [FOOD] 16 
+               OneOfAtNPercent([Item("minecraft:iron_pickaxe",[]);Item("minecraft:iron_sword",[]);Item("minecraft:iron_axe",[]);Item("minecraft:iron_ingot",[SetCount(2,9)])],50)
                Pool(Roll(0,1),
-                    [Item("minecraft:saddle",[]), 20, 0
+                    [LootTable("empty"), 20, 0
+                     Item("minecraft:saddle",[]), 20, 0
                      Item("minecraft:iron_horse_armor",[]), 15, 0
                      Item("minecraft:diamond_horse_armor",[]), 5, 0])
              ]
 let sampleTier3Chest =
-        Pools[ Pool(Roll(10,10),[tierNBookItem(3),1,0])
-               Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0])
+        Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0])
+               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0])
                tierxyLootPct 3 4 [FOOD] 16 
                Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0])
                Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0])
@@ -329,8 +331,8 @@ let sampleTier3Chest =
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0])
              ]
 let sampleTier4Chest =
-        Pools[ Pool(Roll(15,15),[tierNBookItem(4),1,0])
-               Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0])
+        Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0])
+               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0])
                tierxyLootPct 4 4 [FOOD] 16 
                Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0])
                Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0])
@@ -364,8 +366,7 @@ let writeLootTables(tables, worldSaveFolder) =
         System.IO.Directory.CreateDirectory( System.IO.Path.GetDirectoryName(filename) ) |> ignore
         use stream = new System.IO.StreamWriter( System.IO.File.OpenWrite(filename) )
         table.Write(stream)
-let writeAllLootTables() =
-    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
+let writeAllLootTables(worldSaveFolder) =
     writeLootTables(LOOT_FROM_DEFAULT_MOBS, worldSaveFolder)
     writeLootTables(LOOT_FROM_DEFAULT_CHESTS, worldSaveFolder)
     let otherTables = [|

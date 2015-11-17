@@ -999,12 +999,10 @@ let findStrongholds() =
                             let y = 16 * sy
                             match region.TryGetSection(x,y,z) with
                             | None -> ()
-                            | Some s ->
-                                let blocks = s |> Array.find (fun nbt -> nbt.Name = "Blocks")
-                                match blocks with ByteArray(_,a) ->
-                                    if a |> Array.exists (fun b -> b = 120uy) then // 120 = end portal frame
-                                        if y < 64 then // below ground
-                                            printfn "end portal at (%6d, %3d, %6d)" x y z
+                            | Some (_s,blocks,_bd) ->
+                                if blocks |> Array.exists (fun b -> b = 120uy) then // 120 = end portal frame
+                                    if y < 64 then // below ground
+                                        printfn "end portal at (%6d, %3d, %6d)" x y z
     ()
     (*
 

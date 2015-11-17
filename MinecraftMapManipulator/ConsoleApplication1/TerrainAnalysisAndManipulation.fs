@@ -45,6 +45,8 @@ type MobSpawnerInfo() =
 
 let spiderJockeyMSI(x,y,z) = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Spider", ExtraNbt=[ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
 
+let skeletonMSI(x,y,z) = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton", ExtraNbt=[ List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
+
 ////////////////////////////////////////////
 
 
@@ -182,7 +184,7 @@ let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
 let MINIMUM = -1024
 let LENGTH = 2048
 
-let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
+let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>) =
     let LOX, LOY, LOZ = MINIMUM, 11, MINIMUM
     let MAXI, MAXJ, MAXK = LENGTH, 50, LENGTH
     let PT(i,j,k) = i*MAXJ*MAXK + k*MAXJ + j
@@ -201,7 +203,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
             for k = 1 to MAXK do
                 let x,y,z = XYZ(i,j,k)
                 if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
-                    currentSectionBlocks <- map.GetOrCreateSection(x,y,z) |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
+                    currentSectionBlocks <- map.GetOrCreateSection(x,y,z) |> (fun (_sect,blocks,_bd) -> blocks)
                     curx <- x
                     cury <- y
                     curz <- z
@@ -306,6 +308,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
         let sx,sy,sz = XYZ(bi,bj,bk)
         let ex,ey,ez = XYZ(besti,bestj,bestk)
         printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
+        log.Add(sprintf "added beacon at %d %d %d" ex ey ez)
         let mutable i,j,k = besti,bestj,bestk
         let fullDist = dist.[besti,bestj,bestk]
         let mutable count = 0
@@ -359,7 +362,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder) =
         map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
         for x = ex-1 to ex+1 do
             for z = ez-1 to ez+1 do
-                map.SetBlockIDAndDamage(x,ey-3,z,42uy,0uy)  // iron block
+                map.SetBlockIDAndDamage(x,ey-3,z,133uy,0uy)  // emerald block
         // put treasure at bottom end
         putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
     // end foreach CC
@@ -403,25 +406,19 @@ let blockSubstitutionsEmpty =  // TODO want different ones, both as a function o
 let oreSpawnCustom =
     [|
         // block, Size, Count, MinHeight, MaxHeight
-        "dirt",     33, 10, 0, 256
+        "dirt",     33, 20, 0, 256
         "gravel",   33,  8, 0, 256
-        "granite",  33,  0, 0,  80
-        "diorite",  33,  0, 0,  80
-        "andesite",  1, 10, 0,  80
+        "granite",  33, 10, 0,  80
+        "diorite",  33, 10, 0,  80
+        "andesite",  1, 20, 0,  80
         "coal",     17, 20, 0, 128
         "iron",      9,  3, 0,  64
         "gold",      9,  1, 0,  32
         "redstone",  8,  3, 0,  24
         "diamond",   4,  1, 0,  16
     |]
-let blockSubstitutionsTrial =
-    [|
-          1uy,0uy,   97uy,0uy;     // stone -> silverfish
-          //1uy,5uy,   uy,0uy;     // andesite -> TODO mob spawner
-          //73uy,0uy,   73uy,0uy;     // redstone -> TODO mob spawner
-    |] // TODO what about tile entities like mob spawners? want to cache them per-chunk and then write them to chunks at end
 
-let substituteBlocks(map:MapFolder) =
+let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
     let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
     let MAXI, MAXJ, MAXK = LENGTH, 120, LENGTH
     let mutable currentSectionBlocks,currentSectionBlockData,curx,cury,curz = null,null,-1000,-1000,-1000
@@ -430,6 +427,18 @@ let substituteBlocks(map:MapFolder) =
         let y = j-1 + LOY
         let z = k-1 + LOZ
         x,y,z
+    let rng = System.Random()
+    let possibleSpawners = [|(1,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+    let spawnerTileEntities = ResizeArray()
+    let spawner(x,y,z) =
+        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)], MaxSpawnDelay=400s)
+        spawnerTileEntities.Add(ms.AsNbtTileEntity())
+    let blockSubstitutionsTrial =
+        [|
+              1uy,0uy,   97uy,0uy,    (fun(_,_,_)->())     // stone -> silverfish
+              1uy,5uy,   52uy,0uy,    spawner     // andesite -> mob spawner
+              73uy,0uy,  52uy,0uy,    spawner     // redstone -> mob spawner
+        |]
     printf "SUBST"
     for j = 1 to MAXJ do
         printf "."
@@ -438,8 +447,8 @@ let substituteBlocks(map:MapFolder) =
                 let x,y,z = XYZ(i,j,k)
                 if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
                     let sect = map.GetOrCreateSection(x,y,z)
-                    currentSectionBlocks <- sect |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
-                    currentSectionBlockData <- sect |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
+                    currentSectionBlocks <- sect |> (fun (_sect,blocks,_bd) -> blocks)
+                    currentSectionBlockData <- sect |> (fun (_sect,_blocks,bd) -> bd)
                     curx <- x
                     cury <- y
                     curz <- z
@@ -447,7 +456,7 @@ let substituteBlocks(map:MapFolder) =
                 let bix = dy*256 + dz*16 + dx
                 let bid = currentSectionBlocks.[bix]
                 let dmg = if bix%2=1 then currentSectionBlockData.[bix/2] >>> 4 else currentSectionBlockData.[bix/2] &&& 0xFuy
-                for obid, odmg, nbid, ndmg in blockSubstitutionsTrial do
+                for obid, odmg, nbid, ndmg, f in blockSubstitutionsTrial do
                     if bid = obid && dmg = odmg then
                         currentSectionBlocks.[bix] <- nbid
                         let mutable tmp = currentSectionBlockData.[bix/2]
@@ -458,6 +467,9 @@ let substituteBlocks(map:MapFolder) =
                             tmp <- tmp &&& 0x0Fuy
                             tmp <- tmp + (ndmg<<< 4)
                         currentSectionBlockData.[bix/2] <- tmp
+                        f(x,y,z)
+    map.AddOrReplaceTileEntities(spawnerTileEntities)
+    log.Add(sprintf "added %d random spawners underground" spawnerTileEntities.Count)
     printfn ""
 
 // mappings: should probably be to a chance set that's a function of difficulty or something...
@@ -528,18 +540,19 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
     let bestHighPoints = ResizeArray()
     let bestHighPointsScores = ResizeArray()
     for hx,hz in highPoints |> Seq.sortByDescending score do
-        if hx > -480 && hx < 480 && hz > -480 && hz < 480 then  // not at edge of bounds
+        if hx > MINIMUM+32 && hx < MINIMUM+LENGTH-32 && hz > MINIMUM+32 && hz < MINIMUM+LENGTH-32 then  // not at edge of bounds
             if bestHighPoints |> Seq.forall (fun (ex,ez) -> distance2(ex,ez,hx,hz) > 200*200) then   // spaced apart TODO factor constants
                 bestHighPoints.Add( (hx,hz) )
                 bestHighPointsScores.Add( score(hx,hz) )
     bestHighPoints, bestHighPointsScores
 
-let findSomeMountainPeaks(map:MapFolder,hm) =
+let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>) =
     let bestHighPoints, scores = findBestPeaksAlgorithm(hm,80,100,3)
     let bestHighPoints = bestHighPoints |> Seq.filter (fun (x,z) -> x*x+z*z > 200*200)
     printfn "The best high points are:"
     for (x,z),s in Seq.map2 (fun x y -> x,y) bestHighPoints scores do
         printfn "  (%4d,%4d) - %d" x z s
+        log.Add(sprintf "added mountain peak at %d %d" x z)
     // decorate map with dungeon ascent
     let spawnerTileEntities = ResizeArray()
     let rng = System.Random()
@@ -563,7 +576,7 @@ let findSomeMountainPeaks(map:MapFolder,hm) =
                         spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
 
-let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
+let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
     // then treat 'goodness' as 'height', and the existing 'find mountain peaks' algorithm may work
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -590,6 +603,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
         printfn "  (%4d,%4d) - %d" x z s
         if s > 10000000 then
             chosen.Add( (x,z) )
+            log.Add(sprintf "added flat set piece at %d %d" x z)
     let bestFlatPoints = chosen
     // decorate map with dungeon
     let spawnerTileEntities = ResizeArray()
@@ -617,41 +631,68 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,]) =
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
     map.AddOrReplaceTileEntities(spawnerTileEntities)
 
-let makeCrazyMap() =
-    let user = "Admin1"
-    let map = new MapFolder("""C:\Users\"""+user+(sprintf """\AppData\Roaming\.minecraft\saves\RandomCTM\region\"""))
-    printfn "CACHE HM & double spawners..."
-    let spawnerTileEntities = ResizeArray()
+let makeCrazyMap(worldSaveFolder) =
+    let timer = System.Diagnostics.Stopwatch.StartNew()
+    let map = new MapFolder(worldSaveFolder + """\region\""")
+    let log = ResizeArray()
     let hm = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
-    for x = MINIMUM to MINIMUM+LENGTH-1 do
-        printfn "%d" x
-        for z = MINIMUM to MINIMUM+LENGTH-1 do
-            for y = 80 downto 1 do  // down, because will put new ones above
-                let bi = map.GetBlockInfo(x,y,z) // caches height map as side effect
-                // double all existing mob spawners
-                if bi.BlockID = 52uy then // 52-mob spawner
-                    let kind =
-                        match bi.TileEntity.Value with
-                        | Compound(_,cs) ->
-                            match cs |> Seq.find (fun x -> x.Name = "SpawnData") with
-                            | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
-                    map.SetBlockIDAndDamage(x, y+1, z, 52uy, 0uy) // 52 = monster spawner
-                    let ms = MobSpawnerInfo(x=x, y=y+1, z=z, BasicMob=(if kind = "CaveSpider" then "Skeleton" else "CaveSpider"), 
-                                            ExtraNbt=[ //yield String("DeathLootTable","TODO")// TODO
-                                                       if kind = "CaveSpider" then 
-                                                            yield List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
-                    spawnerTileEntities.Add(ms.AsNbtTileEntity())
-                if y = 0 then
-                    let h = map.GetHeightMap(x,z)
-                    hm.[x,z] <- h
-    map.AddOrReplaceTileEntities(spawnerTileEntities)
-    findSomeMountainPeaks(map,hm)
-    findSomeFlatAreas(map,hm)
-    substituteBlocks(map)
-    findUndergroundAirSpaceConnectedComponents(map)
+    let time f =
+        let timer = System.Diagnostics.Stopwatch.StartNew()
+        f()
+        log.Add(sprintf "(this section took %f minutes)" timer.Elapsed.TotalMinutes)
+        log.Add("-----")
+    time (fun () ->
+        printfn "CACHE HM..."
+        for x = MINIMUM to MINIMUM+LENGTH-1 do
+            if x%20 = 0 then
+                printfn "%d" x
+            for z = MINIMUM to MINIMUM+LENGTH-1 do
+                let bi = map.GetBlockInfo(x,0,z) // caches height map as side effect
+                let h = map.GetHeightMap(x,z)
+                hm.[x,z] <- h
+        )
+    time (fun () ->
+        printfn "double spawners..."
+        let spawnerTileEntities = ResizeArray()
+        for x = MINIMUM to MINIMUM+LENGTH-1 do
+            if x%20 = 0 then
+                printfn "%d" x
+            for z = MINIMUM to MINIMUM+LENGTH-1 do
+                for y = 79 downto 0 do  // down, because will put new ones above
+                    let bid = map.GetBlockId(x,y,z)
+                    // double all existing mob spawners
+                    if bid = 52uy then // 52-mob spawner
+                        let bi = map.GetBlockInfo(x,y,z) // caches height map as side effect
+                        let kind =
+                            match bi.TileEntity.Force().Value with
+                            | Compound(_,cs) ->
+                                match cs |> Seq.find (fun x -> x.Name = "SpawnData") with
+                                | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
+                        map.SetBlockIDAndDamage(x, y+1, z, 52uy, 0uy) // 52 = monster spawner
+                        let ms = MobSpawnerInfo(x=x, y=y+1, z=z, BasicMob=(if kind = "CaveSpider" then "Skeleton" else "CaveSpider"), 
+                                                MinSpawnDelay=200s, MaxSpawnDelay=400s, // 10-20s, rather than 10-40s
+                                                ExtraNbt=[ //yield String("DeathLootTable","TODO")// TODO
+                                                           if kind = "CaveSpider" then 
+                                                                yield List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
+                        spawnerTileEntities.Add(ms.AsNbtTileEntity())
+        map.AddOrReplaceTileEntities(spawnerTileEntities)
+        log.Add(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
+        )
+    time (fun () -> substituteBlocks(map, log))
+    time (fun () -> findSomeMountainPeaks(map, hm, log))
+    time (fun () -> findSomeFlatAreas(map, hm, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, log))
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
+    printfn ""
+    printfn "SUMMARY"
+    printfn ""
+    for s in log do
+        printfn "%s" s
+    printfn "Took %f minutes" timer.Elapsed.TotalMinutes 
+    printfn "press a key to end"
+    System.Console.ReadKey() |> ignore
 
 
 //works:
