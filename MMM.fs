@@ -211,7 +211,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     AA.writeZoneFromString(region, MAPX+64, MAPY, MAPZ+64, AA.mapBottomRight)
     for x = 1 to 128 do
         for z = 1 to 128 do
-            region.SetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
+            region.EnsureSetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
     // prepare item display chests
     let anyDifficultyItems = ResizeArray()
     let otherItems = ResizeArray()
@@ -2049,18 +2049,18 @@ let preciseImageToBlocks(imageFilename:string,regionFolder, baseY) =
     let colorTable= new System.Collections.Generic.Dictionary<_,_>()
     let knownColors = 
         [|
-            (255uy, 51uy, 102uy, 153uy),   (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 95uy, 11uy))   // blue glass water
-            (255uy, 255uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 80uy, 0uy))    // white snow
-            (255uy, 0uy, 102uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 35uy, 13uy))   // green wool tree
-            (255uy, 102uy, 102uy, 102uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 7uy, 0uy))     // dark mountain
-            (255uy, 0uy, 204uy, 0uy),      (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 2uy, 0uy))     // green grass
-            (255uy, 255uy, 51uy, 0uy),     (fun x y z -> for dy in [0;1;2;3] do m.SetBlockIDAndDamage(x, baseY+dy, z, 152uy, 0uy))   // red wall
-            (255uy, 153uy, 153uy, 153uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 1uy, 0uy))     // grey stone
-            (255uy, 255uy, 255uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 41uy, 0uy))    // gold thingy
-            (255uy, 204uy, 255uy, 255uy),  (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 174uy, 0uy))   // light blue ice
-            (255uy, 153uy, 102uy, 51uy),   (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 3uy, 2uy))     // brown podzol
+            (255uy, 51uy, 102uy, 153uy),   (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 95uy, 11uy))   // blue glass water
+            (255uy, 255uy, 255uy, 255uy),  (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 80uy, 0uy))    // white snow
+            (255uy, 0uy, 102uy, 0uy),      (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 35uy, 13uy))   // green wool tree
+            (255uy, 102uy, 102uy, 102uy),  (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 7uy, 0uy))     // dark mountain
+            (255uy, 0uy, 204uy, 0uy),      (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 2uy, 0uy))     // green grass
+            (255uy, 255uy, 51uy, 0uy),     (fun x y z -> for dy in [0;1;2;3] do m.EnsureSetBlockIDAndDamage(x, baseY+dy, z, 152uy, 0uy))   // red wall
+            (255uy, 153uy, 153uy, 153uy),  (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 1uy, 0uy))     // grey stone
+            (255uy, 255uy, 255uy, 0uy),    (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 41uy, 0uy))    // gold thingy
+            (255uy, 204uy, 255uy, 255uy),  (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 174uy, 0uy))   // light blue ice
+            (255uy, 153uy, 102uy, 51uy),   (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 3uy, 2uy))     // brown podzol
             (255uy, 0uy, 0uy, 0uy),        (fun x y z -> ())                                               // black means air
-            (255uy, 255uy, 102uy, 0uy),    (fun x y z -> m.SetBlockIDAndDamage(x, baseY, z, 86uy, 11uy))   // orange pumpkin
+            (255uy, 255uy, 102uy, 0uy),    (fun x y z -> m.EnsureSetBlockIDAndDamage(x, baseY, z, 86uy, 11uy))   // orange pumpkin
             (255uy, 153uy, 51uy, 0uy),     (fun x y z -> ()) // TODO
             (255uy, 0uy, 255uy, 0uy),      (fun x y z -> ()) // TODO
             (255uy, 255uy, 204uy, 153uy),      (fun x y z -> ()) // TODO
@@ -2200,17 +2200,16 @@ do
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w46a.zip""","""C:\Users\Admin1\Desktop\15w47a.zip""")
     //placeCertainBlocksInTheWorld()
     
-    
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
     TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     LootTables.writeAllLootTables(worldSaveFolder)
     
     let go = MC_Constants.defaultWorldWithCustomOreSpawns(2,40,TerrainAnalysisAndManipulation.oreSpawnCustom)
     System.Windows.Clipboard.SetText(go)
-    (*
-    updateDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""", 
-                 (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
-    *)
+(*    
+*)
+
+    //updateDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""", (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
 
 
 
@@ -2243,7 +2242,10 @@ do
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" user save, true)
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" user save, true)
-    try placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save, onlyArt) with e -> ()
+    try 
+        placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save, onlyArt) 
+    with e -> 
+        printfn "caught exception: %s" (e.Message)
     (*
     preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_6.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 36)
     preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_7.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 32)

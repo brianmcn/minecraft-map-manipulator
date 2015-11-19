@@ -120,15 +120,15 @@ let LOOT_ARMOR =
                         //Item("minecraft:leather_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
                         //Item("minecraft:leather_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
                         Item("minecraft:leather_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:gold_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:gold_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:golden_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:golden_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
                                ])]
         // tier 2
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:gold_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:gold_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:gold_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:gold_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:golden_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:golden_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:golden_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:golden_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
                                ])]
         // tier 3
         Pools [Pool(Roll(1,1), [

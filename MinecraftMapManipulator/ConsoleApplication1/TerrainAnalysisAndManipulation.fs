@@ -320,6 +320,11 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
         // found a path
         let sx,sy,sz = XYZ(bi,bj,bk)
         let ex,ey,ez = XYZ(besti,bestj,bestk)
+        // ensure beacon in decent bounds
+        let DB = 40
+        if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || (ex > -200 && ex < 200 && ez > -200 && ez < 200)  then
+            () // skip is too close to 0,0 or to map bounds
+        else
         printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez   // TODO min dist? care if beacons at bottom of ravine?
         log.Add(sprintf "added beacon at %d %d %d which travels %d" ex ey ez dist.[besti,bestj,bestk])
         // TODO consider stained glass color indicating how far
@@ -426,25 +431,60 @@ let oreSpawnCustom =
         // block, Size, Count, MinHeight, MaxHeight
         "dirt",     33, 90, 0, 256
         "gravel",   33,  8, 0, 256
-        "granite",   3, 12, 0,  80
+        "granite",   3, 60, 0,  80
         "diorite",  12,120, 0,  80
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
         "iron",      9,  3, 0,  64
         "gold",      9,  1, 0,  32
-        "redstone",  3,  6, 0,  32
+        "redstone",  3, 18, 0,  32
         "diamond",   4,  1, 0,  16
     |]
 
+// only place if visible
+let canPlaceSpawner(map:MapFolder,x,y,z) =
+    // avoid placing multiple in a cluster
+    if map.GetBlockInfo(x-1,y,z).BlockID = 52uy then
+        false
+    elif map.GetBlockInfo(x-1,y-1,z).BlockID = 52uy then
+        false
+    elif map.GetBlockInfo(x,y-1,z).BlockID = 52uy then
+        false
+    elif map.GetBlockInfo(x,y-1,z-1).BlockID = 52uy then
+        false
+    elif map.GetBlockInfo(x,y,z-1).BlockID = 52uy then
+        false
+    elif map.GetBlockInfo(x-1,y,z-1).BlockID = 52uy then
+        false
+    // only place if air nearby (can see spawner, or see particles up through blocks)
+    elif map.GetBlockInfo(x+1,y,z).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x-1,y,z).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x,y,z+1).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x,y,z-1).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x,y+1,z).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x,y-1,z).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x+1,y+1,z).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x-1,y+1,z).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x,y+1,z+1).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x,y+1,z-1).BlockID = 0uy then
+        true
+    elif map.GetBlockInfo(x,y+2,z).BlockID = 0uy then
+        true
+    else
+        false
+
 let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
     let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
-    let MAXI, MAXJ, MAXK = LENGTH, 120, LENGTH
-    let mutable currentSectionBlocks,currentSectionBlockData,curx,cury,curz = null,null,-1000,-1000,-1000
-    let XYZ(i,j,k) =
-        let x = i-1 + LOX
-        let y = j-1 + LOY
-        let z = k-1 + LOZ
-        x,y,z
+    let HIY = 120
     let rng = System.Random()
     let spawnerTileEntities = ResizeArray()
     let possibleSpawners1 = [|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (1,"Blaze"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
@@ -455,45 +495,30 @@ let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
     let spawner2(x,y,z) =
         let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners2.[rng.Next(possibleSpawners2.Length)], MaxSpawnDelay=400s)
         spawnerTileEntities.Add(ms.AsNbtTileEntity())
-    let blockSubstitutionsTrial =
-        [|
-              1uy,3uy,   97uy,0uy,    1, (fun(_,_,_)->())    // diorite -> silverfish
-              //1uy,5uy,    3uy,0uy,    1, (fun(_,_,_)->())    // andesite -> dirt
-              1uy,0uy,    1uy,5uy,    1, (fun(_,_,_)->())    // stone -> andesite
-              1uy,1uy,   52uy,0uy,    1, spawner1            // granite -> mob spawner
-              73uy,0uy,  52uy,0uy,    1, spawner2            // redstone -> mob spawner
-              16uy,0uy, 173uy,0uy,    16, (fun(_,_,_)->())    // coal ore -> coal block  (1 in 8)
-        |]
     printf "SUBST"
-    for j = 1 to MAXJ do
+    for y = LOY to HIY do
         printf "."
-        for i = 1 to MAXI do
-            for k = 1 to MAXK do
-                let x,y,z = XYZ(i,j,k)
-                if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
-                    let sect = map.GetOrCreateSection(x,y,z)
-                    currentSectionBlocks <- sect |> (fun (_sect,blocks,_bd) -> blocks)
-                    currentSectionBlockData <- sect |> (fun (_sect,_blocks,bd) -> bd)
-                    curx <- x
-                    cury <- y
-                    curz <- z
-                let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
-                let bix = dy*256 + dz*16 + dx
-                let bid = currentSectionBlocks.[bix]
-                let dmg = if bix%2=1 then currentSectionBlockData.[bix/2] >>> 4 else currentSectionBlockData.[bix/2] &&& 0xFuy
-                for obid, odmg, nbid, ndmg, chance, f in blockSubstitutionsTrial do
-                    if bid = obid && dmg = odmg then
-                        if rng.Next(chance) = 0 then
-                            currentSectionBlocks.[bix] <- nbid
-                            let mutable tmp = currentSectionBlockData.[bix/2]
-                            if bix%2 = 0 then
-                                tmp <- tmp &&& 0xF0uy
-                                tmp <- tmp + ndmg
-                            else
-                                tmp <- tmp &&& 0x0Fuy
-                                tmp <- tmp + (ndmg<<< 4)
-                            currentSectionBlockData.[bix/2] <- tmp
-                            f(x,y,z)
+        for x = LOX to LOX+LENGTH-1 do
+            for z = LOZ to LOZ+LENGTH-1 do
+                let bi = map.MaybeGetBlockInfo(x,y,z)
+                if bi <> null then
+                    let bid = bi.BlockID 
+                    let dmg = bi.BlockData 
+                    if bid = 1uy && dmg = 3uy then // diorite ->
+                        map.SetBlockIDAndDamage(x,y,z,97uy,0uy) // silverfish
+                    elif bid = 1uy && dmg = 0uy then // stone ->
+                        map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
+                    elif bid = 1uy && dmg = 1uy then // granite ->
+                        if canPlaceSpawner(map,x,y,z) then
+                            map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
+                            spawner1(x,y,z)
+                    elif bid = 73uy && dmg = 0uy then // redstone ore ->
+                        if canPlaceSpawner(map,x,y,z) then
+                            map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
+                            spawner2(x,y,z)
+                    elif bid = 16uy && dmg = 0uy then // coal ore ->
+                        if rng.Next(16) = 0 then
+                            map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.Add(sprintf "added %d random spawners underground" spawnerTileEntities.Count)
     printfn ""
@@ -669,6 +694,17 @@ let makeCrazyMap(worldSaveFolder) =
         log.Add(sprintf "(this section took %f minutes)" timer.Elapsed.TotalMinutes)
         log.Add("-----")
     time (fun () ->
+        let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
+        let HIY = 255
+        printf "CACHE SECT"
+        for y in [LOY .. 16 .. HIY] do
+            printf "."
+            for x in [LOX .. 16 .. LOX+LENGTH-1] do
+                for z in [LOZ .. 16 .. LOZ+LENGTH-1] do
+                    ignore <| map.GetOrCreateSection(x,y,z)  // cache each section
+        printfn ""
+        )
+    time (fun () ->
         printfn "CACHE HM..."
         log.Add("CACHE HM...")
         for x = MINIMUM to MINIMUM+LENGTH-1 do
@@ -687,12 +723,12 @@ let makeCrazyMap(worldSaveFolder) =
                 printfn "%d" x
             for z = MINIMUM to MINIMUM+LENGTH-1 do
                 for y = 79 downto 0 do  // down, because will put new ones above
-                    let bid = map.GetBlockId(x,y,z)
+                    let bid = map.GetBlockInfo(x,y,z).BlockID 
                     // double all existing mob spawners
                     if bid = 52uy then // 52-mob spawner
-                        let bi = map.GetBlockInfo(x,y,z) // caches height map as side effect
+                        let bite = map.GetTileEntity(x,y,z) // caches height map as side effect
                         let kind =
-                            match bi.TileEntity.Force().Value with
+                            match bite.Value with
                             | Compound(_,cs) ->
                                 match cs |> Seq.find (fun x -> x.Name = "SpawnData") with
                                 | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
@@ -749,74 +785,70 @@ let makeCrazyMap(worldSaveFolder) =
 
 (*
 
+
 SUMMARY
 
+(this section took 0.179401 minutes)
+-----
 CACHE HM...
-(this section took 0.115162 minutes)
+(this section took 0.027194 minutes)
 -----
-added 668 extra dungeon spawners underground
-(this section took 1.270158 minutes)
+added 724 extra dungeon spawners underground
+(this section took 1.485228 minutes)
 -----
-added 79525 random spawners underground
-(this section took 1.668986 minutes)
+added 12901 random spawners underground
+(this section took 2.223429 minutes)
 -----
-added mountain peak at 970 -208
-added mountain peak at 20 596
-added mountain peak at 204 -704
-added mountain peak at -951 -585
-added mountain peak at 308 510
-added mountain peak at 352 796
-added mountain peak at 530 416
-added mountain peak at -80 -784
-added mountain peak at 928 645
-added mountain peak at 265 72
-(this section took 0.013574 minutes)
+added mountain peak at 4 514
+added mountain peak at 830 728
+added mountain peak at 495 284
+added mountain peak at -368 -933
+added mountain peak at -277 311
+added mountain peak at 116 196
+added mountain peak at 346 -381
+added mountain peak at 315 -73
+added mountain peak at 22 789
+added mountain peak at -581 -545
+(this section took 0.015268 minutes)
 -----
-added flat set piece at -838 327
-added flat set piece at -175 -818
-added flat set piece at 393 113
-added flat set piece at 289 -196
-added flat set piece at -830 -536
-added flat set piece at 808 503
-added flat set piece at 374 733
-added flat set piece at 816 -940
-added flat set piece at 972 -130
-added flat set piece at 38 872
-(this section took 1.007585 minutes)
+added flat set piece at 789 -690
+added flat set piece at 147 624
+added flat set piece at 445 -481
+added flat set piece at -589 33
+added flat set piece at -499 717
+added flat set piece at 420 -60
+added flat set piece at -977 -710
+added flat set piece at -893 -152
+added flat set piece at -821 766
+added flat set piece at -625 -272
+(this section took 1.058560 minutes)
 -----
-added beacon at -937 34 -891 which travels 218
-added beacon at -1016 55 273 which travels 522
-added beacon at -829 55 984 which travels 347
-added beacon at -621 27 297 which travels 346
-added beacon at -757 58 642 which travels 252
-added beacon at -775 34 -716 which travels 112
-added beacon at -659 55 -970 which travels 178
-added beacon at -621 59 -784 which travels 515
-added beacon at -304 58 178 which travels 795
-added beacon at -283 57 -781 which travels 331
-added beacon at -234 59 -1011 which travels 192
-added beacon at -166 57 -1001 which travels 188
-added beacon at -58 59 -195 which travels 380
-added beacon at 17 59 674 which travels 354
-added beacon at -5 60 -452 which travels 204
-added beacon at 214 60 549 which travels 542
-added beacon at 182 39 136 which travels 540
-added beacon at 248 33 -436 which travels 149
-added beacon at 258 58 -710 which travels 594
-added beacon at 317 59 -436 which travels 181
-added beacon at 460 53 -831 which travels 434
-added beacon at 443 59 -998 which travels 98
-added beacon at 470 49 -283 which travels 149
-added beacon at 507 56 110 which travels 474
-added beacon at 769 59 -25 which travels 573
-added beacon at 932 60 528 which travels 449
-added beacon at 575 54 339 which travels 178
-added beacon at 754 56 946 which travels 324
-added beacon at 788 36 -693 which travels 434
-added beacon at 945 48 187 which travels 195
-(this section took 1.906612 minutes)
+added beacon at -933 54 312 which travels 451
+added beacon at -885 28 -559 which travels 271
+added beacon at -859 51 -31 which travels 856
+added beacon at -584 60 198 which travels 351
+added beacon at -738 57 -796 which travels 531
+added beacon at -742 54 -249 which travels 707
+added beacon at -470 55 345 which travels 703
+added beacon at -556 44 -191 which travels 232
+added beacon at -489 49 530 which travels 580
+added beacon at -430 48 197 which travels 223
+added beacon at -535 47 716 which travels 129
+added beacon at -235 47 -574 which travels 754
+added beacon at -351 46 -391 which travels 189
+added beacon at -95 42 773 which travels 189
+added beacon at -23 41 -879 which travels 198
+added beacon at 95 60 590 which travels 71
+added beacon at 192 44 954 which travels 161
+added beacon at 217 59 516 which travels 247
+added beacon at 382 43 -737 which travels 296
+added beacon at 525 50 253 which travels 113
+added beacon at 827 37 -692 which travels 297
+added beacon at 885 53 170 which travels 226
+added beacon at 902 49 -152 which travels 94
+(this section took 1.902020 minutes)
 -----
-Took 6.634278 minutes
-
+Took 7.910312 minutes
+press a key to end
 
 *)

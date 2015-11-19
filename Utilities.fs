@@ -786,10 +786,10 @@ let findAllLoot(regionFolder:string) =
                                 else
                                     strongholdLibraryChestCount <- strongholdLibraryChestCount + 1  // against a wall
                             elif bi.BlockID = 98uy then   // stone brick
-                                if (let b = r.GetBlockInfo(x+1,y-1,z) in b.BlockID = 98uy && b.BlockData.Value = 3uy) ||  // chiseled
-                                   (let b = r.GetBlockInfo(x-1,y-1,z) in b.BlockID = 98uy && b.BlockData.Value = 3uy) || 
-                                   (let b = r.GetBlockInfo(x,y-1,z+1) in b.BlockID = 98uy && b.BlockData.Value = 3uy) || 
-                                   (let b = r.GetBlockInfo(x,y-1,z-1) in b.BlockID = 98uy && b.BlockData.Value = 3uy) then
+                                if (let b = r.GetBlockInfo(x+1,y-1,z) in b.BlockID = 98uy && b.BlockData = 3uy) ||  // chiseled
+                                   (let b = r.GetBlockInfo(x-1,y-1,z) in b.BlockID = 98uy && b.BlockData = 3uy) || 
+                                   (let b = r.GetBlockInfo(x,y-1,z+1) in b.BlockID = 98uy && b.BlockData = 3uy) || 
+                                   (let b = r.GetBlockInfo(x,y-1,z-1) in b.BlockID = 98uy && b.BlockData = 3uy) then
                                     iglooChestCount <- iglooChestCount + 1
                                 else
                                     strongholdCorridorChestCount <- strongholdCorridorChestCount + 1

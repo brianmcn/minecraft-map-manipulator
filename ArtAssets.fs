@@ -36,7 +36,7 @@ let readZoneIntoString(r:RegionFile,x,y,z,dx,dy,dz) =
         for j = 0 to dy do
             for k = 0 to dz do
                 let bi = r.GetBlockInfo(x+i, y+j, z+k)
-                let a,b = encodeBlock(bi.BlockID, bi.BlockData.Force())
+                let a,b = encodeBlock(bi.BlockID, bi.BlockData)
                 arr.Add(a)
                 arr.Add(b)
     new System.String(arr |> Seq.toArray)
@@ -51,7 +51,7 @@ let writeZoneFromString(r:RegionFile,x,y,z,s:string) =
         for j = 0 to dy do
             for k = 0 to dz do
                 let bid, data = decodeBlock(s.[strIndex], s.[strIndex+1])
-                r.SetBlockIDAndDamage(x+i, y+j, z+k, bid, data)
+                r.EnsureSetBlockIDAndDamage(x+i, y+j, z+k, bid, data)
                 strIndex <- strIndex + 2
 
 

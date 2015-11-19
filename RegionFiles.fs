@@ -2,10 +2,10 @@ module RegionFiles
 
 open NBT_Manipulation
 
-type BlockInfo(blockID:byte, blockData:Lazy<byte>, tileEntity:Lazy<NBT option>) =
+[<AllowNullLiteral>]
+type BlockInfo(blockID:byte, blockData:byte) =
     member this.BlockID = blockID
     member this.BlockData = blockData
-    member this.TileEntity = tileEntity
 
 type CommandBlock =     // the useful subset I plan to map anything into
     | P of string  // purple (pointing positive Z, unconditional, auto:0)
@@ -42,7 +42,8 @@ type RegionFile(filename) =
         let zzzz = if z < 0 then z - 512 else z
         let xxxx = if xxxx < 0 then xxxx+1 else xxxx
         let zzzz = if zzzz < 0 then zzzz+1 else zzzz
-        if xxxx/512 <> rx || zzzz/512 <> rz then failwith "coords outside this region"
+        if xxxx/512 <> rx || zzzz/512 <> rz then 
+            failwith "coords outside this region"
     let getOrCreateChunk(cx,cz) =
         let chunk = 
             match chunks.[cx,cz] with
@@ -199,6 +200,11 @@ type RegionFile(filename) =
         match chunkSectionsCache.[xx,zz].[sy] with
         | null,null,null -> None
         | x -> Some x
+    member this.GetSection(x,y,z) =  // x,y,z are world coordinates - will return (null,null,null) for unrepresented sections
+        let xx = ((x+51200)%512)/16
+        let zz = ((z+51200)%512)/16
+        let sy = y/16
+        chunkSectionsCache.[xx,zz].[sy]
     member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
         let xx = ((x+51200)%512)/16
         let zz = ((z+51200)%512)/16
@@ -238,23 +244,30 @@ type RegionFile(filename) =
         | c -> Some c
     member this.SetChunk(cx, cz, newChunk) =
         chunks.[cx,cz] <- newChunk
-    member this.GetBlockId(x, y, z) = // will create unrepresented chunk/section
+    member this.MaybeGetBlockInfo(x, y, z) = // will return null if unrepresented
         ensureCorrectRegion(x,z)
-        let _theSection, blocks, _blockData = this.GetOrCreateSection(x,y,z)
-        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
-        let i = dy*256 + dz*16 + dx
-        blocks.[i]
+        let _theSection, blocks, blockData = this.GetSection(x,y,z)
+        if blocks = null then
+            null
+        else
+            let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+            let i = dy*256 + dz*16 + dx
+            let blockDataAtI = if i%2=1 then blockData.[i/2] >>> 4 else blockData.[i/2] &&& 0xFuy
+            new BlockInfo(blocks.[i], blockDataAtI)
     member this.GetBlockInfo(x, y, z) = // will create unrepresented chunk/section
         ensureCorrectRegion(x,z)
         let _theSection, blocks, blockData = this.GetOrCreateSection(x,y,z)
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
-        let blockDataAtI = Lazy.Create(fun() ->
-            // expand 2048 half-bytes into 4096 for convenience of same indexing
-            let blockData = Array.init 4096 (fun x -> if (x+51200)%2=1 then blockData.[x/2] >>> 4 else blockData.[x/2] &&& 0xFuy)
-            blockData.[i])
+        let blockDataAtI = if i%2=1 then blockData.[i/2] >>> 4 else blockData.[i/2] &&& 0xFuy
+        new BlockInfo(blocks.[i], blockDataAtI)
+    member this.GetTileEntity(x, y, z) = // will create unrepresented chunk/section
+        ensureCorrectRegion(x,z)
+        let _theSection, blocks, blockData = this.GetOrCreateSection(x,y,z)
+        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+        let i = dy*256 + dz*16 + dx
         // TileEntities
-        let tileEntity = Lazy.Create(fun() ->
+        let tileEntity =
             let theChunk = this.GetOrCreateChunk(x,z)
             let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
             match theChunkLevel.["TileEntities"] with 
@@ -265,12 +278,17 @@ type RegionFile(filename) =
                 if tes.Length = 0 then None
                 elif tes.Length = 1 then Some tes.[0]
                 else failwith "unexpected: multiple TileEntities with same xyz coords"
-            | _ -> None)
-        new BlockInfo(blocks.[i], blockDataAtI, tileEntity)
+            | _ -> None
+        tileEntity
+    member this.EnsureSetBlockIDAndDamage(x, y, z, blockID, damage) =
+        this.GetOrCreateSection(x,y,z) |> ignore
+        this.SetBlockIDAndDamage(x, y, z, blockID, damage)
     member this.SetBlockIDAndDamage(x, y, z, blockID, damage) =
         if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
         if damage > 15uy then failwith "invalid blockData"
-        let _theSection, blocks, blockData = this.GetOrCreateSection(x,y,z)
+        let _theSection, blocks, blockData = this.GetSection(x,y,z)
+        if blocks = null then 
+            failwith "unrepresented section"
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
         blocks.[i] <- blockID
@@ -522,26 +540,41 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetHeightMap(x,z)
+    member this.EnsureSetBlockIDAndDamage(x,y,z,bid,d) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.EnsureSetBlockIDAndDamage(x,y,z,bid,d)
     member this.SetBlockIDAndDamage(x,y,z,bid,d) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.SetBlockIDAndDamage(x,y,z,bid,d)
+    member this.GetSection(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetSection(x,y,z)
     member this.GetOrCreateSection(x,y,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetOrCreateSection(x,y,z)
-    member this.GetBlockId(x,y,z) =
-        let rx = (x + 512000) / 512 - 1000
-        let rz = (z + 512000) / 512 - 1000
-        let r = getOrCreateRegion(rx, rz)
-        r.GetBlockId(x,y,z)
     member this.GetBlockInfo(x,y,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetBlockInfo(x,y,z)
+    member this.MaybeGetBlockInfo(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.MaybeGetBlockInfo(x,y,z)
+    member this.GetTileEntity(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetTileEntity(x,y,z)
     member this.AddTileTick(id,t,p,x,y,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
