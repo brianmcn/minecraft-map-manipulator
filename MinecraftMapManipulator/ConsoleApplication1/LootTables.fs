@@ -117,9 +117,11 @@ let LOOT_ARMOR =
         // tier 1
         Pools [Pool(Roll(1,1), [
                         Item("minecraft:leather_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:leather_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:leather_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        //Item("minecraft:leather_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
+                        //Item("minecraft:leather_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
                         Item("minecraft:leather_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:gold_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:gold_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
                                ])]
         // tier 2
         Pools [Pool(Roll(1,1), [
@@ -148,10 +150,10 @@ let LOOT_TOOLS =
     [|
         // tier 1
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:wooden_sword",   [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:stone_sword",    [EnchantWithLevels( 1,15,false)]), 1, 0
                         Item("minecraft:wooden_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0
                         Item("minecraft:wooden_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:wooden_axe",     [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:stone_axe",      [EnchantWithLevels( 1,15,false)]), 1, 0
                                ])]
         // tier 2
         Pools [Pool(Roll(1,1), [
@@ -198,12 +200,12 @@ let enchantmentsInTiers =
             // tier 1 has none
         ]
         [
-            "fire_protection"
+            //"fire_protection"
             "feather_falling"
             "blast_protection"
             "projectile_protection"
-            "respiration"
-            "aqua_affinity"
+            //"respiration"
+            //"aqua_affinity"
             "thorns"
             "smite"
             "bane_of_arthropods"
@@ -240,10 +242,6 @@ let enchantmentsInTiers =
 //            "luck_of_the_sea"
 //            "lure"
 
-
-
-// TODO cobblestone
-
 let LOOT_NS_PREFIX = "BrianLoot"
 let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
 type LOOT_KIND = | ARMOR | TOOLS | FOOD | BOOKS //| TODO 
@@ -265,6 +263,7 @@ let tierxyLootPct x y kinds n = // tier x at n%, but instead tier y at n/10%....
        ]
 let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])
+let arrows = Item("minecraft:arrow", [SetCount(6,9)])
 let LOOT_FROM_DEFAULT_MOBS =
     [|
 //        "minecraft:entities/bat"
@@ -287,17 +286,19 @@ let LOOT_FROM_DEFAULT_MOBS =
         "minecraft:entities/cave_spider", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 16; tierxyLootPct 2 2 [FOOD] 16; OneOfAtNPercent([ironPile],10)]
         "minecraft:entities/creeper", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10)]
 //        "minecraft:entities/elder_guardian
-//        "minecraft:entities/enderman
+        "minecraft:entities/enderman", Pools [Pool(Roll(1,1),[Item("minecraft:ender_pearl",[SetCount(0,1);LootingEnchant(0,1)]),0,1]) // usual default drop
+                                              tierxyLootPct 2 3 [ARMOR;TOOLS] 16; tierxyLootPct 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16)  // extra loot
+                                             ]
         "minecraft:entities/ghast", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 33; tierxyLootPct 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10)]
 //        "minecraft:entities/guardian
 //        "minecraft:entities/magma_cube
 //        "minecraft:entities/shulker
 //        "minecraft:entities/silverfish
-        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 12; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],12)]
+        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 12; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
         "minecraft:entities/spider", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 8; tierxyLootPct 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8)]
-//        "minecraft:entities/witch
+        "minecraft:entities/witch", Pools [tierxyLootPct 2 3 [ARMOR;TOOLS] 10; tierxyLootPct 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10)]
 //        "minecraft:entities/wither_skeleton
         "minecraft:entities/zombie", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 8; tierxyLootPct 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8)]
 //        "minecraft:entities/zombie_horse
@@ -309,7 +310,9 @@ let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(mi
 
 let sampleTier2Chest =
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0])
+               Pool(Roll(0,1),[tierNBookItem(3),1,0])
                Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0])
+               Pool(Roll(1,3),[arrows,1,0])
                tierxyLootPct 2 3 [FOOD] 16 
                tierxyLootPct 2 3 [FOOD] 16 
                OneOfAtNPercent([Item("minecraft:iron_pickaxe",[]);Item("minecraft:iron_sword",[]);Item("minecraft:iron_axe",[]);Item("minecraft:iron_ingot",[SetCount(2,9)])],50)
