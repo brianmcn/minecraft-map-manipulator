@@ -325,69 +325,79 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
         if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || (ex > -200 && ex < 200 && ez > -200 && ez < 200)  then
             () // skip is too close to 0,0 or to map bounds
         else
-        printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez   // TODO min dist? care if beacons at bottom of ravine?
-        log.Add(sprintf "added beacon at %d %d %d which travels %d" ex ey ez dist.[besti,bestj,bestk])
-        // TODO consider stained glass color indicating how far
-        let mutable i,j,k = besti,bestj,bestk
-        let fullDist = dist.[besti,bestj,bestk]
-        let mutable count = 0
-        let rng = System.Random()
-        let spawnerTileEntities = ResizeArray()
-        let possibleSpawners = [|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-        while i<>bi || j<>bj || k<>bk do
-            let ni, nj, nk = // next points (step back using info from 'prev')
-                let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
-                i-dx,j-dy,k-dz
-            let ii,jj,kk = prev.[i,j,k]%3<>0, prev.[i,j,k]%3<>1, prev.[i,j,k]%3<>2   // ii/jj/kk track 'normal' to the path
-            // maybe put mob spawner nearby
-            let pct = float count / float fullDist
-            if rng.NextDouble() < pct then
-                let xx,yy,zz = XYZ(i,j,k)
-                let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
-                let mutable ok = false
-                while not ok do
-                    let feesh = ResizeArray()
-                    let xs = if ii then [xx-spread .. xx+spread] else [xx]
-                    let ys = if jj then [yy-spread .. yy+spread] else [yy]
-                    let zs = if kk then [zz-spread .. zz+spread] else [zz]
-                    for x in xs do
-                        for y in ys do
-                            for z in zs do
-                                if map.GetBlockInfo(x,y,z).BlockID = 97uy then // if silverfish
-                                    feesh.Add(x,y,z)
-                    if feesh.Count > 0 then
-                        let x,y,z = feesh.[rng.Next(feesh.Count-1)]
-                        map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
-                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)])
-                        spawnerTileEntities.Add(ms.AsNbtTileEntity())
-                        ok <- true
-                    spread <- spread + 1
-                    if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
-                        ok <- true
-            // put stripe on the ground (TODO vertical through air)
-            let mutable pi,pj,pk = i,j,k
-            while a.[pi,pj,pk]<>null do
-                pj <- pj - 1
-            let x,y,z = XYZ(pi,pj,pk)
-            map.SetBlockIDAndDamage(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
-            i <- ni
-            j <- nj
-            k <- nk
-            count <- count + 1
-        // write out all the spawner data we just placed
-        map.AddOrReplaceTileEntities(spawnerTileEntities)
-        // put beacon at top end
-        for x = ex-2 to ex+2 do
-            for y = ey-4 to ey-1 do
-                for z = ez-2 to ez+2 do
-                    map.SetBlockIDAndDamage(x,y,z,166uy,0uy)  // barrier
-        map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
-        map.SetBlockIDAndDamage(ex,ey,ez,130uy,2uy) // ender chest
-        for x = ex-1 to ex+1 do
-            for z = ez-1 to ez+1 do
-                map.SetBlockIDAndDamage(x,ey-3,z,133uy,0uy)  // emerald block
-        // put treasure at bottom end
-        putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
+        printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
+        if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 300 then  // only keep mid-sized ones...
+            log.Add(sprintf "added beacon at %d %d %d which travels %d" ex ey ez dist.[besti,bestj,bestk])
+            let mutable i,j,k = besti,bestj,bestk
+            let fullDist = dist.[besti,bestj,bestk]
+            let mutable count = 0
+            let rng = System.Random()
+            let spawnerTileEntities = ResizeArray()
+            let possibleSpawners = [|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+            let spawnerTypeCount = new System.Collections.Generic.Dictionary<_,_>()
+            while i<>bi || j<>bj || k<>bk do
+                let ni, nj, nk = // next points (step back using info from 'prev')
+                    let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
+                    i-dx,j-dy,k-dz
+                let ii,jj,kk = prev.[i,j,k]%3<>0, prev.[i,j,k]%3<>1, prev.[i,j,k]%3<>2   // ii/jj/kk track 'normal' to the path
+                // maybe put mob spawner nearby
+                let pct = float count / float fullDist
+                if rng.NextDouble() < pct then
+                    let xx,yy,zz = XYZ(i,j,k)
+                    let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
+                    let mutable ok = false
+                    while not ok do
+                        let feesh = ResizeArray()
+                        let xs = if ii then [xx-spread .. xx+spread] else [xx]
+                        let ys = if jj then [yy-spread .. yy+spread] else [yy]
+                        let zs = if kk then [zz-spread .. zz+spread] else [zz]
+                        for x in xs do
+                            for y in ys do
+                                for z in zs do
+                                    if map.GetBlockInfo(x,y,z).BlockID = 97uy then // if silverfish
+                                        feesh.Add(x,y,z)
+                        if feesh.Count > 0 then
+                            let x,y,z = feesh.[rng.Next(feesh.Count-1)]
+                            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
+                            let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
+                            if spawnerTypeCount.ContainsKey(kind) then
+                                spawnerTypeCount.[kind] <- spawnerTypeCount.[kind] + 1
+                            else
+                                spawnerTypeCount.[kind] <- 1
+                            let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind)
+                            spawnerTileEntities.Add(ms.AsNbtTileEntity())
+                            ok <- true
+                        spread <- spread + 1
+                        if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
+                            ok <- true
+                // put stripe on the ground (TODO vertical through air)
+                let mutable pi,pj,pk = i,j,k
+                while a.[pi,pj,pk]<>null do
+                    pj <- pj - 1
+                let x,y,z = XYZ(pi,pj,pk)
+                map.SetBlockIDAndDamage(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
+                i <- ni
+                j <- nj
+                k <- nk
+                count <- count + 1
+            // write out all the spawner data we just placed
+            map.AddOrReplaceTileEntities(spawnerTileEntities)
+            // put beacon at top end
+            for x = ex-2 to ex+2 do
+                for y = ey-4 to ey-1 do
+                    for z = ez-2 to ez+2 do
+                        map.SetBlockIDAndDamage(x,y,z,166uy,0uy)  // barrier
+            map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
+            map.SetBlockIDAndDamage(ex,ey,ez,130uy,2uy) // ender chest
+            for x = ex-1 to ex+1 do
+                for z = ez-1 to ez+1 do
+                    map.SetBlockIDAndDamage(x,ey-3,z,133uy,0uy)  // emerald block
+            // put treasure at bottom end
+            putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
+            let sb = new System.Text.StringBuilder()
+            for KeyValue(k,v) in spawnerTypeCount do
+                sb.Append(sprintf "   %s:%d" k v) |> ignore
+            log.Add("   spawners along path:"+sb.ToString())
     // end foreach CC
     ()
 
@@ -431,13 +441,13 @@ let oreSpawnCustom =
         // block, Size, Count, MinHeight, MaxHeight
         "dirt",     33, 90, 0, 256
         "gravel",   33,  8, 0, 256
-        "granite",   3, 60, 0,  80
+        "granite",   3, 15, 0,  80
         "diorite",  12,120, 0,  80
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
         "iron",      9,  3, 0,  64
         "gold",      9,  1, 0,  32
-        "redstone",  3, 18, 0,  32
+        "redstone",  3,  5, 0,  32
         "diamond",   4,  1, 0,  16
     |]
 
@@ -488,12 +498,24 @@ let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
     let rng = System.Random()
     let spawnerTileEntities = ResizeArray()
     let possibleSpawners1 = [|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (1,"Blaze"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+    let spawnerTypeCount1 = new System.Collections.Generic.Dictionary<_,_>()
+    let spawnerTypeCount2 = new System.Collections.Generic.Dictionary<_,_>()
     let spawner1(x,y,z) =
-        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners1.[rng.Next(possibleSpawners1.Length)], MaxSpawnDelay=400s)
+        let kind = possibleSpawners1.[rng.Next(possibleSpawners1.Length)]
+        if spawnerTypeCount1.ContainsKey(kind) then
+            spawnerTypeCount1.[kind] <- spawnerTypeCount1.[kind] + 1
+        else
+            spawnerTypeCount1.[kind] <- 1
+        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, MaxSpawnDelay=400s)
         spawnerTileEntities.Add(ms.AsNbtTileEntity())
     let possibleSpawners2 = [|(1,"Zombie"); (1,"Skeleton"); (1,"Spider"); (1,"Blaze"); (1,"Creeper"); (1,"CaveSpider")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
     let spawner2(x,y,z) =
-        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners2.[rng.Next(possibleSpawners2.Length)], MaxSpawnDelay=400s)
+        let kind = possibleSpawners2.[rng.Next(possibleSpawners2.Length)]
+        if spawnerTypeCount2.ContainsKey(kind) then
+            spawnerTypeCount2.[kind] <- spawnerTypeCount2.[kind] + 1
+        else
+            spawnerTypeCount2.[kind] <- 1
+        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, MaxSpawnDelay=400s)
         spawnerTileEntities.Add(ms.AsNbtTileEntity())
     printf "SUBST"
     for y = LOY to HIY do
@@ -512,15 +534,27 @@ let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
                         if canPlaceSpawner(map,x,y,z) then
                             map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
                             spawner1(x,y,z)
+                        else
+                            map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 73uy && dmg = 0uy then // redstone ore ->
                         if canPlaceSpawner(map,x,y,z) then
                             map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
                             spawner2(x,y,z)
+                        else
+                            map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
                         if rng.Next(16) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.Add(sprintf "added %d random spawners underground" spawnerTileEntities.Count)
+    let sb = new System.Text.StringBuilder()
+    for KeyValue(k,v) in spawnerTypeCount1 do
+        sb.Append(sprintf "   %s:%d" k v) |> ignore
+    log.Add("   s1:"+sb.ToString())
+    let sb = new System.Text.StringBuilder()
+    for KeyValue(k,v) in spawnerTypeCount2 do
+        sb.Append(sprintf "   %s:%d" k v) |> ignore
+    log.Add("   s2:"+sb.ToString())
     printfn ""
 
 // mappings: should probably be to a chance set that's a function of difficulty or something...
@@ -708,7 +742,7 @@ let makeCrazyMap(worldSaveFolder) =
         printfn "CACHE HM..."
         log.Add("CACHE HM...")
         for x = MINIMUM to MINIMUM+LENGTH-1 do
-            if x%20 = 0 then
+            if x%200 = 0 then
                 printfn "%d" x
             for z = MINIMUM to MINIMUM+LENGTH-1 do
                 let bi = map.GetBlockInfo(x,0,z) // caches height map as side effect
@@ -719,7 +753,7 @@ let makeCrazyMap(worldSaveFolder) =
         printfn "double spawners..."
         let spawnerTileEntities = ResizeArray()
         for x = MINIMUM to MINIMUM+LENGTH-1 do
-            if x%20 = 0 then
+            if x%200 = 0 then
                 printfn "%d" x
             for z = MINIMUM to MINIMUM+LENGTH-1 do
                 for y = 79 downto 0 do  // down, because will put new ones above
@@ -788,67 +822,70 @@ let makeCrazyMap(worldSaveFolder) =
 
 SUMMARY
 
-(this section took 0.179401 minutes)
+(this section took 0.182908 minutes)
 -----
 CACHE HM...
-(this section took 0.027194 minutes)
+(this section took 0.027018 minutes)
 -----
-added 724 extra dungeon spawners underground
-(this section took 1.485228 minutes)
+added 720 extra dungeon spawners underground
+(this section took 1.425156 minutes)
 -----
-added 12901 random spawners underground
-(this section took 2.223429 minutes)
+added 3359 random spawners underground
+   s1:   Zombie:712   Spider:699   Skeleton:646   Creeper:133   Blaze:134
+   s2:   Skeleton:202   Creeper:169   Blaze:166   CaveSpider:174   Spider:169   Zombie:155
+(this section took 2.199976 minutes)
 -----
-added mountain peak at 4 514
+added mountain peak at 400 124
 added mountain peak at 830 728
-added mountain peak at 495 284
 added mountain peak at -368 -933
-added mountain peak at -277 311
 added mountain peak at 116 196
-added mountain peak at 346 -381
-added mountain peak at 315 -73
-added mountain peak at 22 789
-added mountain peak at -581 -545
-(this section took 0.015268 minutes)
+added mountain peak at 120 440
+added mountain peak at -743 -371
+added mountain peak at -451 680
+added mountain peak at -513 -89
+added mountain peak at -386 -288
+added mountain peak at -9 755
+(this section took 0.018029 minutes)
 -----
 added flat set piece at 789 -690
-added flat set piece at 147 624
+added flat set piece at -231 289
 added flat set piece at 445 -481
-added flat set piece at -589 33
+added flat set piece at 147 624
 added flat set piece at -499 717
-added flat set piece at 420 -60
 added flat set piece at -977 -710
 added flat set piece at -893 -152
-added flat set piece at -821 766
+added flat set piece at -879 192
 added flat set piece at -625 -272
-(this section took 1.058560 minutes)
+added flat set piece at 458 550
+(this section took 1.062523 minutes)
 -----
-added beacon at -933 54 312 which travels 451
-added beacon at -885 28 -559 which travels 271
-added beacon at -859 51 -31 which travels 856
-added beacon at -584 60 198 which travels 351
-added beacon at -738 57 -796 which travels 531
-added beacon at -742 54 -249 which travels 707
-added beacon at -470 55 345 which travels 703
+added beacon at -885 25 -559 which travels 268
+   spawners along path:   Zombie:49   Skeleton:11   Creeper:19
 added beacon at -556 44 -191 which travels 232
-added beacon at -489 49 530 which travels 580
-added beacon at -430 48 197 which travels 223
+   spawners along path:   Zombie:53   Creeper:6   Skeleton:6
+added beacon at -430 48 195 which travels 221
+   spawners along path:   Zombie:50   Skeleton:15   Creeper:14
 added beacon at -535 47 716 which travels 129
-added beacon at -235 47 -574 which travels 754
+   spawners along path:   Zombie:35   Creeper:6   Skeleton:8
 added beacon at -351 46 -391 which travels 189
-added beacon at -95 42 773 which travels 189
-added beacon at -23 41 -879 which travels 198
-added beacon at 95 60 590 which travels 71
+   spawners along path:   Zombie:44   Skeleton:11   Creeper:10
+added beacon at -97 44 774 which travels 190
+   spawners along path:   Zombie:36   Skeleton:9   Creeper:6
+added beacon at -22 44 -879 which travels 204
+   spawners along path:   Zombie:53   Skeleton:9   Creeper:8
 added beacon at 192 44 954 which travels 161
-added beacon at 217 59 516 which travels 247
-added beacon at 382 43 -737 which travels 296
-added beacon at 525 50 253 which travels 113
+   spawners along path:   Zombie:26   Creeper:4   Skeleton:7
+added beacon at 218 59 516 which travels 248
+   spawners along path:   Zombie:56   Skeleton:15   Creeper:10
+added beacon at 525 50 253 which travels 111
+   spawners along path:   Zombie:33   Skeleton:4   Creeper:2
 added beacon at 827 37 -692 which travels 297
+   spawners along path:   Zombie:67   Creeper:15   Skeleton:14
 added beacon at 885 53 170 which travels 226
-added beacon at 902 49 -152 which travels 94
-(this section took 1.902020 minutes)
+   spawners along path:   Zombie:55   Creeper:10   Skeleton:7
+(this section took 2.062952 minutes)
 -----
-Took 7.910312 minutes
+Took 7.971575 minutes
 press a key to end
 
 *)
