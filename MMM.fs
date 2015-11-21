@@ -2193,18 +2193,18 @@ do
     r.AddTileTick("minecraft:command_block",1,0,27,67,33)
     r.Write(fil+".new")
     *)
-    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w45a\region\r.0.0.mca""")
+    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\RandomCTM\region\r.0.0.mca""")
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\seed31Copy\region\r.0.0.mca""")
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
-    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w46a.zip""","""C:\Users\Admin1\Desktop\15w47a.zip""")
+    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w47b.zip""","""C:\Users\Admin1\Desktop\15w47c.zip""")
     //placeCertainBlocksInTheWorld()
     
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     LootTables.writeAllLootTables(worldSaveFolder)
     
-    let go = MC_Constants.defaultWorldWithCustomOreSpawns(2,40,TerrainAnalysisAndManipulation.oreSpawnCustom)
+    let go = MC_Constants.defaultWorldWithCustomOreSpawns(2,45,16,80,TerrainAnalysisAndManipulation.oreSpawnCustom)
     System.Windows.Clipboard.SetText(go)
 (*    
 *)

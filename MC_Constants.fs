@@ -807,8 +807,8 @@ let oreSpawnDefaults =
         "redstone",  8,  8, 0,  16
         "diamond",   8,  1, 0,  16
     |]
-let defaultWorldWithCustomOreSpawns(biomeSize,dungeonChance,oreSpawnCustom) = 
-    let part1 = sprintf """{"coordinateScale":684.412,"heightScale":684.412,"lowerLimitScale":512.0,"upperLimitScale":512.0,"depthNoiseScaleX":200.0,"depthNoiseScaleZ":200.0,"depthNoiseScaleExponent":0.5,"mainNoiseScaleX":80.0,"mainNoiseScaleY":160.0,"mainNoiseScaleZ":80.0,"baseSize":8.5,"stretchY":12.0,"biomeDepthWeight":1.0,"biomeDepthOffset":0.0,"biomeScaleWeight":1.0,"biomeScaleOffset":0.0,"seaLevel":63,"useCaves":true,"useDungeons":true,"dungeonChance":%d,"useStrongholds":true,"useVillages":true,"useMineShafts":true,"useTemples":true,"useMonuments":true,"useRavines":true,"useWaterLakes":true,"waterLakeChance":4,"useLavaLakes":true,"lavaLakeChance":80,"useLavaOceans":false,"fixedBiome":-1,"biomeSize":%d,"riverSize":4,""" dungeonChance biomeSize  // defaults: 8, 4
+let defaultWorldWithCustomOreSpawns(biomeSize,dungeonChance,waterLakeRarity,lavaLakeRarity,oreSpawnCustom) = 
+    let part1 = sprintf """{"coordinateScale":684.412,"heightScale":684.412,"lowerLimitScale":512.0,"upperLimitScale":512.0,"depthNoiseScaleX":200.0,"depthNoiseScaleZ":200.0,"depthNoiseScaleExponent":0.5,"mainNoiseScaleX":80.0,"mainNoiseScaleY":160.0,"mainNoiseScaleZ":80.0,"baseSize":8.5,"stretchY":12.0,"biomeDepthWeight":1.0,"biomeDepthOffset":0.0,"biomeScaleWeight":1.0,"biomeScaleOffset":0.0,"seaLevel":63,"useCaves":true,"useDungeons":true,"dungeonChance":%d,"useStrongholds":true,"useVillages":true,"useMineShafts":true,"useTemples":true,"useMonuments":true,"useRavines":true,"useWaterLakes":true,"waterLakeChance":%d,"useLavaLakes":true,"lavaLakeChance":%d,"useLavaOceans":false,"fixedBiome":-1,"biomeSize":%d,"riverSize":4,""" dungeonChance waterLakeRarity lavaLakeRarity biomeSize  // defaults: 8, 4, 80, 4
     let part4 =
         let sb = new System.Text.StringBuilder()
         for kind, size, count, min, max in oreSpawnCustom do

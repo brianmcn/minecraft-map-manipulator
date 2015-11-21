@@ -12,15 +12,18 @@ type Function =
     | LootingEnchant of int * int
     | FurnaceSmelt
     //| SetAttributes of TODO
+type Condition =
+    | KilledByPlayer
+    // TODO others
 type EntryDatum =
     | Item of string * Function list // name, functions
     | LootTable of string // name
     | Empty
-type Entries = (EntryDatum * int * int)list // weight, quality
+type Entries = (EntryDatum * int * int * Condition list)list // weight, quality
 type Rolls =
     | Roll of int * int
 type Pool =
-    | Pool of Rolls * Entries // TODO * Condition[]
+    | Pool of Rolls * Entries
 type LootTable =
     | Pools of Pool list
     member this.Write(w:System.IO.TextWriter) =
@@ -28,10 +31,15 @@ type LootTable =
         w.WriteLine("""{"pools":[""")
         for (Pool(Roll(ra,rb),entries)),c in ICH(match this with Pools x -> x) do
             w.WriteLine(sprintf """    %s{"rolls":{"min":%d,"max":%d}, "entries":[""" c ra rb)
-            for (datum,weight,quality),c in ICH entries do
+            for (datum,weight,quality,conds),c in ICH entries do
+                let conditionsString = 
+                    match conds with
+                    | [] -> ""
+                    | [KilledByPlayer] -> """, "conditions":[{"condition":"killed_by_player"}]"""
+                    | _ -> failwith "NYI"
                 match datum with
                 | Item(name, fs) ->
-                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d, "type":"item", "name":"%s" """ c weight quality name)
+                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d%s, "type":"item", "name":"%s" """ c weight quality conditionsString name)
                     if fs.Length = 0 then
                         w.WriteLine(sprintf """}""")
                     else
@@ -56,10 +64,10 @@ type LootTable =
                             | FurnaceSmelt -> w.WriteLine(sprintf """             %s{"function":"furnace_smelt"}""" c)
                         w.WriteLine("""        ]}""")
                 | LootTable(name) ->
-                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d, "type":"loot_table", "name":"%s"} """ c weight quality name)
+                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d%s, "type":"loot_table", "name":"%s"} """ c weight quality conditionsString name)
                     w.WriteLine()
                 | Empty ->
-                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d, "type":"empty"} """ c weight quality)
+                    w.Write(sprintf """        %s{"weight":%4d, "quality":%4d%s, "type":"empty"} """ c weight quality conditionsString)
                     w.WriteLine()
             w.WriteLine("""    ]}""")
         w.WriteLine("""]}""")
@@ -67,34 +75,34 @@ type LootTable =
 let simple_dungeon =
     Pools [
             Pool(Roll(1,3), [
-                    Item("minecraft:saddle",[]), 20, 0
-                    Item("minecraft:golden_apple",[]), 15, 0
-                    Item("minecraft:golden_apple",[SetData 1]), 2, 0
-                    Item("minecraft:record_13",[]), 15, 0
-                    Item("minecraft:record_cat",[]), 15, 0
-                    Item("minecraft:name_tag",[]), 20, 0
-                    Item("minecraft:golden_horse_armor",[]), 10, 0
-                    Item("minecraft:iron_horse_armor",[]), 15, 0
-                    Item("minecraft:diamond_horse_armor",[]), 5, 0
-                    Item("minecraft:book",[EnchantRandomly[]]), 5, 0
+                    Item("minecraft:saddle",[]), 20, 0, []
+                    Item("minecraft:golden_apple",[]), 15, 0, []
+                    Item("minecraft:golden_apple",[SetData 1]), 2, 0, []
+                    Item("minecraft:record_13",[]), 15, 0, []
+                    Item("minecraft:record_cat",[]), 15, 0, []
+                    Item("minecraft:name_tag",[]), 20, 0, []
+                    Item("minecraft:golden_horse_armor",[]), 10, 0, []
+                    Item("minecraft:iron_horse_armor",[]), 15, 0, []
+                    Item("minecraft:diamond_horse_armor",[]), 5, 0, []
+                    Item("minecraft:book",[EnchantRandomly[]]), 5, 0, []
                 ])
             Pool(Roll(1,4), [
-                    Item("minecraft:iron_ingot",[SetCount(1,4)]), 10, 0
-                    Item("minecraft:gold_ingot",[SetCount(1,4)]), 5, 0
-                    Item("minecraft:bread",[]), 20, 0
-                    Item("minecraft:wheat",[SetCount(1,4)]), 20, 0
-                    Item("minecraft:bucket",[]), 10, 0
-                    Item("minecraft:redstone",[SetCount(1,4)]), 15, 0
-                    Item("minecraft:coal",[SetCount(1,4)]), 15, 0
-                    Item("minecraft:melon_seeds",[SetCount(2,4)]), 10, 0
-                    Item("minecraft:pumpkin_seeds",[SetCount(2,4)]), 10, 0
-                    Item("minecraft:beetroot_seeds",[SetCount(2,4)]), 10, 0
+                    Item("minecraft:iron_ingot",[SetCount(1,4)]), 10, 0, []
+                    Item("minecraft:gold_ingot",[SetCount(1,4)]), 5, 0, []
+                    Item("minecraft:bread",[]), 20, 0, []
+                    Item("minecraft:wheat",[SetCount(1,4)]), 20, 0, []
+                    Item("minecraft:bucket",[]), 10, 0, []
+                    Item("minecraft:redstone",[SetCount(1,4)]), 15, 0, []
+                    Item("minecraft:coal",[SetCount(1,4)]), 15, 0, []
+                    Item("minecraft:melon_seeds",[SetCount(2,4)]), 10, 0, []
+                    Item("minecraft:pumpkin_seeds",[SetCount(2,4)]), 10, 0, []
+                    Item("minecraft:beetroot_seeds",[SetCount(2,4)]), 10, 0, []
                 ])
             Pool(Roll(3,3), [
-                    Item("minecraft:bone",[SetCount(1,8)]), 10, 0
-                    Item("minecraft:gunpowder",[SetCount(1,8)]), 10, 0
-                    Item("minecraft:rotten_flesh",[SetCount(1,8)]), 10, 0
-                    Item("minecraft:string",[SetCount(1,8)]), 10, 0
+                    Item("minecraft:bone",[SetCount(1,8)]), 10, 0, []
+                    Item("minecraft:gunpowder",[SetCount(1,8)]), 10, 0, []
+                    Item("minecraft:rotten_flesh",[SetCount(1,8)]), 10, 0, []
+                    Item("minecraft:string",[SetCount(1,8)]), 10, 0, []
                 ])
         ]
 
@@ -116,33 +124,33 @@ let LOOT_ARMOR =
     [|
         // tier 1
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:leather_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:leather_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0, []
                         //Item("minecraft:leather_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
                         //Item("minecraft:leather_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:leather_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:golden_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:golden_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:leather_boots",      [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:golden_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:golden_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0, []
                                ])]
         // tier 2
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:golden_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:golden_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:golden_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:golden_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:golden_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:golden_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:golden_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:golden_boots",      [EnchantWithLevels(1,15,false)]), 1, 0, []
                                ])]
         // tier 3
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:iron_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:iron_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:iron_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:iron_boots",      [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:iron_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:iron_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:iron_boots",      [EnchantWithLevels(1,15,false)]), 1, 0, []
                                ])]
         // tier 4
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:iron_helmet",     [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:iron_chestplate", [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:iron_leggings",   [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:iron_boots",      [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_helmet",     [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:iron_chestplate", [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:iron_leggings",   [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:iron_boots",      [EnchantWithLevels(16,30,false)]), 1, 0, []
                                ])]
     |]
 
@@ -150,48 +158,48 @@ let LOOT_TOOLS =
     [|
         // tier 1
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:stone_sword",    [EnchantWithLevels( 1,15,false)]), 1, 0
-                        Item("minecraft:wooden_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:wooden_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:stone_axe",      [EnchantWithLevels( 1,15,false)]), 1, 0
+                        Item("minecraft:stone_sword",    [EnchantWithLevels( 1,15,false)]), 1, 0, []
+                        Item("minecraft:wooden_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:wooden_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:stone_axe",      [EnchantWithLevels( 1,15,false)]), 1, 0, []
                                ])]
         // tier 2
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:stone_sword",   [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:stone_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:stone_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:stone_axe",     [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:stone_sword",   [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:stone_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:stone_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:stone_axe",     [EnchantWithLevels(16,30,false)]), 1, 0, []
                                ])]
         // tier 3
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:iron_sword",   []), 1, 0
-                        Item("minecraft:iron_pickaxe", []), 1, 0
-                        Item("minecraft:iron_shovel",  []), 1, 0
-                        Item("minecraft:iron_axe",     []), 1, 0
-                        Item("minecraft:iron_sword",   [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:iron_pickaxe", [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:iron_shovel",  [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:iron_axe",     [EnchantWithLevels(1,15,false)]), 1, 0
+                        Item("minecraft:iron_sword",   []), 1, 0, []
+                        Item("minecraft:iron_pickaxe", []), 1, 0, []
+                        Item("minecraft:iron_shovel",  []), 1, 0, []
+                        Item("minecraft:iron_axe",     []), 1, 0, []
+                        Item("minecraft:iron_sword",   [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:iron_pickaxe", [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:iron_shovel",  [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:iron_axe",     [EnchantWithLevels(1,15,false)]), 1, 0, []
                                ])]
         // tier 4
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:iron_sword",   [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:iron_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:iron_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0
-                        Item("minecraft:iron_axe",     [EnchantWithLevels(16,30,false)]), 1, 0
+                        Item("minecraft:iron_sword",   [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:iron_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:iron_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        Item("minecraft:iron_axe",     [EnchantWithLevels(16,30,false)]), 1, 0, []
                                ])]
     |]
 
 let LOOT_FOOD =
     [|
         // tier 1
-        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(5,10)]), 1, 0])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(5,10)]), 1, 0, []])]
         // tier 2
-        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0, []])]
         // tier 3
-        Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
         // tier 4
-        Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0, []])]
     |]
 
 let enchantmentsInTiers =
@@ -246,24 +254,25 @@ let LOOT_NS_PREFIX = "BrianLoot"
 let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
 type LOOT_KIND = | ARMOR | TOOLS | FOOD | BOOKS //| TODO 
 let P11 x = Pool(Roll(1,1),x)
-let OneOfAtNPercent(entryData, n) = 
+let OneOfAtNPercent(entryData, n, conds) = 
     assert(n>=0 && n <=100)
     let weight = (entryData |> Seq.length)*(100-n)
-    P11[yield (Empty, weight, 0); for ed in entryData do yield (ed, n, 0)]
+    P11[yield (Empty, weight, 0, []); for ed in entryData do yield (ed, n, 0, conds)]
 let tierNLootData n kinds = 
     [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) | BOOKS -> yield LootTable(LOOT_FORMAT"books"n) ]
-let tierxyLootPct x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
+let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
     assert(n>=0 && n <=100)
     let weight = (kinds|>Seq.length) * (1000-10*n-n)
-    P11[yield (Empty, weight, 0)
+    P11[yield (Empty, weight, 0, conds)
         for ed in tierNLootData x kinds do 
-            yield (ed, 10*n, 0)
+            yield (ed, 10*n, 0, conds)
         for ed in tierNLootData y kinds do 
-            yield (ed, n, 0)
+            yield (ed, n, 0, conds)
        ]
 let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])
 let arrows = Item("minecraft:arrow", [SetCount(6,9)])
+let MOB = [KilledByPlayer]
 let LOOT_FROM_DEFAULT_MOBS =
     [|
 //        "minecraft:entities/bat"
@@ -282,25 +291,25 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/squid
 //        "minecraft:entities/wolf
 
-        "minecraft:entities/blaze", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 33; tierxyLootPct 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10)]
-        "minecraft:entities/cave_spider", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 16; tierxyLootPct 2 2 [FOOD] 16; OneOfAtNPercent([ironPile],10)]
-        "minecraft:entities/creeper", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 10; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10)]
+        "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
+        "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB)]
+        "minecraft:entities/creeper", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
 //        "minecraft:entities/elder_guardian
-        "minecraft:entities/enderman", Pools [Pool(Roll(1,1),[Item("minecraft:ender_pearl",[SetCount(0,1);LootingEnchant(0,1)]),0,1]) // usual default drop
-                                              tierxyLootPct 2 3 [ARMOR;TOOLS] 16; tierxyLootPct 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16)  // extra loot
+        "minecraft:entities/enderman", Pools [Pool(Roll(1,1),[Item("minecraft:ender_pearl",[SetCount(0,1);LootingEnchant(0,1)]),0,1, []]) // usual default drop
+                                              tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)  // extra loot
                                              ]
-        "minecraft:entities/ghast", Pools [tierxyLootPct 2 2 [ARMOR;TOOLS] 33; tierxyLootPct 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10)]
+        "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
 //        "minecraft:entities/guardian
 //        "minecraft:entities/magma_cube
 //        "minecraft:entities/shulker
 //        "minecraft:entities/silverfish
-        "minecraft:entities/skeleton", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 12; tierxyLootPct 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16)]
+        "minecraft:entities/skeleton", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
-        "minecraft:entities/spider", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 8; tierxyLootPct 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8)]
-        "minecraft:entities/witch", Pools [tierxyLootPct 2 3 [ARMOR;TOOLS] 10; tierxyLootPct 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10)]
+        "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
+        "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
 //        "minecraft:entities/wither_skeleton
-        "minecraft:entities/zombie", Pools [tierxyLootPct 1 2 [ARMOR;TOOLS] 8; tierxyLootPct 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8)]
+        "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
 //        "minecraft:entities/zombie_horse
 //        "minecraft:entities/zombie_pigman
     |]
@@ -309,40 +318,40 @@ let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTie
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
 let sampleTier2Chest =
-        Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0])
-               Pool(Roll(0,1),[tierNBookItem(3),1,0])
-               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0])
-               Pool(Roll(1,3),[arrows,1,0])
-               tierxyLootPct 2 3 [FOOD] 16 
-               tierxyLootPct 2 3 [FOOD] 16 
-               OneOfAtNPercent([Item("minecraft:iron_pickaxe",[]);Item("minecraft:iron_sword",[]);Item("minecraft:iron_axe",[]);Item("minecraft:iron_ingot",[SetCount(2,9)])],50)
+        Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
+               Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
+               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0, []])
+               Pool(Roll(1,3),[arrows,1,0, []])
+               tierxyLootPct [] 2 3 [FOOD] 16 
+               tierxyLootPct [] 2 3 [FOOD] 16 
+               OneOfAtNPercent([Item("minecraft:iron_pickaxe",[]);Item("minecraft:iron_sword",[]);Item("minecraft:iron_axe",[]);Item("minecraft:iron_ingot",[SetCount(2,9)])],50,[])
                Pool(Roll(0,1),
-                    [LootTable("empty"), 20, 0
-                     Item("minecraft:saddle",[]), 20, 0
-                     Item("minecraft:iron_horse_armor",[]), 15, 0
-                     Item("minecraft:diamond_horse_armor",[]), 5, 0])
+                    [LootTable("empty"), 20, 0, []
+                     Item("minecraft:saddle",[]), 20, 0, []
+                     Item("minecraft:iron_horse_armor",[]), 15, 0, []
+                     Item("minecraft:diamond_horse_armor",[]), 5, 0, []])
              ]
 let sampleTier3Chest =
-        Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0])
-               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0])
-               tierxyLootPct 3 4 [FOOD] 16 
-               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0])
-               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0])
-               Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(20,30)]),1,0])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"3),1,0])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"3),1,0])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0])
+        Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0, []])
+               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0, []])
+               tierxyLootPct [] 3 4 [FOOD] 16 
+               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(20,30)]),1,0, []])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"3),1,0, []])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"3),1,0, []])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0, []])
              ]
 let sampleTier4Chest =
-        Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0])
-               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0])
-               tierxyLootPct 4 4 [FOOD] 16 
-               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0])
-               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0])
-               Pool(Roll(1,1),[Item("minecraft:elytra",[]),1,0])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0])
+        Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
+               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0, []])
+               tierxyLootPct [] 4 4 [FOOD] 16 
+               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:elytra",[]),1,0, []])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
              ]
 
 

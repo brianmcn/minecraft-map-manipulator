@@ -169,8 +169,7 @@ let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
         for z = sz-2 to sz+2 do
             map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
             map.SetBlockIDAndDamage(x,sy+3,z,22uy,0uy)  // lapis block
-    //map.SetBlockIDAndDamage(sx,sy,sz,89uy,0uy)  // glowstone  // TODO does not glow, need to recompute light somehow
-    // to have Minecraft recompute the light, use a command block and a tile tick
+    // want glowstone; to have Minecraft recompute the light, use a command block and a tile tick
     map.SetBlockIDAndDamage(sx,sy,sz,137uy,0uy)  // command block
     map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command","setblock ~ ~ ~ glowstone"); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
     map.AddTileTick("minecraft:command_block",1,0,sx,sy,sz)
@@ -370,7 +369,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                         spread <- spread + 1
                         if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
                             ok <- true
-                // put stripe on the ground (TODO vertical through air)
+                // put stripe on the ground
                 let mutable pi,pj,pk = i,j,k
                 while a.[pi,pj,pk]<>null do
                     pj <- pj - 1
@@ -386,7 +385,8 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
             for x = ex-2 to ex+2 do
                 for y = ey-4 to ey-1 do
                     for z = ez-2 to ez+2 do
-                        map.SetBlockIDAndDamage(x,y,z,166uy,0uy)  // barrier
+                        map.SetBlockIDAndDamage(x,y,z,7uy,0uy)  // bedrock
+            map.SetBlockIDAndDamage(ex,ey-1,ez,120uy,0uy) // end portal frame
             map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
             map.SetBlockIDAndDamage(ex,ey,ez,130uy,2uy) // ender chest
             for x = ex-1 to ex+1 do
@@ -441,13 +441,13 @@ let oreSpawnCustom =
         // block, Size, Count, MinHeight, MaxHeight
         "dirt",     33, 90, 0, 256
         "gravel",   33,  8, 0, 256
-        "granite",   3, 15, 0,  80
+        "granite",   3, 12, 0,  80
         "diorite",  12,120, 0,  80
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
-        "iron",      9,  3, 0,  64
-        "gold",      9,  1, 0,  32
-        "redstone",  3,  5, 0,  32
+        "iron",      9,  4, 0,  64
+        "gold",      9,  4, 0,  40
+        "redstone",  3,  4, 0,  32
         "diamond",   4,  1, 0,  16
     |]
 
@@ -543,7 +543,7 @@ let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
                         else
                             map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
-                        if rng.Next(16) = 0 then
+                        if rng.Next(20) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.Add(sprintf "added %d random spawners underground" spawnerTileEntities.Count)
@@ -716,6 +716,52 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>) =
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
     map.AddOrReplaceTileEntities(spawnerTileEntities)
 
+let doubleSpawners(map:MapFolder,log:ResizeArray<_>) =
+    printfn "double spawners..."
+    let spawnerTileEntities = ResizeArray()
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
+        if x%200 = 0 then
+            printfn "%d" x
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
+            for y = 79 downto 0 do  // down, because will put new ones above
+                let bid = map.GetBlockInfo(x,y,z).BlockID 
+                // double all existing mob spawners
+                if bid = 52uy then // 52-mob spawner
+                    let bite = map.GetTileEntity(x,y,z) // caches height map as side effect
+                    let kind =
+                        match bite.Value with
+                        | Compound(_,cs) ->
+                            match cs |> Seq.find (fun x -> x.Name = "SpawnData") with
+                            | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
+                    map.SetBlockIDAndDamage(x, y+1, z, 52uy, 0uy) // 52 = monster spawner
+                    let ms = MobSpawnerInfo(x=x, y=y+1, z=z, BasicMob=(if kind = "Spider" || kind = "CaveSpider" then "Skeleton" else "CaveSpider"), 
+                                            Delay=1s, // primed
+                                            MinSpawnDelay=200s, MaxSpawnDelay=400s, // 10-20s, rather than 10-40s
+                                            ExtraNbt=[ if kind = "CaveSpider" then 
+                                                            yield List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
+                    spawnerTileEntities.Add(ms.AsNbtTileEntity())
+    map.AddOrReplaceTileEntities(spawnerTileEntities)
+    log.Add(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
+
+
+let placeStartingCommands(map:MapFolder) =
+    let placeCommand(x,y,z,command,bid,name) =
+        map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
+        map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
+        map.AddTileTick(name,1,0,x,y,z)
+    let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,"minecraft:command_block")
+    let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,"minecraft:repeating_command_block")
+    let y = ref 255
+    let R(c) = placeRepeating(0,!y,0,c); decr y
+    let I(c) = placeImpulse(0,!y,0,c); decr y
+    R("execute @p[r=180,x=0,y=80,z=0] ~ ~ ~ time set 6000")
+    R("execute @p[rm=180,x=0,y=80,z=0] ~ ~ ~ time set 18000")
+    I("gamerule doDaylightCycle false")
+    I("gamerule keepInventory true")
+    I("give @p iron_axe")
+    I("give @p shield")
+    I("give @p cooked_beef 4")
+
 let makeCrazyMap(worldSaveFolder) =
     let timer = System.Diagnostics.Stopwatch.StartNew()
     let map = new MapFolder(worldSaveFolder + """\region\""")
@@ -749,34 +795,11 @@ let makeCrazyMap(worldSaveFolder) =
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
         )
-    time (fun () ->
-        printfn "double spawners..."
-        let spawnerTileEntities = ResizeArray()
-        for x = MINIMUM to MINIMUM+LENGTH-1 do
-            if x%200 = 0 then
-                printfn "%d" x
-            for z = MINIMUM to MINIMUM+LENGTH-1 do
-                for y = 79 downto 0 do  // down, because will put new ones above
-                    let bid = map.GetBlockInfo(x,y,z).BlockID 
-                    // double all existing mob spawners
-                    if bid = 52uy then // 52-mob spawner
-                        let bite = map.GetTileEntity(x,y,z) // caches height map as side effect
-                        let kind =
-                            match bite.Value with
-                            | Compound(_,cs) ->
-                                match cs |> Seq.find (fun x -> x.Name = "SpawnData") with
-                                | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
-                        map.SetBlockIDAndDamage(x, y+1, z, 52uy, 0uy) // 52 = monster spawner
-                        let ms = MobSpawnerInfo(x=x, y=y+1, z=z, BasicMob=(if kind = "Spider" || kind = "CaveSpider" then "Skeleton" else "CaveSpider"), 
-                                                Delay=1s, // primed
-                                                MinSpawnDelay=200s, MaxSpawnDelay=400s, // 10-20s, rather than 10-40s
-                                                ExtraNbt=[ //yield String("DeathLootTable","TODO")// TODO
-                                                           if kind = "CaveSpider" then 
-                                                                yield List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
-                        spawnerTileEntities.Add(ms.AsNbtTileEntity())
-        map.AddOrReplaceTileEntities(spawnerTileEntities)
-        log.Add(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
-        )
+    time (fun() -> 
+        printfn "START CMDS"
+        log.Add("START CMDS")
+        placeStartingCommands(map))
+    time (fun () -> doubleSpawners(map,log))
     time (fun () -> substituteBlocks(map, log))
     time (fun () -> findSomeMountainPeaks(map, hm, log))
     time (fun () -> findSomeFlatAreas(map, hm, log))
@@ -887,5 +910,7 @@ added beacon at 885 53 170 which travels 226
 -----
 Took 7.971575 minutes
 press a key to end
+
+
 
 *)
