@@ -164,6 +164,9 @@ type Partition(orig : Thingy) as this =
             thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
             thisRoot.rank <- thisRoot.rank + 1 
 
+let SPAWN_PROTECTION_DISTANCE = 200
+let STRUCTURE_SPACING = 170
+
 let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
     for x = sx-2 to sx+2 do
         for z = sz-2 to sz+2 do
@@ -183,7 +186,7 @@ let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
 let MINIMUM = -1024
 let LENGTH = 2048
 
-let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>) =
+let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>, decorations:ResizeArray<_>) =
     let LOX, LOY, LOZ = MINIMUM, 11, MINIMUM
     let MAXI, MAXJ, MAXK = LENGTH, 50, LENGTH
     let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
@@ -321,12 +324,14 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
         let ex,ey,ez = XYZ(besti,bestj,bestk)
         // ensure beacon in decent bounds
         let DB = 40
-        if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || (ex > -200 && ex < 200 && ez > -200 && ez < 200)  then
+        if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || 
+            (ex > -SPAWN_PROTECTION_DISTANCE && ex < SPAWN_PROTECTION_DISTANCE && ez > -SPAWN_PROTECTION_DISTANCE && ez < SPAWN_PROTECTION_DISTANCE)  then
             () // skip is too close to 0,0 or to map bounds
         else
         printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
         if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 300 then  // only keep mid-sized ones...
             log.Add(sprintf "added beacon at %d %d %d which travels %d" ex ey ez dist.[besti,bestj,bestk])
+            decorations.Add('B',ex,ez)
             let mutable i,j,k = besti,bestj,bestk
             let fullDist = dist.[besti,bestj,bestk]
             let mutable count = 0
@@ -610,7 +615,11 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
     // pick highest in each CC
     for hs in CCs.Values do
         let p = hs |> Seq.maxBy (fun (x,z) -> heightMap.[x,z])
-        highPoints.Add(p)
+        let minx = hs |> Seq.minBy fst |> fst
+        let maxx = hs |> Seq.maxBy fst |> fst
+        let minz = hs |> Seq.minBy snd |> snd
+        let maxz = hs |> Seq.maxBy snd |> snd
+        highPoints.Add(p,(minx,minz),(maxx,maxz))  // retain the bounds of the CC
     // find the 'best' ones based on which have lots of high ground near them
     let score(x,z) =
         try
@@ -623,24 +632,98 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
         with _ -> 0  // deal with array index out of bounds
     let distance2(a,b,c,d) = (a-c)*(a-c)+(b-d)*(b-d)
     let bestHighPoints = ResizeArray()
-    for hx,hz in highPoints |> Seq.sortByDescending score do
+    for ((hx,hz),a,b) in highPoints |> Seq.sortByDescending (fun (p,_,_) -> score p) do
         if hx > MINIMUM+32 && hx < MINIMUM+LENGTH-32 && hz > MINIMUM+32 && hz < MINIMUM+LENGTH-32 then  // not at edge of bounds
-            if bestHighPoints |> Seq.forall (fun ((ex,ez),_s) -> distance2(ex,ez,hx,hz) > 200*200) then   // spaced apart TODO factor constants
-                bestHighPoints.Add( ((hx,hz),score(hx,hz)) )
-    bestHighPoints
+            if bestHighPoints |> Seq.forall (fun ((ex,ez),_,_,_s) -> distance2(ex,ez,hx,hz) > STRUCTURE_SPACING*STRUCTURE_SPACING) then   // spaced apart TODO factor constants
+                bestHighPoints.Add( ((hx,hz),a,b,score(hx,hz)) )
+    bestHighPoints  // [(point, lo-bound-of-CC, hi-bound-of-CC, score)]
 
-let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>) =
+let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),_)) =
+    // protect it from other structures
+    // walk map looking for highest point where no air/lava withing N (20?) blocks
+    // can just traverse, each time find bad block, skip N? add to exclusion zone...
+    // or could maybe brute-force the mountain CCs I'm already computing?
+    // ...
+    // related problem: http://stackoverflow.com/questions/7245/puzzle-find-largest-rectangle-maximal-rectangle-problem
+    // ...
+    // ok, among mountain connected components, just mostly brute force them
+    let mutable found = false
+    let mutable fx,fy,fz = 0,0,0
+    for y = hm.[highx,highz] downto 80 do // y is outermost loop to prioritize finding high points first
+        if not found then
+            for z = minz to maxz do
+                if not found then
+                    for x = minx to maxx do
+                        if not found then
+                            let D = 10
+                            let mutable ok = true
+                            for dx = -D to D do
+                                if ok then
+                                    for dy = -D to D do
+                                        if ok then
+                                            for dz = -D to D do
+                                                if ok && (abs dx + abs dy + abs dz < D) then  // make a 'round radius'
+                                                    let bi = map.MaybeGetBlockInfo(x+dx,y+dy,z+dz)
+                                                    if bi = null then // out of bounds
+                                                        ok <- false
+                                                    else
+                                                        let bid = bi.BlockID 
+                                                        if bid = 0uy || (bid>=8uy && bid<11uy) then  // if air or water/lava
+                                                            ok <- false
+                            if ok then
+                                found <- true
+                                fx <- x
+                                fy <- y
+                                fz <- z
+    if found then
+        Some(fx,fy,fz)
+    else
+        None
+
+let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:ResizeArray<_>) =
     let bestHighPoints = findBestPeaksAlgorithm(hm,80,100,3)
-    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_s) -> x*x+z*z > 200*200)
+    let unused = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z <= STRUCTURE_SPACING*STRUCTURE_SPACING)
+    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > STRUCTURE_SPACING*STRUCTURE_SPACING)
+    let otherUnused = (bestHighPoints |> Seq.toArray).[10..]
+    // best hiding spot
+    let timer = System.Diagnostics.Stopwatch.StartNew()
+    printfn "find best hiding spot..."
+    let (bx,by,bz) = Seq.append unused otherUnused |> Seq.choose (fun x -> findHidingSpot(map,hm,x)) |> Seq.maxBy (fun (_,y,_) -> y)
+    printfn "best hiding spot: %4d %4d %4d" bx by bz
+    decorations.Add('H',bx,bz)
+    log.Add(sprintf "('find best hiding spot' sub-section took %f minutes)" timer.Elapsed.TotalMinutes)
+    for dx = -1 to 1 do
+        for dy = -1 to 1 do
+            for dz = -1 to 1 do
+                map.SetBlockIDAndDamage(bx+dx,by+dy,bz+dz,20uy,0uy)  // glass
+    let chestItems = 
+        Compounds[| 
+                [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:elytra"); End |]
+                // TODO couple mending books, what else?
+                [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                   Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","You win!", 
+                                                                 [| 
+                                                                    """{"text":"TODO text of book"}"""
+                                                                    """{"text":"hope enjoyed"}"""
+                                                                    """{"text":"feedback"}"""
+                                                                    """{"text":"donate"}"""  // TODO timing, they may not want to read now, may want to play with elytra? monument block? ...
+                                                                 |]) |> ResizeArray
+                           )
+                   End |]
+            |]
+    map.SetBlockIDAndDamage(bx,by,bz,54uy,2uy)  // chest
+    map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
+    // mountain peaks
     let bestHighPoints = try Seq.take 10 bestHighPoints with _e -> bestHighPoints
     printfn "The best high points are:"
-    for (x,z),s in bestHighPoints do
+    for (x,z),_,_,s in bestHighPoints do
         printfn "  (%4d,%4d) - %d" x z s
         log.Add(sprintf "added mountain peak at %d %d" x z)
+        decorations.Add('P',x,z)
     // decorate map with dungeon ascent
     let spawnerTileEntities = ResizeArray()
     let rng = System.Random()
-    for ((x,z),_s) in bestHighPoints do
+    for (x,z),_,_,_s in bestHighPoints do
         let y = map.GetHeightMap(x,z)
         putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
         for i = x-20 to x+20 do
@@ -660,7 +743,7 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>) =
                         spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
 
-let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>) =
+let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
     // then treat 'goodness' as 'height', and the existing 'find mountain peaks' algorithm may work
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -680,14 +763,15 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>) =
                     score <- score + ds
             a.[x,z] <- score
     let bestFlatPoints = findBestPeaksAlgorithm(a,2000,3000,D)
-    let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_s) -> x*x+z*z > 200*200)
+    let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE*SPAWN_PROTECTION_DISTANCE)
     let bestFlatPoints = try Seq.take 10 bestFlatPoints with _e -> bestFlatPoints
     printfn "The best flat points are:"
     let chosen = ResizeArray()
-    for (x,z),s in bestFlatPoints do
+    for (x,z),_,_,s in bestFlatPoints do
         printfn "  (%4d,%4d) - %d" x z s
         chosen.Add( (x,z) )
         log.Add(sprintf "added flat set piece at %d %d" x z)
+        decorations.Add('F',x,z)
     let bestFlatPoints = chosen
     // decorate map with dungeon
     let spawnerTileEntities = ResizeArray()
@@ -748,26 +832,34 @@ let placeStartingCommands(map:MapFolder) =
     let placeCommand(x,y,z,command,bid,name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
-        map.AddTileTick(name,1,0,x,y,z)
+        if bid <> 211uy then
+            map.AddTileTick(name,1,0,x,y,z)
     let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,"minecraft:command_block")
     let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,"minecraft:repeating_command_block")
+    let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,"minecraft:chain_command_block")
     let y = ref 255
     let R(c) = placeRepeating(0,!y,0,c); decr y
     let I(c) = placeImpulse(0,!y,0,c); decr y
-    R("execute @p[r=180,x=0,y=80,z=0] ~ ~ ~ time set 6000")
+    let C(c) = placeChain(0,!y,0,c); decr y
+    R("execute @p[r=180,x=0,y=80,z=0] ~ ~ ~ time set 6000")  // TODO multiplayer?
     R("execute @p[rm=180,x=0,y=80,z=0] ~ ~ ~ time set 18000")
+    // TODO first time enter night, give a message explaining
+    I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
     I("gamerule keepInventory true")
-    I("give @p iron_axe")
-    I("give @p shield")
-    I("give @p cooked_beef 4")
+    I("give @a iron_axe")
+    I("give @a shield")
+    I("give @a cooked_beef 6")
 
 let makeCrazyMap(worldSaveFolder) =
     let timer = System.Diagnostics.Stopwatch.StartNew()
     let map = new MapFolder(worldSaveFolder + """\region\""")
     let log = ResizeArray()
+    let decorations = ResizeArray()
     let hm = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
-    let xtime = ignore
+    let xtime _ = 
+        printfn "SKIPPING SOMETHING"
+        log.Add("SKIPPED SOMETHING")
     let time f =
         let timer = System.Diagnostics.Stopwatch.StartNew()
         f()
@@ -799,19 +891,25 @@ let makeCrazyMap(worldSaveFolder) =
         printfn "START CMDS"
         log.Add("START CMDS")
         placeStartingCommands(map))
-    time (fun () -> doubleSpawners(map,log))
+    time (fun () -> doubleSpawners(map, log))
     time (fun () -> substituteBlocks(map, log))
-    time (fun () -> findSomeMountainPeaks(map, hm, log))
-    time (fun () -> findSomeFlatAreas(map, hm, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, log))
+    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, log, decorations))
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
+    time (fun() -> 
+        printfn "WRITING MAP PNG IMAGES"
+        log.Add("WRITING MAP PNG IMAGES")
+        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)
+        )
+
     printfn ""
     printfn "SUMMARY"
     printfn ""
     for s in log do
-        printfn "%s" s
+        printfn "%s" s   // TODO write to text file
     printfn "Took %f minutes" timer.Elapsed.TotalMinutes 
     printfn "press a key to end"
     System.Console.ReadKey() |> ignore
@@ -912,5 +1010,80 @@ Took 7.971575 minutes
 press a key to end
 
 
+
+
+SUMMARY
+
+(this section took 0.183469 minutes)
+-----
+CACHE HM...
+(this section took 0.026647 minutes)
+-----
+START CMDS
+(this section took 0.000312 minutes)
+-----
+added 720 extra dungeon spawners underground
+(this section took 1.454130 minutes)
+-----
+added 3359 random spawners underground
+   s1:   Zombie:701   Blaze:143   Skeleton:684   Spider:674   Creeper:122
+   s2:   Blaze:188   Skeleton:177   CaveSpider:171   Spider:161   Creeper:162   Zombie:176
+(this section took 2.153262 minutes)
+-----
+('find best hiding spot' sub-section took 0.549599 minutes)
+added mountain peak at 400 124
+added mountain peak at 830 728
+added mountain peak at -368 -933
+added mountain peak at 116 196
+added mountain peak at 120 440
+added mountain peak at -743 -371
+added mountain peak at -451 680
+added mountain peak at -513 -89
+added mountain peak at -51 465
+added mountain peak at -386 -288
+(this section took 0.568549 minutes)
+-----
+added flat set piece at 789 -690
+added flat set piece at -231 289
+added flat set piece at 445 -481
+added flat set piece at 147 624
+added flat set piece at -499 717
+added flat set piece at -977 -710
+added flat set piece at -893 -152
+added flat set piece at -879 192
+added flat set piece at -625 -272
+added flat set piece at -723 -116
+(this section took 1.071351 minutes)
+-----
+added beacon at -885 25 -559 which travels 268
+   spawners along path:   Zombie:54   Skeleton:14   Creeper:12
+added beacon at -556 44 -191 which travels 232
+   spawners along path:   Zombie:47   Creeper:8   Skeleton:8
+added beacon at -430 48 195 which travels 221
+   spawners along path:   Zombie:57   Skeleton:21   Creeper:7
+added beacon at -535 47 716 which travels 129
+   spawners along path:   Zombie:32   Skeleton:7   Creeper:5
+added beacon at -351 46 -391 which travels 189
+   spawners along path:   Zombie:48   Creeper:9   Skeleton:7
+added beacon at -97 44 774 which travels 190
+   spawners along path:   Skeleton:8   Zombie:49   Creeper:3
+added beacon at -22 44 -879 which travels 204
+   spawners along path:   Creeper:11   Zombie:47   Skeleton:10
+added beacon at 192 44 954 which travels 161
+   spawners along path:   Zombie:24   Creeper:4   Skeleton:9
+added beacon at 218 59 516 which travels 248
+   spawners along path:   Zombie:55   Creeper:14   Skeleton:6
+added beacon at 525 50 253 which travels 111
+   spawners along path:   Zombie:26   Skeleton:6   Creeper:2
+added beacon at 827 37 -692 which travels 297
+   spawners along path:   Zombie:73   Creeper:16   Skeleton:20
+added beacon at 885 53 170 which travels 226
+   spawners along path:   Zombie:52   Skeleton:12   Creeper:14
+(this section took 1.997691 minutes)
+-----
+WRITING MAP PNG IMAGES
+(this section took 0.350523 minutes)
+-----
+Took 8.818133 minutes
 
 *)

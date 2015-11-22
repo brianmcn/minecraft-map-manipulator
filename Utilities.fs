@@ -543,7 +543,7 @@ let placeCertainBlocksInTheWorld() =
             let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
             if x = 0 then printfn "%3d %s" y filename
             let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
-            regionFile.SetBlockIDAndDamage( 1, maxHeight - y, 100 + x, byte bid, byte dmg)
+            regionFile.EnsureSetBlockIDAndDamage( 1, maxHeight - y, 100 + x, byte bid, byte dmg)
     // caption (on 128-wide image, can fit about 24 letters across a line)
     //          123456789012345678901234
     let center24(s:string) = (String.replicate ((24 - s.Length)/2) " ") + s
@@ -1096,11 +1096,12 @@ let makeWrittenBookTags(author, title, pages) =
     NBT.Compound("tag",[||])
     *)
     [|
-    NBT.Byte("resolved",0uy)  // player can open book and have his name appear in it :)
-    NBT.Int("generation",0)
-    NBT.String("author",author)
-    NBT.String("title",title)
-    NBT.List("pages",Strings(pages))   //      "[\"line1\\n\",\"line2\"]", ...
+    Byte("resolved",0uy)  // player can open book and have his name appear in it :)
+    Int("generation",0)
+    String("author",author)
+    String("title",title)
+    List("pages",Strings(pages))   //      "[\"line1\\n\",\"line2\"]", ...
+    End
     |]
 
 // TODO below does not work if '^' is in the original text
@@ -1160,16 +1161,13 @@ let placeCommandBlocksInTheWorldTemp(fil) =
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
 
-let makeBiomeMap() =
-    //let image = new System.Drawing.Bitmap(1024,1024)
-    let image = new System.Drawing.Bitmap(512*32,512*32)
-    for rx in [-16..15] do
-        for rz in [-16..15] do
-    //for rx in [-1;0] do
-        //for rz in [-1;0] do
-            //let RI = new RegionFile(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Seed6Normal\region\r.%d.%d.mca""" rx rz)
-            let RI = new RegionFile(sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\43aAt8200\region\r.%d.%d.mca""" rx rz)
-            printfn "%d %d" rx rz
+let makeBiomeMap(regionFolder, rxs:int list, rzs:int list, decorations) =
+    let negXCount = rxs |> Seq.filter (fun x -> x<0) |> Seq.length 
+    let negZCount = rzs |> Seq.filter (fun z -> z<0) |> Seq.length 
+    let image = new System.Drawing.Bitmap(512*rxs.Length, 512*rzs.Length)
+    for rx in rxs do
+        for rz in rzs do
+            let RI = new RegionFile(sprintf """%s\r.%d.%d.mca""" regionFolder rx rz)
             for cx = 0 to 31 do
                 for cz = 0 to 31 do
                     match RI.TryGetChunk(cx,cz) with
@@ -1187,8 +1185,31 @@ let makeBiomeMap() =
                                         let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=biome) |> (fun (_,_,color) -> color)
                                         let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
                                         assert(mci = mapColorIndex)
-                                        let xx = rx * 512 + cx * 16 + x + 512*16
-                                        let yy = rz * 512 + cz * 16 + y + 512*16
+                                        let xx = rx * 512 + cx * 16 + x + 512*negXCount
+                                        let yy = rz * 512 + cz * 16 + y + 512*negZCount
+                                        let r,g,b = 
+                                            if (xx%512=0) || (yy%512=0) then
+                                                r/2,g/2,b/2  // dark lines on region bounds
+                                            else
+                                                r,g,b
                                         image.SetPixel(xx, yy, System.Drawing.Color.FromArgb(r,g,b))
-    image.Save("""C:\Users\brianmcn\Desktop\out.png""")
+    let placeRedLetterAt(letter, centerX, centerZ) =
+        let D = 9
+        let ix = 512*negXCount + centerX - 5*(D+1)
+        let iy = 512*negZCount + centerZ - 5*(D+1)
+        match ALPHABET5INDEX letter with
+        | Some i ->
+            for j = 0 to 4 do
+                for k = 0 to 4 do
+                    if ALPHABET5.[j].[5*i+k] = 'X' then
+                        for dx = 0 to D do
+                            for dy = 0 to D do
+                                try
+                                    image.SetPixel(ix+k*D+dx, iy+j*D+dy, System.Drawing.Color.FromArgb(255,0,0))
+                                with _ -> () // if goes off edge, just don't draw
+        | None -> failwith "bad letter"
+    image.Save("""C:\Users\Admin1\Desktop\out.png""")
+    for (c,x,z) in decorations do
+        placeRedLetterAt(c,x,z)
+    image.Save("""C:\Users\Admin1\Desktop\outDecorated.png""")
 

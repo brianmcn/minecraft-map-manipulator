@@ -2174,7 +2174,6 @@ do
     //findAllLoot("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed5Normal\region\""")
     //findAllLoot("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\43aAt8200\region\""")
     //testBackpatching("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\VoidLoot\region\r.0.0.mca""")
-    //makeBiomeMap()
     //repopulateAsAnotherBiome()
     //debugRegion()
     //findUndergroundAirSpaceConnectedComponents()
@@ -2199,12 +2198,13 @@ do
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w47b.zip""","""C:\Users\Admin1\Desktop\15w47c.zip""")
     //placeCertainBlocksInTheWorld()
+    //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
     
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     LootTables.writeAllLootTables(worldSaveFolder)
     
-    let go = MC_Constants.defaultWorldWithCustomOreSpawns(2,45,16,80,TerrainAnalysisAndManipulation.oreSpawnCustom)
+    let go = MC_Constants.defaultWorldWithCustomOreSpawns(2,45,16,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
     System.Windows.Clipboard.SetText(go)
 (*    
 *)
