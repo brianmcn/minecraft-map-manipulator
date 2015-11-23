@@ -323,13 +323,13 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
         let sx,sy,sz = XYZ(bi,bj,bk)
         let ex,ey,ez = XYZ(besti,bestj,bestk)
         // ensure beacon in decent bounds
-        let DB = 40
+        let DB = 60
         if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || 
             (ex > -SPAWN_PROTECTION_DISTANCE && ex < SPAWN_PROTECTION_DISTANCE && ez > -SPAWN_PROTECTION_DISTANCE && ez < SPAWN_PROTECTION_DISTANCE)  then
-            () // skip is too close to 0,0 or to map bounds
+            () // skip if too close to 0,0 or to map bounds
         else
         printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
-        if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 300 then  // only keep mid-sized ones...
+        if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 500 then  // only keep mid-sized ones...
             log.Add(sprintf "added beacon at %d %d %d which travels %d" ex ey ez dist.[besti,bestj,bestk])
             decorations.Add('B',ex,ez)
             let mutable i,j,k = besti,bestj,bestk
@@ -451,7 +451,7 @@ let oreSpawnCustom =
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
         "iron",      9,  4, 0,  64
-        "gold",      9,  4, 0,  40
+        "gold",      9,  4, 0,  48
         "redstone",  3,  4, 0,  32
         "diamond",   4,  1, 0,  16
     |]
@@ -850,6 +850,8 @@ let placeStartingCommands(map:MapFolder) =
     I("give @a iron_axe")
     I("give @a shield")
     I("give @a cooked_beef 6")
+    I("scoreboard objectives add LavaSlimesKilled stat.killEntity.LavaSlime")
+    I("scoreboard players set @a LavaSlimesKilled 0") // TODO multiplayer, what if A kills #1 and B kills #2
 
 let makeCrazyMap(worldSaveFolder) =
     let timer = System.Diagnostics.Stopwatch.StartNew()
@@ -891,18 +893,19 @@ let makeCrazyMap(worldSaveFolder) =
         printfn "START CMDS"
         log.Add("START CMDS")
         placeStartingCommands(map))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(map, log))
-    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(map, log))
+    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, log, decorations))
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
-    time (fun() -> 
+    xtime (fun() -> 
         printfn "WRITING MAP PNG IMAGES"
         log.Add("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)
+        System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"summary.txt"),log)
         )
 
     printfn ""

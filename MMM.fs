@@ -2201,11 +2201,11 @@ do
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
     
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     LootTables.writeAllLootTables(worldSaveFolder)
     
     let go = MC_Constants.defaultWorldWithCustomOreSpawns(2,45,16,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
-    System.Windows.Clipboard.SetText(go)
+    //System.Windows.Clipboard.SetText(go)
 (*    
 *)
 

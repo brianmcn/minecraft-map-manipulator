@@ -1108,9 +1108,9 @@ let makeWrittenBookTags(author, title, pages) =
 let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
 let escape2(s) = escape(escape(s))
 
-let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
+let writtenBookNBTString(author, title, pages:string[]) =
     let sb = System.Text.StringBuilder()
-    sb.Append(sprintf "/give @p minecraft:written_book 1 0 {resolved:0b,generation:0,author:\"%s\",title:\"%s\",pages:[" author title) |> ignore
+    sb.Append(sprintf "{resolved:0b,generation:0,author:\"%s\",title:\"%s\",pages:[" author title) |> ignore
     for i = 0 to pages.Length-2 do
         sb.Append("\"") |> ignore
         sb.Append(escape pages.[i]) |> ignore
@@ -1121,6 +1121,8 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
     sb.Append("]}") |> ignore
     sb.ToString()
 
+let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
+    sprintf "/give @p minecraft:written_book 1 0 %s" (writtenBookNBTString(author, title, pages))
 
 
 let placeCommandBlocksInTheWorldTemp(fil) =
@@ -1208,8 +1210,9 @@ let makeBiomeMap(regionFolder, rxs:int list, rzs:int list, decorations) =
                                     image.SetPixel(ix+k*D+dx, iy+j*D+dy, System.Drawing.Color.FromArgb(255,0,0))
                                 with _ -> () // if goes off edge, just don't draw
         | None -> failwith "bad letter"
-    image.Save("""C:\Users\Admin1\Desktop\out.png""")
+    let mapFolder = System.IO.Path.GetDirectoryName(regionFolder)
+    image.Save(System.IO.Path.Combine(mapFolder,"mapOverview.png"))
     for (c,x,z) in decorations do
         placeRedLetterAt(c,x,z)
-    image.Save("""C:\Users\Admin1\Desktop\outDecorated.png""")
+    image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 

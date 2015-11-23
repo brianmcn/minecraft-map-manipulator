@@ -14,6 +14,7 @@ type Function =
     //| SetAttributes of TODO
 type Condition =
     | KilledByPlayer
+    | EntityScoresKillerPlayer of string * int * int
     // TODO others
 type EntryDatum =
     | Item of string * Function list // name, functions
@@ -36,6 +37,7 @@ type LootTable =
                     match conds with
                     | [] -> ""
                     | [KilledByPlayer] -> """, "conditions":[{"condition":"killed_by_player"}]"""
+                    | [EntityScoresKillerPlayer(obj,n,x)] -> sprintf """, "conditions":[{"condition":"entity_scores","entity":"killer_player","scores":{"%s":{"min":%d,"max":%d}}}]""" obj n x
                     | _ -> failwith "NYI"
                 match datum with
                 | Item(name, fs) ->
@@ -228,19 +230,15 @@ let enchantmentsInTiers =
         ]
         [
             "protection"
-            "feather_falling"
-            "projectile_protection"
             "depth_strider"
             "frost_walker"
             "sharpness"
             "looting"
-            "efficiency"
             "unbreaking"
             "infinity"
         ]
         [
             "protection"
-            "feather_falling"
             "looting"
             "infinity"
             "mending"
@@ -300,7 +298,15 @@ let LOOT_FROM_DEFAULT_MOBS =
                                              ]
         "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
 //        "minecraft:entities/guardian
-//        "minecraft:entities/magma_cube
+        // TODO no loot for small magma https://bugs.mojang.com/browse/MC-91364
+        "minecraft:entities/magma_cube", Pools [
+            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Final Secret Treasure",[|
+                   """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
+                   |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",1,1)]])
+            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Final Secret Treasure",[|
+                   """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
+                   |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",2,999999)]])  // Note: entity_scores evals after stat.kills updated but before next commandtick
+            ]
 //        "minecraft:entities/shulker
 //        "minecraft:entities/silverfish
         "minecraft:entities/skeleton", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
@@ -321,6 +327,9 @@ let sampleTier2Chest =
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
                Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0, []])
+               Pool(Roll(0,1),[Item("minecraft:written_book",[SetNbt(Utilities.writtenBookNBTString("Lorgon111","'What Next' hints",[|
+                                            """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for beacon light. A challenging path will lead to riches!"}"""
+                                        |]))]),1,0, []])
                Pool(Roll(1,3),[arrows,1,0, []])
                tierxyLootPct [] 2 3 [FOOD] 16 
                tierxyLootPct [] 2 3 [FOOD] 16 
@@ -332,26 +341,29 @@ let sampleTier2Chest =
                      Item("minecraft:diamond_horse_armor",[]), 5, 0, []])
              ]
 let sampleTier3Chest =
-        Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0, []])
-               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0, []])
-               tierxyLootPct [] 3 4 [FOOD] 16 
+        Pools[ Pool(Roll(12,12),[tierNBookItem(3),1,0, []])
+               Pool(Roll(1,1),[veryDamagedAnvils(3,5),1,0, []])
+               Pool(Roll(3,3),[Item("minecraft:chest",[SetNbt("""{display:{Name:\"Dungeon Loot\"},BlockEntityTag:{LootTable:\"minecraft:chests/simple_dungeon\"}}""")]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:experience_bottle",[SetCount(64,64)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.writtenBookNBTString("Lorgon111","'What Next' hints",[|
+                                            """{"text":"If you feel strong enough, try attacking a surface are filled with cobwebs... terrific rewards await you!"}"""
+                                        |]))]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(20,30)]),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"3),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"3),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(20,30)]),1,0, []])
+               Pool(Roll(1,1),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0, []])
              ]
 let sampleTier4Chest =
-        Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
-               Pool(Roll(1,1),[veryDamagedAnvils(1,2),1,0, []])
-               tierxyLootPct [] 4 4 [FOOD] 16 
-               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:elytra",[]),1,0, []])
+        Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0, []])
+               Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
+               Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:spawn_egg",[SetNbt("""{EntityTag:{id:LavaSlime,Size:1},display:{Name:\"Kill me with a sword to learn a secret!\"}}""")]),1,0,[]])
              ]
 
 
