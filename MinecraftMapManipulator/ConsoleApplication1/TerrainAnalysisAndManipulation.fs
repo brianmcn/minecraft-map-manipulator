@@ -217,24 +217,20 @@ let MINIMUM = -1024
 let LENGTH = 2048
 
 let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>, decorations:ResizeArray<_>) =
-    let LOX, LOY, LOZ = MINIMUM, 11, MINIMUM
-    let MAXI, MAXJ, MAXK = LENGTH, 50, LENGTH
+    let YMIN = 10
+    let YLEN = 50
     let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
-    let PT(i,j,k) = i*MAXJ*MAXK + k*MAXJ + j
-    let a = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) null   // +2s because we have sentinels guarding array index out of bounds
+    let PT(x,y,z) = 
+        let i,j,k = x-MINIMUM, y-YMIN, z-MINIMUM
+        i*YLEN*LENGTH + k*YLEN + j
+    let a = System.Array.CreateInstance(typeof<Partition>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> Partition[,,] // +2s because we have sentinels guarding array index out of bounds
     let mutable currentSectionBlocks,curx,cury,curz = null,-1000,-1000,-1000
-    let XYZ(i,j,k) =   // TODO can I get rid of this with based arrays?
-        let x = i-1 + LOX
-        let y = j-1 + LOY
-        let z = k-1 + LOZ
-        x,y,z
     // find all the air spaces in the underground
     printf "FIND"
-    for j = 1 to MAXJ do
+    for y = YMIN+1 to YMIN+YLEN do
         printf "."
-        for i = 1 to MAXI do
-            for k = 1 to MAXK do
-                let x,y,z = XYZ(i,j,k)
+        for x = MINIMUM+1 to MINIMUM+LENGTH do
+            for z = MINIMUM+1 to MINIMUM+LENGTH do
                 if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
                     currentSectionBlocks <- map.GetOrCreateSection(x,y,z) |> (fun (_sect,blocks,_bd) -> blocks)
                     curx <- x
@@ -243,52 +239,46 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                 let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
                 if currentSectionBlocks.[bix] = 0uy then // air
-                    //a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(j=MAXJ)))
-                    a.[i,j,k] <- new Partition(new Thingy(PT(i,j,k),(j=1),(y>=map.GetHeightMap(x,z))))
+                    a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=map.GetHeightMap(x,z))))
     printfn ""
     printf "CONNECT"
     // connected-components them
-    for j = 1 to MAXJ-1 do
+    for y = YMIN+1 to YMIN+YLEN-1 do
         printf "."
-        for i = 1 to MAXI-1 do
-            for k = 1 to MAXK-1 do
-                if a.[i,j,k]<>null && a.[i+1,j,k]<>null then
-                    a.[i,j,k].Union(a.[i+1,j,k])
-                if a.[i,j,k]<>null && a.[i,j+1,k]<>null then
-                    a.[i,j,k].Union(a.[i,j+1,k])
-                if a.[i,j,k]<>null && a.[i,j,k+1]<>null then
-                    a.[i,j,k].Union(a.[i,j,k+1])
+        for x = MINIMUM+1 to MINIMUM+LENGTH-1 do
+            for z = MINIMUM+1 to MINIMUM+LENGTH-1 do
+                if a.[x,y,z]<>null && a.[x+1,y,z]<>null then
+                    a.[x,y,z].Union(a.[x+1,y,z])
+                if a.[x,y,z]<>null && a.[x,y+1,z]<>null then
+                    a.[x,y,z].Union(a.[x,y+1,z])
+                if a.[x,y,z]<>null && a.[x,y,z+1]<>null then
+                    a.[x,y,z].Union(a.[x,y,z+1])
     printfn ""
     printf "ANALYZE"
     // look for 'good' ones
     let goodCCs = new System.Collections.Generic.Dictionary<_,_>()
-    for j = 1 to MAXJ do
+    for y = YMIN+1 to YMIN+YLEN do
         printf "."
-        for i = 1 to MAXI do
-            for k = 1 to MAXK do
-                if a.[i,j,k]<>null then
-                    let v = a.[i,j,k].Find().Value 
+        for x = MINIMUM+1 to MINIMUM+LENGTH do
+            for z = MINIMUM+1 to MINIMUM+LENGTH do
+                if a.[x,y,z]<>null then
+                    let v = a.[x,y,z].Find().Value 
                     if v.IsLeft && v.IsRight then
                         if not(goodCCs.ContainsKey(v.Point)) then
                             goodCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())
                         else
-                            goodCCs.[v.Point].Add(PT(i,j,k)) |> ignore
+                            goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     printfn "There are %d CCs with the desired property" goodCCs.Count 
     // These arrays are large enough that I think they get pinned in permanent memory, reuse them
-    let dist = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) 999999   // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-    let prev = Array3D.create (MAXI+2) (MAXJ+2) (MAXK+2) -1       // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+    let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+    let prev = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     for hs in goodCCs.Values do
         let XYZP(pt) =
-            let i = pt / (MAXJ*MAXK)
-            let k = (pt % (MAXJ*MAXK)) / MAXJ
-            let j = pt % MAXJ
-            XYZ(i,j,k)
-        let IJK(x,y,z) =
-            let i = x+1 - LOX
-            let j = y+1 - LOY
-            let k = z+1 - LOZ
-            i,j,k
+            let i = pt / (YLEN*LENGTH)
+            let k = (pt % (YLEN*LENGTH)) / YLEN
+            let j = pt % YLEN
+            (i + MINIMUM, j + YMIN, k + MINIMUM)
         let mutable bestX,bestY,bestZ = 0,0,0
         for p in hs do
             let x,y,z = XYZP(p)
@@ -298,12 +288,12 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                 bestZ <- z
         // have a point at the top of the CC, now find furthest low point away (Dijkstra variant)
         // re-init the array:
-        for ii = 0 to MAXI+1 do
-            for jj = 0 to MAXJ+1 do
-                for kk = 0 to MAXK+1 do
+        for ii = MINIMUM to MINIMUM+LENGTH+1 do
+            for jj = YMIN to YMIN+YLEN+1 do
+                for kk = MINIMUM to MINIMUM+LENGTH+1 do
                     dist.[ii,jj,kk] <- 999999
         let q = new System.Collections.Generic.Queue<_>()
-        let bi,bj,bk = IJK(bestX,bestY,bestZ)
+        let bi,bj,bk = (bestX,bestY,bestZ)
         q.Enqueue(bi,bj,bk)
         dist.[bi,bj,bk] <- 0
         let mutable besti,bestj,bestk = bi, bj, bk
@@ -315,106 +305,106 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                 if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
                     dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
                     q.Enqueue(i+di,j+dj,k+dk)
-                    if j = 1 then  // low point
+                    if j = YMIN+1 then  // low point
                         if dist.[besti,bestj,bestk] < d+1 then
                             besti <- i+di
                             bestj <- j+dj
                             bestk <- k+dk
-        // now find shortest from that bottom to top
-        // re-init the arrays:
-        for ii = 0 to MAXI+1 do
-            for jj = 0 to MAXJ+1 do
-                for kk = 0 to MAXK+1 do
-                    dist.[ii,jj,kk] <- 999999
-                    prev.[ii,jj,kk] <- -1
-        let bi,bj,bk = besti,bestj,bestk
-        q.Enqueue(bi,bj,bk)
-        dist.[bi,bj,bk] <- 0
-        let mutable besti,bestj,bestk = bi, bj, bk
-        while q.Count > 0 do
-            let i,j,k = q.Dequeue()
-            let d = dist.[i,j,k]
-            let x,y,z = XYZ(i,j,k)
-            if (y>=map.GetHeightMap(x,z)) then // surface
-                // found shortest
-                besti <- i
-                bestj <- j
-                bestk <- k
-                while q.Count > 0 do
-                    q.Dequeue() |> ignore
+        if bj <> bestj then  // we actually reached a low point; if not, nothing else to do
+            // now find shortest from that bottom to top
+            // re-init the arrays:
+            for ii = MINIMUM to MINIMUM+LENGTH+1 do
+                for jj = YMIN to YMIN+YLEN+1 do
+                    for kk = MINIMUM to MINIMUM+LENGTH+1 do
+                        dist.[ii,jj,kk] <- 999999
+                        prev.[ii,jj,kk] <- -1
+            let bi,bj,bk = besti,bestj,bestk
+            q.Enqueue(bi,bj,bk)
+            dist.[bi,bj,bk] <- 0
+            let mutable besti,bestj,bestk = bi, bj, bk
+            while q.Count > 0 do
+                let i,j,k = q.Dequeue()
+                let d = dist.[i,j,k]
+                let x,y,z = (i,j,k)
+                if (y>=map.GetHeightMap(x,z)) then // surface
+                    // found shortest
+                    besti <- i
+                    bestj <- j
+                    bestk <- k
+                    while q.Count > 0 do
+                        q.Dequeue() |> ignore
+                else
+                    for diffi = 0 to DIFFERENCES.Length-1 do
+                        let di,dj,dk = DIFFERENCES.[diffi]
+                        if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
+                            dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
+                            prev.[i+di,j+dj,k+dk] <- diffi
+                            q.Enqueue(i+di,j+dj,k+dk)
+            // found a path
+            let sx,sy,sz = (bi,bj,bk)
+            let ex,ey,ez = (besti,bestj,bestk)
+            // ensure beacon in decent bounds
+            let DB = 60
+            if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || 
+                (ex > -SPAWN_PROTECTION_DISTANCE && ex < SPAWN_PROTECTION_DISTANCE && ez > -SPAWN_PROTECTION_DISTANCE && ez < SPAWN_PROTECTION_DISTANCE)  then
+                () // skip if too close to 0,0 or to map bounds
             else
-                for diffi = 0 to DIFFERENCES.Length-1 do
-                    let di,dj,dk = DIFFERENCES.[diffi]
-                    if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
-                        dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
-                        prev.[i+di,j+dj,k+dk] <- diffi
-                        q.Enqueue(i+di,j+dj,k+dk)
-        // found a path
-        let sx,sy,sz = XYZ(bi,bj,bk)
-        let ex,ey,ez = XYZ(besti,bestj,bestk)
-        // ensure beacon in decent bounds
-        let DB = 60
-        if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || 
-            (ex > -SPAWN_PROTECTION_DISTANCE && ex < SPAWN_PROTECTION_DISTANCE && ez > -SPAWN_PROTECTION_DISTANCE && ez < SPAWN_PROTECTION_DISTANCE)  then
-            () // skip if too close to 0,0 or to map bounds
-        else
-        printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
-        if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 500 then  // only keep mid-sized ones...
-            log.Add(sprintf "added beacon at %d %d %d which travels %d" ex ey ez dist.[besti,bestj,bestk])
-            decorations.Add('B',ex,ez)
-            let mutable i,j,k = besti,bestj,bestk
-            let fullDist = dist.[besti,bestj,bestk]
-            let mutable count = 0
-            let spawners = SpawnerAccumulator()
-            let rng = System.Random()
-            let possibleSpawners = [|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-            while i<>bi || j<>bj || k<>bk do
-                let ni, nj, nk = // next points (step back using info from 'prev')
-                    let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
-                    i-dx,j-dy,k-dz
-                let ii,jj,kk = prev.[i,j,k]%3<>0, prev.[i,j,k]%3<>1, prev.[i,j,k]%3<>2   // ii/jj/kk track 'normal' to the path
-                // maybe put mob spawner nearby
-                let pct = float count / float fullDist
-                if rng.NextDouble() < pct then
-                    let xx,yy,zz = XYZ(i,j,k)
-                    let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
-                    let mutable ok = false
-                    while not ok do
-                        let feesh = ResizeArray()
-                        let xs = if ii then [xx-spread .. xx+spread] else [xx]
-                        let ys = if jj then [yy-spread .. yy+spread] else [yy]
-                        let zs = if kk then [zz-spread .. zz+spread] else [zz]
-                        for x in xs do
-                            for y in ys do
-                                for z in zs do
-                                    if map.GetBlockInfo(x,y,z).BlockID = 97uy then // if silverfish
-                                        feesh.Add(x,y,z)
-                        if feesh.Count > 0 then
-                            let x,y,z = feesh.[rng.Next(feesh.Count-1)]
-                            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
-                            let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
-                            let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind)
-                            spawners.Add(ms)
-                            ok <- true
-                        spread <- spread + 1
-                        if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
-                            ok <- true
-                // put stripe on the ground
-                let mutable pi,pj,pk = i,j,k
-                while a.[pi,pj,pk]<>null do
-                    pj <- pj - 1
-                let x,y,z = XYZ(pi,pj,pk)
-                map.SetBlockIDAndDamage(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
-                i <- ni
-                j <- nj
-                k <- nk
-                count <- count + 1
-            // write out all the spawner data we just placed
-            spawners.AddToMapAndLog(map,log)
-            putBeaconAt(map,ex,ey,ez,5uy) // 5 = lime
-            map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
-            // put treasure at bottom end
-            putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
+            printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
+            if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 500 then  // only keep mid-sized ones...
+                log.Add(sprintf "added beacon at %d %d %d which travels %d" ex ey ez dist.[besti,bestj,bestk])
+                decorations.Add('B',ex,ez)
+                let mutable i,j,k = besti,bestj,bestk
+                let fullDist = dist.[besti,bestj,bestk]
+                let mutable count = 0
+                let spawners = SpawnerAccumulator()
+                let rng = System.Random()
+                let possibleSpawners = [|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                while i<>bi || j<>bj || k<>bk do
+                    let ni, nj, nk = // next points (step back using info from 'prev')
+                        let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
+                        i-dx,j-dy,k-dz
+                    let ii,jj,kk = prev.[i,j,k]%3<>0, prev.[i,j,k]%3<>1, prev.[i,j,k]%3<>2   // ii/jj/kk track 'normal' to the path
+                    // maybe put mob spawner nearby
+                    let pct = float count / (float fullDist * 3.0)
+                    if rng.NextDouble() < pct then
+                        let xx,yy,zz = (i,j,k)
+                        let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
+                        let mutable ok = false
+                        while not ok do
+                            let candidates = ResizeArray()
+                            let xs = if ii then [xx-spread .. xx+spread] else [xx]
+                            let ys = if jj then [yy-spread .. yy+spread] else [yy]
+                            let zs = if kk then [zz-spread .. zz+spread] else [zz]
+                            for x in xs do
+                                for y in ys do
+                                    for z in zs do
+                                        if map.GetBlockInfo(x,y,z).BlockID <> 0uy then // if not air
+                                            candidates.Add(x,y,z)
+                            if candidates.Count > 0 then
+                                let x,y,z = candidates.[rng.Next(candidates.Count-1)]
+                                map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
+                                let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
+                                let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind)
+                                spawners.Add(ms)
+                                ok <- true
+                            spread <- spread + 1
+                            if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
+                                ok <- true
+                    // put stripe on the ground
+                    let mutable pi,pj,pk = i,j,k
+                    while a.[pi,pj,pk]<>null do
+                        pj <- pj - 1
+                    map.SetBlockIDAndDamage(pi,pj,pk,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
+                    i <- ni
+                    j <- nj
+                    k <- nk
+                    count <- count + 1
+                // write out all the spawner data we just placed
+                spawners.AddToMapAndLog(map,log)
+                putBeaconAt(map,ex,ey,ez,5uy) // 5 = lime
+                map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
+                // put treasure at bottom end
+                putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
     // end foreach CC
     ()
 
@@ -918,14 +908,14 @@ let makeCrazyMap(worldSaveFolder) =
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
         )
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(map, log))
-    time (fun() ->   // after substitute blocks, to keep diorite in pillars
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(map, log))
+    xtime (fun() ->   // after substitute blocks, to keep diorite in pillars
         printfn "START CMDS"
         log.Add("START CMDS")
         placeStartingCommands(map,hm))
-    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(map, log, decorations))
     printfn "saving results..."
     map.WriteAll()
