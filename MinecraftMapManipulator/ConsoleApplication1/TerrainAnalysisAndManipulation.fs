@@ -183,6 +183,36 @@ let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
     map.SetBlockIDAndDamage(sx,sy+1,sz,54uy,2uy)  // chest
     map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy+1); Int("z",sz); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |] |])
 
+let putBeaconAt(map:MapFolder,ex,ey,ez,colorDamage) =
+    for x = ex-2 to ex+2 do
+        for y = ey-4 to ey-1 do
+            for z = ez-2 to ez+2 do
+                map.SetBlockIDAndDamage(x,y,z,7uy,0uy)  // bedrock
+    for x = ex-1 to ex+1 do
+        for z = ez-1 to ez+1 do
+            map.SetBlockIDAndDamage(x,ey-3,z,133uy,0uy)  // emerald block
+    map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
+    map.SetBlockIDAndDamage(ex,ey-1,ez, 95uy,colorDamage) // stained glass
+    map.SetBlockIDAndDamage(ex,ey+0,ez,120uy,0uy) // end portal frame
+
+type SpawnerAccumulator() =
+    let spawnerTileEntities = ResizeArray()
+    let spawnerTypeCount = new System.Collections.Generic.Dictionary<_,_>()
+    member this.Add(ms:MobSpawnerInfo) =
+        let kind = ms.BasicMob + if ms.ExtraNbt.Length > 0 then "extra" else ""
+        if spawnerTypeCount.ContainsKey(kind) then
+            spawnerTypeCount.[kind] <- spawnerTypeCount.[kind] + 1
+        else
+            spawnerTypeCount.[kind] <- 1
+        spawnerTileEntities.Add(ms.AsNbtTileEntity())
+    member this.AddToMapAndLog(map:MapFolder, log:ResizeArray<_>) =
+        map.AddOrReplaceTileEntities(spawnerTileEntities)
+        let sb = new System.Text.StringBuilder()
+        sb.Append(sprintf "   Total:%3d" (spawnerTypeCount |> Seq.sumBy (fun (KeyValue(_,v)) -> v))) |> ignore
+        for KeyValue(k,v) in spawnerTypeCount |> Seq.sortBy (fun (KeyValue(k,_)) -> k)do
+            sb.Append(sprintf "   %s:%3d" k v) |> ignore
+        log.Add("   spawners along path:"+sb.ToString())
+
 let MINIMUM = -1024
 let LENGTH = 2048
 
@@ -335,10 +365,9 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
             let mutable i,j,k = besti,bestj,bestk
             let fullDist = dist.[besti,bestj,bestk]
             let mutable count = 0
+            let spawners = SpawnerAccumulator()
             let rng = System.Random()
-            let spawnerTileEntities = ResizeArray()
             let possibleSpawners = [|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-            let spawnerTypeCount = new System.Collections.Generic.Dictionary<_,_>()
             while i<>bi || j<>bj || k<>bk do
                 let ni, nj, nk = // next points (step back using info from 'prev')
                     let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
@@ -364,12 +393,8 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                             let x,y,z = feesh.[rng.Next(feesh.Count-1)]
                             map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
                             let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
-                            if spawnerTypeCount.ContainsKey(kind) then
-                                spawnerTypeCount.[kind] <- spawnerTypeCount.[kind] + 1
-                            else
-                                spawnerTypeCount.[kind] <- 1
                             let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind)
-                            spawnerTileEntities.Add(ms.AsNbtTileEntity())
+                            spawners.Add(ms)
                             ok <- true
                         spread <- spread + 1
                         if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
@@ -385,24 +410,11 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                 k <- nk
                 count <- count + 1
             // write out all the spawner data we just placed
-            map.AddOrReplaceTileEntities(spawnerTileEntities)
-            // put beacon at top end
-            for x = ex-2 to ex+2 do
-                for y = ey-4 to ey-1 do
-                    for z = ez-2 to ez+2 do
-                        map.SetBlockIDAndDamage(x,y,z,7uy,0uy)  // bedrock
-            map.SetBlockIDAndDamage(ex,ey-1,ez,120uy,0uy) // end portal frame
-            map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
-            map.SetBlockIDAndDamage(ex,ey,ez,130uy,2uy) // ender chest
-            for x = ex-1 to ex+1 do
-                for z = ez-1 to ez+1 do
-                    map.SetBlockIDAndDamage(x,ey-3,z,133uy,0uy)  // emerald block
+            spawners.AddToMapAndLog(map,log)
+            putBeaconAt(map,ex,ey,ez,5uy) // 5 = lime
+            map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
             // put treasure at bottom end
             putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
-            let sb = new System.Text.StringBuilder()
-            for KeyValue(k,v) in spawnerTypeCount do
-                sb.Append(sprintf "   %s:%d" k v) |> ignore
-            log.Add("   spawners along path:"+sb.ToString())
     // end foreach CC
     ()
 
@@ -450,7 +462,7 @@ let oreSpawnCustom =
         "diorite",  12,120, 0,  80
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
-        "iron",      9,  4, 0,  64
+        "iron",      9,  6, 0,  64
         "gold",      9,  4, 0,  48
         "redstone",  3,  4, 0,  32
         "diamond",   4,  1, 0,  16
@@ -500,28 +512,19 @@ let canPlaceSpawner(map:MapFolder,x,y,z) =
 let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
     let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
     let HIY = 120
+    let spawners1 = SpawnerAccumulator()
+    let spawners2 = SpawnerAccumulator()
     let rng = System.Random()
-    let spawnerTileEntities = ResizeArray()
     let possibleSpawners1 = [|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (1,"Blaze"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-    let spawnerTypeCount1 = new System.Collections.Generic.Dictionary<_,_>()
-    let spawnerTypeCount2 = new System.Collections.Generic.Dictionary<_,_>()
     let spawner1(x,y,z) =
         let kind = possibleSpawners1.[rng.Next(possibleSpawners1.Length)]
-        if spawnerTypeCount1.ContainsKey(kind) then
-            spawnerTypeCount1.[kind] <- spawnerTypeCount1.[kind] + 1
-        else
-            spawnerTypeCount1.[kind] <- 1
         let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, MaxSpawnDelay=400s)
-        spawnerTileEntities.Add(ms.AsNbtTileEntity())
+        spawners1.Add(ms)
     let possibleSpawners2 = [|(1,"Zombie"); (1,"Skeleton"); (1,"Spider"); (1,"Blaze"); (1,"Creeper"); (1,"CaveSpider")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
     let spawner2(x,y,z) =
         let kind = possibleSpawners2.[rng.Next(possibleSpawners2.Length)]
-        if spawnerTypeCount2.ContainsKey(kind) then
-            spawnerTypeCount2.[kind] <- spawnerTypeCount2.[kind] + 1
-        else
-            spawnerTypeCount2.[kind] <- 1
         let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, MaxSpawnDelay=400s)
-        spawnerTileEntities.Add(ms.AsNbtTileEntity())
+        spawners2.Add(ms)
     printf "SUBST"
     for y = LOY to HIY do
         printf "."
@@ -550,16 +553,9 @@ let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
                         if rng.Next(20) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
-    map.AddOrReplaceTileEntities(spawnerTileEntities)
-    log.Add(sprintf "added %d random spawners underground" spawnerTileEntities.Count)
-    let sb = new System.Text.StringBuilder()
-    for KeyValue(k,v) in spawnerTypeCount1 do
-        sb.Append(sprintf "   %s:%d" k v) |> ignore
-    log.Add("   s1:"+sb.ToString())
-    let sb = new System.Text.StringBuilder()
-    for KeyValue(k,v) in spawnerTypeCount2 do
-        sb.Append(sprintf "   %s:%d" k v) |> ignore
-    log.Add("   s2:"+sb.ToString())
+    log.Add("added random spawners underground")
+    spawners1.AddToMapAndLog(map,log)
+    spawners2.AddToMapAndLog(map,log)
     printfn ""
 
 // mappings: should probably be to a chance set that's a function of difficulty or something...
@@ -680,6 +676,9 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
     else
         None
 
+let mutable hiddenX = 0
+let mutable hiddenZ = 0
+
 let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:ResizeArray<_>) =
     let bestHighPoints = findBestPeaksAlgorithm(hm,80,100,3)
     let unused = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z <= STRUCTURE_SPACING*STRUCTURE_SPACING)
@@ -691,6 +690,8 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
     let (bx,by,bz) = Seq.append unused otherUnused |> Seq.choose (fun x -> findHidingSpot(map,hm,x)) |> Seq.maxBy (fun (_,y,_) -> y)
     printfn "best hiding spot: %4d %4d %4d" bx by bz
     decorations.Add('H',bx,bz)
+    hiddenX <- bx
+    hiddenZ <- bz
     log.Add(sprintf "('find best hiding spot' sub-section took %f minutes)" timer.Elapsed.TotalMinutes)
     for dx = -1 to 1 do
         for dy = -1 to 1 do
@@ -718,14 +719,14 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
     printfn "The best high points are:"
     for (x,z),_,_,s in bestHighPoints do
         printfn "  (%4d,%4d) - %d" x z s
-        log.Add(sprintf "added mountain peak at %d %d" x z)
         decorations.Add('P',x,z)
     // decorate map with dungeon ascent
-    let spawnerTileEntities = ResizeArray()
     let rng = System.Random()
     for (x,z),_,_,_s in bestHighPoints do
+        log.Add(sprintf "added mountain peak at %d %d" x z)
+        let spawners = SpawnerAccumulator()
         let y = map.GetHeightMap(x,z)
-        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
+        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
         for i = x-20 to x+20 do
             for j = z-20 to z+20 do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
@@ -737,11 +738,13 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
                         let y = map.GetHeightMap(x,z)
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
                         let possibleSpawners = [|(5,"Spider"); (1,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)], Delay=1s)
+                        let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
+                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, Delay=1s)
                         if ms.BasicMob = "Spider" then
                             ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
-                        spawnerTileEntities.Add(ms.AsNbtTileEntity())
-    map.AddOrReplaceTileEntities(spawnerTileEntities)
+                        spawners.Add(ms)
+        spawners.AddToMapAndLog(map,log)
+    ()
 
 let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
@@ -770,35 +773,45 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:Resi
     for (x,z),_,_,s in bestFlatPoints do
         printfn "  (%4d,%4d) - %d" x z s
         chosen.Add( (x,z) )
-        log.Add(sprintf "added flat set piece at %d %d" x z)
         decorations.Add('F',x,z)
     let bestFlatPoints = chosen
     // decorate map with dungeon
-    let spawnerTileEntities = ResizeArray()
     let rng = System.Random()
     for (x,z) in bestFlatPoints do
+        log.Add(sprintf "added flat set piece at %d %d" x z)
+        let spawners = SpawnerAccumulator()
         let y = map.GetHeightMap(x,z)
-        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
-        let RADIUS = 30
+        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
+        putBeaconAt(map,x,y,z,14uy) // 14 = red
+        map.SetBlockIDAndDamage(x,y+3,z,20uy,0uy) // glass (replace roof of box so beacon works)
+        // add blazes atop
+        for (dx,dz) in [-3,-3; -3,3; 3,-3; 3,3; 0,0] do
+            let x,y,z = x+dx, y+6, z+dz
+            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+            let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Blaze", Delay=1s)
+            spawners.Add(ms)
+        // surround with danger
+        let RADIUS = 40
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
-                    let dist = abs(x-i) + abs(z-j)
-                    let pct = float (50-dist) / 50.0
+                    let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
+                    let pct = float (RADIUS-dist/2) / ((float RADIUS) * 2.0)
                     if rng.NextDouble() < pct then
                         let x = i
                         let z = j
                         let y = map.GetHeightMap(x,z) + rng.Next(2)
-                        if rng.Next(3+dist) = 0 then
+                        if rng.Next(8+dist) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-                            let possibleSpawners = [|(4,"Spider"); (1,"Skeleton"); (1,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                            let possibleSpawners = [|(1,"Spider"); (1,"Witch"); (2,"CaveSpider")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
                             let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)], Delay=1s)
                             if ms.BasicMob = "Spider" && rng.Next(2) = 0 then
                                 ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
-                            spawnerTileEntities.Add(ms.AsNbtTileEntity())
-                        else
+                            spawners.Add(ms)
+                        elif rng.Next(3) > 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
-    map.AddOrReplaceTileEntities(spawnerTileEntities)
+        spawners.AddToMapAndLog(map,log)
+    ()
 
 let doubleSpawners(map:MapFolder,log:ResizeArray<_>) =
     printfn "double spawners..."
@@ -828,30 +841,46 @@ let doubleSpawners(map:MapFolder,log:ResizeArray<_>) =
     log.Add(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
 
-let placeStartingCommands(map:MapFolder) =
+let placeStartingCommands(map:MapFolder,hm:_[,]) =
     let placeCommand(x,y,z,command,bid,name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
         if bid <> 211uy then
-            map.AddTileTick(name,1,0,x,y,z)
+            map.AddTileTick(name,1,0,x,y,z)  // TODO race, the gives sometimes run be4ore player online, change t to a value like 400 to run a4ter online?
     let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,"minecraft:command_block")
     let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,"minecraft:repeating_command_block")
-    let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,"minecraft:chain_command_block")
+    //let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,"minecraft:chain_command_block")
     let y = ref 255
     let R(c) = placeRepeating(0,!y,0,c); decr y
     let I(c) = placeImpulse(0,!y,0,c); decr y
-    let C(c) = placeChain(0,!y,0,c); decr y
-    R("execute @p[r=180,x=0,y=80,z=0] ~ ~ ~ time set 6000")  // TODO multiplayer?
-    R("execute @p[rm=180,x=0,y=80,z=0] ~ ~ ~ time set 18000")
+    //let C(c) = placeChain(0,!y,0,c); decr y
+    let DR = 180 // daylight radius
+    for i = 0 to 99 do
+        let theta = System.Math.PI * 2.0 * float i / 100.0
+        let x = cos theta * float DR |> int
+        let z = sin theta * float DR |> int
+        let h = hm.[x,z] + 5
+        if h > 60 then
+            for y = 60 to h do
+                map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
+    R(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DR)  // TODO multiplayer?
+    R(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DR)
     // TODO first time enter night, give a message explaining
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
-    I("gamerule keepInventory true")
+    I("gamerule keepInventory true")  // TODO get rid of?
+    I("weather clear 999999")
     I("give @a iron_axe")
     I("give @a shield")
     I("give @a cooked_beef 6")
+    I("give @a dirt 64")
     I("scoreboard objectives add LavaSlimesKilled stat.killEntity.LavaSlime")
     I("scoreboard players set @a LavaSlimesKilled 0") // TODO multiplayer, what if A kills #1 and B kills #2
+    I("scoreboard objectives add hidden dummy")
+    I(sprintf "scoreboard players set X hidden %d" hiddenX)
+    I(sprintf "scoreboard players set Z hidden %d" hiddenZ)
+    let h = hm.[1,1]
+    putBeaconAt(map,1,h,1,0uy)  // beacon at spawn for convenience
 
 let makeCrazyMap(worldSaveFolder) =
     let timer = System.Diagnostics.Stopwatch.StartNew()
@@ -889,19 +918,19 @@ let makeCrazyMap(worldSaveFolder) =
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
         )
-    time (fun() -> 
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(map, log))
+    time (fun() ->   // after substitute blocks, to keep diorite in pillars
         printfn "START CMDS"
         log.Add("START CMDS")
-        placeStartingCommands(map))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(map, log))
-    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, log, decorations))
+        placeStartingCommands(map,hm))
+    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, log, decorations))
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
-    xtime (fun() -> 
+    time (fun() -> 
         printfn "WRITING MAP PNG IMAGES"
         log.Add("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)

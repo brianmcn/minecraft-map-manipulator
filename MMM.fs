@@ -2200,12 +2200,16 @@ do
     //placeCertainBlocksInTheWorld()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
     
+//    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM - Copy"""
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
     //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
-    LootTables.writeAllLootTables(worldSaveFolder)
+    //LootTables.writeAllLootTables(worldSaveFolder)
+    System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
+    for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
+
     
-    let go = MC_Constants.defaultWorldWithCustomOreSpawns(2,45,16,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
-    //System.Windows.Clipboard.SetText(go)
+    let go = MC_Constants.defaultWorldWithCustomOreSpawns(3,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
+    System.Windows.Clipboard.SetText(go)
 (*    
 *)
 
