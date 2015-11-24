@@ -166,6 +166,8 @@ type Partition(orig : Thingy) as this =
 
 let SPAWN_PROTECTION_DISTANCE = 200
 let STRUCTURE_SPACING = 170
+let DAYLIGHT_RADIUS = 180
+
 
 let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
     for x = sx-2 to sx+2 do
@@ -216,21 +218,27 @@ type SpawnerAccumulator() =
 let MINIMUM = -1024
 let LENGTH = 2048
 
-let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>, decorations:ResizeArray<_>) =
+let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:ResizeArray<_>, decorations:ResizeArray<_>) =
     let YMIN = 10
-    let YLEN = 50
+    let YLEN = 50 // TODO trouble at 60...
+    //let YCUTOFF = 60 // no longer treat as connected above this height, to prevent connecting all via sky
     let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
     let PT(x,y,z) = 
         let i,j,k = x-MINIMUM, y-YMIN, z-MINIMUM
         i*YLEN*LENGTH + k*YLEN + j
+    let XYZP(pt) =
+        let i = pt / (YLEN*LENGTH)
+        let k = (pt % (YLEN*LENGTH)) / YLEN
+        let j = pt % YLEN
+        (i + MINIMUM, j + YMIN, k + MINIMUM)
     let a = System.Array.CreateInstance(typeof<Partition>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> Partition[,,] // +2s because we have sentinels guarding array index out of bounds
     let mutable currentSectionBlocks,curx,cury,curz = null,-1000,-1000,-1000
     // find all the air spaces in the underground
     printf "FIND"
     for y = YMIN+1 to YMIN+YLEN do
         printf "."
-        for x = MINIMUM+1 to MINIMUM+LENGTH do
-            for z = MINIMUM+1 to MINIMUM+LENGTH do
+        for x = MINIMUM+1 to MINIMUM+LENGTH-1 do
+            for z = MINIMUM+1 to MINIMUM+LENGTH-1 do
                 if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
                     currentSectionBlocks <- map.GetOrCreateSection(x,y,z) |> (fun (_sect,blocks,_bd) -> blocks)
                     curx <- x
@@ -239,7 +247,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                 let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
                 if currentSectionBlocks.[bix] = 0uy then // air
-                    a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=map.GetHeightMap(x,z))))
+                    a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hm.[x,z])))
     printfn ""
     printf "CONNECT"
     // connected-components them
@@ -247,15 +255,18 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
         printf "."
         for x = MINIMUM+1 to MINIMUM+LENGTH-1 do
             for z = MINIMUM+1 to MINIMUM+LENGTH-1 do
-                if a.[x,y,z]<>null && a.[x+1,y,z]<>null then
+                if a.[x,y,z]<>null && a.[x+1,y,z]<>null then //&& (y < YCUTOFF || y < hm.[x,z]) then  // only cc if <60 or <hm, else whole world connected via sky
                     a.[x,y,z].Union(a.[x+1,y,z])
-                if a.[x,y,z]<>null && a.[x,y+1,z]<>null then
+                if a.[x,y,z]<>null && a.[x,y+1,z]<>null then //&& (y < YCUTOFF || y < hm.[x,z]) then
                     a.[x,y,z].Union(a.[x,y+1,z])
-                if a.[x,y,z]<>null && a.[x,y,z+1]<>null then
+                if a.[x,y,z]<>null && a.[x,y,z+1]<>null then //&& (y < YCUTOFF || y < hm.[x,z]) then
                     a.[x,y,z].Union(a.[x,y,z+1])
     printfn ""
     printf "ANALYZE"
     // look for 'good' ones
+#if HMM
+    let nearSpawnCaveEntranceCCs = new System.Collections.Generic.Dictionary<_,_>()
+#endif
     let goodCCs = new System.Collections.Generic.Dictionary<_,_>()
     for y = YMIN+1 to YMIN+YLEN do
         printf "."
@@ -268,21 +279,40 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                             goodCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())
                         else
                             goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
+#if HMM
+                    if v.IsRight && (x*x+z*z < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS) then
+                        if not(nearSpawnCaveEntranceCCs.ContainsKey(v.Point)) then
+                            nearSpawnCaveEntranceCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())
+                        else
+                            nearSpawnCaveEntranceCCs.[v.Point].Add(PT(x,y,z)) |> ignore
+#endif
     printfn ""
+#if HMM
+    // does not do much, often parts above the heightmap are above y=60, which is not covered
+
+    // highlight cave entrances near spawn
+    for hs in nearSpawnCaveEntranceCCs.Values do
+        let mutable bestX,bestY,bestZ = 0,0,0
+        for p in hs do
+            let x,y,z = XYZP(p)
+            if y > bestY && y > hm.[x,z] then
+                bestX <- x
+                bestY <- y
+                bestZ <- z
+        if bestY <> 0 then
+            // found highest point in this cave exposed to surface
+            for y = bestY + 5 to bestY + 15 do
+                map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone  // TODO heighmap/lighting
+#endif
     printfn "There are %d CCs with the desired property" goodCCs.Count 
     // These arrays are large enough that I think they get pinned in permanent memory, reuse them
     let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let prev = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     for hs in goodCCs.Values do
-        let XYZP(pt) =
-            let i = pt / (YLEN*LENGTH)
-            let k = (pt % (YLEN*LENGTH)) / YLEN
-            let j = pt % YLEN
-            (i + MINIMUM, j + YMIN, k + MINIMUM)
         let mutable bestX,bestY,bestZ = 0,0,0
         for p in hs do
             let x,y,z = XYZP(p)
-            if y > bestY then
+            if y > bestY then //&& y < YCUTOFF then
                 bestX <- x
                 bestY <- y
                 bestZ <- z
@@ -302,7 +332,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
             let d = dist.[i,j,k]
             for diffi = 0 to DIFFERENCES.Length-1 do
                 let di,dj,dk = DIFFERENCES.[diffi]
-                if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
+                if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then //&& j+dj < YCUTOFF then
                     dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
                     q.Enqueue(i+di,j+dj,k+dk)
                     if j = YMIN+1 then  // low point
@@ -326,7 +356,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                 let i,j,k = q.Dequeue()
                 let d = dist.[i,j,k]
                 let x,y,z = (i,j,k)
-                if (y>=map.GetHeightMap(x,z)) then // surface
+                if (y>=hm.[x,z]) then // surface
                     // found shortest
                     besti <- i
                     bestj <- j
@@ -336,7 +366,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, log:ResizeArray<_>
                 else
                     for diffi = 0 to DIFFERENCES.Length-1 do
                         let di,dj,dk = DIFFERENCES.[diffi]
-                        if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
+                        if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then //&& j+dj < YCUTOFF then
                             dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
                             prev.[i+di,j+dj,k+dk] <- diffi
                             q.Enqueue(i+di,j+dj,k+dk)
@@ -715,7 +745,7 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
     for (x,z),_,_,_s in bestHighPoints do
         log.Add(sprintf "added mountain peak at %d %d" x z)
         let spawners = SpawnerAccumulator()
-        let y = map.GetHeightMap(x,z)
+        let y = hm.[x,z]
         putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
         for i = x-20 to x+20 do
             for j = z-20 to z+20 do
@@ -725,7 +755,7 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
                     if rng.NextDouble() < pct then
                         let x = i
                         let z = j
-                        let y = map.GetHeightMap(x,z)
+                        let y = hm.[x,z]
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
                         let possibleSpawners = [|(5,"Spider"); (1,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
                         let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
@@ -770,7 +800,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:Resi
     for (x,z) in bestFlatPoints do
         log.Add(sprintf "added flat set piece at %d %d" x z)
         let spawners = SpawnerAccumulator()
-        let y = map.GetHeightMap(x,z)
+        let y = hm.[x,z]
         putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
         putBeaconAt(map,x,y,z,14uy) // 14 = red
         map.SetBlockIDAndDamage(x,y+3,z,20uy,0uy) // glass (replace roof of box so beacon works)
@@ -790,7 +820,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:Resi
                     if rng.NextDouble() < pct then
                         let x = i
                         let z = j
-                        let y = map.GetHeightMap(x,z) + rng.Next(2)
+                        let y = hm.[x,z] + rng.Next(2)
                         if rng.Next(8+dist) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
                             let possibleSpawners = [|(1,"Spider"); (1,"Witch"); (2,"CaveSpider")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
@@ -844,17 +874,16 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     let R(c) = placeRepeating(0,!y,0,c); decr y
     let I(c) = placeImpulse(0,!y,0,c); decr y
     //let C(c) = placeChain(0,!y,0,c); decr y
-    let DR = 180 // daylight radius
     for i = 0 to 99 do
         let theta = System.Math.PI * 2.0 * float i / 100.0
-        let x = cos theta * float DR |> int
-        let z = sin theta * float DR |> int
+        let x = cos theta * float DAYLIGHT_RADIUS |> int
+        let z = sin theta * float DAYLIGHT_RADIUS |> int
         let h = hm.[x,z] + 5
         if h > 60 then
             for y = 60 to h do
                 map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
-    R(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DR)  // TODO multiplayer?
-    R(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DR)
+    R(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // TODO multiplayer?
+    R(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DAYLIGHT_RADIUS)
     // TODO first time enter night, give a message explaining
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
@@ -908,15 +937,15 @@ let makeCrazyMap(worldSaveFolder) =
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
         )
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(map, log))
-    xtime (fun() ->   // after substitute blocks, to keep diorite in pillars
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(map, log))
+    time (fun() ->   // after substitute blocks, to keep diorite in pillars
         printfn "START CMDS"
         log.Add("START CMDS")
         placeStartingCommands(map,hm))
-    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, log, decorations))
+    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
@@ -924,7 +953,6 @@ let makeCrazyMap(worldSaveFolder) =
         printfn "WRITING MAP PNG IMAGES"
         log.Add("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)
-        System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"summary.txt"),log)
         )
 
     printfn ""
@@ -933,6 +961,7 @@ let makeCrazyMap(worldSaveFolder) =
     for s in log do
         printfn "%s" s   // TODO write to text file
     printfn "Took %f minutes" timer.Elapsed.TotalMinutes 
+    System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"summary.txt"),log)
     printfn "press a key to end"
     System.Console.ReadKey() |> ignore
 

@@ -2210,7 +2210,7 @@ do
 
     
     let go = MC_Constants.defaultWorldWithCustomOreSpawns(3,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
-    System.Windows.Clipboard.SetText(go)
+    //System.Windows.Clipboard.SetText(go)
 (*    
 *)
 
