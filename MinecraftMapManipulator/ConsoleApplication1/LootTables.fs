@@ -233,13 +233,14 @@ let enchantmentsInTiers =
             "depth_strider"
             "frost_walker"
             "sharpness"
-            "looting"
+//            "looting"  // TODO figure out if/what looting does
             "unbreaking"
             "infinity"
         ]
         [
             "protection"
-            "looting"
+            "sharpness"
+//            "looting"  // TODO figure out if/what looting does
             "infinity"
             "mending"
         ]
@@ -348,7 +349,7 @@ let sampleTier2Chest =
 let sampleTier3Chest =
         Pools[ Pool(Roll(12,12),[tierNBookItem(3),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(3,5),1,0, []])
-               Pool(Roll(3,3),[Item("minecraft:chest",[SetNbt("""{display:{Name:\"Dungeon Loot\"},BlockEntityTag:{LootTable:\"minecraft:chests/simple_dungeon\"}}""")]),1,0, []])
+               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt("""{display:{Name:\"Dungeon Loot\"},BlockEntityTag:{LootTable:\"minecraft:chests/simple_dungeon\"}}""")]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:experience_bottle",[SetCount(64,64)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
@@ -363,25 +364,32 @@ let sampleTier3Chest =
 let sampleTier4Chest =
         Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0, []])
                Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:enchanted_book",[SetNbt("""{StoredEnchantments:[{id:0s,lvl:4s}]}""")]),1,0, []]) // protection IV book
                Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
+               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Green Beacon Cave Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier3\"}}""" LOOT_NS_PREFIX)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","'What Next' hints",[|
-                                            """{"text":"Once strong enough, attack dangerous-looking mountain peaks to get a map to final treasure!"}"""
+                                            """{"text":"Once strong enough, attack dangerous-looking mountain peaks with glassed loot boxes to get a map to the best treasure!"}"""
                                         |]))]),1,0, []])
              ]
 let sampleTier5Chest =
-        Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0, []])
-               Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
+        Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
+               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Red Beacon Web Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier4\"}}""" LOOT_NS_PREFIX)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
                // Note: alternative is give player NBT command sign 'click me' which runs and increase score and also changes own text to clue
                Pool(Roll(1,1),[Item("minecraft:spawn_egg",[SetNbt("""{EntityTag:{id:LavaSlime,Size:0,DeathLootTable:\"minecraft:entities/magma_cube\"},display:{Name:\"Kill me with a sword to learn a secret!\"}}""")]),1,0,[]])
+             ]
+let sampleTier7Chest =
+        Pools[ Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
+               // TODO, sponge or whatever, for monument
+               Pool(Roll(1,1),[Item("minecraft:sponge",[]),1,0, []])
              ]
 
 
@@ -394,6 +402,7 @@ let LOOT_FROM_DEFAULT_CHESTS =
         sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
         sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
         sprintf "%s:chests/tier5" LOOT_NS_PREFIX, sampleTier5Chest 
+        sprintf "%s:chests/tier7" LOOT_NS_PREFIX, sampleTier7Chest 
     |]
 // TODO fix fishing
 
@@ -409,6 +418,7 @@ let writeLootTables(tables, worldSaveFolder) =
         System.IO.Directory.CreateDirectory( System.IO.Path.GetDirectoryName(filename) ) |> ignore
         use stream = new System.IO.StreamWriter( System.IO.File.OpenWrite(filename) )
         table.Write(stream)
+
 let writeAllLootTables(worldSaveFolder) =
     writeLootTables(LOOT_FROM_DEFAULT_MOBS, worldSaveFolder)
     writeLootTables(LOOT_FROM_DEFAULT_CHESTS, worldSaveFolder)
