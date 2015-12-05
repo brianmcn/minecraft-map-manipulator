@@ -109,25 +109,32 @@ and NBT =
         | String(n,s) -> prefix + n + " : " + s
         | List(n,pay) -> 
             //if n = "TileTicks" then prefix + n + " : [] (NOTE: skipping data)" else
-            let sb = new System.Text.StringBuilder(prefix + n + " : [] ")
+            let sb = new System.Text.StringBuilder(prefix + n + " : [")
             let p = "    " + prefix
             match pay with
-            | Bytes(a) -> sb.Append(a.Length.ToString() + " bytes") |> ignore
-            | Shorts(a) -> sb.Append(a.Length.ToString() + " shorts") |> ignore
-            | Ints(a) -> sb.Append(a.Length.ToString() + " ints") |> ignore
-            | Longs(a) -> sb.Append(a.Length.ToString() + " longs") |> ignore
-            | Floats(a) -> 
-                if a.Length > 2 then 
-                    sb.Append(a.Length.ToString() + " floats") |> ignore 
-                else 
-                    sb.Append((a |> Array.fold (fun s x -> s + (x.ToString()) + " ") " : [ ") + "]") |> ignore
-            | Doubles(a) -> 
-                if n = "Pos" && a.Length = 3 then
-                    sb.Append(a.[0].ToString("F") + "," + a.[1].ToString("F") + "," + a.[2].ToString("F") ) |> ignore
+            | Bytes(a) -> sb.Append(a.Length.ToString() + " bytes]") |> ignore
+            | Shorts(a) -> sb.Append(a.Length.ToString() + " shorts]") |> ignore
+            | Ints(a) -> 
+                if a.Length < 5 then
+                    sb.Append((a |> Array.map (sprintf "%d") |> String.concat ", ") + "]") |> ignore
                 else
-                    sb.Append(a.Length.ToString() + " doubles") |> ignore
-            | Strings(a) -> for s in a do sb.Append("\""+s+"\"  ") |> ignore
+                    sb.Append(a.Length.ToString() + " ints]") |> ignore
+            | Longs(a) -> sb.Append(a.Length.ToString() + " longs]") |> ignore
+            | Floats(a) -> 
+                if a.Length < 5 then
+                    sb.Append((a |> Array.map (sprintf "%g") |> String.concat ", ") + "]") |> ignore
+                else
+                    sb.Append(a.Length.ToString() + " floats]") |> ignore 
+            | Doubles(a) -> 
+                if a.Length < 5 then
+                    sb.Append((a |> Array.map (sprintf "%g") |> String.concat ", ") + "]") |> ignore
+                else
+                    sb.Append(a.Length.ToString() + " doubles]") |> ignore
+            | Strings(a) -> 
+                sb.Append("] ") |> ignore
+                for s in a do sb.Append("\""+s+"\"  ") |> ignore
             | Compounds(a) -> 
+                sb.Append("] ") |> ignore
                 let mutable first = true
                 for c in a do 
                     if first then
@@ -136,7 +143,7 @@ and NBT =
                         sb.Append("\n" + p + "----") |> ignore
                     for x in c do 
                         if x <> End then sb.Append("\n" + x.ToString(p)) |> ignore
-            | IntArrays(a) -> sb.Append(a.Length.ToString() + " int arrays") |> ignore
+            | IntArrays(a) -> sb.Append(a.Length.ToString() + " int arrays]") |> ignore
             sb.ToString()
         | Compound(n,a) -> 
             let sb = new System.Text.StringBuilder(prefix + n + " :\n")

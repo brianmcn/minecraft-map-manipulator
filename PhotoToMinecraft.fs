@@ -17,7 +17,8 @@ let blocksDirSuffix = ".png"
 //let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\jeff-bridges.jpg"""
 //let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\Jeff-Bridges2.png"""
 //let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\Jeff-Bridges7.jpg"""
-let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\ConfusedTravolta.png"""
+//let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\ConfusedTravolta.png"""
+let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\MCSeth.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\pi.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\brian_and_mooshrooms_by_terra_wah-d5k8rgb.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\TSMS.jpg"""
@@ -146,7 +147,7 @@ let SHOWRIGHT = false
 
 let mutable pictureBlockFilenames : string[,] = null
 
-let computeMinecraft(w,h) =
+let computeMinecraft(w,h,targetImage:string) =
     pictureBlockFilenames <- Array2D.zeroCreate w h
     for (_,_,c:System.Drawing.Color) in blockColors do
         printfn "%3d %3d %3d" c.R c.G c.B
@@ -274,7 +275,7 @@ let grid = // do essential computations, even as a library
 
 //let finalBmp = computeMinecraft(86,48)
 //let finalBmp = computeMinecraft(55,30)
-let finalBmp = computeMinecraft(128,128)
+let finalBmp = computeMinecraft(128,128,targetImage)
 //let finalBmp = computeMinecraft(64,64)
 
 let MakeSolidColorBMP(r,g,b) =

@@ -227,10 +227,11 @@ let enchantmentsInTiers =
             "power"
             "punch"
             "flame"
+            "depth_strider"
         ]
         [
+            "efficiency"
             "protection"
-            "depth_strider"
             "frost_walker"
             "sharpness"
 //            "looting"  // TODO figure out if/what looting does
@@ -299,17 +300,19 @@ let LOOT_FROM_DEFAULT_MOBS =
                                              ]
         "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
 //        "minecraft:entities/guardian
+// TODO change to command signs? https://www.reddit.com/r/MinecraftCommands/comments/3twe3w/same_chest_different_loot/
+// TODO or just something 'better'... how best do? monument? 2 endstone, 1 sponge?
         "minecraft:entities/magma_cube", Pools [
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Final Secret Treasure",[|
+            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
                    """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",1,1)]])
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Final Secret Treasure",[|
+            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
                    """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",2,2)]])  // Note: entity_scores evals after stat.kills updated but before next commandtick
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Final Secret Treasure",[|
+            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
                    """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",3,3)]])  // in case they somehow lose the first one?
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Final Secret Treasure",[|
+            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
                    """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",4,9999)]])
             ]
@@ -385,11 +388,7 @@ let sampleTier5Chest =
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
                // Note: alternative is give player NBT command sign 'click me' which runs and increase score and also changes own text to clue
                Pool(Roll(1,1),[Item("minecraft:spawn_egg",[SetNbt("""{EntityTag:{id:LavaSlime,Size:0,DeathLootTable:\"minecraft:entities/magma_cube\"},display:{Name:\"Kill me with a sword to learn a secret!\"}}""")]),1,0,[]])
-             ]
-let sampleTier7Chest =
-        Pools[ Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
-               // TODO, sponge or whatever, for monument
-               Pool(Roll(1,1),[Item("minecraft:sponge",[]),1,0, []])
+               // TODO easy to 'miss' the egg in the chest... could make only thing, have give actual loot chest as well? hmm
              ]
 
 
@@ -402,7 +401,6 @@ let LOOT_FROM_DEFAULT_CHESTS =
         sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
         sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
         sprintf "%s:chests/tier5" LOOT_NS_PREFIX, sampleTier5Chest 
-        sprintf "%s:chests/tier7" LOOT_NS_PREFIX, sampleTier7Chest 
     |]
 // TODO fix fishing
 

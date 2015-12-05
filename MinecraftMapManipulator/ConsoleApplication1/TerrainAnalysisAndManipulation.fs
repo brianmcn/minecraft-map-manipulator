@@ -298,7 +298,8 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:ResizeArray<_>) =
                 printfn "with an exit"
                 // found highest point in this cave exposed to surface
                 for y = bestY + 10 to bestY + 25 do
-                    map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone  // TODO heighmap/lighting
+                    map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone // TODO heightmap
+                putGlowstoneRecomputeLight(bestX,bestY+26,bestZ,map)
                 (*
                 for p in hs do
                     let x,y,z = XYZP(p)
@@ -365,16 +366,15 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                     let v = a.[x,y,z].Find().Value 
                     if v.IsLeft && v.IsRight then
                         if not(goodCCs.ContainsKey(v.Point)) then
-                            goodCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())  // TODO add PT(x,y,z) into init hashset
-                        else
-                            goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
+                            goodCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())
+                        goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     printfn "There are %d CCs with the desired property" goodCCs.Count 
     // These arrays are large enough that I think they get pinned in permanent memory, reuse them
     let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let prev = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let mutable hasDoneFinal, thisIsFinal = false, false
-    for hs in goodCCs.Values do
+    for hs in [] do // TODO fix goodCCs.Values do
         let mutable bestX,bestY,bestZ = 0,0,0
         for p in hs do
             let x,y,z = XYZP(p)
@@ -510,16 +510,122 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                 putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 15uy else 5uy), true) // 5 = lime
                 map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
                 // put treasure at bottom end
-                putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier%d" LootTables.LOOT_NS_PREFIX (if thisIsFinal then 7 else 3))
+                putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
                 if thisIsFinal then
                     thisIsFinal <- false
                     hasDoneFinal <- true
                     finalEX <- ex
                     finalEZ <- ez
+                    // replace final treasure
+                    let bx,by,bz = sx,sy+1,sz // chest location, will overwrite it inside treasure box
+                    let chestItems = 
+                        Compounds[| 
+                                yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:sponge"); End |]
+                                yield [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                                         Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Congratulations!", 
+                                                                                     [| 
+                                                                                        """{"text":"You've found the sponge, and win the map! ..."}""" // TODO more? monument?
+                                                                                        """{"text":"I hope enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO"}"""
+                                                                                        """{"text":"If you enjoyed and would like to leave me a donation, I'd very much appreciate that! TODO donation link"}"""
+                                                                                     |]) |> ResizeArray
+                                                  )
+                                         End |]
+                            |]
+                    map.SetBlockIDAndDamage(bx,by,bz,54uy,2uy)  // chest
+                    map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
         log.Add("FAILED TO PLACE FINAL")
-
+    // TODO trial, find completely flat floors
+    printfn ""
+    printf "FLAT FLOOR ANALYSIS"
+    let D = 8 // length of side of square we're looking for
+    let ff = System.Array.CreateInstance(typeof<System.Collections.Generic.HashSet<int> >, [|LENGTH+2; YLEN+2|], [|MINIMUM; YMIN|]) :?> System.Collections.Generic.HashSet<int>[,]  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+    for y = YMIN to YMIN+YLEN-1 do
+        printf "."
+        for x = MINIMUM to MINIMUM+LENGTH-1 do
+            ff.[x,y] <- new System.Collections.Generic.HashSet<int>()
+            let mutable r = 0 // count of how many air-above-non-air we've found in a row along z
+            for z = MINIMUM to MINIMUM+LENGTH-1 do
+                if a.[x,y,z]=null && a.[x,y+1,z]<>null && a.[x,y+2,z]<>null then
+                    r <- r + 1
+                else
+                    r <- 0
+                if r >= D then
+                    ff.[x,y].Add(z) |> ignore  // ff.[x,y] contains z iff (x,y,z-6) to (x,y,z) are all non-air-with-air-above blocks
+    printfn ""
+    let flatCorners = ResizeArray()
+    for y = YMIN+1 to YMIN+YLEN-1 do
+        printf "."
+        for x = MINIMUM+D-1 to MINIMUM+LENGTH-1 do
+            for z in ff.[x,y] do
+                let mutable ok = true
+                for d = 1 to D-1 do
+                    if not(ff.[x-d,y].Contains(z)) then
+                        ok <- false
+                if ok then
+                    flatCorners.Add( (x,y,z) )
+    printfn ""
+    // to find good 'cul-de-sac rooms', an alg is
+    // start in center of flat area
+    // walk all connected air spaces out to a radius of N(=15?) from center
+    // if all the 'faraway boundary radius' points are together (or if path to them all go thru same point?), then that means only one exit?
+    let MAXR, THRESHHOLDR = 15, 8 
+    let UNVISITED = (-9999,-9999,-9999)
+    let VISITED_NEAR = (7777,7777,7777)
+    let culDeSacRooms = ResizeArray()
+    for x,y,z in flatCorners do
+        let x,y,z = x-D/2, y+1, z-D/2  // center air space
+        let boundaryPoints = ResizeArray()
+        let visited = System.Array.CreateInstance(typeof<int*int*int>, [|MAXR*2+3; MAXR*2+3; MAXR*2+3|], [|x-MAXR-1; y-MAXR-1; z-MAXR-1|]) :?> (int*int*int)[,,]
+        for i = x-MAXR-1 to x+MAXR+1 do
+            for j = y-MAXR-1 to y+MAXR+1 do
+                for k = z-MAXR-1 to z+MAXR+1 do
+                    visited.[i,j,k] <- UNVISITED
+        visited.[x,y,z] <- VISITED_NEAR
+        // 3 states, unvisited, visited within THRESHHOLDR, or visited beyond THRESHHOLDR with a record of first point past threshold
+        // explore contiguous air until reach MAXR away from center
+        let q = new System.Collections.Generic.Queue<_>()
+        q.Enqueue(x,y,z)
+        let distSq(i,j,k) = (x-i)*(x-i) + (y-j)*(y-j) + (z-k)*(z-k)
+        while not(q.Count=0) do
+            let i,j,k = q.Dequeue()
+            let prevVisit = visited.[i,j,k]
+            for di,dj,dk in DIFFERENCES do
+                let i,j,k = i+di,j+dj,k+dk
+                if visited.[i,j,k] = UNVISITED && a.[i,j,k]<>null then // if new and air
+                    if prevVisit = VISITED_NEAR then
+                        if distSq(i,j,k) < THRESHHOLDR*THRESHHOLDR then
+                            visited.[i,j,k] <- VISITED_NEAR
+                        else
+                            visited.[i,j,k] <- i,j,k // first point past threshhold
+                    else
+                        visited.[i,j,k] <- prevVisit
+                    if distSq(i,j,k) < MAXR*MAXR then
+                        q.Enqueue(i,j,k)
+                    else
+                        boundaryPoints.Add( (i,j,k) )
+        if boundaryPoints.Count > 0 then
+            let i,j,k = boundaryPoints.[0]
+            let v = visited.[i,j,k]
+            let mutable n, ok = 1, true
+            while ok && n < boundaryPoints.Count do
+                let i,j,k = boundaryPoints.[n]
+                if visited.[i,j,k] <> v then
+                    ok <- false
+                    //printfn "rejected, as %A escapes via %A but %A escapes via %A" boundaryPoints.[n] visited.[i,j,k] boundaryPoints.[0] v
+                n <- n + 1
+            if ok then
+                let mutable dup = false
+                for cx,cy,cz in culDeSacRooms do
+                    if distSq(cx,cy,cz) < MAXR*MAXR then
+                        dup <- true  // we find a lot of overlapping flat areas, ignore duplicates
+                if not dup then
+                    printfn "ACCEPTED, all exits of %A go through %A" (x,y,z) v
+                    culDeSacRooms.Add( (x,y,z) )
+        ()
+    printfn "There are %d cul-de-sac rooms" culDeSacRooms.Count 
+    printfn ""
 ////
 (* MAP DEFAULTS 
 ore    size tries
@@ -710,7 +816,7 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
                     CCs.[rep].Add( (x,z) ) |> ignore
     printfn "ANALYZE..."
     let highPoints = ResizeArray()
-    // pick highest in each CC
+    // pick highest in each CC    // TODO consider all local maxima? or make cutoff for CC be topY-constant, to disconnect high ranges?
     for hs in CCs.Values do
         let p = hs |> Seq.maxBy (fun (x,z) -> heightMap.[x,z])
         let minx = hs |> Seq.minBy fst |> fst
@@ -725,14 +831,14 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
             let D = bestNearbyDist
             for a = x-D to x+D do
                 for b = z-D to z+D do
-                    s <- s + heightMap.[a,b] - (heightMap.[x,z]-20)  // want high ground nearby, but not a huge narrow spike above moderatly high ground // TODO will this screw up 'flat' algorithm?
+                    s <- s + heightMap.[a,b] - (heightMap.[x,z]-20)  // want high ground nearby, but not a huge narrow spike above moderatly high ground
             s
         with _ -> 0  // deal with array index out of bounds
     let distance2(a,b,c,d) = (a-c)*(a-c)+(b-d)*(b-d)
     let bestHighPoints = ResizeArray()
     for ((hx,hz),a,b) in highPoints |> Seq.sortByDescending (fun (p,_,_) -> score p) do
         if hx > MINIMUM+32 && hx < MINIMUM+LENGTH-32 && hz > MINIMUM+32 && hz < MINIMUM+LENGTH-32 then  // not at edge of bounds
-            if bestHighPoints |> Seq.forall (fun ((ex,ez),_,_,_s) -> distance2(ex,ez,hx,hz) > STRUCTURE_SPACING*STRUCTURE_SPACING) then   // spaced apart TODO factor constants
+            if bestHighPoints |> Seq.forall (fun ((ex,ez),_,_,_s) -> distance2(ex,ez,hx,hz) > STRUCTURE_SPACING*STRUCTURE_SPACING) then
                 bestHighPoints.Add( ((hx,hz),a,b,score(hx,hz)) )
     bestHighPoints  // [(point, lo-bound-of-CC, hi-bound-of-CC, score)]
 
@@ -803,33 +909,21 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
                 map.SetBlockIDAndDamage(bx+dx,by+dy,bz+dz,20uy,0uy)  // glass
     let chestItems = 
         Compounds[| 
-                [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:elytra"); End |]
-                // TODO couple mending books, what else?
-                [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                   Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Final dungeon...", 
-                                                                 [| 
-                                                                    sprintf """{"text":"TODO go to X=%d Z=%d for final dungeon"}""" finalEX finalEZ 
-                                                                    """{"text":"hope enjoyed"}"""
-                                                                    """{"text":"feedback"}"""
-                                                                    """{"text":"donate"}"""  // TODO timing, they may not want to read now, may want to play with elytra? monument block? ...
-                                                                 |]) |> ResizeArray
-                           )
-                   End |]
-(*
-                [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                   Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","You win!", 
-                                                                 [| 
-                                                                    """{"text":"TODO text of book"}"""
-                                                                    """{"text":"hope enjoyed"}"""
-                                                                    """{"text":"feedback"}"""
-                                                                    """{"text":"donate"}"""  // TODO timing, they may not want to read now, may want to play with elytra? monument block? ...
-                                                                 |]) |> ResizeArray
-                           )
-                   End |]
-*)
+                yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:elytra"); End |]
+                // jump boost pots
+                for slot in [2uy;3uy;4uy;5uy;6uy;11uy;12uy;14uy;15uy] do
+                    yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",100);End|]|]);End|]|>ResizeArray); End |]
+                yield [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                         Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Final dungeon...", 
+                                                                     [| 
+                                                                        sprintf """{"text":"Go to X=%d, Z=%d for the entrance to the final dungeon! The items here should make traveling easier :)"}""" finalEX finalEZ 
+                                                                     |]) |> ResizeArray
+                                  )
+                         End |]
             |]
     map.SetBlockIDAndDamage(bx,by,bz,54uy,2uy)  // chest
     map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
+    putGlowstoneRecomputeLight(bx,by-1,bz,map)
     // mountain peaks
     let bestHighPoints = try Seq.take 10 bestHighPoints with _e -> bestHighPoints
     printfn "The best high points are:"
@@ -847,13 +941,13 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
             for j = z-RADIUS to z+RADIUS do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
                     let dist = abs(x-i) + abs(z-j)
-                    let pct = float (2*RADIUS-dist) / float(RADIUS*15)
+                    let pct = float (2*RADIUS-dist) / float(RADIUS*25)
                     if rng.NextDouble() < pct then
                         let x = i
                         let z = j
                         let y = hm.[x,z]
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-                        let possibleSpawners = [|(3,"Zombie"); (2,"Spider"); (3,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                        let possibleSpawners = [|(4,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
                         let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
                         let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, Delay=1s)
                         if ms.BasicMob = "Spider" then
@@ -988,7 +1082,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
             putGlowstoneRecomputeLight(x,h+1,z,map)
     R(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // TODO multiplayer?
     R(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DAYLIGHT_RADIUS)
-    // TODO first time enter night, give a message explaining
+    // TODO first time enter night, give a message explaining?
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
     I("gamerule keepInventory true")  // TODO get rid of?
@@ -1008,7 +1102,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     putBeaconAt(map,1,h,1,0uy,false)  // beacon at spawn for convenience
 
 let makeCrazyMap(worldSaveFolder) =
-    let timer = System.Diagnostics.Stopwatch.StartNew()
+    let mainTimer = System.Diagnostics.Stopwatch.StartNew()
     let map = new MapFolder(worldSaveFolder + """\region\""")
     let log = ResizeArray()
     let decorations = ResizeArray()
@@ -1020,6 +1114,7 @@ let makeCrazyMap(worldSaveFolder) =
     let time f =
         let timer = System.Diagnostics.Stopwatch.StartNew()
         f()
+        printfn "Time so far: %f minutes" mainTimer.Elapsed.TotalMinutes
         log.Add(sprintf "(this section took %f minutes)" timer.Elapsed.TotalMinutes)
         log.Add("-----")
     time (fun () ->
@@ -1048,20 +1143,20 @@ let makeCrazyMap(worldSaveFolder) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(map, log))
-    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(map, log))
+    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    xtime (fun() ->   // after hiding spots figured
         printfn "START CMDS"
         log.Add("START CMDS")
         placeStartingCommands(map,hm))
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
-    time (fun() -> 
+    xtime (fun() -> 
         printfn "WRITING MAP PNG IMAGES"
         log.Add("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)
@@ -1071,11 +1166,13 @@ let makeCrazyMap(worldSaveFolder) =
     printfn "SUMMARY"
     printfn ""
     for s in log do
-        printfn "%s" s   // TODO write to text file
-    printfn "Took %f minutes" timer.Elapsed.TotalMinutes 
+        printfn "%s" s
+    printfn "Took %f total minutes" mainTimer.Elapsed.TotalMinutes 
+    log.Add(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
     System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"summary.txt"),log)
     printfn "press a key to end"
     System.Console.ReadKey() |> ignore
+    // TODO automate world creation...
 
 
 //works:
@@ -1097,7 +1194,14 @@ let makeCrazyMap(worldSaveFolder) =
 
 // {MaxNearbyEntities:6s,RequiredPlayerRange:16s,SpawnCount:4s,SpawnData:{id:"Skeleton"},MaxSpawnDelay:800s,Delay:329s,x:99977,y:39,z:-24,id:"MobSpawner",SpawnRange:4s,MinSpawnDelay:200s,SpawnPotentials:[0:{Entity:{id:"Skeleton"},Weight:1}]}
 
+(*
 
+After 1.5 hours, I had P2 iron armor, inf Pow5 box, lousy sword, ok pick, ~20 steak, able to take on flat cobwebs
+Can roughly speed past that by gifting yourself a tier 4 chest, then almost immediately can take on mountains
+
+Previous runs took 2 hours to get to start of 1st beacon, have I gotten better/inured, or has it gotten too easy at start?
+
+*)
 
 
 

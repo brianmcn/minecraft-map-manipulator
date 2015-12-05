@@ -250,8 +250,10 @@ let diffDatFilesText(datFile1,datFile2) =
     traverse(itemsAsSeq tv.Items, 1)
     for s in a do
         printfn "%s" s
+    a.Count <> 0
 
 let diffStringArrays(a1:_[],a2:_[]) =
+    let mutable hasDiff = false
     // very naive diff
     let mutable i1, i2 = 0, 0
     while i1 < a1.Length && i2 < a2.Length do
@@ -265,6 +267,7 @@ let diffStringArrays(a1:_[],a2:_[]) =
         if i1 < a1.Length && d2 < a2.Length && a1.[i1] = a2.[d2] then
             for x = i2 to d2-1 do
                 printfn "+++ %s" a2.[x]
+                hasDiff <- true
             i2 <- d2
         else
             let mutable d1 = i1
@@ -273,21 +276,25 @@ let diffStringArrays(a1:_[],a2:_[]) =
             if d1 < a1.Length && i2 < a2.Length && a1.[d1] = a2.[i2] then
                 for x = i1 to d1-1 do
                     printfn "--- %s" a1.[x]
+                    hasDiff <- true
                 i1 <- d1
             elif i1 < a1.Length && i2 < a2.Length then
                 // no resync for next item of a1 or a2
                 printfn "--- %s" a1.[i1]
                 printfn "+++ %s" a2.[i2]
+                hasDiff <- true
                 i1 <- i1 + 1
                 i2 <- i2 + 1
     // at least one is exhausted
     while i1 < a1.Length do
         printfn "--- %s" a1.[i1]
+        hasDiff <- true
         i1 <- i1 + 1
     while i2 < a2.Length do
         printfn "+++ %s" a2.[i2]
+        hasDiff <- true
         i2 <- i2 + 1
-
+    hasDiff
 
 ///////////////////////////////////////
 
@@ -532,6 +539,22 @@ let ALPHABET5INDEX(c) =
         Some 29
     else 
         None
+
+let placeVideoFramesInTheWorld() =
+    let folder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\VoidTravolta\region\"""
+    let map = new MapFolder(folder)
+    for frame = 1 to 16 do
+        let targetImage = sprintf """C:\Users\Admin1\Desktop\MC pixel art pics\CT%02d.jpg""" frame
+        let _bmp = PhotoToMinecraft.computeMinecraft(128,128,targetImage)
+        let maxHeight = 100 + PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1
+        for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
+            for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
+                let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
+                if x = 0 then printfn "%3d %s" y filename
+                let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
+                map.EnsureSetBlockIDAndDamage( -450 + 50 * frame, maxHeight - y, 100 + x, byte bid, byte dmg)
+    map.WriteAll()
+
 
 let placeCertainBlocksInTheWorld() =
     let filename = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\spawnchunks\region\r.0.0.mca"""

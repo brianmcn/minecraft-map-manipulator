@@ -2110,8 +2110,10 @@ let compareMinecraftAssets(jar1, jar2) =
             a2.Add(e.FullName)
     a1.Sort()
     a2.Sort()
+    let mutable diffCount = 0
     printfn "FILE LIST DIFF"
-    diffStringArrays(a1.ToArray(), a2.ToArray())
+    if diffStringArrays(a1.ToArray(), a2.ToArray()) then
+        diffCount <- diffCount + 1
     printfn "=============="
     for name in a1 do
         let entry1 = archive1.GetEntry(name)
@@ -2119,7 +2121,8 @@ let compareMinecraftAssets(jar1, jar2) =
         if entry1 <> null && entry2 <> null then
             if System.IO.Path.GetExtension(name) = "nbt" then
                 printfn "%s" (name.ToUpper())
-                diffDatFilesText(entry1.Open(), entry2.Open())
+                if diffDatFilesText(entry1.Open(), entry2.Open()) then
+                    diffCount <- diffCount + 1
                 printfn "=============="
             else
                 printfn "%s" (name.ToUpper())
@@ -2131,10 +2134,77 @@ let compareMinecraftAssets(jar1, jar2) =
                 let s2 = new System.IO.StreamReader(entry2.Open())
                 while not s2.EndOfStream do
                     a2.Add(s2.ReadLine())
-                diffStringArrays(a1.ToArray(), a2.ToArray())
+                if diffStringArrays(a1.ToArray(), a2.ToArray()) then
+                    diffCount <- diffCount + 1
                 printfn "=============="
+    printfn ""
+    printfn "Total diffs found: %d" diffCount
+////////////////////////////////////////////
+
+open System.Diagnostics 
+
+let genTerrainWithMCServer(seed, customizedPreset) =
+    let serverFolder = """C:\Users\Admin1\Desktop\MC SERVER\"""
+    let jar = """minecraft_server.15w49a.jar"""
+    let psi = new ProcessStartInfo(UseShellExecute=false, RedirectStandardInput=true, RedirectStandardOutput=true) 
+    psi.WorkingDirectory <- serverFolder
+    psi.FileName <- "java" 
+    psi.Arguments <- sprintf "-Xms1024M -Xmx1024M -d64 -jar %s nogui" jar
+    // TODO
+    // server prop before level.dat (delete whole world folder)
+    // setworldspawn 0 80 0, stop server, restart
+    if false then
+        System.IO.File.WriteAllLines(serverFolder+"server.properties",
+            [|
+                sprintf "generator-settings=%s" customizedPreset
+                "level-type=CUSTOMIZED"
+                sprintf "level-seed=%d" seed
+                "enable-command-block=true"
+                "gamemode=1"
+                "force-gamemode=true"
+            |])
+    //System.Threading.Thread.Sleep(8000)
+    let proc = new Process(StartInfo=psi) 
+    proc.Start() |> ignore 
+    let rec rcvloop() = 
+        let data = proc.StandardOutput.ReadLine() 
+        if data <> null then 
+            printfn "MC: %s" data
+            rcvloop() 
+    let t = new System.Threading.Thread(rcvloop) 
+    t.Start() 
+    System.Threading.Thread.Sleep(5000)
+    //proc.StandardInput.WriteLine("/stop")
+    //System.Threading.Thread.Sleep(500000)
+    let userInput = false
+    if userInput then
+        let mutable s = stdin.ReadLine()
+        while s <> "" do
+            //printfn "USER: %s" s
+            proc.StandardInput.WriteLine(s)
+            s <- stdin.ReadLine()
+    else
+        let sw = Stopwatch.StartNew()
+        proc.StandardInput.WriteLine("""/summon LavaSlime 0 255 0 {Invulnerable:1,Tags:["AA"]}""")
+        //for cx = -32 to 32 do
+        for cx = -5 to 5 do
+            for cz = -32 to 32 do
+                let x = cx*16+8
+                let z = cz*16+8
+                proc.StandardInput.WriteLine(sprintf """/spreadplayers %d %d 2 7 false @e[tag=AA]""" x z)
+                System.Threading.Thread.Sleep(170)  // TODO tune this, but overall, seems to take a lot longer than my player version
+        printfn "finished in %f minutes" sw.Elapsed.TotalMinutes 
+    proc.StandardInput.WriteLine("""/kill @e[tag=AA]""")
+    System.Threading.Thread.Sleep(200)
+    proc.StandardInput.WriteLine("""/stop""")
+    System.Threading.Thread.Sleep(2000)
+    proc.Close()
+    printfn "press enter to quit"
+    stdin.ReadLine() |> ignore
 
 ////////////////////////////////////////////
+
+
 
 [<System.STAThread()>]  
 do   
@@ -2162,7 +2232,6 @@ do
 
     //printfn "%s" (makeCommandGivePlayerWrittenBook("Lorgon111", "BestTitle", [|"""["line1\n","line2"]"""; """["p2line1\n","p2line2",{"selector":"@p"}]"""|]))
     //dumpPlayerDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
-    //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo_bottom.nbt""")
 
     
     //editMapDat("""C:\Users\"""+user+"""\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
@@ -2196,20 +2265,23 @@ do
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\seed31Copy\region\r.0.0.mca""")
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
-    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w47b.zip""","""C:\Users\Admin1\Desktop\15w47c.zip""")
+    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w47c.zip""","""C:\Users\Admin1\Desktop\15w49a.zip""")
     //placeCertainBlocksInTheWorld()
+    //placeVideoFramesInTheWorld()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
+    //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo45a\igloo_bottom.nbt""")
     
 //    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM - Copy"""
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     //LootTables.writeAllLootTables(worldSaveFolder)
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
 
     
-    System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(3,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
+    //System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(3,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
+    //genTerrainWithMCServer(14,       MC_Constants.defaultWorldWithCustomOreSpawns(3,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
 
 
 
