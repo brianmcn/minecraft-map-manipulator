@@ -302,18 +302,19 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/guardian
 // TODO change to command signs? https://www.reddit.com/r/MinecraftCommands/comments/3twe3w/same_chest_different_loot/
 // TODO or just something 'better'... how best do? monument? 2 endstone, 1 sponge?
+// TODO end stone brick with X coord, purpur brick with Z coord
         "minecraft:entities/magma_cube", Pools [
             Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
+                   """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",1,1)]])
             Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
+                   """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",2,2)]])  // Note: entity_scores evals after stat.kills updated but before next commandtick
             Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
+                   """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",3,3)]])  // in case they somehow lose the first one?
             Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue!"}]}"""
+                   """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
                    |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",4,9999)]])
             ]
 //        "minecraft:entities/shulker

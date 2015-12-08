@@ -536,18 +536,20 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
         log.Add("FAILED TO PLACE FINAL")
-    // TODO trial, find completely flat floors
+    // find completely flat floors underground
     printfn ""
     printf "FLAT FLOOR ANALYSIS"
-    let D = 8 // length of side of square we're looking for
+    let MAXR, THRESHHOLDR, YWEIGHT = 18, 12, 3
+    let YDIFF = (float MAXR) / sqrt(float YWEIGHT) |> int
+    let D = 6 // length of side of square we're looking for
     let ff = System.Array.CreateInstance(typeof<System.Collections.Generic.HashSet<int> >, [|LENGTH+2; YLEN+2|], [|MINIMUM; YMIN|]) :?> System.Collections.Generic.HashSet<int>[,]  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-    for y = YMIN to YMIN+YLEN-1 do
+    for y = YMIN to YMIN+YLEN-1-YDIFF do
         printf "."
         for x = MINIMUM to MINIMUM+LENGTH-1 do
             ff.[x,y] <- new System.Collections.Generic.HashSet<int>()
             let mutable r = 0 // count of how many air-above-non-air we've found in a row along z
             for z = MINIMUM to MINIMUM+LENGTH-1 do
-                if a.[x,y,z]=null && a.[x,y+1,z]<>null && a.[x,y+2,z]<>null then
+                if a.[x,y,z]=null && a.[x,y+1,z]<>null && a.[x,y+2,z]<>null then  // TODO lava/water pools
                     r <- r + 1
                 else
                     r <- 0
@@ -555,7 +557,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                     ff.[x,y].Add(z) |> ignore  // ff.[x,y] contains z iff (x,y,z-6) to (x,y,z) are all non-air-with-air-above blocks
     printfn ""
     let flatCorners = ResizeArray()
-    for y = YMIN+1 to YMIN+YLEN-1 do
+    for y = YMIN+1 to YMIN+YLEN-1-YDIFF do
         printf "."
         for x = MINIMUM+D-1 to MINIMUM+LENGTH-1 do
             for z in ff.[x,y] do
@@ -566,11 +568,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                 if ok then
                     flatCorners.Add( (x,y,z) )
     printfn ""
-    // to find good 'cul-de-sac rooms', an alg is
-    // start in center of flat area
-    // walk all connected air spaces out to a radius of N(=15?) from center
-    // if all the 'faraway boundary radius' points are together (or if path to them all go thru same point?), then that means only one exit?
-    let MAXR, THRESHHOLDR = 15, 8 
+    // find good 'cul-de-sac rooms'
     let UNVISITED = (-9999,-9999,-9999)
     let VISITED_NEAR = (7777,7777,7777)
     let culDeSacRooms = ResizeArray()
@@ -587,7 +585,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
         // explore contiguous air until reach MAXR away from center
         let q = new System.Collections.Generic.Queue<_>()
         q.Enqueue(x,y,z)
-        let distSq(i,j,k) = (x-i)*(x-i) + (y-j)*(y-j) + (z-k)*(z-k)
+        let distSq(i,j,k) = (x-i)*(x-i) + YWEIGHT*(y-j)*(y-j) + (z-k)*(z-k)  // make diff y seem farther away
         while not(q.Count=0) do
             let i,j,k = q.Dequeue()
             let prevVisit = visited.[i,j,k]
@@ -597,14 +595,18 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                     if prevVisit = VISITED_NEAR then
                         if distSq(i,j,k) < THRESHHOLDR*THRESHHOLDR then
                             visited.[i,j,k] <- VISITED_NEAR
+                            //map.SetBlockIDAndDamage(i,j,k,95uy,0uy) // TODO debug
                         else
                             visited.[i,j,k] <- i,j,k // first point past threshhold
+                            //map.SetBlockIDAndDamage(i,j,k,95uy,2uy) // TODO debug
                     else
                         visited.[i,j,k] <- prevVisit
+                        //map.SetBlockIDAndDamage(i,j,k,95uy,8uy) // TODO debug
                     if distSq(i,j,k) < MAXR*MAXR then
                         q.Enqueue(i,j,k)
                     else
                         boundaryPoints.Add( (i,j,k) )
+                        //map.SetBlockIDAndDamage(i,j,k,95uy,15uy) // TODO debug
         if boundaryPoints.Count > 0 then
             let i,j,k = boundaryPoints.[0]
             let v = visited.[i,j,k]
@@ -625,9 +627,82 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                     culDeSacRooms.Add( (x,y,z) )
         ()
     printfn "There are %d cul-de-sac rooms" culDeSacRooms.Count 
+    for x,y,z in culDeSacRooms do
+            let q = new System.Collections.Generic.Queue<_>()
+            // now find shortest from that point to top
+            // re-init the arrays:
+            for ii = MINIMUM to MINIMUM+LENGTH+1 do
+                for jj = YMIN to YMIN+YLEN+1 do
+                    for kk = MINIMUM to MINIMUM+LENGTH+1 do
+                        dist.[ii,jj,kk] <- 999999
+                        prev.[ii,jj,kk] <- -1
+            let bi,bj,bk = x,y,z
+            q.Enqueue(bi,bj,bk)
+            dist.[bi,bj,bk] <- 0
+            let mutable besti,bestj,bestk = -99999,-99999,-99999
+            while q.Count > 0 do
+                let i,j,k = q.Dequeue()
+                let d = dist.[i,j,k]
+                let x,y,z = (i,j,k)
+                if (y>=hm.[x,z]) then // surface
+                    // found shortest
+                    besti <- i
+                    bestj <- j
+                    bestk <- k
+                    while q.Count > 0 do
+                        q.Dequeue() |> ignore
+                else
+                    for diffi = 0 to DIFFERENCES.Length-1 do
+                        let di,dj,dk = DIFFERENCES.[diffi]
+                        if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
+                            dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
+                            prev.[i+di,j+dj,k+dk] <- diffi
+                            q.Enqueue(i+di,j+dj,k+dk)
+            if besti <> -99999 then
+                // found an exit
+                printfn "Can get to cul-de-sec %A from surface %A" (x,y,z) (besti,bestj,bestk)
+                // TODO put some loot or something, have a purpose
+                let mutable i,j,k = besti,bestj,bestk
+                let mutable count = 0
+                putGlowstoneRecomputeLight(i,80,k,map)  // TODO arbitrary height constant
+                while i<>x || j<>y || k<>z do
+                    let ni, nj, nk = // next points (step back using info from 'prev')
+                        let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
+                        i-dx,j-dy,k-dz
+                    i <- ni
+                    j <- nj
+                    k <- nk
+                    count <- count + 1
+                    if count%10 = 0 then
+                        // find nearest wall/floor, place red torch
+                        let numAirBeforeNonAir = Array.zeroCreate 6
+                        for n = 0 to 5 do
+                            let mutable ii, jj, kk = i, j, k
+                            let di,dj,dk = DIFFERENCES.[n]
+                            if dj = 1 then
+                                numAirBeforeNonAir.[n] <- 99999 // don't look up
+                            else
+                                while a.[ii,jj,kk] <> null do
+                                    ii <- ii + di
+                                    jj <- jj + dj
+                                    kk <- kk + dk
+                                    numAirBeforeNonAir.[n] <- numAirBeforeNonAir.[n] + 1
+                        let nearestDist = Array.min numAirBeforeNonAir
+                        let dirIdx = numAirBeforeNonAir |> Array.findIndex(fun x -> x = nearestDist)
+                        let di,dj,dk = DIFFERENCES.[dirIdx]
+                        map.SetBlockIDAndDamage(i+di*nearestDist, j+dj*nearestDist, k+dk*nearestDist, 3uy, 0uy)  // dirt, in case was liquid or something
+                        let nearestDist = nearestDist - 1
+                        map.SetBlockIDAndDamage(i+di*nearestDist, j+dj*nearestDist, k+dk*nearestDist, 76uy,   // lit red torch
+                                                if di = 1 then 2uy elif dk = 1 then 4uy elif di = -1 then 1uy elif dk = -1 then 3uy elif dj = -1 then 5uy else failwith "unexpected") // attached to dirt block in right orientation
     printfn ""
 ////
-(* MAP DEFAULTS 
+(* 
+
+Can get to cul-de-sec (436, 18, 362) from surface (402, 36, 227)
+Can get to cul-de-sec (-691, 21, -636) from surface (-695, 55, -744)
+Can get to cul-de-sec (-728, 30, -24) from surface (-627, 55, 1)
+
+MAP DEFAULTS 
 ore    size tries
 -----------------
 dirt     33 10              3
@@ -1098,8 +1173,33 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I(sprintf "scoreboard players set Z hidden %d" hiddenZ)
     I(sprintf "scoreboard players set fX hidden %d" finalEX)
     I(sprintf "scoreboard players set fZ hidden %d" finalEZ)
-    let h = hm.[1,1]
+    I(sprintf "fill 0 %d 0 0 253 0 air" !y) // remove all the ICBs, just leave the RCBs
+    let h = hm.[1,1] // 1,1 since 0,0 has commands
     putBeaconAt(map,1,h,1,0uy,false)  // beacon at spawn for convenience
+    // clear space above beacon
+    for x = -1 to 3 do
+        for z = -1 to 3 do
+            if x<>1 && z<>1 then
+                map.SetBlockIDAndDamage(x,h+0,z,0uy,0uy) // air
+            map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
+    // put monument
+    for x = -1 to 3 do
+        for z = 4 to 6 do
+            map.SetBlockIDAndDamage(x,h-1,z,7uy,0uy) // bedrock
+            map.SetBlockIDAndDamage(x,h+0,z,0uy,0uy) // air
+            map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
+    map.SetBlockIDAndDamage(2,h,6,7uy,0uy)
+    map.SetBlockIDAndDamage(1,h,6,7uy,0uy)
+    map.SetBlockIDAndDamage(0,h,6,7uy,0uy)
+    map.SetBlockIDAndDamage(2,h,5,68uy,2uy) // wall_sign
+    map.SetBlockIDAndDamage(1,h,5,68uy,2uy)
+    map.SetBlockIDAndDamage(0,h,5,68uy,2uy)
+    map.AddOrReplaceTileEntities([|
+                                    [| Int("x",2); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"End Stone Brick"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",1); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"Purpur Block"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",0); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"Sponge"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                 |])
+
 
 let makeCrazyMap(worldSaveFolder) =
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
@@ -1206,135 +1306,6 @@ Previous runs took 2 hours to get to start of 1st beacon, have I gotten better/i
 
 
 (*
-
-
-(this section took 0.186687 minutes)
------
-CACHE HM...
-(this section took 0.081784 minutes)
------
-added 878 extra dungeon spawners underground
-(this section took 1.466238 minutes)
------
-added random spawners underground
-   spawners along path:   Total:1996   Blaze:108   Creeper:126   Skeleton:579   Spider:590   Zombie:593
-   spawners along path:   Total:897   Blaze:143   CaveSpider:153   Creeper:126   Skeleton:165   Spider:174   Zombie:136
-(this section took 2.298364 minutes)
------
-START CMDS
-(this section took 0.000138 minutes)
------
-('find best hiding spot' sub-section took 0.723830 minutes)
-added mountain peak at -450 -168
-   spawners along path:   Total:152   Blaze: 13   CaveSpider: 20   Ghast: 18   Spiderextra:101
-added mountain peak at 388 732
-   spawners along path:   Total:155   Blaze:  8   CaveSpider: 20   Ghast: 24   Spiderextra:103
-added mountain peak at 988 938
-   spawners along path:   Total:173   Blaze: 20   CaveSpider: 26   Ghast: 16   Spiderextra:111
-added mountain peak at -984 984
-   spawners along path:   Total:154   Blaze: 22   CaveSpider: 16   Ghast: 20   Spiderextra: 96
-added mountain peak at -516 -757
-   spawners along path:   Total:153   Blaze: 19   CaveSpider: 23   Ghast: 13   Spiderextra: 98
-added mountain peak at -204 488
-   spawners along path:   Total:162   Blaze: 13   CaveSpider: 22   Ghast: 12   Spiderextra:115
-added mountain peak at -68 -581
-   spawners along path:   Total:163   Blaze: 13   CaveSpider: 26   Ghast: 19   Spiderextra:105
-added mountain peak at -820 -275
-   spawners along path:   Total:154   Blaze: 15   CaveSpider: 22   Ghast: 19   Spiderextra: 98
-added mountain peak at 550 -595
-   spawners along path:   Total:180   Blaze: 16   CaveSpider: 25   Ghast: 30   Spiderextra:109
-added mountain peak at 514 551
-   spawners along path:   Total:166   Blaze: 15   CaveSpider: 33   Ghast: 17   Spiderextra:101
-(this section took 0.742555 minutes)
------
-added flat set piece at -543 300
-   spawners along path:   Total: 65   Blaze:  5   CaveSpider: 33   Spider:  9   Spiderextra:  9   Witch:  9
-added flat set piece at -282 -107
-   spawners along path:   Total: 67   Blaze:  5   CaveSpider: 36   Spider:  8   Spiderextra:  6   Witch: 12
-added flat set piece at -305 482
-   spawners along path:   Total: 83   Blaze:  5   CaveSpider: 32   Spider: 10   Spiderextra: 12   Witch: 24
-added flat set piece at -745 5
-   spawners along path:   Total: 66   Blaze:  5   CaveSpider: 31   Spider:  4   Spiderextra:  6   Witch: 20
-added flat set piece at -706 503
-   spawners along path:   Total: 78   Blaze:  5   CaveSpider: 37   Spider:  7   Spiderextra:  7   Witch: 22
-added flat set piece at -638 885
-   spawners along path:   Total: 70   Blaze:  5   CaveSpider: 36   Spider:  6   Spiderextra:  9   Witch: 14
-added flat set piece at 898 -366
-   spawners along path:   Total: 68   Blaze:  5   CaveSpider: 30   Spider: 11   Spiderextra:  7   Witch: 15
-added flat set piece at 963 838
-   spawners along path:   Total: 69   Blaze:  5   CaveSpider: 35   Spider:  8   Spiderextra:  6   Witch: 15
-added flat set piece at 109 371
-   spawners along path:   Total: 57   Blaze:  5   CaveSpider: 30   Spider:  6   Spiderextra:  6   Witch: 10
-added flat set piece at -696 -193
-   spawners along path:   Total: 65   Blaze:  5   CaveSpider: 26   Spider: 13   Spiderextra:  8   Witch: 13
-(this section took 1.119217 minutes)
------
-added beacon at -539 52 -149 which travels 498
-   spawners along path:   Total: 76   Creeper: 10   Skeleton:  8   Zombie: 58
-added beacon at -695 55 -744 which travels 478
-   spawners along path:   Total: 69   Creeper:  3   Skeleton:  6   Zombie: 60
-added beacon at -747 51 109 which travels 268
-   spawners along path:   Total: 45   Creeper:  7   Skeleton:  6   Zombie: 32
-added beacon at -273 54 945 which travels 183
-   spawners along path:   Total: 35   Creeper:  7   Skeleton:  2   Zombie: 26
-added beacon at -761 59 -632 which travels 265
-   spawners along path:   Total: 43   Creeper:  6   Skeleton:  3   Zombie: 34
-added beacon at -794 32 741 which travels 122
-   spawners along path:   Total: 22   Creeper:  4   Skeleton:  4   Zombie: 14
-added beacon at -514 60 665 which travels 241
-   spawners along path:   Total: 38   Creeper:  6   Skeleton:  3   Zombie: 29
-added beacon at -534 59 -650 which travels 141
-   spawners along path:   Total: 26   Creeper:  6   Skeleton:  2   Zombie: 18
-added beacon at -518 47 417 which travels 202
-   spawners along path:   Total: 49   Creeper:  7   Skeleton:  3   Zombie: 39
-added beacon at -255 53 -24 which travels 175
-   spawners along path:   Total: 26   Creeper:  4   Skeleton:  5   Zombie: 17
-added beacon at -362 20 -293 which travels 176
-   spawners along path:   Total: 41   Creeper:  6   Skeleton:  9   Zombie: 26
-added beacon at -291 32 301 which travels 158
-   spawners along path:   Total: 28   Creeper:  7   Skeleton:  2   Zombie: 19
-added beacon at -122 60 622 which travels 335
-   spawners along path:   Total: 49   Creeper:  3   Skeleton:  6   Zombie: 40
-added beacon at -258 59 -408 which travels 482
-   spawners along path:   Total: 88   Creeper: 10   Skeleton: 14   Zombie: 64
-added beacon at 217 51 -59 which travels 172
-   spawners along path:   Total: 25   Creeper:  6   Skeleton:  4   Zombie: 15
-added beacon at 104 56 916 which travels 413
-   spawners along path:   Total: 65   Creeper:  8   Skeleton:  8   Zombie: 49
-added beacon at -16 47 -626 which travels 116
-   spawners along path:   Total: 12   Creeper:  4   Skeleton:  1   Zombie:  7
-added beacon at 304 53 -119 which travels 280
-   spawners along path:   Total: 45   Creeper:  6   Skeleton:  9   Zombie: 30
-added beacon at 306 56 409 which travels 107
-   spawners along path:   Total: 18   Creeper:  3   Skeleton:  2   Zombie: 13
-added beacon at 349 55 -618 which travels 286
-   spawners along path:   Total: 36   Creeper:  4   Skeleton:  9   Zombie: 23
-added beacon at 402 36 227 which travels 470
-   spawners along path:   Total: 69   Creeper: 11   Skeleton: 10   Zombie: 48
-added beacon at 846 57 -754 which travels 172
-   spawners along path:   Total: 25   Skeleton:  3   Zombie: 22
-added beacon at 693 59 306 which travels 191
-   spawners along path:   Total: 34   Creeper:  6   Skeleton:  6   Zombie: 22
-added beacon at 681 30 -447 which travels 315
-   spawners along path:   Total: 58   Creeper: 10   Skeleton: 12   Zombie: 36
-added beacon at 878 53 -406 which travels 425
-   spawners along path:   Total: 82   Creeper: 15   Skeleton: 12   Zombie: 55
-added beacon at 927 33 -628 which travels 174
-   spawners along path:   Total: 29   Creeper:  3   Skeleton:  1   Zombie: 25
-added beacon at 864 60 -132 which travels 342
-   spawners along path:   Total: 63   Creeper: 11   Skeleton:  7   Zombie: 45
-(this section took 2.236869 minutes)
------
-(this section took 0.022596 minutes)
------
-WRITING MAP PNG IMAGES
-(this section took 0.351952 minutes)
------
-
-9.7
-
-
-
 
 SUMMARY
 
