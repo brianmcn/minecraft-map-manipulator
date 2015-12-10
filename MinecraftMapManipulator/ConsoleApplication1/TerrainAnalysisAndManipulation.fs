@@ -164,11 +164,12 @@ type Partition(orig : Thingy) as this =
             thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
             thisRoot.rank <- thisRoot.rank + 1 
 
-let putGlowstoneRecomputeLight(sx,sy,sz,map:MapFolder) =
-    // want glowstone; to have Minecraft recompute the light, use a command block and a tile tick
+let putThingRecomputeLight(sx,sy,sz,map:MapFolder,thing,dmg) =
+    // for lighted blocks (e.g. thing="glowstone"), to have Minecraft recompute the light, use a command block and a tile tick
     map.SetBlockIDAndDamage(sx,sy,sz,137uy,0uy)  // command block
-    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command","setblock ~ ~ ~ glowstone"); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
+    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "setblock ~ ~ ~ %s %d" thing dmg); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
     map.AddTileTick("minecraft:command_block",1,0,sx,sy,sz)
+let putGlowstoneRecomputeLight(sx,sy,sz,map:MapFolder) = putThingRecomputeLight(sx,sy,sz,map,"glowstone",0)
 
 let SPAWN_PROTECTION_DISTANCE = 200
 let STRUCTURE_SPACING = 170
@@ -1131,6 +1132,98 @@ let doubleSpawners(map:MapFolder,log:ResizeArray<_>) =
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.Add(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
+let addRandomLootz(map:MapFolder,log:ResizeArray<_>,hm:_[,],biome:_[,],decorations:ResizeArray<_>) =
+    printfn "add random loot chests..."
+    let tileEntities = ResizeArray()
+    let points = Array.init 20 (fun x -> ResizeArray())
+    let rng = System.Random()
+    let noneWithin(r,points,x,_y,z) =
+        let mutable ok = true
+        for px,_,pz in points do
+            if (x-px)*(x-px) + (z-pz)*(z-pz) < r*r then
+                ok <- false
+        ok
+    let checkForPlus(x,y,z,corner,plus) =
+        map.GetBlockInfo(x+1,y,z+1).BlockID = corner &&
+        map.GetBlockInfo(x-1,y,z+1).BlockID = corner &&
+        map.GetBlockInfo(x-1,y,z-1).BlockID = corner &&
+        map.GetBlockInfo(x+1,y,z-1).BlockID = corner &&
+        map.GetBlockInfo(x+1,y,z).BlockID = plus &&
+        map.GetBlockInfo(x-1,y,z).BlockID = plus &&
+        map.GetBlockInfo(x,y,z+1).BlockID = plus &&
+        map.GetBlockInfo(x,y,z-1).BlockID = plus
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
+        if x%200 = 0 then
+            printfn "%d" x
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
+            let mutable nearDecoration = false
+            for _,dx,dz in decorations do
+                if (x-dx)*(x-dx) + (z-dz)*(z-dz) < 50*50 then // TODO distance constant
+                    nearDecoration <- true
+            if not nearDecoration then
+                for y = 90 downto 64 do
+                    let bid = map.GetBlockInfo(x,y,z).BlockID 
+                    if bid = 48uy && checkForPlus(x,y,z,0uy,48uy) then // 48 = moss stone
+                        // is a '+' of moss stone with air, e.g. surface boulder in mega taiga
+                        if rng.Next(5) = 0 then // TODO probability, so don't place on all
+                            if noneWithin(50,points.[0],x,y,z) then
+                                let x = if rng.Next(2) = 0 then x-1 else x+1
+                                let z = if rng.Next(2) = 0 then z-1 else z+1
+                                let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
+                                map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                points.[0].Add( (x,y,z) )
+                    elif bid = 18uy && checkForPlus(x,y,z,0uy,18uy) 
+                         || bid = 161uy && checkForPlus(x,y,z,0uy,161uy) then // 18=leaves, 161=leaves2
+                        // is a '+' of leaves with air, e.g. tree top
+                        if rng.Next(20) = 0 then // TODO probability, so don't place on all
+                            let x = if rng.Next(2) = 0 then x-1 else x+1
+                            let z = if rng.Next(2) = 0 then z-1 else z+1
+                            if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
+                                if noneWithin(90,points.[1],x,y,z) then
+                                    let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
+                                    map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                    tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                    points.[1].Add( (x,y,z) )
+                    elif bid = 86uy then // 86 = pumpkin
+                        let dmg = map.GetBlockInfo(x,y,z).BlockData
+                        if rng.Next(4) = 0 then // TODO probability, so don't place on all
+                            // TODO could be on hillside, and so chest under maybe exposed
+                            if noneWithin(50,points.[2],x,y,z) then
+                                putThingRecomputeLight(x,y,z,map,"lit_pumpkin",int dmg) // replace with jack'o'lantern
+                                // chest below
+                                let y = y - 1
+                                let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
+                                map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                points.[2].Add( (x,y,z) )
+                    elif bid = 9uy then
+                        if y >= hm.[x,z]-1 then // 9=water, at top of heightmap (-1 because lake surface is actually just below heightmap)
+                            let b = biome.[x,z]
+                            // not one of these
+                            let excludedBiomes = [|0uy; 10uy; 24uy   // oceans
+                                                   7uy; 11uy         // rivers
+                                                   16uy; 25uy; 26uy  // beaches
+                                                   6uy; 134uy        // swamp
+                                                 |]
+                            if not(excludedBiomes |> Array.exists (fun x -> x = b)) then
+                                // probably a surface lake
+                                if rng.Next(20) = 0 then
+                                    if noneWithin(50,points.[3],x,y,z) then
+                                        // TODO where put? bottom? any light cue? ...
+                                        let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
+                                        map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                        tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                        points.[3].Add( (x,y,z) )
+                    else
+                        () // TODO other stuff
+                        // 56, 205, 20, 65,
+                // end for y
+            // end if not near deco
+        // end for z
+    // end for x
+    map.AddOrReplaceTileEntities(tileEntities)
+    log.Add(sprintf "added %d extra loot chests: %s" tileEntities.Count (points |> Array.map (fun ps -> sprintf "%d" ps.Count) |> String.concat(", ")))
 
 let placeStartingCommands(map:MapFolder,hm:_[,]) =
     let placeCommand(x,y,z,command,bid,name) =
@@ -1208,6 +1301,7 @@ let makeCrazyMap(worldSaveFolder) =
     let decorations = ResizeArray()
     let hm = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let hmIgnoringLeaves = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
+    let biome = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let xtime _ = 
         printfn "SKIPPING SOMETHING"
         log.Add("SKIPPED SOMETHING")
@@ -1229,13 +1323,14 @@ let makeCrazyMap(worldSaveFolder) =
         printfn ""
         )
     time (fun () ->
-        printfn "CACHE HM..."
-        log.Add("CACHE HM...")
+        printfn "CACHE HM AND BIOME..."
+        log.Add("CACHE HM AND BIOME...")
         for x = MINIMUM to MINIMUM+LENGTH-1 do
             if x%200 = 0 then
                 printfn "%d" x
             for z = MINIMUM to MINIMUM+LENGTH-1 do
                 let _bi = map.GetBlockInfo(x,0,z) // caches height map as side effect
+                biome.[x,z] <- map.GetBiome(x,z)
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
                 let mutable y = h
@@ -1246,9 +1341,10 @@ let makeCrazyMap(worldSaveFolder) =
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(map, log))
     xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))
     xtime (fun() ->   // after hiding spots figured
         printfn "START CMDS"
         log.Add("START CMDS")

@@ -333,6 +333,9 @@ let LOOT_FROM_DEFAULT_MOBS =
 let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
+let sampleTier1Chest =
+        Pools[ Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0, []]) // TODO proper loot
+             ]
 let sampleTier2Chest =
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
                Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
@@ -399,6 +402,7 @@ let LOOT_FROM_DEFAULT_CHESTS =
         "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
         // TODO all the others
         // hack to get mine there
+        sprintf "%s:chests/tier1" LOOT_NS_PREFIX, sampleTier1Chest 
         sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
         sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
         sprintf "%s:chests/tier5" LOOT_NS_PREFIX, sampleTier5Chest 

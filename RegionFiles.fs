@@ -33,6 +33,7 @@ type RegionFile(filename) =
         int m.Groups.[1].Value, int m.Groups.[2].Value
     let isChunkDirty = Array2D.create 32 32 false
     let chunkHeightMapCache : int[,][,] = Array2D.create 32 32 null   // chunkHeightMapCache.[cx,cz].[x,z], (TODO currently just read once, never updated)
+    let chunkBiomeCache : byte[,][,] = Array2D.create 32 32 null   // chunkBiomeCache.[cx,cz].[x,z], (TODO currently just read once, never updated)
     let chunkSectionsCache : (NBT[]*byte[]*byte[])[][,] = Array2D.init 32 32 (fun _ _ -> Array.create 16 (null,null,null))   // chunkSectionsCache.[cx,cz].[sy]
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
@@ -66,12 +67,21 @@ type RegionFile(filename) =
         if chunkHeightMapCache.[cx,cz] = null then
             let chunkLevel = match chunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
             match chunkLevel with 
-            | Compound(n,nbts) -> 
+            | Compound(_n,nbts) -> 
                 let i = nbts.FindIndex (fun nbt -> nbt.Name = "HeightMap")
                 match nbts.[i] with
                 | NBT.IntArray(_,flatArray) ->
                     let squareArray = Array2D.init 16 16 (fun x z -> flatArray.[z*16+x])
                     chunkHeightMapCache.[cx,cz] <- squareArray
+        if chunkBiomeCache.[cx,cz] = null then
+            let chunkLevel = match chunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+            match chunkLevel with 
+            | Compound(_n,nbts) -> 
+                let i = nbts.FindIndex (fun nbt -> nbt.Name = "Biomes")
+                match nbts.[i] with
+                | NBT.ByteArray(_,flatArray) ->
+                    let squareArray = Array2D.init 16 16 (fun x z -> flatArray.[z*16+x])
+                    chunkBiomeCache.[cx,cz] <- squareArray
         chunk
     let mutable numCommandBlocksPlaced = 0
     do
@@ -309,6 +319,14 @@ type RegionFile(filename) =
         if heightMap = null then
             failwith "no HeightMap cached"
         heightMap.[MOD(x,16),MOD(z,16)]
+    member this.GetBiome(x, z) =
+        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        let cx = ((x+51200)%512)/16
+        let cz = ((z+51200)%512)/16
+        let biome = chunkBiomeCache.[cx,cz]
+        if biome = null then
+            failwith "no HeightMap cached"
+        biome.[MOD(x,16),MOD(z,16)]
     member this.PlaceCommandBlocksStartingAtSelfDestruct(c:Coords,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAtSelfDestruct(c.X,c.Y,c.Z,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(c:Coords,cmds:_[],comment) =
@@ -540,6 +558,11 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetHeightMap(x,z)
+    member this.GetBiome(x,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetBiome(x,z)
     member this.EnsureSetBlockIDAndDamage(x,y,z,bid,d) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000

@@ -2265,7 +2265,7 @@ do
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\seed31Copy\region\r.0.0.mca""")
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
-    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w47c.zip""","""C:\Users\Admin1\Desktop\15w49a.zip""")
+    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w49a.zip""","""C:\Users\Admin1\Desktop\15w50a.zip""")
     //placeCertainBlocksInTheWorld()
     //placeVideoFramesInTheWorld()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
