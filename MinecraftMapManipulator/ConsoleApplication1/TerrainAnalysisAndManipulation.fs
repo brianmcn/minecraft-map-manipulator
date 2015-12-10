@@ -205,6 +205,20 @@ let putBeaconAt(map:MapFolder,ex,ey,ez,colorDamage,addAirSpace) =
     map.SetBlockIDAndDamage(ex,ey-1,ez, 95uy,colorDamage) // stained glass
     map.SetBlockIDAndDamage(ex,ey+0,ez,120uy,0uy) // end portal frame
 
+// use printf for console progress indiciation
+// use info for non-summary info
+// use summary for summary info
+type EventAndProgressLog() =
+    let log = ResizeArray()
+    member this.LogInfo(s) = 
+        log.Add( (1,s) )
+        printfn "%s" s
+    member this.LogSummary(s) = 
+        log.Add( (2,s) )
+        printfn "%s" s
+    member this.SummaryEvents() = log |> Seq.choose (fun (i,s) -> if i=2 then Some s else None)
+    member this.AllEvents() = log |> Seq.map snd
+
 type SpawnerAccumulator() =
     let spawnerTileEntities = ResizeArray()
     let spawnerTypeCount = new System.Collections.Generic.Dictionary<_,_>()
@@ -215,17 +229,17 @@ type SpawnerAccumulator() =
         else
             spawnerTypeCount.[kind] <- 1
         spawnerTileEntities.Add(ms.AsNbtTileEntity())
-    member this.AddToMapAndLog(map:MapFolder, log:ResizeArray<_>) =
+    member this.AddToMapAndLog(map:MapFolder, log:EventAndProgressLog) =
         map.AddOrReplaceTileEntities(spawnerTileEntities)
         let sb = new System.Text.StringBuilder()
         sb.Append(sprintf "   Total:%3d" (spawnerTypeCount |> Seq.sumBy (fun (KeyValue(_,v)) -> v))) |> ignore
         for KeyValue(k,v) in spawnerTypeCount |> Seq.sortBy (fun (KeyValue(k,_)) -> k)do
             sb.Append(sprintf "   %s:%3d" k v) |> ignore
-        log.Add("   spawners along path:"+sb.ToString())
+        log.LogSummary("   spawners along path:"+sb.ToString())
 
 
 
-let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:ResizeArray<_>) =
+let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:EventAndProgressLog) =
     let MINIMUM = -DAYLIGHT_RADIUS
     let LENGTH = 2*DAYLIGHT_RADIUS
     let YMIN = 50
@@ -284,10 +298,10 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:ResizeArray<_>) =
                         nearSpawnCaveEntranceCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     // highlight cave entrances near spawn
+    let mutable caveCount = 0
     for hs in nearSpawnCaveEntranceCCs.Values do
         if hs.Count > 200 then
             // only consider "caves" of some min size
-            printfn "cave %d" hs.Count 
             let mutable bestX,bestY,bestZ = 9999,0,9999
             for p in hs do
                 let x,y,z = XYZP(p)
@@ -296,16 +310,17 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:ResizeArray<_>) =
                     bestY <- y
                     bestZ <- z
             if bestY <> 0 then
-                printfn "with an exit"
                 // found highest point in this cave exposed to surface
                 for y = bestY + 10 to bestY + 25 do
                     map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone // TODO heightmap
                 putGlowstoneRecomputeLight(bestX,bestY+26,bestZ,map)
+                caveCount <- caveCount + 1
                 (*
                 for p in hs do
                     let x,y,z = XYZP(p)
                     map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass (debug viz of CC)
                 *)
+    log.LogSummary(sprintf "highlighted %d cave entrances near spawn" caveCount)
 
 let mutable finalEX = 0
 let mutable finalEZ = 0
@@ -313,7 +328,7 @@ let mutable finalEZ = 0
 let MINIMUM = -1024
 let LENGTH = 2048
 
-let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:ResizeArray<_>, decorations:ResizeArray<_>) =
+let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let YMIN = 10
     let YLEN = 50
     let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
@@ -370,12 +385,12 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                             goodCCs.Add(v.Point, new System.Collections.Generic.HashSet<_>())
                         goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
-    printfn "There are %d CCs with the desired property" goodCCs.Count 
+    log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
     // These arrays are large enough that I think they get pinned in permanent memory, reuse them
     let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let prev = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let mutable hasDoneFinal, thisIsFinal = false, false
-    for hs in [] do // TODO fix goodCCs.Values do
+    for hs in goodCCs.Values do
         let mutable bestX,bestY,bestZ = 0,0,0
         for p in hs do
             let x,y,z = XYZP(p)
@@ -446,11 +461,11 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                 (ex > -SPAWN_PROTECTION_DISTANCE && ex < SPAWN_PROTECTION_DISTANCE && ez > -SPAWN_PROTECTION_DISTANCE && ez < SPAWN_PROTECTION_DISTANCE)  then
                 () // skip if too close to 0,0 or to map bounds
             else
-            printfn "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez
+            log.LogInfo(sprintf "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez)
             if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 500 then  // only keep mid-sized ones...
                 if not hasDoneFinal && dist.[besti,bestj,bestk] > 300 && ex*ex+ez*ez > 600*600 then
                     thisIsFinal <- true
-                log.Add(sprintf "added %s beacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL" else "") ex ey ez dist.[besti,bestj,bestk])
+                log.LogSummary(sprintf "added %s beacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL" else "") ex ey ez dist.[besti,bestj,bestk])
                 decorations.Add((if thisIsFinal then 'X' else 'B'),ex,ez)
                 let mutable i,j,k = besti,bestj,bestk
                 let fullDist = dist.[besti,bestj,bestk]
@@ -536,7 +551,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                     map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
-        log.Add("FAILED TO PLACE FINAL")
+        log.LogSummary("FAILED TO PLACE FINAL")
     // find completely flat floors underground
     printfn ""
     printf "FLAT FLOOR ANALYSIS"
@@ -624,10 +639,11 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                     if distSq(cx,cy,cz) < MAXR*MAXR then
                         dup <- true  // we find a lot of overlapping flat areas, ignore duplicates
                 if not dup then
-                    printfn "ACCEPTED, all exits of %A go through %A" (x,y,z) v
+                    log.LogInfo(sprintf "ACCEPTED, all exits of %A go through %A" (x,y,z) v)
                     culDeSacRooms.Add( (x,y,z) )
         ()
-    printfn "There are %d cul-de-sac rooms" culDeSacRooms.Count 
+    log.LogInfo(sprintf "There are %d cul-de-sac rooms" culDeSacRooms.Count)
+    let mutable reachableCount = 0
     for x,y,z in culDeSacRooms do
             let q = new System.Collections.Generic.Queue<_>()
             // now find shortest from that point to top
@@ -661,7 +677,8 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                             q.Enqueue(i+di,j+dj,k+dk)
             if besti <> -99999 then
                 // found an exit
-                printfn "Can get to cul-de-sec %A from surface %A" (x,y,z) (besti,bestj,bestk)
+                log.LogInfo(sprintf "Can get to cul-de-sec %A from surface %A" (x,y,z) (besti,bestj,bestk))
+                reachableCount <- reachableCount + 1
                 // TODO put some loot or something, have a purpose
                 let mutable i,j,k = besti,bestj,bestk
                 let mutable count = 0
@@ -696,6 +713,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Resiz
                         map.SetBlockIDAndDamage(i+di*nearestDist, j+dj*nearestDist, k+dk*nearestDist, 76uy,   // lit red torch
                                                 if di = 1 then 2uy elif dk = 1 then 4uy elif di = -1 then 1uy elif dk = -1 then 3uy elif dj = -1 then 5uy else failwith "unexpected") // attached to dirt block in right orientation
     printfn ""
+    log.LogSummary(sprintf "found %d reachable cul-de-sac rooms" reachableCount)
 ////
 (* 
 
@@ -793,7 +811,7 @@ let canPlaceSpawner(map:MapFolder,x,y,z) =
     else
         false
 
-let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
+let substituteBlocks(map:MapFolder, log:EventAndProgressLog) =
     let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
     let HIY = 120
     let spawners1 = SpawnerAccumulator()
@@ -837,7 +855,7 @@ let substituteBlocks(map:MapFolder, log:ResizeArray<_>) =
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
                         if rng.Next(20) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
-    log.Add("added random spawners underground")
+    log.LogSummary("added random spawners underground")
     spawners1.AddToMapAndLog(map,log)
     spawners2.AddToMapAndLog(map,log)
     printfn ""
@@ -963,7 +981,7 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
 let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
-let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:ResizeArray<_>) =
+let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let bestHighPoints = findBestPeaksAlgorithm(hm,80,100,3)
     let RADIUS = 20
     let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
@@ -974,11 +992,11 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
     let timer = System.Diagnostics.Stopwatch.StartNew()
     printfn "find best hiding spot..."
     let (bx,by,bz) = Seq.append unused otherUnused |> Seq.choose (fun x -> findHidingSpot(map,hm,x)) |> Seq.maxBy (fun (_,y,_) -> y)
-    printfn "best hiding spot: %4d %4d %4d" bx by bz
+    log.LogInfo(sprintf "best hiding spot: %4d %4d %4d" bx by bz)
     decorations.Add('H',bx,bz)
     hiddenX <- bx
     hiddenZ <- bz
-    log.Add(sprintf "('find best hiding spot' sub-section took %f minutes)" timer.Elapsed.TotalMinutes)
+    log.LogSummary(sprintf "('find best hiding spot' sub-section took %f minutes)" timer.Elapsed.TotalMinutes)
     for dx = -1 to 1 do
         for dy = -1 to 1 do
             for dz = -1 to 1 do
@@ -1002,14 +1020,11 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
     putGlowstoneRecomputeLight(bx,by-1,bz,map)
     // mountain peaks
     let bestHighPoints = try Seq.take 10 bestHighPoints with _e -> bestHighPoints
-    printfn "The best high points are:"
-    for (x,z),_,_,s in bestHighPoints do
-        printfn "  (%4d,%4d) - %d" x z s
-        decorations.Add('P',x,z)
     // decorate map with dungeon ascent
     let rng = System.Random()
     for (x,z),_,_,_s in bestHighPoints do
-        log.Add(sprintf "added mountain peak at %d %d" x z)
+        decorations.Add('P',x,z)
+        log.LogSummary(sprintf "added mountain peak at %d %d" x z)
         let spawners = SpawnerAccumulator()
         let y = hm.[x,z]
         putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
@@ -1032,7 +1047,7 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:ResizeArray<_>, decorations:Resi
         spawners.AddToMapAndLog(map,log)
     ()
 
-let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:ResizeArray<_>) =
+let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
     // then treat 'goodness' as 'height', and the existing 'find mountain peaks' algorithm may work
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -1056,17 +1071,11 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:Resi
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE*SPAWN_PROTECTION_DISTANCE)
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
     let bestFlatPoints = try Seq.take 10 bestFlatPoints with _e -> bestFlatPoints
-    printfn "The best flat points are:"
-    let chosen = ResizeArray()
-    for (x,z),_,_,s in bestFlatPoints do
-        printfn "  (%4d,%4d) - %d" x z s
-        chosen.Add( (x,z) )
-        decorations.Add('F',x,z)
-    let bestFlatPoints = chosen
     // decorate map with dungeon
     let rng = System.Random()
-    for (x,z) in bestFlatPoints do
-        log.Add(sprintf "added flat set piece at %d %d" x z)
+    for (x,z),_,_,s in bestFlatPoints do
+        decorations.Add('F',x,z)
+        log.LogSummary(sprintf "added flat set piece at %d %d" x z)
         let spawners = SpawnerAccumulator()
         let y = hm.[x,z]
         putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
@@ -1105,7 +1114,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:ResizeArray<_>, decorations:Resi
         spawners.AddToMapAndLog(map,log)
     ()
 
-let doubleSpawners(map:MapFolder,log:ResizeArray<_>) =
+let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     printfn "double spawners..."
     let spawnerTileEntities = ResizeArray()
     for x = MINIMUM to MINIMUM+LENGTH-1 do
@@ -1130,9 +1139,9 @@ let doubleSpawners(map:MapFolder,log:ResizeArray<_>) =
                                                             yield List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
                     spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
-    log.Add(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
+    log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
-let addRandomLootz(map:MapFolder,log:ResizeArray<_>,hm:_[,],biome:_[,],decorations:ResizeArray<_>) =
+let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],decorations:ResizeArray<_>) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
     let points = Array.init 20 (fun x -> ResizeArray())
@@ -1170,7 +1179,7 @@ let addRandomLootz(map:MapFolder,log:ResizeArray<_>,hm:_[,],biome:_[,],decoratio
                                 let x = if rng.Next(2) = 0 then x-1 else x+1
                                 let z = if rng.Next(2) = 0 then z-1 else z+1
                                 let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
                                 tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
                                 points.[0].Add( (x,y,z) )
                     elif bid = 18uy && checkForPlus(x,y,z,0uy,18uy) 
@@ -1180,9 +1189,9 @@ let addRandomLootz(map:MapFolder,log:ResizeArray<_>,hm:_[,],biome:_[,],decoratio
                             let x = if rng.Next(2) = 0 then x-1 else x+1
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
-                                if noneWithin(90,points.[1],x,y,z) then
+                                if noneWithin(120,points.[1],x,y,z) then
                                     let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                    map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                    map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
                                     tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
                                     points.[1].Add( (x,y,z) )
                     elif bid = 86uy then // 86 = pumpkin
@@ -1194,7 +1203,7 @@ let addRandomLootz(map:MapFolder,log:ResizeArray<_>,hm:_[,],biome:_[,],decoratio
                                 // chest below
                                 let y = y - 1
                                 let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
                                 tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
                                 points.[2].Add( (x,y,z) )
                     elif bid = 9uy then
@@ -1212,9 +1221,29 @@ let addRandomLootz(map:MapFolder,log:ResizeArray<_>,hm:_[,],biome:_[,],decoratio
                                     if noneWithin(50,points.[3],x,y,z) then
                                         // TODO where put? bottom? any light cue? ...
                                         let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                        map.SetBlockIDAndDamage(x,y,z,54uy,2uy)  // chest
+                                        map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
                                         tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
                                         points.[3].Add( (x,y,z) )
+                    elif bid = 12uy then // 12=sand
+                        if y >= hm.[x,z]-1 then // at top of heightmap (-1 because surface is actually just below heightmap)
+                            let deserts = [| 2uy; 17uy; 130uy |]
+                            if deserts |> Array.exists (fun b -> b = biome.[x,z]) then
+                                if checkForPlus(x,y,z,12uy,12uy) && checkForPlus(x,y+1,z,0uy,0uy) && checkForPlus(x,y+2,z,0uy,0uy) then // flat square of sand with air above
+                                    if rng.Next(20) = 0 then // TODO probability, so don't place on all
+                                        if noneWithin(120,points.[4],x,y,z) then
+                                            let y = y + 1
+                                            // put cactus
+                                            for dy = 0 to 1 do
+                                                map.SetBlockIDAndDamage(x+1,y+dy,z+1,81uy,0uy)  // cactus
+                                                map.SetBlockIDAndDamage(x+1,y+dy,z-1,81uy,0uy)  // cactus
+                                                map.SetBlockIDAndDamage(x-1,y+dy,z-1,81uy,0uy)  // cactus
+                                                map.SetBlockIDAndDamage(x-1,y+dy,z+1,81uy,0uy)  // cactus
+                                            // put chest
+                                            let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
+                                            map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
+                                            tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                            points.[4].Add( (x,y,z) )
+                                            // TODO sometimes be a trap
                     else
                         () // TODO other stuff
                         // 56, 205, 20, 65,
@@ -1223,7 +1252,7 @@ let addRandomLootz(map:MapFolder,log:ResizeArray<_>,hm:_[,],biome:_[,],decoratio
         // end for z
     // end for x
     map.AddOrReplaceTileEntities(tileEntities)
-    log.Add(sprintf "added %d extra loot chests: %s" tileEntities.Count (points |> Array.map (fun ps -> sprintf "%d" ps.Count) |> String.concat(", ")))
+    log.LogSummary(sprintf "added %d extra loot chests: %s" tileEntities.Count (points |> Array.map (fun ps -> sprintf "%d" ps.Count) |> String.concat(", ")))
 
 let placeStartingCommands(map:MapFolder,hm:_[,]) =
     let placeCommand(x,y,z,command,bid,name) =
@@ -1297,20 +1326,20 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
 let makeCrazyMap(worldSaveFolder) =
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
     let map = new MapFolder(worldSaveFolder + """\region\""")
-    let log = ResizeArray()
+    let log = EventAndProgressLog()
     let decorations = ResizeArray()
     let hm = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let hmIgnoringLeaves = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let biome = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let xtime _ = 
         printfn "SKIPPING SOMETHING"
-        log.Add("SKIPPED SOMETHING")
+        log.LogSummary("SKIPPED SOMETHING")
     let time f =
         let timer = System.Diagnostics.Stopwatch.StartNew()
         f()
         printfn "Time so far: %f minutes" mainTimer.Elapsed.TotalMinutes
-        log.Add(sprintf "(this section took %f minutes)" timer.Elapsed.TotalMinutes)
-        log.Add("-----")
+        log.LogSummary(sprintf "(this section took %f minutes)" timer.Elapsed.TotalMinutes)
+        log.LogSummary("-----")
     time (fun () ->
         let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
         let HIY = 255
@@ -1323,8 +1352,7 @@ let makeCrazyMap(worldSaveFolder) =
         printfn ""
         )
     time (fun () ->
-        printfn "CACHE HM AND BIOME..."
-        log.Add("CACHE HM AND BIOME...")
+        log.LogSummary("CACHE HM AND BIOME...")
         for x = MINIMUM to MINIMUM+LENGTH-1 do
             if x%200 = 0 then
                 printfn "%d" x
@@ -1338,34 +1366,32 @@ let makeCrazyMap(worldSaveFolder) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(map, log))
-    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))
-    xtime (fun() ->   // after hiding spots figured
-        printfn "START CMDS"
-        log.Add("START CMDS")
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(map, log))
+    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    time (fun() ->   // after hiding spots figured
+        log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     printfn "saving results..."
     map.WriteAll()
     printfn "...done!"
-    xtime (fun() -> 
-        printfn "WRITING MAP PNG IMAGES"
-        log.Add("WRITING MAP PNG IMAGES")
+    time (fun() -> 
+        log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)
         )
+    log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
 
     printfn ""
     printfn "SUMMARY"
     printfn ""
-    for s in log do
+    for s in log.SummaryEvents() do
         printfn "%s" s
-    printfn "Took %f total minutes" mainTimer.Elapsed.TotalMinutes 
-    log.Add(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
-    System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"summary.txt"),log)
+    System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"summary.txt"),log.SummaryEvents())
+    System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"all.txt"),log.AllEvents())
     printfn "press a key to end"
     System.Console.ReadKey() |> ignore
     // TODO automate world creation...
