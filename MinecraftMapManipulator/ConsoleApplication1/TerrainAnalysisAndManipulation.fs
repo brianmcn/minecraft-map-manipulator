@@ -1353,11 +1353,22 @@ let makeCrazyMap(worldSaveFolder) =
         )
     time (fun () ->
         log.LogSummary("CACHE HM AND BIOME...")
+        let wm = "LORGON111"
         for x = MINIMUM to MINIMUM+LENGTH-1 do
             if x%200 = 0 then
                 printfn "%d" x
             for z = MINIMUM to MINIMUM+LENGTH-1 do
                 let _bi = map.GetBlockInfo(x,0,z) // caches height map as side effect
+                let xx,zz = (x+51200)%512, (z+51200)%512
+                if xx >= 256-22 && xx <= 256+22 && zz >= 256-2 && zz <= 256+2 then
+                    // watermark
+                    let i,ix = (xx - (256-22)) / 5, (xx - (256-22)) % 5
+                    let j = zz - (256-2)
+                    match Utilities.ALPHABET5INDEX wm.[i] with
+                    | Some i ->
+                         if Utilities.ALPHABET5.[j].[5*i+ix] = 'X' then
+                            map.SetBiome(x,z,15uy)  // 15 = MushroomIslandShore
+                    | None -> failwith "unexpected alpha wm"
                 biome.[x,z] <- map.GetBiome(x,z)
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
@@ -1366,19 +1377,20 @@ let makeCrazyMap(worldSaveFolder) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(map, log))
-    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(map, log))
+    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    printfn "saving results..."
-    map.WriteAll()
-    printfn "...done!"
+    time (fun() ->
+        log.LogSummary("SAVING FILES")
+        map.WriteAll()
+        printfn "...done!")
     time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)

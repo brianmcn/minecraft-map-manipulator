@@ -520,11 +520,11 @@ let renamer() =
 
 let ALPHABET5 = 
     [|
-    "XXXX.XXX..XXXX.XXX..XXXX.XXXX.XXXX.X..X.XXXX....X.X..X.X....X..X.X..X.XXXX.XXXX.XXXX.XXXX.XXXX.XXXX.X..X.X..X.X..X.X..X.X..X.XXXX..X.X...XX..........."
-    "X..X.X..X.X....X..X.X....X....X....X..X..XX.....X.X..X.X....XXXX.XX.X.X..X.X..X.X..X.X..X.X.....XX..X..X.X..X.X..X.X..X.X..X....X..X.X....X..........."
-    "XXXX.XXX..X....X..X.XXXX.XXXX.X.XX.XXXX..XX.....X.XXX..X....X..X.X.XX.X..X.XXXX.X..X.XXXX.XXXX..XX..X..X.X..X.X..X..XX...XX...XX......................"
-    "X..X.X..X.X....X..X.X....X....X..X.X..X..XX..X..X.X..X.X....X..X.X..X.X..X.X....X.XX.X.X.....X..XX..X..X.XXXX.XXXX.X..X..XX..X...............XX...XX.."
-    "X..X.XXX..XXXX.XXXX.XXXX.X....XXXX.X..X.XXXX..XX..X..X.XXXX.X..X.X..X.XXXX.X....XXXX.X..X.XXXX..XX..XXXX..XX..X..X.X..X..XX..XXXX............XX....X.."
+    "XXXX.XXX..XXXX.XXX..XXXX.XXXX.XXXX.X..X.XXXX....X.X..X.X....X..X.X..X.XXXX.XXXX.XXXX.XXXX.XXXX.XXXX.X..X.X..X.X..X.X..X.X..X.XXXX..X.X...XX...........XXX.."
+    "X..X.X..X.X....X..X.X....X....X....X..X..XX.....X.X..X.X....XXXX.XX.X.X..X.X..X.X..X.X..X.X.....XX..X..X.X..X.X..X.X..X.X..X....X..X.X....X.............X.."
+    "XXXX.XXX..X....X..X.XXXX.XXXX.X.XX.XXXX..XX.....X.XXX..X....X..X.X.XX.X..X.XXXX.X..X.XXXX.XXXX..XX..X..X.X..X.X..X..XX...XX...XX........................X.."
+    "X..X.X..X.X....X..X.X....X....X..X.X..X..XX..X..X.X..X.X....X..X.X..X.X..X.X....X.XX.X.X.....X..XX..X..X.XXXX.XXXX.X..X..XX..X...............XX...XX....X.."
+    "X..X.XXX..XXXX.XXXX.XXXX.X....XXXX.X..X.XXXX..XX..X..X.XXXX.X..X.X..X.XXXX.X....XXXX.X..X.XXXX..XX..XXXX..XX..X..X.X..X..XX..XXXX............XX....X..XXXX."
     |]
 let ALPHABET5INDEX(c) =
     if c >= 'A' && c <= 'Z' then
@@ -537,6 +537,8 @@ let ALPHABET5INDEX(c) =
         Some 28
     elif c = ',' then
         Some 29
+    elif c = '1' then
+        Some 30
     else 
         None
 
