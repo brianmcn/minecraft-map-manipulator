@@ -153,7 +153,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
             [|  -1, "bone", AA.bone                         ; +8, "dye", AA.gray_dye                    ; +8, "dye", AA.gray_dye                    |]
             [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "slime_ball", AA.slime_ball           |]
-            [|  -1, "vine", AA.vine                         ; +2, "tallgrass", AA.fern                  ; -1, "deadbush", AA.deadbush               |]
+            [|  -1, "vine", AA.vine                         ; -1, "deadbush", AA.deadbush               ; -1, "web", AA.web                         |]
             [|  -1, "brick", AA.brick                       ; -1, "flower_pot", AA.flower_pot           ; -1, "flower_pot", AA.flower_pot           |]
             [|  -1, "glass_bottle", AA.glass_bottle         ; -1, "glass_bottle", AA.glass_bottle       ; -1, "glass_bottle", AA.glass_bottle       |]
             [|  -1, "melon", AA.melon_slice                 ; -1, "melon", AA.melon_slice               ; -1, "speckled_melon", AA.speckled_melon   |]
@@ -1045,8 +1045,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // world init
         yield U "setworldspawn 3 4 12"
         yield U "gamerule commandBlockOutput false"
-        yield U "gamerule doDaylightCycle false"
-        yield U "gamerule keepInventory true"
+        yield U "gamerule doDaylightCycle true"
+        yield U "gamerule keepInventory false"
         yield U "gamerule logAdminCommands false"
         yield U "time set 500"
         yield U "weather clear 999999"
@@ -2273,7 +2273,7 @@ do
     
 //    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM - Copy"""
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     //LootTables.writeAllLootTables(worldSaveFolder)
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
@@ -2289,23 +2289,21 @@ do
 
 
 
-
-    (*
-    let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
-    let r = new RegionFile(fil)
-    let arr = ResizeArray()
-    let s = AA.readZoneIntoString(r,147,3,3,16,1,16)
-    arr.Add(sprintf """let gs = "%s" """ s)
-    let s = AA.readZoneIntoString(r,147,3,21,16,1,16)
-    arr.Add(sprintf """let pp = "%s" """ s)
-    let s = AA.readZoneIntoString(r,147,3,111,16,1,16)
-    arr.Add(sprintf """let as = "%s" """ s)
-    let writePath = """C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\Temp.txt"""
-    System.IO.File.WriteAllLines(writePath, arr)
-      *)
+    let readInSomeArt = false
+    if readInSomeArt then
+        let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
+        let r = new RegionFile(fil)
+        let arr = ResizeArray()
+        let s = AA.readZoneIntoString(r,165,3,39,16,1,16)
+        arr.Add(sprintf """let cw = "%s" """ s)
+        let writePath = """C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\Temp.txt"""
+        System.IO.File.WriteAllLines(writePath, arr)
 
 
 #if BINGO
+    printfn "bingo seed is 8126030 preset to clipboard..."
+    System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(1,100,4,80,true,true,true,true,MC_Constants.oreSpawnBingo))
+
     let onlyArt = false
     let save = if onlyArt then "BingoArt" else "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)

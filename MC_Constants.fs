@@ -807,6 +807,20 @@ let oreSpawnDefaults =
         "redstone",  8,  8, 0,  16
         "diamond",   8,  1, 0,  16
     |]
+let oreSpawnBingo =
+    [|
+        // block, Size, Count, MinHeight, MaxHeight
+        "dirt",     33, 10, 0, 256
+        "gravel",   33,  8, 0, 256
+        "granite",  33,  0, 0,  80
+        "diorite",  33,  0, 0,  80
+        "andesite", 33,  0, 0,  80
+        "coal",     17, 20, 0, 128
+        "iron",      9, 20, 0,  64
+        "gold",      9,  2, 0,  32
+        "redstone",  8,  8, 0,  16
+        "diamond",   8,  1, 0,  16
+    |]
 let defaultWorldWithCustomOreSpawns(biomeSize,dungeonChance,waterLakeRarity,lavaLakeRarity,   // defaults: 4, 8, 80, 4
                                     useStrongholds,useVillages,useTemples,useMonuments,       // defaults: all true
                                     oreSpawnCustom) =                                         // defaults: "oreSpawnDefaults" above
