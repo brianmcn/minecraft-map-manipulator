@@ -387,6 +387,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %d %d %d %d %d %d air" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ) (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+3) (LOBBYZ))
             yield U (sprintf "fill %d %d %d %d %d %d minecraft:stained_hardened_clay 10" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY+1) (LOBBYZ-1) (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+3) (LOBBYZ-1))
             yield U (sprintf "fill %d %d %d %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY) (LOBBYZ-1) (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY) (LOBBYZ-1))
+            yield U (sprintf "setblock %d %d %d purpur_slab 8" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+1)) // for standing sign to rest atop
             // floor & ceiling
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX (LOBBYY+HEIGHT) LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT) (LOBBYZ+LENGTH-1))
@@ -534,7 +535,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+1) (LOBBYZ) 0 "First to BINGO" "or get score" "'LockoutGoal'" "wins the game!"
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH/2+1) (LOBBYY+2) (LOBBYZ) 3 "Toggle" "Lockout Mode" TOGGLE_LOCKOUT_BUTTON enabled (if enabled then "black" else "gray")
 #if DEBUG
-            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY+2) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+3) (LOBBYZ+1) 3 "enable" "ticklagdebug" "" "" "" "scoreboard players set @p TickInfo 1" true "black" // TODO eventually remove this
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "disable" "ticklagdebug" "" "" "" "scoreboard players set @p TickInfo 0" true "black" // TODO eventually remove this
 #endif
             yield! makeSign "standing_sign" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+3) (LOBBYZ+1) 4 "Commands run" "at game" "start" "-->"
@@ -830,6 +831,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         assert( n > 0 && n < 60 )
         sprintf "execute @e[tag=Z,c=%d] ~ ~ ~" n   // rather than yield same command block N times, can just execute it N times
 
+#if DEBUG
     let cmdsTickLagDebugger =
         [|
         yield O ""
@@ -853,6 +855,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "testforblock ~ ~ ~-9 chain_command_block -1 {SuccessCount:1}"
         yield C """execute @e[tag=TickLagDebug,score_TickInfo_min=40,score_TickInfo=40] ~ ~ ~ tellraw @a[score_TickInfo_min=1] ["ticks are normal"]"""
         |]
+#endif
     let cmdsnTicksLater =
         [|
         // nTicksLater
