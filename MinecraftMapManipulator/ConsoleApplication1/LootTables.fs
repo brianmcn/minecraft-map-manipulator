@@ -227,7 +227,8 @@ let enchantmentsInTiers =
             "power"
             "punch"
             "flame"
-            "depth_strider"
+            //"depth_strider"
+            "frost_walker"
         ]
         [
             "efficiency"
@@ -333,8 +334,9 @@ let LOOT_FROM_DEFAULT_MOBS =
 let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
-let sampleTier1Chest =
+let sampleTier1Chest(n) =  // n is % chance of one extra diamond stuff
         Pools[ Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0, []]) // TODO proper loot
+               OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_chestplate",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:diamond_leggings",[])],n,[])
              ]
 let sampleTier2Chest =
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
@@ -402,7 +404,8 @@ let LOOT_FROM_DEFAULT_CHESTS =
         "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
         // TODO all the others
         // hack to get mine there
-        sprintf "%s:chests/tier1" LOOT_NS_PREFIX, sampleTier1Chest 
+        sprintf "%s:chests/tier1" LOOT_NS_PREFIX, sampleTier1Chest(0)
+        sprintf "%s:chests/tier1extra" LOOT_NS_PREFIX, sampleTier1Chest(100)
         sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
         sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
         sprintf "%s:chests/tier5" LOOT_NS_PREFIX, sampleTier5Chest 

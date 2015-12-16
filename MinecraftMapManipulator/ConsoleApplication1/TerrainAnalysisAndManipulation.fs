@@ -1161,6 +1161,10 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
         map.GetBlockInfo(x-1,y,z).BlockID = plus &&
         map.GetBlockInfo(x,y,z+1).BlockID = plus &&
         map.GetBlockInfo(x,y,z-1).BlockID = plus
+    let putTrappedChestWithLoot(x,y,z,chestName) =
+        let lootTableName = sprintf "%s:chests/%s" LootTables.LOOT_NS_PREFIX chestName
+        map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
+        tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         if x%200 = 0 then
             printfn "%d" x
@@ -1178,9 +1182,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                             if noneWithin(50,points.[0],x,y,z) then
                                 let x = if rng.Next(2) = 0 then x-1 else x+1
                                 let z = if rng.Next(2) = 0 then z-1 else z+1
-                                let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
-                                tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                putTrappedChestWithLoot(x,y,z,"tier1")
                                 points.[0].Add( (x,y,z) )
                     elif bid = 18uy && checkForPlus(x,y,z,0uy,18uy) 
                          || bid = 161uy && checkForPlus(x,y,z,0uy,161uy) then // 18=leaves, 161=leaves2
@@ -1190,9 +1192,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
                                 if noneWithin(120,points.[1],x,y,z) then
-                                    let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                    map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
-                                    tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                    putTrappedChestWithLoot(x,y,z,"tier1")
                                     points.[1].Add( (x,y,z) )
                     elif bid = 86uy then // 86 = pumpkin
                         let dmg = map.GetBlockInfo(x,y,z).BlockData
@@ -1202,9 +1202,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                 putThingRecomputeLight(x,y,z,map,"lit_pumpkin",int dmg) // replace with jack'o'lantern
                                 // chest below
                                 let y = y - 1
-                                let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
-                                tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                putTrappedChestWithLoot(x,y,z,"tier1")
                                 points.[2].Add( (x,y,z) )
                     elif bid = 9uy then
                         if y >= hm.[x,z]-1 then // 9=water, at top of heightmap (-1 because lake surface is actually just below heightmap)
@@ -1220,9 +1218,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                 if rng.Next(20) = 0 then
                                     if noneWithin(50,points.[3],x,y,z) then
                                         // TODO where put? bottom? any light cue? ...
-                                        let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                        map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
-                                        tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                        putTrappedChestWithLoot(x,y,z,"tier1")
                                         points.[3].Add( (x,y,z) )
                     elif bid = 12uy then // 12=sand
                         if y >= hm.[x,z]-1 then // at top of heightmap (-1 because surface is actually just below heightmap)
@@ -1239,9 +1235,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z-1,81uy,0uy)  // cactus
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z+1,81uy,0uy)  // cactus
                                             // put chest
-                                            let lootTableName = sprintf "%s:chests/tier1" LootTables.LOOT_NS_PREFIX
-                                            map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
-                                            tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+                                            putTrappedChestWithLoot(x,y,z,"tier1")
                                             points.[4].Add( (x,y,z) )
                                             // TODO sometimes be a trap
                     else
@@ -1284,13 +1278,21 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                     // put "DIG" and "X" with entities so frost walker exposes
                                     let mkArmorStandAt(x,y,z) = 
                                         [|
+                                            // ArmorStand versus mob - players can move through AS without collision, though both block attacks
                                             NBT.String("id","ArmorStand")
-                                            NBT.List("Pos",Doubles([|float x + 0.5; float y; float z + 0.5|]))
+                                            //NBT.String("id","Silverfish")
+                                            NBT.List("Pos",Doubles([|float x + 0.5; float y + 0.9; float z + 0.5|]))  // high Y to try to prevent them from preventing people from digging...
                                             NBT.List("Motion",Doubles([|0.0; 0.0; 0.0|]))
                                             NBT.List("Rotation",Doubles([|0.0; 0.0|]))
                                             NBT.Byte("Marker",0uy) // need hitbox to work with FW
+                                            NBT.Byte("Small",1uy) // small hitbox to avoid interfering much with world
                                             NBT.Byte("Invisible",1uy)
                                             NBT.Byte("NoGravity",1uy)
+                                            //NBT.Byte("Silent",1uy)
+                                            //NBT.Byte("Invulnerable",1uy)
+                                            //NBT.Byte("NoAI",1uy)
+                                            //NBT.Byte("PersistenceRequired",1uy)
+                                            //NBT.List("ActiveEffects",Compounds([|[|Byte("Id",14uy);Byte("Amplifier",0uy);Int("Duration",999999);Byte("ShowParticles",0uy);End|]|]))
                                             NBT.End
                                         |]
                                     let ents = ResizeArray()
@@ -1299,8 +1301,9 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                             if PIXELS.[dx].[DIGMAX-1-dz] = 'X' then
                                                 ents.Add(mkArmorStandAt(x+dx,y,z+dz))
                                     map.AddEntities(ents)
-                                    // TODO place hidden trapped chest, what loot? probably better than exposed chests...
-                                    XXX
+                                    // place hidden trapped chest
+                                    let x,y,z = x+9,y-5,z+6  // below the 'X'
+                                    putTrappedChestWithLoot(x,y,z,"tier1extra")
                                     points.[19].Add( (x,y,z) )
             // end if not near deco
         // end for z
