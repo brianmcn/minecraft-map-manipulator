@@ -1248,6 +1248,26 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                         () // TODO other stuff
                         // 56, 205, 20, 65,
                 // end for y
+                let y = 62
+                let DIGMAX = 13
+                if x < MINIMUM+LENGTH-1 - DIGMAX && z < MINIMUM+LENGTH-1 - DIGMAX then
+                    if map.GetBiome(x,z)=6uy && map.GetBlockInfo(x,y,z).BlockID=9uy then // swamp, water
+                        if noneWithin(120,points.[19],x,y,z) then
+                            if rng.Next(40) = 0 then // TODO probability, so don't place on all, or all NE corners, or whatnot (data point: at rng(40), 13 of 17 swamps got covered)
+                                let mutable ok,i = true,0
+                                while ok && i < DIGMAX*DIGMAX do
+                                    i <- i + 1
+                                    let dx = i % DIGMAX
+                                    let dz = i / DIGMAX
+                                    let x,z = x+dx, z+dz
+                                    if map.GetBiome(x,z)<>6uy || map.GetBlockInfo(x,y,z).BlockID<>9uy then // swamp, water
+                                        ok <- false
+                                if ok then
+                                    printfn "FOUND SWAMP %d %d" x z
+                                    // TODO put "DIG" and "X" with entities so frost walker exposes
+                                    // TODO place hidden trapped chest, what loot? probably better than exposed chests...
+                                    XXX
+                                    points.[19].Add( (x,y,z) )
             // end if not near deco
         // end for z
     // end for x
@@ -1383,15 +1403,15 @@ let makeCrazyMap(worldSaveFolder) =
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
     xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    time (fun() ->
+    xtime (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)
         )
