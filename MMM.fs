@@ -299,11 +299,6 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10), "Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
     let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
     let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; SADDLED_HORSE_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT]
-(*
-    let BUILTIN_START_LOADOUT = Coords(76,3,10)
-    let BUILTIN_RESPAWN_LOADOUT = Coords(77,3,10)
-    let BL_NIGHT_VISION, BL_SADDLED_HORSE, BL_STARTING_CHEST, BL_SPAMMABLE_SWORD, BL_ELYTRA_JUMP_BOOST, BL_FROST_WALKER = 0,1,2,3,4,5
-*)
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -595,72 +590,6 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     //////////////////////////////
     // loadouts
     //////////////////////////////
-(*
-    region.PlaceCommandBlocksStartingAt(BUILTIN_START_LOADOUT,
-        [|
-            U "effect @a night_vision 9999 1 true"
-            U ""
-            U ""
-            U ""
-
-            U """execute @a ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
-            U ""
-            U ""
-            U ""
-
-            U (sprintf "execute @p[team=red] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
-            U (sprintf "execute @p[team=blue] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
-            U (sprintf "execute @p[team=yellow] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
-            U (sprintf "execute @p[team=green] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
-
-            U """/give @a minecraft:iron_sword 1 0 {display:{Name:"Spammable unbreakable sword"},Unbreakable:1,AttributeModifiers:[{AttributeName:"generic.attackSpeed",Name:"Speed",Slot:"mainhand",Amount:1020.0,Operation:0,UUIDLeast:111l,UUIDMost:111l},{AttributeName:"generic.attackDamage",Name:"Damage",Slot:"mainhand",Amount:4.0,Operation:0,UUIDLeast:222l,UUIDMost:222l}]}"""
-            U ""
-            U ""
-            U ""
-
-            U """replaceitem entity @a slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
-            U """replaceitem entity @a slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
-            U ""
-            U ""
-
-            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
-            U ""
-            U ""
-            U ""
-        |],"builtin start loadouts")
-    region.PlaceCommandBlocksStartingAt(BUILTIN_RESPAWN_LOADOUT,
-        [|
-            U "effect @a[tag=justRespawned] night_vision 9999 1 true"
-            U ""
-            U ""
-            U ""
-
-            U """execute @a[tag=justRespawned] ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
-            U ""
-            U ""
-            U ""
-
-            U (sprintf "execute @a[tag=justRespawned] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
-            U ""
-            U ""
-            U ""
-
-            U """/give @a[tag=justRespawned] minecraft:iron_sword 1 0 {display:{Name:"Spammable unbreakable sword"},Unbreakable:1,AttributeModifiers:[{AttributeName:"generic.attackSpeed",Name:"Speed",Slot:"mainhand",Amount:1020.0,Operation:0,UUIDLeast:111l,UUIDMost:111l},{AttributeName:"generic.attackDamage",Name:"Damage",Slot:"mainhand",Amount:4.0,Operation:0,UUIDLeast:222l,UUIDMost:222l}]}"""
-            U ""
-            U ""
-            U ""
-
-            U """replaceitem entity @a[tag=justRespawned] slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
-            U """replaceitem entity @a[tag=justRespawned] slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
-            U ""
-            U ""
-
-            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
-            U ""
-            U ""
-            U ""
-        |],"builtin respawn loadouts")
-*)
     let loadout(start:_[], respawn:_[], c:Coords, comment) =
         if start.Length > NUM_CONFIG_COMMANDS || respawn .Length > NUM_CONFIG_COMMANDS then
             failwith "too many cmds"
@@ -943,6 +872,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
         P "scoreboard players test Time S 0 0"
         C (sprintf "tp @a[score_home_min=1] %s 180 0" OFFERING_SPOT.STR)
+        C (sprintf """tellraw @a[score_home_min=1] ["Teleporting back to %s"]""" OFFERING_SPOT.STR)
         C "scoreboard players set @a home 0"
         C "scoreboard players enable @a home"  // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
         |]
@@ -1013,11 +943,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // as a result, run @p multiple times
         // tag folks as justRespawned, then call the custom blocks, and people can target @a[tag=justRespawned] as desired (untag after run)
         yield U (sprintf "%s scoreboard players tag @p[score_Deaths_min=1,tag=!justRespawned] add justRespawned" (nTimesDo 8))
-// TODO clone once at game start
-        // run customized on-respawn loadout command blocks
-        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~2" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
-
-(*        TODO if BUILTIN loadout *)
+        // run customized on-respawn loadout command blocks (that were cloned at game start to just below lobby)
+        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~2" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY-1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY-1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
         yield O "TAG 2"  // firewall the user-contributed CCBs, so if they screw them up, it doesn't break program logic
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
@@ -1048,6 +975,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // world init
         yield U "setworldspawn 3 4 12"
         yield U "gamerule commandBlockOutput false"
+        yield U "gamerule sendCommandFeedback false"
         yield U "gamerule doDaylightCycle true"
         yield U "gamerule keepInventory false"
         yield U "gamerule logAdminCommands false"
@@ -1460,9 +1388,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U (sprintf "setblock %s redstone_block" (NOTICE_DROPPED_MAP_CMDS.Offset(0,1,0).STR))
         // prep for customized on-respawn command blocks
         yield U "scoreboard players set @a Deaths 0"
-(*        TODO if BUILTIN loadout *)
+        // clone them to a temp location two below
+        yield U (sprintf "clone %d %d %d %d %d %d %d %d %d" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+1) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY-1) (LOBBYZ+2))
         // run customized on-start loadout command blocks
-        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1)) // todo ensure in sync with lobby
+        yield U (sprintf "clone %d %d %d %d %d %d ~ ~ ~1" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2) (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+NUM_CONFIG_COMMANDS-1))
         for _i = 1 to NUM_CONFIG_COMMANDS do
             yield U "say SHOULD BE REPLACED"
         // NOTE, customized on-start commands must be last, to firewall them
