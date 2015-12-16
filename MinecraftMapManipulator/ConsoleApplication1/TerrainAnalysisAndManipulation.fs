@@ -860,6 +860,52 @@ let substituteBlocks(map:MapFolder, log:EventAndProgressLog) =
     spawners2.AddToMapAndLog(map,log)
     printfn ""
 
+let replaceSomeBiomes(map:MapFolder, log:EventAndProgressLog, biome:_[,]) =
+    let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
+    // find plains biomes
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
+            let b = biome.[x,z]
+            if b = 1uy then // 1 = Plains
+                a.[x,z] <- new Partition(new Thingy(0,(x*x+z*z<DAYLIGHT_RADIUS*DAYLIGHT_RADIUS),false))
+    // connected-components them
+    for x = MINIMUM to MINIMUM+LENGTH-2 do
+        for z = MINIMUM to MINIMUM+LENGTH-2 do
+            if a.[x,z] <> null && a.[x,z+1] <> null then
+                a.[x,z].Union(a.[x,z+1])
+            if a.[x,z] <> null && a.[x+1,z] <> null then
+                a.[x,z].Union(a.[x+1,z])
+    let CCs = new System.Collections.Generic.Dictionary<_,_>()
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
+            if a.[x,z] <> null then
+                let rep = a.[x,z].Find()
+                if not rep.Value.IsLeft then  // only find plains completely outside DAYLIGHT_RADIUS
+                    if not(CCs.ContainsKey(rep)) then
+                        CCs.Add(rep, new System.Collections.Generic.HashSet<_>())
+                    CCs.[rep].Add( (x,z) ) |> ignore
+    let tooSmall = ResizeArray()
+    for KeyValue(k,v) in CCs do
+        if v.Count < 1000 then
+            tooSmall.Add(k)
+    for k in tooSmall do
+        CCs.Remove(k) |> ignore
+    log.LogInfo(sprintf "found %d decent-sized plains biomes outside DAYLIGHT_RADIUS" CCs.Count)
+    let rng = System.Random()
+    let mutable hellCount, skyCount = 0,0
+    for KeyValue(_k,v) in CCs do
+        if rng.Next(10) = 0 then
+            for x,z in v do
+                map.SetBiome(x,z,8uy) // 8 = Hell
+                biome.[x,z] <- 8uy
+            hellCount <- hellCount + 1
+        elif rng.Next(5) = 0 then
+            for x,z in v do
+                map.SetBiome(x,z,9uy) // 9 = Sky
+                biome.[x,z] <- 9uy
+            skyCount <- skyCount + 1
+    log.LogSummary(sprintf "Added %d Hell biomes and %d Sky biomes (replacing Plains)" hellCount skyCount)
+
 // mappings: should probably be to a chance set that's a function of difficulty or something...
 // given that I can customize them, but want same custom settings for whole world generation, just consider as N buckets, but can e.g. customize the granite etc for more 'choice'...
 // custom: dungeons at 100, probably lava/water lakes less frequent, biome size 3?
@@ -947,7 +993,7 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
     // ok, among mountain connected components, just mostly brute force them
     let mutable found = false
     let mutable fx,fy,fz = 0,0,0
-    for y = hm.[highx,highz] downto 80 do // y is outermost loop to prioritize finding high points first
+    for y = hm.[highx,highz] downto 80 do // y is outermost loop to prioritize finding high points first // TODO printf progress
         if not found then
             for z = minz to maxz do
                 if not found then
@@ -1057,7 +1103,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations
         fScores.[min diff (fScores.Length-1)]
     let D = 10
     printfn "PREP FLAT MAP..."
-    for x = MINIMUM+D to MINIMUM+LENGTH-1-D do
+    for x = MINIMUM+D to MINIMUM+LENGTH-1-D do // TODO add printf progress here
         for z = MINIMUM+D to MINIMUM+LENGTH-1-D do
             let h = if hm.[x,z] > 65 && hm.[x,z] < 90 then hm.[x,z] else 255  // only pick points above sea level but not too high
             let mutable score = 0
@@ -1348,6 +1394,8 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I("scoreboard objectives add LavaSlimesKilled stat.killEntity.LavaSlime")
     I("scoreboard players set @a LavaSlimesKilled 0") // TODO multiplayer, what if A kills #1 and B kills #2
     I("scoreboard objectives add hidden dummy")
+    I("scoreboard objectives add Deaths stat.deaths")
+    I("scoreboard objectives setdisplay sidebar Deaths")
     I(sprintf "scoreboard players set X hidden %d" hiddenX)
     I(sprintf "scoreboard players set Z hidden %d" hiddenZ)
     I(sprintf "scoreboard players set fX hidden %d" finalEX)
@@ -1434,23 +1482,24 @@ let makeCrazyMap(worldSaveFolder) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(map, log))
-    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(map, log))
+    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
     time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> replaceSomeBiomes(map, log, biome))
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
-        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", [-2..1], [-2..1],decorations)
+        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, decorations)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
 
@@ -1498,250 +1547,143 @@ Previous runs took 2 hours to get to start of 1st beacon, have I gotten better/i
 
 (*
 
+Dec 16
 SUMMARY
 
-(this section took 0.185317 minutes)
+(this section took 0.181175 minutes)
 -----
-CACHE HM...
-(this section took 0.083329 minutes)
+CACHE HM AND BIOME...
+(this section took 0.092118 minutes)
 -----
 added 878 extra dungeon spawners underground
-(this section took 1.405404 minutes)
+(this section took 1.531515 minutes)
 -----
 added random spawners underground
-   spawners along path:   Total:1996   Blaze:119   Creeper:117   Skeleton:578   Spider:617   Zombie:565
-   spawners along path:   Total:897   Blaze:143   CaveSpider:150   Creeper:153   Skeleton:158   Spider:153   Zombie:140
-(this section took 2.213400 minutes)
------
-('find best hiding spot' sub-section took 0.704369 minutes)
-added mountain peak at -450 -168
-   spawners along path:   Total:167   Blaze: 14   CaveSpider: 22   Ghast: 19   Spiderextra:112
-added mountain peak at 388 732
-   spawners along path:   Total:161   Blaze: 24   CaveSpider: 16   Ghast: 19   Spiderextra:102
-added mountain peak at 988 938
-   spawners along path:   Total:164   Blaze: 22   CaveSpider: 12   Ghast: 19   Spiderextra:111
-added mountain peak at -984 984
-   spawners along path:   Total:159   Blaze: 25   CaveSpider: 26   Ghast: 16   Spiderextra: 92
-added mountain peak at -516 -757
-   spawners along path:   Total:144   Blaze: 18   CaveSpider: 18   Ghast: 15   Spiderextra: 93
-added mountain peak at -204 488
-   spawners along path:   Total:175   Blaze: 18   CaveSpider: 17   Ghast: 26   Spiderextra:114
-added mountain peak at -68 -581
-   spawners along path:   Total:159   Blaze: 26   CaveSpider: 15   Ghast: 29   Spiderextra: 89
-added mountain peak at -820 -275
-   spawners along path:   Total:151   Blaze: 21   CaveSpider: 16   Ghast: 22   Spiderextra: 92
-added mountain peak at 550 -595
-   spawners along path:   Total:170   Blaze: 17   CaveSpider: 23   Ghast: 29   Spiderextra:101
-added mountain peak at 514 551
-   spawners along path:   Total:156   Blaze: 21   CaveSpider: 15   Ghast: 21   Spiderextra: 99
-(this section took 0.721926 minutes)
+   spawners along path:   Total:1996   Blaze:109   Creeper:151   Skeleton:599   Spider:559   Zombie:578
+   spawners along path:   Total:897   Blaze:140   CaveSpider:145   Creeper:154   Skeleton:162   Spider:154   Zombie:142
+(this section took 2.203390 minutes)
 -----
 added flat set piece at -543 300
-   spawners along path:   Total: 74   Blaze:  5   CaveSpider: 30   Spider: 13   Spiderextra: 10   Witch: 16
+   spawners along path:   Total: 70   Blaze:  4   CaveSpider: 39   Spider:  8   Spiderextra:  9   Witch: 10
 added flat set piece at -282 -107
-   spawners along path:   Total: 63   Blaze:  5   CaveSpider: 28   Spider: 10   Spiderextra:  7   Witch: 13
+   spawners along path:   Total: 67   Blaze:  4   CaveSpider: 35   Spider:  6   Spiderextra: 13   Witch:  9
 added flat set piece at -305 482
-   spawners along path:   Total: 74   Blaze:  5   CaveSpider: 33   Spider: 14   Spiderextra:  7   Witch: 15
+   spawners along path:   Total: 73   Blaze:  4   CaveSpider: 34   Spider:  6   Spiderextra: 12   Witch: 17
 added flat set piece at -745 5
-   spawners along path:   Total: 65   Blaze:  5   CaveSpider: 27   Spider:  8   Spiderextra: 11   Witch: 14
+   spawners along path:   Total: 60   Blaze:  4   CaveSpider: 23   Spider:  5   Spiderextra: 13   Witch: 15
 added flat set piece at -706 503
-   spawners along path:   Total: 63   Blaze:  5   CaveSpider: 23   Spider:  8   Spiderextra: 11   Witch: 16
+   spawners along path:   Total: 83   Blaze:  4   CaveSpider: 37   Spider: 15   Spiderextra: 10   Witch: 17
 added flat set piece at -638 885
-   spawners along path:   Total: 65   Blaze:  5   CaveSpider: 39   Spider:  4   Spiderextra:  4   Witch: 13
+   spawners along path:   Total: 64   Blaze:  4   CaveSpider: 26   Spider: 13   Spiderextra: 10   Witch: 11
 added flat set piece at 898 -366
-   spawners along path:   Total: 59   Blaze:  5   CaveSpider: 26   Spider:  4   Spiderextra:  8   Witch: 16
+   spawners along path:   Total: 74   Blaze:  4   CaveSpider: 35   Spider:  4   Spiderextra: 12   Witch: 19
 added flat set piece at 963 838
-   spawners along path:   Total: 67   Blaze:  5   CaveSpider: 30   Spider:  6   Spiderextra:  8   Witch: 18
+   spawners along path:   Total: 73   Blaze:  4   CaveSpider: 25   Spider: 12   Spiderextra:  8   Witch: 24
 added flat set piece at 109 371
-   spawners along path:   Total: 70   Blaze:  5   CaveSpider: 40   Spider: 12   Spiderextra:  4   Witch:  9
+   spawners along path:   Total: 60   Blaze:  4   CaveSpider: 33   Spider:  4   Spiderextra:  7   Witch: 12
 added flat set piece at -696 -193
-   spawners along path:   Total: 61   Blaze:  5   CaveSpider: 30   Spider:  7   Spiderextra:  7   Witch: 12
-(this section took 1.105554 minutes)
+   spawners along path:   Total: 74   Blaze:  4   CaveSpider: 33   Spider:  8   Spiderextra: 10   Witch: 19
+(this section took 1.327745 minutes)
 -----
 added  beacon at -539 52 -149 which travels 498
-   spawners along path:   Total: 91   Creeper: 16   Skeleton: 13   Zombie: 62
+   spawners along path:   Total: 86   Creeper:  9   Skeleton: 10   Zombie: 67
 added FINAL beacon at -695 55 -744 which travels 478
-   spawners along path:   Total:160   CaveSpider: 20   Creeper: 28   Skeleton: 24   Witch: 25   Zombie: 63
+   spawners along path:   Total:151   CaveSpider: 26   Creeper: 19   Skeleton: 25   Witch: 18   Zombie: 63
 added  beacon at -747 51 109 which travels 268
-   spawners along path:   Total: 37   Creeper:  8   Skeleton:  4   Zombie: 25
+   spawners along path:   Total: 37   Creeper:  7   Skeleton:  3   Zombie: 27
 added  beacon at -273 54 945 which travels 183
-   spawners along path:   Total: 36   Creeper:  8   Skeleton:  5   Zombie: 23
+   spawners along path:   Total: 41   Creeper:  7   Skeleton:  6   Zombie: 28
 added  beacon at -761 59 -632 which travels 265
-   spawners along path:   Total: 42   Creeper:  7   Skeleton:  6   Zombie: 29
+   spawners along path:   Total: 46   Creeper:  5   Skeleton: 10   Zombie: 31
 added  beacon at -794 32 741 which travels 122
-   spawners along path:   Total: 18   Creeper:  3   Skeleton:  3   Zombie: 12
+   spawners along path:   Total: 15   Creeper:  2   Skeleton:  3   Zombie: 10
 added  beacon at -514 60 665 which travels 241
-   spawners along path:   Total: 31   Creeper:  8   Skeleton:  7   Zombie: 16
+   spawners along path:   Total: 41   Creeper:  7   Skeleton:  6   Zombie: 28
 added  beacon at -534 59 -650 which travels 141
-   spawners along path:   Total: 17   Creeper:  1   Skeleton:  1   Zombie: 15
+   spawners along path:   Total: 24   Creeper:  6   Zombie: 18
 added  beacon at -518 47 417 which travels 202
-   spawners along path:   Total: 36   Creeper:  4   Skeleton:  6   Zombie: 26
+   spawners along path:   Total: 28   Creeper:  1   Skeleton:  9   Zombie: 18
 added  beacon at -255 53 -24 which travels 175
-   spawners along path:   Total: 27   Creeper:  5   Skeleton:  3   Zombie: 19
+   spawners along path:   Total: 33   Creeper:  3   Skeleton:  5   Zombie: 25
 added  beacon at -362 20 -293 which travels 176
-   spawners along path:   Total: 28   Creeper:  4   Skeleton:  4   Zombie: 20
+   spawners along path:   Total: 25   Creeper:  1   Skeleton:  6   Zombie: 18
 added  beacon at -291 32 301 which travels 158
-   spawners along path:   Total: 29   Creeper:  3   Skeleton:  4   Zombie: 22
+   spawners along path:   Total: 24   Creeper:  5   Skeleton:  2   Zombie: 17
 added  beacon at -122 60 622 which travels 335
-   spawners along path:   Total: 60   Creeper:  5   Skeleton:  4   Zombie: 51
+   spawners along path:   Total: 48   Creeper:  4   Skeleton:  8   Zombie: 36
 added  beacon at -258 59 -408 which travels 482
-   spawners along path:   Total: 81   Creeper:  8   Skeleton: 14   Zombie: 59
+   spawners along path:   Total: 82   Creeper:  7   Skeleton: 14   Zombie: 61
 added  beacon at 217 51 -59 which travels 172
-   spawners along path:   Total: 35   Creeper:  8   Skeleton:  4   Zombie: 23
+   spawners along path:   Total: 31   Creeper:  4   Skeleton:  5   Zombie: 22
 added  beacon at 104 56 916 which travels 413
-   spawners along path:   Total: 73   Creeper: 13   Skeleton:  7   Zombie: 53
+   spawners along path:   Total: 75   Creeper: 15   Skeleton: 13   Zombie: 47
 added  beacon at -16 47 -626 which travels 116
-   spawners along path:   Total: 20   Creeper:  1   Skeleton:  7   Zombie: 12
+   spawners along path:   Total: 19   Creeper:  4   Skeleton:  3   Zombie: 12
 added  beacon at 304 53 -119 which travels 280
-   spawners along path:   Total: 41   Creeper:  2   Skeleton:  7   Zombie: 32
+   spawners along path:   Total: 42   Creeper:  3   Skeleton:  2   Zombie: 37
 added  beacon at 306 56 409 which travels 107
-   spawners along path:   Total: 22   Creeper:  3   Skeleton:  6   Zombie: 13
+   spawners along path:   Total: 21   Creeper:  1   Skeleton:  1   Zombie: 19
 added  beacon at 349 55 -618 which travels 286
-   spawners along path:   Total: 49   Creeper:  5   Skeleton:  5   Zombie: 39
+   spawners along path:   Total: 39   Creeper:  9   Skeleton:  9   Zombie: 21
 added  beacon at 402 36 227 which travels 470
-   spawners along path:   Total: 82   Creeper:  7   Skeleton: 11   Zombie: 64
+   spawners along path:   Total: 75   Creeper:  9   Skeleton: 13   Zombie: 53
 added  beacon at 846 57 -754 which travels 172
-   spawners along path:   Total: 22   Creeper:  6   Skeleton:  4   Zombie: 12
+   spawners along path:   Total: 31   Creeper:  3   Skeleton:  9   Zombie: 19
 added  beacon at 693 59 306 which travels 191
-   spawners along path:   Total: 38   Creeper:  3   Skeleton:  3   Zombie: 32
+   spawners along path:   Total: 38   Creeper: 10   Skeleton:  3   Zombie: 25
 added  beacon at 681 30 -447 which travels 315
-   spawners along path:   Total: 54   Creeper:  5   Skeleton:  8   Zombie: 41
+   spawners along path:   Total: 49   Creeper: 11   Skeleton:  5   Zombie: 33
 added  beacon at 878 53 -406 which travels 425
-   spawners along path:   Total: 77   Creeper:  9   Skeleton:  7   Zombie: 61
+   spawners along path:   Total: 71   Creeper: 10   Skeleton:  9   Zombie: 52
 added  beacon at 927 33 -628 which travels 174
-   spawners along path:   Total: 32   Creeper:  7   Skeleton:  4   Zombie: 21
+   spawners along path:   Total: 25   Creeper:  2   Skeleton:  1   Zombie: 22
 added  beacon at 864 60 -132 which travels 342
-   spawners along path:   Total: 56   Creeper:  9   Skeleton:  5   Zombie: 42
-(this section took 2.216493 minutes)
+   spawners along path:   Total: 58   Creeper:  7   Skeleton: 11   Zombie: 40
+found 3 reachable cul-de-sac rooms
+(this section took 2.799012 minutes)
 -----
-(this section took 0.020637 minutes)
+('find best hiding spot' sub-section took 1.123795 minutes)
+added mountain peak at -450 -168
+   spawners along path:   Total: 62   Blaze:  5   CaveSpider: 22   Ghast:  3   Spiderextra: 17   Zombie: 15
+added mountain peak at 388 732
+   spawners along path:   Total: 73   Blaze:  4   CaveSpider: 25   Ghast:  8   Spiderextra: 13   Zombie: 23
+added mountain peak at 988 938
+   spawners along path:   Total: 68   Blaze:  4   CaveSpider: 27   Ghast:  6   Spiderextra: 14   Zombie: 17
+added mountain peak at -984 984
+   spawners along path:   Total: 62   Blaze:  2   CaveSpider: 18   Ghast:  5   Spiderextra: 13   Zombie: 24
+added mountain peak at -516 -757
+   spawners along path:   Total: 64   Blaze:  3   CaveSpider: 21   Ghast:  8   Spiderextra: 12   Zombie: 20
+added mountain peak at -204 488
+   spawners along path:   Total: 60   Blaze:  4   CaveSpider: 21   Ghast:  4   Spiderextra: 18   Zombie: 13
+added mountain peak at -68 -581
+   spawners along path:   Total: 53   Blaze:  4   CaveSpider: 20   Ghast:  3   Spiderextra: 13   Zombie: 13
+added mountain peak at -820 -275
+   spawners along path:   Total: 57   Blaze:  5   CaveSpider: 17   Ghast:  5   Spiderextra:  8   Zombie: 22
+added mountain peak at 550 -595
+   spawners along path:   Total: 62   Blaze:  5   CaveSpider: 21   Ghast:  6   Spiderextra: 13   Zombie: 17
+added mountain peak at 514 551
+   spawners along path:   Total: 75   Blaze:  9   CaveSpider: 25   Ghast:  7   Spiderextra: 12   Zombie: 22
+(this section took 1.142537 minutes)
 -----
-START CMDS
-(this section took 0.000150 minutes)
+highlighted 13 cave entrances near spawn
+(this section took 0.033870 minutes)
 -----
-WRITING MAP PNG IMAGES
-(this section took 0.776752 minutes)
+added 299 extra loot chests: 52, 144, 16, 64, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15
+(this section took 0.582868 minutes)
 -----
-Took 9.987062 minutes
-press a key to end
-
-
-
-
-SUMMARY
-
-(this section took 0.194868 minutes)
------
-CACHE HM...
-(this section took 0.075682 minutes)
------
-added 870 extra dungeon spawners underground
-(this section took 1.467992 minutes)
------
-added random spawners underground
-   spawners along path:   Total:1939   Blaze:115   Creeper: 99   Skeleton:553   Spider:626   Zombie:546
-   spawners along path:   Total:813   Blaze:151   CaveSpider:125   Creeper:130   Skeleton:152   Spider:133   Zombie:122
-(this section took 2.237875 minutes)
------
-added flat set piece at -243 697
-   spawners along path:   Total: 65   Blaze:  4   CaveSpider: 38   Spider:  3   Spiderextra:  6   Witch: 14
-added flat set piece at -718 -714
-   spawners along path:   Total: 77   Blaze:  4   CaveSpider: 37   Spider:  7   Spiderextra: 11   Witch: 18
-added flat set piece at 117 -802
-   spawners along path:   Total: 62   Blaze:  4   CaveSpider: 32   Spider: 13   Spiderextra:  6   Witch:  7
-added flat set piece at -475 769
-   spawners along path:   Total: 80   Blaze:  4   CaveSpider: 33   Spider:  7   Spiderextra: 16   Witch: 20
-added flat set piece at -149 -485
-   spawners along path:   Total: 62   Blaze:  4   CaveSpider: 22   Spider:  8   Spiderextra: 10   Witch: 18
-added flat set piece at 602 497
-   spawners along path:   Total: 79   Blaze:  4   CaveSpider: 38   Spider: 12   Spiderextra:  9   Witch: 16
-added flat set piece at 957 489
-   spawners along path:   Total: 60   Blaze:  4   CaveSpider: 27   Spider:  8   Spiderextra:  7   Witch: 14
-added flat set piece at 524 -401
-   spawners along path:   Total: 80   Blaze:  4   CaveSpider: 45   Spider:  6   Spiderextra: 10   Witch: 15
-added flat set piece at 526 739
-   spawners along path:   Total: 69   Blaze:  4   CaveSpider: 32   Spider:  6   Spiderextra: 12   Witch: 15
-added flat set piece at 57 349
-   spawners along path:   Total: 68   Blaze:  4   CaveSpider: 33   Spider:  7   Spiderextra:  6   Witch: 18
-(this section took 1.089328 minutes)
------
-added  beacon at -865 53 -790 which travels 145
-   spawners along path:   Total: 24   Creeper:  3   Skeleton:  4   Zombie: 17
-added  beacon at -900 55 278 which travels 182
-   spawners along path:   Total: 23   Creeper:  5   Skeleton:  4   Zombie: 14
-added FINAL beacon at -593 58 -455 which travels 311
-   spawners along path:   Total:113   CaveSpider: 14   Creeper: 15   Skeleton: 20   Witch: 18   Zombie: 46
-added  beacon at -767 48 -305 which travels 278
-   spawners along path:   Total: 45   Creeper:  8   Skeleton:  5   Zombie: 32
-added  beacon at -619 59 689 which travels 272
-   spawners along path:   Total: 32   Creeper:  7   Skeleton:  3   Zombie: 22
-added  beacon at -359 45 -183 which travels 278
-   spawners along path:   Total: 44   Creeper:  7   Skeleton:  3   Zombie: 34
-added  beacon at -327 49 -820 which travels 329
-   spawners along path:   Total: 60   Creeper:  7   Skeleton:  7   Zombie: 46
-added  beacon at -197 59 -927 which travels 305
-   spawners along path:   Total: 44   Creeper:  6   Skeleton:  6   Zombie: 32
-added  beacon at 26 53 -613 which travels 464
-   spawners along path:   Total: 75   Creeper: 20   Skeleton:  9   Zombie: 46
-added  beacon at 176 59 -417 which travels 329
-   spawners along path:   Total: 59   Creeper:  8   Skeleton: 11   Zombie: 40
-added  beacon at -46 54 383 which travels 287
-   spawners along path:   Total: 49   Creeper: 12   Skeleton:  6   Zombie: 31
-added  beacon at 193 48 928 which travels 213
-   spawners along path:   Total: 37   Creeper:  6   Skeleton:  3   Zombie: 28
-added  beacon at 209 28 360 which travels 316
-   spawners along path:   Total: 56   Creeper:  9   Skeleton: 10   Zombie: 37
-added  beacon at 634 54 958 which travels 302
-   spawners along path:   Total: 41   Creeper:  3   Skeleton:  4   Zombie: 34
-added  beacon at 612 21 -961 which travels 209
-   spawners along path:   Total: 27   Creeper:  3   Skeleton:  3   Zombie: 21
-added  beacon at 638 58 134 which travels 249
-   spawners along path:   Total: 50   Creeper:  5   Skeleton:  7   Zombie: 38
-added  beacon at 751 58 501 which travels 277
-   spawners along path:   Total: 50   Creeper:  7   Skeleton: 11   Zombie: 32
-added  beacon at 958 48 -850 which travels 190
-   spawners along path:   Total: 33   Creeper:  4   Skeleton:  5   Zombie: 24
-added  beacon at 916 57 414 which travels 340
-   spawners along path:   Total: 54   Creeper: 10   Skeleton:  4   Zombie: 40
-added  beacon at 922 56 341 which travels 279
-   spawners along path:   Total: 50   Creeper:  7   Skeleton:  4   Zombie: 39
-added  beacon at 927 59 -217 which travels 195
-   spawners along path:   Total: 36   Skeleton:  7   Zombie: 29
-(this section took 2.039041 minutes)
------
-('find best hiding spot' sub-section took 0.734653 minutes)
-added mountain peak at -948 -613
-   spawners along path:   Total:132   Blaze: 13   CaveSpider: 36   Ghast: 17   Spiderextra: 35   Zombie: 31
-added mountain peak at -609 864
-   spawners along path:   Total:117   Blaze: 11   CaveSpider: 32   Ghast: 11   Spiderextra: 24   Zombie: 39
-added mountain peak at 713 288
-   spawners along path:   Total:114   Blaze:  6   CaveSpider: 46   Ghast:  8   Spiderextra: 25   Zombie: 29
-added mountain peak at -674 80
-   spawners along path:   Total:105   Blaze: 10   CaveSpider: 37   Ghast: 11   Spiderextra: 17   Zombie: 30
-added mountain peak at -352 131
-   spawners along path:   Total:117   Blaze:  9   CaveSpider: 37   Ghast: 15   Spiderextra: 26   Zombie: 30
-added mountain peak at -661 -401
-   spawners along path:   Total:118   Blaze:  7   CaveSpider: 31   Ghast: 16   Spiderextra: 29   Zombie: 35
-added mountain peak at 337 -251
-   spawners along path:   Total: 99   Blaze: 11   CaveSpider: 34   Ghast: 10   Spiderextra: 14   Zombie: 30
-added mountain peak at 256 -960
-   spawners along path:   Total: 97   Blaze:  9   CaveSpider: 28   Ghast: 13   Spiderextra: 14   Zombie: 33
-added mountain peak at -958 -9
-   spawners along path:   Total:104   Blaze:  8   CaveSpider: 22   Ghast: 15   Spiderextra: 21   Zombie: 38
-added mountain peak at 860 -748
-   spawners along path:   Total:112   Blaze: 11   CaveSpider: 18   Ghast: 13   Spiderextra: 29   Zombie: 41
-(this section took 0.755593 minutes)
------
-(this section took 0.019115 minutes)
+Added 4 Hell biomes and 12 Sky biomes (replacing Plains)
+(this section took 0.015104 minutes)
 -----
 START CMDS
-(this section took 0.000255 minutes)
+(this section took 0.000440 minutes)
+-----
+SAVING FILES
+(this section took 1.222201 minutes)
 -----
 WRITING MAP PNG IMAGES
-(this section took 0.281431 minutes)
+(this section took 0.123511 minutes)
 -----
-Took 9.309685 minutes
-press a key to end
+Took 11.255895 total minutes
 
 
 

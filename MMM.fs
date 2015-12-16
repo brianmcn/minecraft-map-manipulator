@@ -2207,7 +2207,7 @@ do
     
 //    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM - Copy"""
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     //LootTables.writeAllLootTables(worldSaveFolder)
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)

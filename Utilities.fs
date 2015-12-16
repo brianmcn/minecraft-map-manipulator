@@ -1188,7 +1188,7 @@ let placeCommandBlocksInTheWorldTemp(fil) =
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
 
-let makeBiomeMap(regionFolder, rxs:int list, rzs:int list, decorations) =
+let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decorations) =
     let negXCount = rxs |> Seq.filter (fun x -> x<0) |> Seq.length 
     let negZCount = rzs |> Seq.filter (fun z -> z<0) |> Seq.length 
     let image = new System.Drawing.Bitmap(512*rxs.Length, 512*rzs.Length)
@@ -1240,4 +1240,40 @@ let makeBiomeMap(regionFolder, rxs:int list, rzs:int list, decorations) =
     for (c,x,z) in decorations do
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
+
+let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, decorations) =
+    let image = new System.Drawing.Bitmap(xlen,zlen)
+    for x = xmin to xmin+xlen-1 do
+        for y = zmin to zmin+zlen-1 do
+            let biome = biome.[x,y]
+            let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=int biome) |> (fun (_,_,color) -> color)
+            let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
+            assert(mci = mapColorIndex)
+            let r,g,b = 
+                if (x%512=0) || (y%512=0) then
+                    r/2,g/2,b/2  // dark lines on region bounds
+                else
+                    r,g,b
+            image.SetPixel(x-xmin, y-zmin, System.Drawing.Color.FromArgb(r,g,b))
+    let placeRedLetterAt(letter, centerX, centerZ) =
+        let D = 9
+        let ix = centerX - 5*(D+1)
+        let iy = centerZ - 5*(D+1)
+        match ALPHABET5INDEX letter with
+        | Some i ->
+            for j = 0 to 4 do
+                for k = 0 to 4 do
+                    if ALPHABET5.[j].[5*i+k] = 'X' then
+                        for dx = 0 to D do
+                            for dy = 0 to D do
+                                try
+                                    image.SetPixel(ix+k*D+dx-xmin, iy+j*D+dy-zmin, System.Drawing.Color.FromArgb(255,0,0))
+                                with _ -> () // if goes off edge, just don't draw
+        | None -> failwith "bad letter"
+    let mapFolder = System.IO.Path.GetDirectoryName(regionFolder)
+    image.Save(System.IO.Path.Combine(mapFolder,"mapOverview.png"))
+    for (c,x,z) in decorations do
+        placeRedLetterAt(c,x,z)
+    image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
+
 
