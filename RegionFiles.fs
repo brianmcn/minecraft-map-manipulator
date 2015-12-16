@@ -513,6 +513,41 @@ type MapFolder(folderName) =
             let r = new RegionFile(fil)
             cachedRegions.[rx,rz] <- r
             r
+    member this.AddEntities(es) =
+        // partition by region,chunk
+        let data = new System.Collections.Generic.Dictionary<_,_>()
+        for e in es do
+            let pos = e |> Array.pick (function List("Pos",Doubles(da)) -> Some da | _ -> None)
+            let [|fx;_fy;fz|] = pos
+            let rx = int(floor(fx + 512000.0)) / 512 - 1000
+            let rz = int(floor(fz + 512000.0)) / 512 - 1000
+            if not(data.ContainsKey(rx,rz)) then
+                data.Add((rx,rz), Array2D.init 32 32 (fun _ _ -> ResizeArray()))
+            let cx = (int(floor(fx+512000.0))%512)/16
+            let cz = (int(floor(fz+512000.0))%512)/16
+            data.[(rx,rz)].[cx,cz].Add(e)
+        for (KeyValue((rx,rz),esPerChunk)) in data do
+            let r = getOrCreateRegion(rx, rz)
+            // load each chunk Es
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    if esPerChunk.[cx,cz].Count > 0 then
+                        let chunk = r.GetChunk(cx,cz)
+                        let a = match chunk with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
+                        let mutable found = false
+                        let mutable i = 0
+                        while not found && i < a.Count-1 do
+                            match a.[i] with
+                            | List("Entities",Compounds(existingEs)) ->
+                                found <- true
+                                a.[i] <- List("Entities",Compounds(Seq.append existingEs esPerChunk.[cx,cz] |> Array.ofSeq))
+                            | _ -> ()
+                            i <- i + 1
+                        if not found then // no Entities yet, write the entry
+                            match chunk with 
+                            | Compound(_,rsa) -> 
+                                match rsa.[0] with 
+                                | Compound(n,a) -> rsa.[0] <- Compound(n, a |> Seq.append [| List("Entities",Compounds(esPerChunk.[cx,cz] |> Array.ofSeq)) |] |> ResizeArray)
     member this.AddOrReplaceTileEntities(tes) =
         // partition by region,chunk
         let data = new System.Collections.Generic.Dictionary<_,_>()

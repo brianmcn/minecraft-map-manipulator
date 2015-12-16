@@ -1249,7 +1249,24 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                         // 56, 205, 20, 65,
                 // end for y
                 let y = 62
-                let DIGMAX = 13
+                let PIXELS = 
+                    [|
+                        "............."
+                        ".XXX..X.XXXX."
+                        ".X..X.X.X...."
+                        ".X..X.X.X.XX."
+                        ".X..X.X.X..X."
+                        ".XXX..X.XXXX."
+                        "............."
+                        "....X...X...."
+                        ".....X.X....."
+                        "......X......"
+                        ".....X.X....."
+                        "....X...X...."
+                        "............."
+                    |]
+                let DIGMAX = PIXELS.Length 
+                assert(PIXELS.Length = PIXELS.[0].Length)
                 if x < MINIMUM+LENGTH-1 - DIGMAX && z < MINIMUM+LENGTH-1 - DIGMAX then
                     if map.GetBiome(x,z)=6uy && map.GetBlockInfo(x,y,z).BlockID=9uy then // swamp, water
                         if noneWithin(120,points.[19],x,y,z) then
@@ -1264,7 +1281,24 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                         ok <- false
                                 if ok then
                                     printfn "FOUND SWAMP %d %d" x z
-                                    // TODO put "DIG" and "X" with entities so frost walker exposes
+                                    // put "DIG" and "X" with entities so frost walker exposes
+                                    let mkArmorStandAt(x,y,z) = 
+                                        [|
+                                            NBT.String("id","ArmorStand")
+                                            NBT.List("Pos",Doubles([|float x + 0.5; float y; float z + 0.5|]))
+                                            NBT.List("Motion",Doubles([|0.0; 0.0; 0.0|]))
+                                            NBT.List("Rotation",Doubles([|0.0; 0.0|]))
+                                            NBT.Byte("Marker",0uy) // need hitbox to work with FW
+                                            NBT.Byte("Invisible",1uy)
+                                            NBT.Byte("NoGravity",1uy)
+                                            NBT.End
+                                        |]
+                                    let ents = ResizeArray()
+                                    for dx = 0 to DIGMAX-1 do
+                                        for dz = 0 to DIGMAX-1 do
+                                            if PIXELS.[dx].[DIGMAX-1-dz] = 'X' then
+                                                ents.Add(mkArmorStandAt(x+dx,y,z+dz))
+                                    map.AddEntities(ents)
                                     // TODO place hidden trapped chest, what loot? probably better than exposed chests...
                                     XXX
                                     points.[19].Add( (x,y,z) )
@@ -1407,7 +1441,7 @@ let makeCrazyMap(worldSaveFolder) =
     xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    xtime (fun() ->
+    time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
