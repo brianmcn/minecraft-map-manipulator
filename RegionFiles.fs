@@ -616,6 +616,11 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.SetBiome(x,z,b)
+    member this.GetRegion(x,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r
     member this.EnsureSetBlockIDAndDamage(x,y,z,bid,d) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000

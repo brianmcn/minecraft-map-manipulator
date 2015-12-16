@@ -685,7 +685,13 @@ let updateDat(file,f) =
     printfn "%s" (nbt.ToString())
     let nbt = cataNBT f id nbt
     printfn "%s" (nbt.ToString())
+    if System.IO.File.Exists(file+".new") then
+        System.IO.File.Delete(file+".new")
     writeDatFile(file+".new", nbt)
+    if System.IO.File.Exists(file+".old") then
+        System.IO.File.Delete(file+".old")
+    System.IO.File.Move(file,file+".old")
+    System.IO.File.Move(file+".new",file)
 
 let dumpPlayerDat(file) =
     let nbt = readDatFile(file)

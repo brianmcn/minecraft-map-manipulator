@@ -1366,6 +1366,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,"minecraft:command_block")
     let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,"minecraft:repeating_command_block")
     //let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,"minecraft:chain_command_block")
+    let h = hm.[1,1] // 1,1 since 0,0 has commands
     let y = ref 255
     let R(c) = placeRepeating(0,!y,0,c); decr y
     let I(c) = placeImpulse(0,!y,0,c); decr y
@@ -1400,21 +1401,29 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I(sprintf "scoreboard players set Z hidden %d" hiddenZ)
     I(sprintf "scoreboard players set fX hidden %d" finalEX)
     I(sprintf "scoreboard players set fZ hidden %d" finalEZ)
+    I("scoreboard players set CTM hidden 0")
+    // repeat blocks to check for CTM completion
+    I(sprintf "blockdata 0 %d 3 {auto:1b}" (h-2))
+    I(sprintf "blockdata 1 %d 3 {auto:1b}" (h-2))
+    I(sprintf "blockdata 2 %d 3 {auto:1b}" (h-2))
     I(sprintf "fill 0 %d 0 0 253 0 air" !y) // remove all the ICBs, just leave the RCBs
-    let h = hm.[1,1] // 1,1 since 0,0 has commands
     putBeaconAt(map,1,h,1,0uy,false)  // beacon at spawn for convenience
     // clear space above beacon
     for x = -1 to 3 do
         for z = -1 to 3 do
-            if x<>1 && z<>1 then
+            if x<>1 || z<>1 then
                 map.SetBlockIDAndDamage(x,h+0,z,0uy,0uy) // air
             map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
+            map.SetBlockIDAndDamage(x,h+2,z,0uy,0uy) // air
+            map.SetBlockIDAndDamage(x,h+3,z,0uy,0uy) // air
     // put monument
     for x = -1 to 3 do
         for z = 4 to 6 do
             map.SetBlockIDAndDamage(x,h-1,z,7uy,0uy) // bedrock
             map.SetBlockIDAndDamage(x,h+0,z,0uy,0uy) // air
             map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
+            map.SetBlockIDAndDamage(x,h+2,z,0uy,0uy) // air
+            map.SetBlockIDAndDamage(x,h+3,z,0uy,0uy) // air
     map.SetBlockIDAndDamage(2,h,6,7uy,0uy)
     map.SetBlockIDAndDamage(1,h,6,7uy,0uy)
     map.SetBlockIDAndDamage(0,h,6,7uy,0uy)
@@ -1426,7 +1435,26 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                                     [| Int("x",1); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"Purpur Block"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
                                     [| Int("x",0); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"Sponge"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
                                  |])
-
+    let r = map.GetRegion(1,1)
+    let cmds(x,tilename) = 
+        [|
+            P (sprintf "testforblock %d %d 6 %s" x (h+1) tilename)
+            C "scoreboard players add CTM hidden 1"
+            C """tellraw @a ["You placed ",{"score":{"name":"CTM","objective":"hidden"}}," of 3 objective blocks so far!"]"""
+            C (sprintf "blockdata 0 %d 3 {auto:1b}" (h-3))
+            C "fill ~ ~ ~ ~ ~ ~-4 air"
+        |]
+    for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
+        r.PlaceCommandBlocksStartingAt(x,h-2,3,cmds(x,tilename),"check ctm block")
+    let finalCmds = 
+        [|
+            O "scoreboard players test CTM hidden 3 *"
+            C """tellraw @a ["You win the map! Daylight cycle restored! World border removed! Feel free to continue playing normal Minecraft now; terrain generation becomes normal after about 1300 blocks from spawn."]"""
+            C "worldborder set 30000000"
+            C "gamerule doDaylightCycle true"
+            C "fill 0 254 0 0 255 0 air"  // remove day/night blocks
+        |]
+    r.PlaceCommandBlocksStartingAt(0,h-3,3,finalCmds,"check ctm win")
 
 let makeCrazyMap(worldSaveFolder) =
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
@@ -1482,14 +1510,14 @@ let makeCrazyMap(worldSaveFolder) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(map, log))
-    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(map, log, biome))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(map, log))
+    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> replaceSomeBiomes(map, log, biome))
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
@@ -1497,7 +1525,7 @@ let makeCrazyMap(worldSaveFolder) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, decorations)
         )

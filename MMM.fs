@@ -2205,21 +2205,24 @@ do
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
     //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo45a\igloo_bottom.nbt""")
     
-//    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM - Copy"""
+
+    let biomeSize = 3
+    let go = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
     TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     //LootTables.writeAllLootTables(worldSaveFolder)
+    // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
+    // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
 
     
-    //System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(3,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
-    //genTerrainWithMCServer(14,       MC_Constants.defaultWorldWithCustomOreSpawns(3,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
+    //System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
+    //genTerrainWithMCServer(14,       MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
 
 
 
-    //updateDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\customized\level.dat""", (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
 
 
 

@@ -304,6 +304,9 @@ let LOOT_FROM_DEFAULT_MOBS =
 // TODO change to command signs? https://www.reddit.com/r/MinecraftCommands/comments/3twe3w/same_chest_different_loot/
 // TODO or just something 'better'... how best do? monument? 2 endstone, 1 sponge?
 // TODO end stone brick with X coord, purpur brick with Z coord
+// TODO magma cubes don't work now that nether biome is in map, I think, grrr... maybe bingo-style detect-clear-replace?
+// or actually, since 'CTM hidden' is updated by placing monument blocks, can give end_bricks if CTM score=0, purpur_block if 1, and must place before attack next?
+// and upon placing monument block, get the book which says what next?
         "minecraft:entities/magma_cube", Pools [
             Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
                    """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
