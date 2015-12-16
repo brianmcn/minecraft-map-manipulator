@@ -866,6 +866,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         U """scoreboard players remove @a hasMaps 1"""
         U """scoreboard players set @a hasMaps 5 {Inventory:[{id:"minecraft:filled_map",Damage:0s}]}"""
         U """give @a[score_hasMaps=0] filled_map 32 0 {display:{Name:"BINGO Card"}}"""
+        U """tellraw @a[63,7,57,rm=30,score_hasMaps=0] ["(If you need to quit before getting BINGO, you can"]"""
+        U """tellraw @a[63,7,57,rm=30,score_hasMaps=0] [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
         U """scoreboard players set @a[score_hasMaps=0] hasMaps 5"""   // just in case give it to them but inventory full, keep the delay before giving again
         |]
     let cmdsTriggerHome =
@@ -1382,7 +1384,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players set @a home 0"
         yield U "scoreboard players enable @a home"
         // option to get back
-        yield U """tellraw @a ["(If you need quit before getting BINGO, you can"]"""
+        yield U """tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
         yield U """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
         // turn on dropped-map checker
         yield U (sprintf "setblock %s redstone_block" (NOTICE_DROPPED_MAP_CMDS.Offset(0,1,0).STR))
@@ -2205,8 +2207,8 @@ do
     
 //    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM - Copy"""
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
-    LootTables.writeAllLootTables(worldSaveFolder)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    //LootTables.writeAllLootTables(worldSaveFolder)
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
