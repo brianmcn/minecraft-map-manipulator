@@ -1450,6 +1450,8 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
         [|
             O "scoreboard players test CTM hidden 3 *"
             C """tellraw @a ["You win the map! Daylight cycle restored! World border removed! Feel free to continue playing normal Minecraft now; terrain generation becomes normal after about 1300 blocks from spawn."]"""
+            // TODO nether still different
+            // TODO loot tables still different
             C "worldborder set 30000000"
             C "gamerule doDaylightCycle true"
             C "fill 0 254 0 0 255 0 air"  // remove day/night blocks

@@ -348,7 +348,10 @@ type RegionFile(filename) =
         let cmds = [| yield! cmds; yield U (sprintf "fill ~ ~ ~-%d ~ ~ ~ air" cmds.Length) |]
         this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
-        printfn "%s%d commands being placed - %s" (if startz + cmds.Length > 180 then "***WARN*** - " else "") cmds.Length comment
+        this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment,true)
+    member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment,checkForOverwrites) =
+        if comment <> "" then
+            printfn "%s%d commands being placed - %s" (if startz + cmds.Length > 180 then "***WARN*** - " else "") cmds.Length comment
         let preprocessForBackpatching(a:_[]) =
             // n is a single character
             // C/U BLOCKDATA ON n
@@ -441,7 +444,7 @@ type RegionFile(filename) =
                 | O s -> 137uy,3uy,0uy,s,null
                 | U s -> 211uy,3uy,1uy,s,null
                 | C s -> 211uy,11uy,1uy,s,null
-            this.SetBlockIDAndDamage(x,y,z,bid,bd)
+            this.EnsureSetBlockIDAndDamage(x,y,z,bid,bd)
             let nbts = if s = DUMMY then [||] else [|mkCmd(x,y,z,au,s,txt)|]
             if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
             let xx = ((x+51200)%512)/16
@@ -458,15 +461,18 @@ type RegionFile(filename) =
                 prevcz <- zz
             // accumulate payload in this chunk
             let thisz = z
-            tepayload <-  
-                tepayload 
-                |> Seq.filter (fun te -> 
-                    let alreadyThere = Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te
-                    if alreadyThere then
-                        failwith "uh-oh, overwriting blocks"
-                        //printfn "******WARN***** overwriting blocks"
-                    not(alreadyThere) )
-                |> Seq.append nbts |> (fun x -> ResizeArray x)
+            if checkForOverwrites then
+                tepayload <-  
+                    tepayload 
+                    |> Seq.filter (fun te -> 
+                        let alreadyThere = Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te
+                        if alreadyThere then
+                            failwith "uh-oh, overwriting blocks"
+                            //printfn "******WARN***** overwriting blocks"
+                        not(alreadyThere) )
+                    |> Seq.append nbts |> (fun x -> ResizeArray x)
+            else
+                tepayload.AddRange(nbts)
             z <- z + 1
         storeIt(prevcx,prevcz,tepayload)
     member this.NumCommandBlocksPlaced = numCommandBlocksPlaced

@@ -2138,6 +2138,186 @@ let genTerrainWithMCServer(seed, customizedPreset) =
 
 ////////////////////////////////////////////
 
+[<AllowNullLiteral>]
+type TrieNode() =
+    let data = Array.zeroCreate 26
+    let mutable isWord = false
+    let mutable x,y,z = 0,0,0
+    member this.Add(letter) =
+        if data.[letter] = null then
+            data.[letter] <- new TrieNode()
+        data.[letter]
+    member this.FinishWord() = isWord <- true
+    member this.Data = data
+    member this.IsWord = isWord
+    member this.SetXYZ(xx,yy,zz) = x <- xx; y <- yy; z <- zz
+    member this.X = x
+    member this.Y = y
+    member this.Z = z
+
+let makeTrie() =
+    let words = System.IO.File.ReadAllLines("""C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\ENABLE.txt""")
+    let root = new TrieNode()
+    let mutable count = 0
+    for w in words do
+        let mutable i = root
+        for c in w do
+            i <- i.Add(int(c) - int('a'))
+        i.FinishWord()
+        count <- count + 1
+    printfn "made %d words" count
+    root
+
+let mutable words = 0
+let mutable nonWords = 0
+let mutable cmdBlocks = 0
+let mutable firstTime = true
+let mutable nodesVisited = 0
+
+type Placer() =
+    let mutable x,y,z = 0,255,0
+    member this.Place(n) =
+        if z+n > 170 then
+            z <- 0
+            x <- x + 1
+            if x > 170 then
+                x <- 0
+                y <- y - 3
+                if y < 10 then
+                    failwith "out of room"
+        let r = x,y,z
+        z <- z + n
+        r
+
+let rec postfix(n:TrieNode,parent:TrieNode,placer:Placer,r:RegionFile) =
+    nodesVisited <- nodesVisited + 1
+    if nodesVisited % 10000 = 0 then
+        printfn "    visited %d" nodesVisited
+    let mutable numFwd = 0
+    for x in n.Data do
+        if x <> null then
+            postfix(x,n,placer,r)
+            numFwd <- numFwd + 1
+    if n.IsWord then
+        words <- words + 1
+    else
+        nonWords <- nonWords + 1
+    let thisCmdBlocks = 1 + numFwd + 1
+    cmdBlocks <- cmdBlocks + thisCmdBlocks
+    let x,y,z =     
+        if firstTime then
+            let x,y,z = placer.Place(thisCmdBlocks+1)  // +1 for air in between, PlaceCommandBlocksStartingAt puts air after
+            n.SetXYZ(x,y,z)
+            x,y,z
+        else
+            n.X, n.Y, n.Z
+    if firstTime then
+        // could place commands, record self location
+        // second pass to record parent locations for backspace
+        // O fill blah wool n replace wool  // n = green or red if word
+        // U tp @e[type=LavaSlime,score_L_min=0,score_L=0] x y z // xyz for 'A' (0)
+        // U tp @e[type=LavaSlime,score_L_min=1,score_L=1] x y z // xyz for 'B' (1)
+        // ...
+        // U tp @e[type=LavaSlime,score_L_min=26,score_L=26] x y z // xyz for 'backspace' (26)
+        let cmds = 
+            [|
+                yield O (sprintf "fill 49 0 0 49 3 10 wool %d replace wool" (if n.IsWord then 5 else 14))
+                for i = 0 to 25 do
+                    let next = n.Data.[i]
+                    if next <> null then
+                        assert(next.Y <> 0)
+                        yield U (sprintf "tp @e[type=LavaSlime,score_L_min=%d,score_L=%d] %d %d %d" i i next.X next.Y next.Z)
+                yield U "say never get here"  // replace in pass 2
+            |]
+        r.PlaceCommandBlocksStartingAt(x,y,z,cmds,"",false)
+    else
+        r.PlaceCommandBlocksStartingAt(x,y,z+thisCmdBlocks-1,[|U (sprintf "tp @e[type=LavaSlime,score_L_min=26,score_L=26] %d %d %d" parent.X parent.Y parent.Z)|],"",false)
+
+
+let doTrie(r:RegionFile) =
+    let t = makeTrie()
+    let placer = new Placer()
+    postfix(t,null,placer,r)
+    printfn "%d word nodes and %d nonword nodes, need %d commands" words nonWords cmdBlocks
+    firstTime <- false
+    nodesVisited <- 0
+    postfix(t,t,placer,r)
+    // glowing entity can be the 'PC', can use all Os and have it BD them
+    for x = 0 to 26 do
+        let cmds = 
+            [|
+                yield O "blockdata ~ ~ ~ {auto:0b}"
+                //yield U (sprintf """tellraw @a [{"text":"you pressed %c"}]""" (char (65+x)))
+                yield U (sprintf "scoreboard players set @e[type=LavaSlime] L %d" x)
+                yield U "execute @e[type=LavaSlime] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"  // run cur to jump to next
+                yield U "blockdata ~ ~ ~2 {auto:1b}"
+                yield U "blockdata ~ ~ ~1 {auto:0b}"
+                yield O "scoreboard players set @e[type=LavaSlime] L -1"
+                yield U "execute @e[type=LavaSlime] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"  // run next's fill, also see if looped
+                if x = 26 then
+                    yield C "tp @e[type=ArmorStand] ~ ~ ~-1"
+                    yield C "execute @e[type=ArmorStand] ~ ~ ~ setblock 48 2 ~ air"
+                else
+                    yield C (sprintf "execute @e[type=ArmorStand] ~ ~ ~ clone 68 2 %d 68 2 %d 48 2 ~" x x)
+                    yield C "tp @e[type=ArmorStand] ~ ~ ~1"
+                yield U "execute @e[type=Slime] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"  // slime stayed at old place
+                yield U "tp @e[type=Slime] @e[type=LavaSlime]"
+                yield U "execute @e[type=Slime] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"  // slime at new place
+            |]
+        r.PlaceCommandBlocksStartingAt(x,0,0,cmds,"on key",false)
+    let keys = 
+        [|
+            for i = 0 to 25 do
+                yield sprintf """{"text":"[%c] ","clickEvent":{"action":"run_command","value":"/blockdata %d 0 0 {auto:1b}"}}""" (char (65+i)) i
+            yield """{"text":"[BKSP]","clickEvent":{"action":"run_command","value":"/blockdata 26 0 0 {auto:1b}"}}"""
+        |]
+    let initCmds =
+        [|
+            O ""
+            U "scoreboard objectives add L dummy"
+            U "kill @e[type=!Player]"
+            U "effect @p 16 9999 1 true"
+            U "gamerule commandBlockOutput false"
+            U "gamerule sendCommandFeedback false"
+            U "clear @a"
+            (*
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ts,Color:0},{Pattern:mr,Color:15},{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:ms,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:0,Patterns:[{Pattern:mr,Color:15},{Pattern:ls,Color:0},{Pattern:ms,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:0,Patterns:[{Pattern:mr,Color:15},{Pattern:ms,Color:15},{Pattern:ls,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:rs,Color:0},{Pattern:ts,Color:0},{Pattern:bs,Color:0},{Pattern:cbo,Color:15},{Pattern:ls,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ms,Color:0},{Pattern:hhb,Color:15},{Pattern:rs,Color:15},{Pattern:ls,Color:0},{Pattern:ts,Color:0},{Pattern:bs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ms,Color:0},{Pattern:hhb,Color:15},{Pattern:rs,Color:15},{Pattern:ls,Color:0},{Pattern:ts,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ms,Color:0},{Pattern:vh,Color:15},{Pattern:rs,Color:0},{Pattern:hh,Color:15},{Pattern:bs,Color:0},{Pattern:ls,Color:0},{Pattern:ts,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:ms,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ts,Color:0},{Pattern:bs,Color:0},{Pattern:cs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:bs,Color:0},{Pattern:mr,Color:15},{Pattern:rs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:drs,Color:0},{Pattern:vh,Color:15},{Pattern:hh,Color:15},{Pattern:dls,Color:0},{Pattern:ls,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:vh,Color:0},{Pattern:cs,Color:15},{Pattern:bs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:tt,Color:0},{Pattern:tts,Color:15},{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ls,Color:0},{Pattern:rud,Color:15},{Pattern:drs,Color:0},{Pattern:rs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ts,Color:0},{Pattern:bs,Color:0},{Pattern:mr,Color:15},{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:rs,Color:0},{Pattern:hhb,Color:0},{Pattern:bs,Color:15},{Pattern:ts,Color:0},{Pattern:ls,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ts,Color:0},{Pattern:bs,Color:0},{Pattern:mr,Color:15},{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:br,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag: {Base:15,Patterns:[{Pattern:br,Color:0},{Pattern:rud,Color:15},{Pattern:ms,Color:0},{Pattern:hh,Color:0},{Pattern:cs,Color:15},{Pattern:drs,Color:0},{Pattern:tt,Color:15},{Pattern:ls,Color:0},{Pattern:ms,Color:0},{Pattern:ts,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ts,Color:0},{Pattern:bs,Color:0},{Pattern:mr,Color:15},{Pattern:drs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ts,Color:0},{Pattern:cs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:bs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:bs,Color:0},{Pattern:mr,Color:15},{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:tt,Color:15},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:bt,Color:0},{Pattern:bts,Color:15},{Pattern:ls,Color:0},{Pattern:rs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:dls,Color:0},{Pattern:drs,Color:0},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:drs,Color:0},{Pattern:vhr,Color:15},{Pattern:dls,Color:0},{Pattern:cbo,Color:15},{Pattern:bo,Color:15}]}}"
+            U "/give @p minecraft:banner 1 0 {BlockEntityTag:{Base:15,Patterns:[{Pattern:ts,Color:0},{Pattern:bs,Color:0},{Pattern:dls,Color:0},{Pattern:bo,Color:15}]}}"
+            *)
+            U (sprintf "summon LavaSlime %d %d %d {Glowing:1,Invulnerable:1,Silent:1,NoAI:1,Size:1,Invisible:1}" t.X t.Y t.Z)
+            U (sprintf "summon Slime %d %d %d {Glowing:1,Invulnerable:1,Silent:1,NoAI:1,Size:1,Invisible:1}" t.X t.Y t.Z)
+            U "summon ArmorStand 50 2 0 {Invisible:1,Marker:1,NoGravity:1}"
+            U "fill 49 0 0 49 3 10 wool 0"
+            U "fill 69 0 0 69 3 30 wool 0"
+            U (sprintf "tellraw @a [%s]" (System.String.Join(",",keys)))
+        |]
+    r.PlaceCommandBlocksStartingAt(30,0,0,initCmds,"init",false)
+////////////////////////////////////////////
+
 
 
 [<System.STAThread()>]  
@@ -2209,7 +2389,7 @@ do
     let biomeSize = 3
     let go = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
     //LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
@@ -2224,7 +2404,12 @@ do
 
 
 
-
+    let scrabbleRegion = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Scrabble\region\r.0.0.mca"""
+    let r = new RegionFile(scrabbleRegion)
+    doTrie(r)
+    r.Write(scrabbleRegion+".new")
+    System.IO.File.Delete(scrabbleRegion)
+    System.IO.File.Move(scrabbleRegion+".new",scrabbleRegion)
 
     let readInSomeArt = false
     if readInSomeArt then

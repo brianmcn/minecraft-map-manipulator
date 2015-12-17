@@ -323,7 +323,7 @@ let LOOT_FROM_DEFAULT_MOBS =
             ]
 //        "minecraft:entities/shulker
 //        "minecraft:entities/silverfish
-        "minecraft:entities/skeleton", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
+        "minecraft:entities/skeleton", Pools [Pool(Roll(1,1),[Item("minecraft:bone",[SetCount(0,2)]),1,0,[]]);tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
         "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
@@ -331,7 +331,7 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/wither_skeleton
         "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
 //        "minecraft:entities/zombie_horse
-//        "minecraft:entities/zombie_pigman
+        "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
     |]
 
 let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
