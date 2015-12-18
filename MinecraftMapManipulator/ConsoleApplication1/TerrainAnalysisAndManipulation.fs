@@ -1228,7 +1228,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                             if noneWithin(50,points.[0],x,y,z) then
                                 let x = if rng.Next(2) = 0 then x-1 else x+1
                                 let z = if rng.Next(2) = 0 then z-1 else z+1
-                                putTrappedChestWithLoot(x,y,z,"tier1")
+                                putTrappedChestWithLoot(x,y,z,"aesthetic1")
                                 points.[0].Add( (x,y,z) )
                     elif bid = 18uy && checkForPlus(x,y,z,0uy,18uy) 
                          || bid = 161uy && checkForPlus(x,y,z,0uy,161uy) then // 18=leaves, 161=leaves2
@@ -1238,17 +1238,17 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
                                 if noneWithin(120,points.[1],x,y,z) then
-                                    putTrappedChestWithLoot(x,y,z,"tier1")
+                                    putTrappedChestWithLoot(x,y,z,"aesthetic1")
                                     points.[1].Add( (x,y,z) )
                     elif bid = 86uy then // 86 = pumpkin
                         let dmg = map.GetBlockInfo(x,y,z).BlockData
                         if rng.Next(4) = 0 then // TODO probability, so don't place on all
                             // TODO could be on hillside, and so chest under maybe exposed
                             if noneWithin(50,points.[2],x,y,z) then
-                                putThingRecomputeLight(x,y,z,map,"lit_pumpkin",int dmg) // replace with jack'o'lantern
+                                putThingRecomputeLight(x,y,z,map,"lit_pumpkin",int dmg) // replace with jack'o'lantern  // TODO found one, was not giving off light, hm
                                 // chest below
                                 let y = y - 1
-                                putTrappedChestWithLoot(x,y,z,"tier1")
+                                putTrappedChestWithLoot(x,y,z,"aesthetic2")
                                 points.[2].Add( (x,y,z) )
                     elif bid = 9uy then
                         if y >= hm.[x,z]-1 then // 9=water, at top of heightmap (-1 because lake surface is actually just below heightmap)
@@ -1264,7 +1264,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                 if rng.Next(20) = 0 then
                                     if noneWithin(50,points.[3],x,y,z) then
                                         // TODO where put? bottom? any light cue? ...
-                                        putTrappedChestWithLoot(x,y,z,"tier1")
+                                        putTrappedChestWithLoot(x,y,z,"aesthetic2")
                                         points.[3].Add( (x,y,z) )
                     elif bid = 12uy then // 12=sand
                         if y >= hm.[x,z]-1 then // at top of heightmap (-1 because surface is actually just below heightmap)
@@ -1281,7 +1281,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z-1,81uy,0uy)  // cactus
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z+1,81uy,0uy)  // cactus
                                             // put chest
-                                            putTrappedChestWithLoot(x,y,z,"tier1")
+                                            putTrappedChestWithLoot(x,y,z,"aesthetic1")
                                             points.[4].Add( (x,y,z) )
                                             // TODO sometimes be a trap
                     else
@@ -1349,7 +1349,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                     map.AddEntities(ents)
                                     // place hidden trapped chest
                                     let x,y,z = x+9,y-5,z+6  // below the 'X'
-                                    putTrappedChestWithLoot(x,y,z,"tier1extra")
+                                    putTrappedChestWithLoot(x,y,z,"aesthetic3")
                                     points.[19].Add( (x,y,z) )
             // end if not near deco
         // end for z
@@ -1518,9 +1518,9 @@ let makeCrazyMap(worldSaveFolder) =
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(map, log, biome))
-    time (fun() ->   // after hiding spots figured
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->

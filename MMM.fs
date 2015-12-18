@@ -2139,13 +2139,13 @@ let genTerrainWithMCServer(seed, customizedPreset) =
 ////////////////////////////////////////////
 
 [<AllowNullLiteral>]
-type TrieNode() =
+type TrieNode(parent,finalLetter) =
     let data = Array.zeroCreate 26
     let mutable isWord = false
     let mutable x,y,z = 0,0,0
     member this.Add(letter) =
         if data.[letter] = null then
-            data.[letter] <- new TrieNode()
+            data.[letter] <- new TrieNode(this,letter)
         data.[letter]
     member this.FinishWord() = isWord <- true
     member this.Data = data
@@ -2154,18 +2154,21 @@ type TrieNode() =
     member this.X = x
     member this.Y = y
     member this.Z = z
+    member this.Parent = parent
+    member this.FinalLetter = finalLetter
 
 let makeTrie() =
     let words = System.IO.File.ReadAllLines("""C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\ENABLE.txt""")
-    let root = new TrieNode()
-    let mutable count = 0
+    let root = new TrieNode(null,-1)
+    let mutable count, letters = 0,0
     for w in words do
         let mutable i = root
         for c in w do
             i <- i.Add(int(c) - int('a'))
         i.FinishWord()
         count <- count + 1
-    printfn "made %d words" count
+        letters <- letters + w.Length 
+    printfn "made %d words, %d letters" count letters
     root
 
 let mutable words = 0
@@ -2229,13 +2232,57 @@ let rec postfix(n:TrieNode,parent:TrieNode,placer:Placer,r:RegionFile) =
                         yield U (sprintf "tp @e[type=LavaSlime,score_L_min=%d,score_L=%d] %d %d %d" i i next.X next.Y next.Z)
                 yield U "say never get here"  // replace in pass 2
             |]
-        r.PlaceCommandBlocksStartingAt(x,y,z,cmds,"",false)
+        ()//r.PlaceCommandBlocksStartingAt(x,y,z,cmds,"",false)
     else
-        r.PlaceCommandBlocksStartingAt(x,y,z+thisCmdBlocks-1,[|U (sprintf "tp @e[type=LavaSlime,score_L_min=26,score_L=26] %d %d %d" parent.X parent.Y parent.Z)|],"",false)
+        ()//r.PlaceCommandBlocksStartingAt(x,y,z+thisCmdBlocks-1,[|U (sprintf "tp @e[type=LavaSlime,score_L_min=26,score_L=26] %d %d %d" parent.X parent.Y parent.Z)|],"",false)
 
+let rec findTrie(n:TrieNode) =
+    let mutable numFwd = 0
+    for x in n.Data do
+        if x <> null then
+            numFwd <- numFwd + 1
+            findTrie(x)
+    if numFwd < 5 && n.Data.[0] <> null && n.Data.[1] <> null then
+        let mutable c,a = n,[]
+        while c <> null do
+            a <- c.FinalLetter :: a
+            c <- c.Parent 
+        let s = new string(a |> List.map (fun i -> i+65 |> char) |> List.toArray)
+        printfn "%s" s
+(*
+@ACER
+@AFE
+@AGRI
+@BELLY
+@CELI
+@CHUB
+@CLIM
+@CRUCI
+@DECUM
+@DIB
+@EXOR
+@FRAM
+@HEREIN
+@IMPARTI
+@INTERTRI
+@KEB
+@KLE
+@OUTRE
+@POSTOR
+@RAB
+@REIM
+@RETRI
+@RUR
+@SCRIB
+@SHIB
+@UNIM
+@VESTI
+@WOM
+*)
 
 let doTrie(r:RegionFile) =
     let t = makeTrie()
+    findTrie(t)
     let placer = new Placer()
     postfix(t,null,placer,r)
     printfn "%d word nodes and %d nonword nodes, need %d commands" words nonWords cmdBlocks
@@ -2379,7 +2426,7 @@ do
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\seed31Copy\region\r.0.0.mca""")
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
-    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w49a.zip""","""C:\Users\Admin1\Desktop\15w50a.zip""")
+    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w50a.zip""","""C:\Users\Admin1\Desktop\15w51a.zip""")
     //placeCertainBlocksInTheWorld()
     //placeVideoFramesInTheWorld()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
@@ -2390,7 +2437,7 @@ do
     let go = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
     //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder)
-    //LootTables.writeAllLootTables(worldSaveFolder)
+    LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
@@ -2403,13 +2450,14 @@ do
 
 
 
-
-    let scrabbleRegion = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Scrabble\region\r.0.0.mca"""
+    (*
+    let scrabbleRegion = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\ScrabbleBackup\region\r.0.0.mca"""
     let r = new RegionFile(scrabbleRegion)
     doTrie(r)
-    r.Write(scrabbleRegion+".new")
-    System.IO.File.Delete(scrabbleRegion)
-    System.IO.File.Move(scrabbleRegion+".new",scrabbleRegion)
+    //r.Write(scrabbleRegion+".new")
+    //System.IO.File.Delete(scrabbleRegion)
+    //System.IO.File.Move(scrabbleRegion+".new",scrabbleRegion)
+    *)
 
     let readInSomeArt = false
     if readInSomeArt then

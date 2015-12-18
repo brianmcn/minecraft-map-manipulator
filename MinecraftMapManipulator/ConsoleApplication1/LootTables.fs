@@ -122,6 +122,70 @@ let simple_dungeon =
 
 // mobs: drop stuff at their tier and rarely a next tier thing
 
+let LOOT_NS_PREFIX = "BrianLoot"
+let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
+type LOOT_KIND = | ARMOR | TOOLS | FOOD | BOOKS //| TODO 
+let P11 x = Pool(Roll(1,1),x)
+let OneOfAtNPercent(entryData, n, conds) = 
+    assert(n>=0 && n <=100)
+    let weight = (entryData |> Seq.length)*(100-n)
+    P11[yield (Empty, weight, 0, []); for ed in entryData do yield (ed, n, 0, conds)]
+
+
+// aesthetic item drops
+let LOOT_AESTHETIC_CHESTS =
+    [|
+        // tier 1
+        Pools [Pool(Roll(8,8), [
+                        // blocks
+                        Item("minecraft:stone",[SetCount(64,64);SetData(1)]), 1, 0, []  // granite
+                        Item("minecraft:stone",[SetCount(64,64);SetData(3)]), 1, 0, []  // diorite
+                        Item("minecraft:brick_block",[SetCount(64,64)]), 1, 0, []
+                        Item("minecraft:hardened_clay",[SetCount(64,64)]), 1, 0, []
+                        // fun
+                        Item("minecraft:name_tag",[SetCount(3,10)]), 1, 0, []
+                ])]
+        // tier 2
+        Pools [Pool(Roll(6,6), [
+                        // blocks
+                        Item("minecraft:bookshelf",[SetCount(64,64)]), 1, 0, []
+                        Item("minecraft:glass",[SetCount(64,64)]), 1, 0, []
+                        Item("minecraft:glowstone",[SetCount(64,64)]), 1, 0, []
+                        ])
+                        // fun
+               Pool(Roll(1,1), [Item("minecraft:jukebox",[]), 1, 0, []])
+               Pool(Roll(3,3), [
+                        Item("minecraft:record_13",[]), 1, 0, []
+                        Item("minecraft:record_cat",[]), 1, 0, []
+                        Item("minecraft:record_blocks",[]), 1, 0, []
+                        Item("minecraft:record_chirp",[]), 1, 0, []
+                        Item("minecraft:record_far",[]), 1, 0, []
+                        Item("minecraft:record_mall",[]), 1, 0, []
+                        Item("minecraft:record_mellohi",[]), 1, 0, []
+                        Item("minecraft:record_stal",[]), 1, 0, []
+                        Item("minecraft:record_strad",[]), 1, 0, []
+                        Item("minecraft:record_ward",[]), 1, 0, []
+                        Item("minecraft:record_11",[]), 1, 0, []
+                        Item("minecraft:record_wait",[]), 1, 0, []
+                        ])
+                        // rail
+               Pool(Roll(2,2), [Item("minecraft:rail",[SetCount(64,64)]), 1, 0, []])
+               Pool(Roll(2,2), [Item("minecraft:golden_rail",[SetCount(64,64)]), 1, 0, []])
+               Pool(Roll(2,2), [Item("minecraft:redstone_block",[SetCount(64,64)]), 1, 0, []])
+               ]
+        // tier 3
+        Pools [Pool(Roll(6,6), [
+                        // blocks
+                        Item("minecraft:quartz_block",[SetCount(64,64)]), 1, 0, []
+                        Item("minecraft:prismarine",[SetCount(64,64)]), 1, 0, []
+                        Item("minecraft:sea_lantern",[SetCount(64,64)]), 1, 0, []
+                        ])
+               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Basic blocks\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic1\"}}""" LOOT_NS_PREFIX)]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Nicer blocks and fun\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic2\"}}""" LOOT_NS_PREFIX)]),1,0, []])
+               OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_chestplate",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:diamond_leggings",[])],100,[])
+               ]
+    |] 
+
 let LOOT_ARMOR =
     [|
         // tier 1
@@ -251,14 +315,6 @@ let enchantmentsInTiers =
 //            "luck_of_the_sea"
 //            "lure"
 
-let LOOT_NS_PREFIX = "BrianLoot"
-let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
-type LOOT_KIND = | ARMOR | TOOLS | FOOD | BOOKS //| TODO 
-let P11 x = Pool(Roll(1,1),x)
-let OneOfAtNPercent(entryData, n, conds) = 
-    assert(n>=0 && n <=100)
-    let weight = (entryData |> Seq.length)*(100-n)
-    P11[yield (Empty, weight, 0, []); for ed in entryData do yield (ed, n, 0, conds)]
 let tierNLootData n kinds = 
     [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) | BOOKS -> yield LootTable(LOOT_FORMAT"books"n) ]
 let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
@@ -337,10 +393,6 @@ let LOOT_FROM_DEFAULT_MOBS =
 let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
-let sampleTier1Chest(n) =  // n is % chance of one extra diamond stuff
-        Pools[ Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0, []]) // TODO proper loot
-               OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_chestplate",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:diamond_leggings",[])],n,[])
-             ]
 let sampleTier2Chest =
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
                Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
@@ -407,11 +459,12 @@ let LOOT_FROM_DEFAULT_CHESTS =
         "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
         // TODO all the others
         // hack to get mine there
-        sprintf "%s:chests/tier1" LOOT_NS_PREFIX, sampleTier1Chest(0)
-        sprintf "%s:chests/tier1extra" LOOT_NS_PREFIX, sampleTier1Chest(100)
         sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
         sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
         sprintf "%s:chests/tier5" LOOT_NS_PREFIX, sampleTier5Chest 
+        sprintf "%s:chests/aesthetic1" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[0]
+        sprintf "%s:chests/aesthetic2" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[1]
+        sprintf "%s:chests/aesthetic3" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[2]   // TODO refactor %s:%s/%s%d naming into constants/enums/etc
     |]
 // TODO fix fishing
 
