@@ -993,7 +993,8 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
     // ok, among mountain connected components, just mostly brute force them
     let mutable found = false
     let mutable fx,fy,fz = 0,0,0
-    for y = hm.[highx,highz] downto 80 do // y is outermost loop to prioritize finding high points first // TODO printf progress
+    for y = hm.[highx,highz] downto 80 do // y is outermost loop to prioritize finding high points first
+        printf "."
         if not found then
             for z = minz to maxz do
                 if not found then
@@ -1019,6 +1020,7 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
                                 fx <- x
                                 fy <- y
                                 fz <- z
+    printfn ""
     if found then
         Some(fx,fy,fz)
     else
@@ -1102,8 +1104,9 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations
         let diff = abs(h1-h2)
         fScores.[min diff (fScores.Length-1)]
     let D = 10
-    printfn "PREP FLAT MAP..."
-    for x = MINIMUM+D to MINIMUM+LENGTH-1-D do // TODO add printf progress here
+    printf "PREP FLAT MAP..."
+    for x = MINIMUM+D to MINIMUM+LENGTH-1-D do
+        if x % 100 = 0 then printf "."
         for z = MINIMUM+D to MINIMUM+LENGTH-1-D do
             let h = if hm.[x,z] > 65 && hm.[x,z] < 90 then hm.[x,z] else 255  // only pick points above sea level but not too high
             let mutable score = 0
@@ -1112,6 +1115,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations
                     let ds = f(h,hm.[x+dx,z+dz])
                     score <- score + ds
             a.[x,z] <- score
+    printfn ""
     let bestFlatPoints = findBestPeaksAlgorithm(a,2000,3000,D)
     let RADIUS = 40
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE*SPAWN_PROTECTION_DISTANCE)
@@ -1264,6 +1268,8 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                 if rng.Next(20) = 0 then
                                     if noneWithin(50,points.[3],x,y,z) then
                                         // TODO where put? bottom? any light cue? ...
+                                        // for now just under water
+                                        let y = y - 1
                                         putTrappedChestWithLoot(x,y,z,"aesthetic2")
                                         points.[3].Add( (x,y,z) )
                     elif bid = 12uy then // 12=sand
@@ -1416,14 +1422,24 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
             map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
             map.SetBlockIDAndDamage(x,h+2,z,0uy,0uy) // air
             map.SetBlockIDAndDamage(x,h+3,z,0uy,0uy) // air
+    // for teleport area...
+    for x = -2 to 4 do
+        for z = 2 to 8 do
+            for dh = 9 to 15 do
+                map.SetBlockIDAndDamage(x,h+dh,z,166uy,0uy) // 166=barrier
     // put monument
     for x = -1 to 3 do
-        for z = 4 to 6 do
+        for z = 3 to 7 do
             map.SetBlockIDAndDamage(x,h-1,z,7uy,0uy) // bedrock
-            map.SetBlockIDAndDamage(x,h+0,z,0uy,0uy) // air
-            map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
-            map.SetBlockIDAndDamage(x,h+2,z,0uy,0uy) // air
-            map.SetBlockIDAndDamage(x,h+3,z,0uy,0uy) // air
+            for dh = 0 to 8 do
+                map.SetBlockIDAndDamage(x,h+dh,z,0uy,0uy) // air
+            // skip dh=9, has barrier
+            for dh = 10 to 14 do
+                map.SetBlockIDAndDamage(x,h+dh,z,20uy,0uy) // 20=glass (will be teleport area)
+    // remove glass cmd
+    map.SetBlockIDAndDamage(0,h-2,0,137uy,0uy)
+    map.AddOrReplaceTileEntities([| [| Int("x",0); Int("y",h-2); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d air" -2 (h+11) 2 4 (h+15) 8); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
+    // rest of monument
     map.SetBlockIDAndDamage(2,h,6,7uy,0uy)
     map.SetBlockIDAndDamage(1,h,6,7uy,0uy)
     map.SetBlockIDAndDamage(0,h,6,7uy,0uy)
@@ -1457,6 +1473,56 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
             C "fill 0 254 0 0 255 0 air"  // remove day/night blocks
         |]
     r.PlaceCommandBlocksStartingAt(0,h-3,3,finalCmds,"check ctm win")
+
+let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
+    let placeCommand(x,y,z,command,bid,auto,name) =
+        map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
+        map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",auto); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
+    let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,0uy,"minecraft:command_block")
+    let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,1uy,"minecraft:repeating_command_block")
+    let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,1uy,"minecraft:chain_command_block")
+    for xs,zs,dirName,spx,spz in [-512,-512,"NorthWest (-X,-Z)",-1,3; -512,512,"SouthWest (-X,+Z)",-1,7; 512,512,"SouthEast (+X,+Z)",3,7; 512,-512,"NorthEast (+X,-Z)",3,3] do
+        let mutable found = false
+        for dx = -30 to 30 do
+            if not found then
+                for dz = -30 to 30 do
+                    if not found then
+                        let x = xs + dx
+                        let z = zs + dz
+                        let h = hm.[x,z]
+                        let mutable ok = true
+                        for i = 0 to 4 do
+                            for j = 0 to 4 do
+                                if hm.[x+i,z+j] <> h then
+                                    ok <- false
+                        if ok then
+                            found <- true
+                            log.LogSummary(sprintf "TP at %d %d" x z)
+                            decorations.Add('T',x,z)
+                            for i = 0 to 4 do
+                                for j = 0 to 4 do
+                                    map.SetBlockIDAndDamage(x+i,h+0,z+j,7uy,0uy)  // 7=bedrock
+                                    map.SetBlockIDAndDamage(x+i,h+1,z+j,0uy,0uy)  // 0=air
+                                    map.SetBlockIDAndDamage(x+i,h+2,z+j,0uy,0uy)  // 0=air
+                                    map.SetBlockIDAndDamage(x+i,h+3,z+j,0uy,0uy)  // 0=air
+                                    map.SetBlockIDAndDamage(x+i,h+4,z+j,7uy,0uy)  // 7=bedrock
+                                    map.SetBlockIDAndDamage(x+i,h+5,z+j,0uy,0uy)  // 0=air
+                                    map.SetBlockIDAndDamage(x+i,h+6,z+j,0uy,0uy)  // 0=air
+                                    map.SetBlockIDAndDamage(x+i,h+7,z+j,0uy,0uy)  // 0=air
+                            map.SetBlockIDAndDamage(x+2,h+2,z+2,209uy,0uy) // 209=end_gateway
+                            map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",hm.[1,1]+12);Int("Z",5);End]|>ResizeArray); End |] |])
+                            putBeaconAt(map,x+2,h+12,z+2,0uy,false)
+                            placeRepeating(x+2,h+18,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+17) (z+2)) // absolute coords since execute-at
+                            map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+18,z+2)
+                            placeImpulse(x+2,h+17,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-2) 0) // remove glass at spawn //note brittle coords of block
+                            placeChain(x+2,h+16,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
+                            placeImpulse(x+2,h+15,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]+12) spz (x+2) (h+6) (z+2))
+                            placeChain(x+2,h+14,z+2,sprintf "setblock %d %d %d chest 2 replace {CustomName:\"Teleporter to %s\",Items:[{Slot:13b,id:water_bucket,Count:1}]}" spx (hm.[1,1]+11) spz dirName)
+                            placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~5 ~ air") // erase us
+        if not found then
+            log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
+            failwith "no teleporters"
+    ()
 
 let makeCrazyMap(worldSaveFolder) =
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
@@ -1512,15 +1578,16 @@ let makeCrazyMap(worldSaveFolder) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
+    time (fun () -> placeTeleporters(map, hm, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(map, log))
     xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(map, log, biome))
-    xtime (fun() ->   // after hiding spots figured
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
