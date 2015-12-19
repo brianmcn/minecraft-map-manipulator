@@ -451,12 +451,16 @@ let sampleTier5Chest =
                Pool(Roll(1,1),[Item("minecraft:spawn_egg",[SetNbt("""{EntityTag:{id:LavaSlime,Size:0,DeathLootTable:\"minecraft:entities/magma_cube\"},display:{Name:\"Kill me with a sword to learn a secret!\"}}""")]),1,0,[]])
                // TODO easy to 'miss' the egg in the chest... could make only thing, have give actual loot chest as well? hmm
              ]
-
+let noFishingForYou =
+        Pools[ Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
+                                            """{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to donate!"}""" // TODO donate link?
+                                        |]))]),1,0, []]) ]
 
 let LOOT_FROM_DEFAULT_CHESTS =
     [|
         "minecraft:chests/simple_dungeon", sampleTier2Chest
         "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
+        "minecraft:gameplay/fishing", noFishingForYou
         // TODO all the others
         // hack to get mine there
         sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 

@@ -324,6 +324,14 @@ type RegionFile(filename) =
         if heightMap = null then
             failwith "no HeightMap cached"
         heightMap.[MOD(x,16),MOD(z,16)]
+    member this.SetHeightMap(x, z, h) =
+        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        let cx = ((x+51200)%512)/16
+        let cz = ((z+51200)%512)/16
+        let heightMap = chunkHeightMapCache.[cx,cz]
+        if heightMap = null then
+            failwith "no HeightMap cached"
+        heightMap.[MOD(x,16),MOD(z,16)] <- h
     member this.GetBiome(x, z) =
         if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
         let cx = ((x+51200)%512)/16
@@ -612,6 +620,11 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetHeightMap(x,z)
+    member this.SetHeightMap(x,z,h) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.SetHeightMap(x,z,h)
     member this.GetBiome(x,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000

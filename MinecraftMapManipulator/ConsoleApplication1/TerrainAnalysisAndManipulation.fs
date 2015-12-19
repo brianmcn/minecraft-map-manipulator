@@ -1075,12 +1075,13 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations
         log.LogSummary(sprintf "added mountain peak at %d %d" x z)
         let spawners = SpawnerAccumulator()
         let y = hm.[x,z]
-        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
+        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX)
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
                     let dist = abs(x-i) + abs(z-j)
                     let pct = float (2*RADIUS-dist) / float(RADIUS*25)
+                    // spawners on terrain
                     if rng.NextDouble() < pct then
                         let x = i
                         let z = j
@@ -1092,6 +1093,16 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations
                         if ms.BasicMob = "Spider" then
                             ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
                         spawners.Add(ms)
+                    // red torches for mood lighting
+                    elif rng.NextDouble() < pct then
+                        let x = i
+                        let z = j
+                        let y = hm.[x,z]
+                        putThingRecomputeLight(x,y,z,map,"redstone_torch",5) 
+                // ceiling over top to prevent cheesing it
+                map.SetBlockIDAndDamage(i,y+5,j,7uy,0uy) // 7=bedrock
+                map.SetHeightMap(i,j,y+6)
+                hm.[i,j] <- y+6
         spawners.AddToMapAndLog(map,log)
     ()
 
@@ -1475,7 +1486,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     r.PlaceCommandBlocksStartingAt(0,h-3,3,finalCmds,"check ctm win")
 
 let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
-    let placeCommand(x,y,z,command,bid,auto,name) =
+    let placeCommand(x,y,z,command,bid,auto,_name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",auto); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
     let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,0uy,"minecraft:command_block")
@@ -1583,7 +1594,7 @@ let makeCrazyMap(worldSaveFolder) =
     xtime (fun () -> substituteBlocks(map, log))
     xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
     xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(map, log, biome))
