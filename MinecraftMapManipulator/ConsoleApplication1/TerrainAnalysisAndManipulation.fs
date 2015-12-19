@@ -175,7 +175,7 @@ let SPAWN_PROTECTION_DISTANCE = 200
 let STRUCTURE_SPACING = 170
 let DAYLIGHT_RADIUS = 180
 
-let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
+let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,itemsNbt) =
     for x = sx-2 to sx+2 do
         for z = sz-2 to sz+2 do
             map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
@@ -186,7 +186,22 @@ let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
             for z = sz-2 to sz+2 do
                 map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
     map.SetBlockIDAndDamage(sx,sy+1,sz,54uy,2uy)  // chest
-    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy+1); Int("z",sz); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |] |])
+    map.AddOrReplaceTileEntities([| [| yield Int("x",sx)
+                                       yield Int("y",sy+1)
+                                       yield Int("z",sz)
+                                       yield String("id","Chest")
+                                       yield List("Items",Compounds itemsNbt)
+                                       if lootTableName <> null then
+                                            yield String("LootTable",lootTableName)
+                                       yield String("Lock","")
+                                       yield String("CustomName","Lootz!")
+                                       yield End |] |])
+
+let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
+    putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,[| |])
+
+let putTreasureBoxWithItemsAt(map:MapFolder,sx,sy,sz,itemsNbt) =
+    putTreasureBoxAtCore(map,sx,sy,sz,null,itemsNbt)
 
 let putBeaconAt(map:MapFolder,ex,ey,ez,colorDamage,addAirSpace) =
     if addAirSpace then
@@ -536,12 +551,13 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Event
                     let bx,by,bz = sx,sy+1,sz // chest location, will overwrite it inside treasure box
                     let chestItems = 
                         Compounds[| 
-                                yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:sponge"); End |]
-                                yield [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                                yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:sponge"); Compound("tag", [|
+                                            Compound("display",[|String("Name","Monument Block");End|] |> ResizeArray); End |] |> ResizeArray); End |]
+                                yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                                          Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Congratulations!", 
                                                                                      [| 
-                                                                                        """{"text":"You've found the sponge, and win the map! ..."}""" // TODO more? monument?
-                                                                                        """{"text":"I hope enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO"}"""
+                                                                                        """{"text":"Once all monument blocks are placed on the monument, you win! ..."}"""
+                                                                                        """{"text":"I hope enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO..."}"""
                                                                                         """{"text":"If you enjoyed and would like to leave me a donation, I'd very much appreciate that! TODO donation link"}"""
                                                                                      |]) |> ResizeArray
                                                   )
@@ -552,6 +568,10 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Event
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
         log.LogSummary("FAILED TO PLACE FINAL")
+        failwith "final failed"
+    (*
+    This section is not done.  There is no loot, and also the glowstone at entrance can block the beacon from other structures.
+
     // find completely flat floors underground
     printfn ""
     printf "FLAT FLOOR ANALYSIS"
@@ -714,6 +734,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Event
                                                 if di = 1 then 2uy elif dk = 1 then 4uy elif di = -1 then 1uy elif dk = -1 then 3uy elif dj = -1 then 5uy else failwith "unexpected") // attached to dirt block in right orientation
     printfn ""
     log.LogSummary(sprintf "found %d reachable cul-de-sac rooms" reachableCount)
+    *)
 ////
 (* 
 
@@ -1049,17 +1070,32 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations
         for dy = -1 to 1 do
             for dz = -1 to 1 do
                 map.SetBlockIDAndDamage(bx+dx,by+dy,bz+dz,20uy,0uy)  // glass
+    let quadrant = 
+        if finalEX < 0 then
+            if finalEZ < 0 then 
+                "NorthWest (-X,-Z)"
+            else
+                "SouthWest (-X,+Z)"
+        else
+            if finalEZ < 0 then 
+                "NorthEast (+X,-Z)"
+            else
+                "SouthEast (+X,+Z)"
     let chestItems = 
         Compounds[| 
                 yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:elytra"); End |]
                 // jump boost pots
                 for slot in [2uy;3uy;4uy;5uy;6uy;11uy;12uy;14uy;15uy] do
                     yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",100);End|]|]);End|]|>ResizeArray); End |]
-                yield [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                yield [| Byte("Slot",21uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|
+                            Compound("display",[|String("Name","Monument Block");End|] |> ResizeArray)
+                            End
+                      |] |> ResizeArray); End |]
+                yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                          Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Final dungeon...", 
-                                                                     [| 
-                                                                        sprintf """{"text":"Go to X=%d, Z=%d for the entrance to the final dungeon! The items here should make traveling easier :)"}""" finalEX finalEZ 
-                                                                     |]) |> ResizeArray
+                                        [| 
+                                        sprintf """{"text":"The final dungeon entrance is marked by a BLACK beacon found somewhere in the %s quadrant of the map! The other items from this chest should make traveling easier :)"}""" quadrant
+                                        |]) |> ResizeArray
                                   )
                          End |]
             |]
@@ -1075,7 +1111,18 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations
         log.LogSummary(sprintf "added mountain peak at %d %d" x z)
         let spawners = SpawnerAccumulator()
         let y = hm.[x,z]
-        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX)
+        putTreasureBoxWithItemsAt(map,x,y,z,[|
+                [| Byte("Slot",12uy); Byte("Count",1uy); String("id","minecraft:written_book"); Compound("tag",
+                        Utilities.makeWrittenBookTags("Lorgon111","Secret Treasure", 
+                            [| 
+                               """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":",Z="},{"score":{"name":"Z","objective":"hidden"}},{"text":"."}]}"""
+                            |]) |> ResizeArray); End |]
+                [| Byte("Slot",14uy); Byte("Count",1uy); String("id","chest"); Compound("tag", [|
+                        Compound("display",[|String("Name","Mountain Peak Loot");End|] |> ResizeArray)
+                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX);End|] |> ResizeArray)
+                        End
+                    |] |> ResizeArray); End |]
+            |]) // TODO heightmap, blocklight, skylight                                                  )
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
@@ -1139,7 +1186,17 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations
         log.LogSummary(sprintf "added flat set piece at %d %d" x z)
         let spawners = SpawnerAccumulator()
         let y = hm.[x,z]
-        putTreasureBoxAt(map,x,y,z,sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX)   // TODO heightmap, blocklight, skylight
+        putTreasureBoxWithItemsAt(map,x,y,z,[|
+                [| Byte("Slot",12uy); Byte("Count",1uy); String("id","end_bricks"); Compound("tag", [|
+                        Compound("display",[|String("Name","Monument Block");End|] |> ResizeArray)
+                        End
+                    |] |> ResizeArray); End |]
+                [| Byte("Slot",14uy); Byte("Count",1uy); String("id","chest"); Compound("tag", [|
+                        Compound("display",[|String("Name","Red Beacon Web Loot");End|] |> ResizeArray)
+                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX);End|] |> ResizeArray)
+                        End
+                    |] |> ResizeArray); End |]
+            |]) // TODO heightmap, blocklight, skylight
         putBeaconAt(map,x,y,z,14uy,false) // 14 = red
         map.SetBlockIDAndDamage(x,y+3,z,20uy,0uy) // glass (replace roof of box so beacon works)
         // add blazes atop
@@ -1590,14 +1647,14 @@ let makeCrazyMap(worldSaveFolder) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     time (fun () -> placeTeleporters(map, hm, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(map, log))
-    xtime (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(map, log))
+    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
     time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(map, log, biome))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> replaceSomeBiomes(map, log, biome))
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
@@ -1605,7 +1662,7 @@ let makeCrazyMap(worldSaveFolder) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, decorations)
         )
@@ -1655,143 +1712,149 @@ Previous runs took 2 hours to get to start of 1st beacon, have I gotten better/i
 
 (*
 
-Dec 16
+Dec 19
 SUMMARY
 
-(this section took 0.181175 minutes)
+(this section took 0.185253 minutes)
 -----
 CACHE HM AND BIOME...
-(this section took 0.092118 minutes)
+(this section took 0.093584 minutes)
+-----
+TP at -542 -510
+TP at -523 490
+TP at 482 501
+TP at 484 -515
+(this section took 0.000596 minutes)
 -----
 added 878 extra dungeon spawners underground
-(this section took 1.531515 minutes)
+(this section took 1.516802 minutes)
 -----
 added random spawners underground
-   spawners along path:   Total:1996   Blaze:109   Creeper:151   Skeleton:599   Spider:559   Zombie:578
-   spawners along path:   Total:897   Blaze:140   CaveSpider:145   Creeper:154   Skeleton:162   Spider:154   Zombie:142
-(this section took 2.203390 minutes)
+   spawners along path:   Total:1996   Blaze:136   Creeper:126   Skeleton:575   Spider:565   Zombie:594
+   spawners along path:   Total:897   Blaze:146   CaveSpider:148   Creeper:140   Skeleton:141   Spider:179   Zombie:143
+(this section took 2.207281 minutes)
 -----
 added flat set piece at -543 300
-   spawners along path:   Total: 70   Blaze:  4   CaveSpider: 39   Spider:  8   Spiderextra:  9   Witch: 10
+   spawners along path:   Total: 72   Blaze:  4   CaveSpider: 32   Spider:  9   Spiderextra:  9   Witch: 18
 added flat set piece at -282 -107
-   spawners along path:   Total: 67   Blaze:  4   CaveSpider: 35   Spider:  6   Spiderextra: 13   Witch:  9
+   spawners along path:   Total: 66   Blaze:  4   CaveSpider: 33   Spider:  4   Spiderextra: 11   Witch: 14
 added flat set piece at -305 482
-   spawners along path:   Total: 73   Blaze:  4   CaveSpider: 34   Spider:  6   Spiderextra: 12   Witch: 17
+   spawners along path:   Total: 65   Blaze:  4   CaveSpider: 34   Spider:  8   Spiderextra:  7   Witch: 12
 added flat set piece at -745 5
-   spawners along path:   Total: 60   Blaze:  4   CaveSpider: 23   Spider:  5   Spiderextra: 13   Witch: 15
+   spawners along path:   Total: 89   Blaze:  4   CaveSpider: 44   Spider:  9   Spiderextra: 15   Witch: 17
 added flat set piece at -706 503
-   spawners along path:   Total: 83   Blaze:  4   CaveSpider: 37   Spider: 15   Spiderextra: 10   Witch: 17
+   spawners along path:   Total: 63   Blaze:  4   CaveSpider: 27   Spider: 15   Spiderextra:  6   Witch: 11
 added flat set piece at -638 885
-   spawners along path:   Total: 64   Blaze:  4   CaveSpider: 26   Spider: 13   Spiderextra: 10   Witch: 11
+   spawners along path:   Total: 61   Blaze:  4   CaveSpider: 32   Spider:  6   Spiderextra:  4   Witch: 15
 added flat set piece at 898 -366
-   spawners along path:   Total: 74   Blaze:  4   CaveSpider: 35   Spider:  4   Spiderextra: 12   Witch: 19
+   spawners along path:   Total: 70   Blaze:  4   CaveSpider: 35   Spider:  9   Spiderextra: 10   Witch: 12
 added flat set piece at 963 838
-   spawners along path:   Total: 73   Blaze:  4   CaveSpider: 25   Spider: 12   Spiderextra:  8   Witch: 24
+   spawners along path:   Total: 69   Blaze:  4   CaveSpider: 28   Spider:  7   Spiderextra: 10   Witch: 20
 added flat set piece at 109 371
-   spawners along path:   Total: 60   Blaze:  4   CaveSpider: 33   Spider:  4   Spiderextra:  7   Witch: 12
+   spawners along path:   Total: 59   Blaze:  4   CaveSpider: 33   Spider:  7   Spiderextra:  6   Witch:  9
 added flat set piece at -696 -193
-   spawners along path:   Total: 74   Blaze:  4   CaveSpider: 33   Spider:  8   Spiderextra: 10   Witch: 19
-(this section took 1.327745 minutes)
+   spawners along path:   Total: 63   Blaze:  4   CaveSpider: 25   Spider:  9   Spiderextra:  7   Witch: 18
+(this section took 1.097675 minutes)
 -----
 added  beacon at -539 52 -149 which travels 498
-   spawners along path:   Total: 86   Creeper:  9   Skeleton: 10   Zombie: 67
+   spawners along path:   Total: 90   Creeper: 13   Skeleton: 15   Zombie: 62
 added FINAL beacon at -695 55 -744 which travels 478
-   spawners along path:   Total:151   CaveSpider: 26   Creeper: 19   Skeleton: 25   Witch: 18   Zombie: 63
+   spawners along path:   Total:156   CaveSpider: 18   Creeper: 22   Skeleton: 24   Witch: 22   Zombie: 70
 added  beacon at -747 51 109 which travels 268
-   spawners along path:   Total: 37   Creeper:  7   Skeleton:  3   Zombie: 27
+   spawners along path:   Total: 41   Creeper:  5   Skeleton:  5   Zombie: 31
 added  beacon at -273 54 945 which travels 183
-   spawners along path:   Total: 41   Creeper:  7   Skeleton:  6   Zombie: 28
+   spawners along path:   Total: 32   Creeper:  7   Skeleton:  5   Zombie: 20
 added  beacon at -761 59 -632 which travels 265
-   spawners along path:   Total: 46   Creeper:  5   Skeleton: 10   Zombie: 31
+   spawners along path:   Total: 38   Creeper:  7   Skeleton:  3   Zombie: 28
 added  beacon at -794 32 741 which travels 122
-   spawners along path:   Total: 15   Creeper:  2   Skeleton:  3   Zombie: 10
+   spawners along path:   Total: 18   Creeper:  2   Skeleton:  5   Zombie: 11
 added  beacon at -514 60 665 which travels 241
-   spawners along path:   Total: 41   Creeper:  7   Skeleton:  6   Zombie: 28
+   spawners along path:   Total: 40   Creeper:  4   Skeleton:  6   Zombie: 30
 added  beacon at -534 59 -650 which travels 141
-   spawners along path:   Total: 24   Creeper:  6   Zombie: 18
+   spawners along path:   Total: 26   Creeper:  4   Skeleton:  1   Zombie: 21
 added  beacon at -518 47 417 which travels 202
-   spawners along path:   Total: 28   Creeper:  1   Skeleton:  9   Zombie: 18
+   spawners along path:   Total: 26   Creeper:  7   Skeleton:  2   Zombie: 17
 added  beacon at -255 53 -24 which travels 175
-   spawners along path:   Total: 33   Creeper:  3   Skeleton:  5   Zombie: 25
+   spawners along path:   Total: 25   Skeleton:  5   Zombie: 20
 added  beacon at -362 20 -293 which travels 176
-   spawners along path:   Total: 25   Creeper:  1   Skeleton:  6   Zombie: 18
+   spawners along path:   Total: 31   Creeper:  7   Skeleton:  2   Zombie: 22
 added  beacon at -291 32 301 which travels 158
-   spawners along path:   Total: 24   Creeper:  5   Skeleton:  2   Zombie: 17
+   spawners along path:   Total: 24   Skeleton:  3   Zombie: 21
 added  beacon at -122 60 622 which travels 335
-   spawners along path:   Total: 48   Creeper:  4   Skeleton:  8   Zombie: 36
+   spawners along path:   Total: 55   Creeper:  6   Skeleton:  4   Zombie: 45
 added  beacon at -258 59 -408 which travels 482
-   spawners along path:   Total: 82   Creeper:  7   Skeleton: 14   Zombie: 61
+   spawners along path:   Total: 76   Creeper: 10   Skeleton: 18   Zombie: 48
 added  beacon at 217 51 -59 which travels 172
-   spawners along path:   Total: 31   Creeper:  4   Skeleton:  5   Zombie: 22
+   spawners along path:   Total: 33   Creeper:  7   Skeleton:  3   Zombie: 23
 added  beacon at 104 56 916 which travels 413
-   spawners along path:   Total: 75   Creeper: 15   Skeleton: 13   Zombie: 47
+   spawners along path:   Total: 80   Creeper: 10   Skeleton: 12   Zombie: 58
 added  beacon at -16 47 -626 which travels 116
-   spawners along path:   Total: 19   Creeper:  4   Skeleton:  3   Zombie: 12
+   spawners along path:   Total: 21   Creeper:  1   Skeleton:  7   Zombie: 13
 added  beacon at 304 53 -119 which travels 280
-   spawners along path:   Total: 42   Creeper:  3   Skeleton:  2   Zombie: 37
+   spawners along path:   Total: 31   Creeper:  6   Skeleton:  8   Zombie: 17
 added  beacon at 306 56 409 which travels 107
-   spawners along path:   Total: 21   Creeper:  1   Skeleton:  1   Zombie: 19
+   spawners along path:   Total: 17   Creeper:  2   Skeleton:  2   Zombie: 13
 added  beacon at 349 55 -618 which travels 286
-   spawners along path:   Total: 39   Creeper:  9   Skeleton:  9   Zombie: 21
+   spawners along path:   Total: 42   Creeper:  3   Skeleton:  4   Zombie: 35
 added  beacon at 402 36 227 which travels 470
-   spawners along path:   Total: 75   Creeper:  9   Skeleton: 13   Zombie: 53
+   spawners along path:   Total: 79   Creeper:  9   Skeleton:  9   Zombie: 61
 added  beacon at 846 57 -754 which travels 172
-   spawners along path:   Total: 31   Creeper:  3   Skeleton:  9   Zombie: 19
+   spawners along path:   Total: 22   Creeper:  5   Skeleton:  2   Zombie: 15
 added  beacon at 693 59 306 which travels 191
-   spawners along path:   Total: 38   Creeper: 10   Skeleton:  3   Zombie: 25
+   spawners along path:   Total: 30   Creeper:  5   Skeleton:  4   Zombie: 21
 added  beacon at 681 30 -447 which travels 315
-   spawners along path:   Total: 49   Creeper: 11   Skeleton:  5   Zombie: 33
+   spawners along path:   Total: 55   Creeper:  6   Skeleton:  7   Zombie: 42
 added  beacon at 878 53 -406 which travels 425
-   spawners along path:   Total: 71   Creeper: 10   Skeleton:  9   Zombie: 52
+   spawners along path:   Total: 59   Creeper:  6   Skeleton:  8   Zombie: 45
 added  beacon at 927 33 -628 which travels 174
-   spawners along path:   Total: 25   Creeper:  2   Skeleton:  1   Zombie: 22
+   spawners along path:   Total: 24   Creeper:  3   Skeleton:  3   Zombie: 18
 added  beacon at 864 60 -132 which travels 342
-   spawners along path:   Total: 58   Creeper:  7   Skeleton: 11   Zombie: 40
+   spawners along path:   Total: 57   Creeper:  8   Skeleton:  9   Zombie: 40
 found 3 reachable cul-de-sac rooms
-(this section took 2.799012 minutes)
+(this section took 2.843439 minutes)
 -----
-('find best hiding spot' sub-section took 1.123795 minutes)
+('find best hiding spot' sub-section took 0.728736 minutes)
 added mountain peak at -450 -168
-   spawners along path:   Total: 62   Blaze:  5   CaveSpider: 22   Ghast:  3   Spiderextra: 17   Zombie: 15
+   spawners along path:   Total: 66   Blaze:  5   CaveSpider: 16   Ghast:  9   Spiderextra: 13   Zombie: 23
 added mountain peak at 388 732
-   spawners along path:   Total: 73   Blaze:  4   CaveSpider: 25   Ghast:  8   Spiderextra: 13   Zombie: 23
+   spawners along path:   Total: 59   Blaze:  5   CaveSpider: 23   Ghast:  4   Spiderextra: 11   Zombie: 16
 added mountain peak at 988 938
-   spawners along path:   Total: 68   Blaze:  4   CaveSpider: 27   Ghast:  6   Spiderextra: 14   Zombie: 17
+   spawners along path:   Total: 68   Blaze:  4   CaveSpider: 26   Ghast:  2   Spiderextra: 15   Zombie: 21
 added mountain peak at -984 984
-   spawners along path:   Total: 62   Blaze:  2   CaveSpider: 18   Ghast:  5   Spiderextra: 13   Zombie: 24
+   spawners along path:   Total: 68   Blaze:  6   CaveSpider: 23   Ghast:  7   Spiderextra: 13   Zombie: 19
 added mountain peak at -516 -757
-   spawners along path:   Total: 64   Blaze:  3   CaveSpider: 21   Ghast:  8   Spiderextra: 12   Zombie: 20
+   spawners along path:   Total: 65   Blaze:  4   CaveSpider: 23   Ghast:  4   Spiderextra: 14   Zombie: 20
 added mountain peak at -204 488
-   spawners along path:   Total: 60   Blaze:  4   CaveSpider: 21   Ghast:  4   Spiderextra: 18   Zombie: 13
+   spawners along path:   Total: 45   Blaze:  2   CaveSpider: 20   Ghast:  3   Spiderextra:  9   Zombie: 11
 added mountain peak at -68 -581
-   spawners along path:   Total: 53   Blaze:  4   CaveSpider: 20   Ghast:  3   Spiderextra: 13   Zombie: 13
+   spawners along path:   Total: 55   Blaze:  3   CaveSpider: 17   Ghast:  4   Spiderextra: 15   Zombie: 16
 added mountain peak at -820 -275
-   spawners along path:   Total: 57   Blaze:  5   CaveSpider: 17   Ghast:  5   Spiderextra:  8   Zombie: 22
+   spawners along path:   Total: 74   Blaze:  4   CaveSpider: 32   Ghast:  6   Spiderextra: 14   Zombie: 18
 added mountain peak at 550 -595
-   spawners along path:   Total: 62   Blaze:  5   CaveSpider: 21   Ghast:  6   Spiderextra: 13   Zombie: 17
+   spawners along path:   Total: 62   Blaze:  1   CaveSpider: 24   Ghast:  2   Spiderextra: 16   Zombie: 19
 added mountain peak at 514 551
-   spawners along path:   Total: 75   Blaze:  9   CaveSpider: 25   Ghast:  7   Spiderextra: 12   Zombie: 22
-(this section took 1.142537 minutes)
+   spawners along path:   Total: 67   Blaze:  3   CaveSpider: 21   Ghast:  2   Spiderextra: 19   Zombie: 22
+(this section took 0.747477 minutes)
 -----
 highlighted 13 cave entrances near spawn
-(this section took 0.033870 minutes)
+(this section took 0.019540 minutes)
 -----
-added 299 extra loot chests: 52, 144, 16, 64, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15
-(this section took 0.582868 minutes)
+added 290 extra loot chests: 51, 142, 16, 60, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14
+(this section took 0.578063 minutes)
 -----
-Added 4 Hell biomes and 12 Sky biomes (replacing Plains)
-(this section took 0.015104 minutes)
+Added 8 Hell biomes and 6 Sky biomes (replacing Plains)
+(this section took 0.014112 minutes)
 -----
 START CMDS
-(this section took 0.000440 minutes)
+(this section took 0.000838 minutes)
 -----
 SAVING FILES
-(this section took 1.222201 minutes)
+(this section took 1.220618 minutes)
 -----
 WRITING MAP PNG IMAGES
-(this section took 0.123511 minutes)
+(this section took 0.125847 minutes)
 -----
-Took 11.255895 total minutes
+Took 10.651594 total minutes
 
 
 

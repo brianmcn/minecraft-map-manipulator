@@ -357,26 +357,7 @@ let LOOT_FROM_DEFAULT_MOBS =
                                              ]
         "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
 //        "minecraft:entities/guardian
-// TODO change to command signs? https://www.reddit.com/r/MinecraftCommands/comments/3twe3w/same_chest_different_loot/
-// TODO or just something 'better'... how best do? monument? 2 endstone, 1 sponge?
-// TODO end stone brick with X coord, purpur brick with Z coord
-// TODO magma cubes don't work now that nether biome is in map, I think, grrr... maybe bingo-style detect-clear-replace?
-// or actually, since 'CTM hidden' is updated by placing monument blocks, can give end_bricks if CTM score=0, purpur_block if 1, and must place before attack next?
-// and upon placing monument block, get the book which says what next?
-        "minecraft:entities/magma_cube", Pools [
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
-                   |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",1,1)]])
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
-                   |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",2,2)]])  // Note: entity_scores evals after stat.kills updated but before next commandtick
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at X=","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
-                   |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",3,3)]])  // in case they somehow lose the first one?
-            Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Secret Treasure",[|
-                   """{"text":"The secret treasure is buried at Z=","extra":[{"score":{"name":"Z","objective":"hidden"}},{"text":". You'll need to pair this information with another clue, found in a similar location!"}]}"""
-                   |]))]),1,0,[EntityScoresKillerPlayer("LavaSlimesKilled",4,9999)]])
-            ]
+//        "minecraft:entities/magma_cube"
 //        "minecraft:entities/shulker
 //        "minecraft:entities/silverfish
         "minecraft:entities/skeleton", Pools [Pool(Roll(1,1),[Item("minecraft:bone",[SetCount(0,2)]),1,0,[]]);tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
@@ -393,13 +374,13 @@ let LOOT_FROM_DEFAULT_MOBS =
 let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
-let sampleTier2Chest =
+let sampleTier2Chest = // dungeons and mineshafts
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
                Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0, []])
-               Pool(Roll(0,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","'What Next' hints",[|
+               Pool(Roll(0,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","What's Next?",[|
                                             """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
-                                        |]))]),1,0, []])  // TODO now a good moment to suggest a donation?
+                                        |]))]),1,0, []])
                Pool(Roll(1,3),[arrows,1,0, []])
                tierxyLootPct [] 2 3 [FOOD] 16 
                tierxyLootPct [] 2 3 [FOOD] 16 
@@ -410,22 +391,22 @@ let sampleTier2Chest =
                      Item("minecraft:iron_horse_armor",[]), 15, 0, []
                      Item("minecraft:diamond_horse_armor",[]), 5, 0, []])
              ]
-let sampleTier3Chest =
+let sampleTier3Chest = // end of green beacon cave
         Pools[ Pool(Roll(12,12),[tierNBookItem(3),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(3,5),1,0, []])
                Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt("""{display:{Name:\"Dungeon Loot\"},BlockEntityTag:{LootTable:\"minecraft:chests/simple_dungeon\"}}""")]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:experience_bottle",[SetCount(64,64)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","'What Next' hints",[|
-                                            """{"text":"If you feel strong enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
-                                        |]))]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(20,30)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(20,30)]),1,0, []])
                Pool(Roll(1,1),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","What's Next?",[|
+                                            """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
+                                        |]))]),1,0, []])
              ]
-let sampleTier4Chest =
+let sampleTier4Chest = // end of flat dungeon
         Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0, []])
                Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:enchanted_book",[SetNbt("""{StoredEnchantments:[{id:0s,lvl:4s}]}""")]),1,0, []]) // protection IV book
@@ -447,9 +428,6 @@ let sampleTier5Chest =
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
-               // Note: alternative is give player NBT command sign 'click me' which runs and increase score and also changes own text to clue
-               Pool(Roll(1,1),[Item("minecraft:spawn_egg",[SetNbt("""{EntityTag:{id:LavaSlime,Size:0,DeathLootTable:\"minecraft:entities/magma_cube\"},display:{Name:\"Kill me with a sword to learn a secret!\"}}""")]),1,0,[]])
-               // TODO easy to 'miss' the egg in the chest... could make only thing, have give actual loot chest as well? hmm
              ]
 let noFishingForYou =
         Pools[ Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
