@@ -250,7 +250,7 @@ type SpawnerAccumulator() =
         sb.Append(sprintf "   Total:%3d" (spawnerTypeCount |> Seq.sumBy (fun (KeyValue(_,v)) -> v))) |> ignore
         for KeyValue(k,v) in spawnerTypeCount |> Seq.sortBy (fun (KeyValue(k,_)) -> k)do
             sb.Append(sprintf "   %s:%3d" k v) |> ignore
-        log.LogSummary("   spawners along path:"+sb.ToString())
+        log.LogSummary("   spawners along path:"+sb.ToString()) // TODO text here not make sense for some...
 
 
 
@@ -538,7 +538,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Event
                     count <- count + 1
                 // write out all the spawner data we just placed
                 spawners.AddToMapAndLog(map,log)
-                putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 15uy else 5uy), true) // 5 = lime
+                putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
                 map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
                 // put treasure at bottom end
                 putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
@@ -1094,7 +1094,7 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations
                 yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                          Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","5. Final dungeon...", 
                                         [| 
-                                        sprintf """{"text":"The final dungeon entrance is marked by a BLACK beacon found somewhere in the %s quadrant of the map! The other items from this chest should make traveling easier :)"}""" quadrant
+                                        sprintf """{"text":"The final dungeon entrance is marked by a PURPLE beacon found somewhere in the %s quadrant of the map! The other items from this chest should make traveling easier :)"}""" quadrant
                                         |]) |> ResizeArray
                                   )
                          End |]
@@ -1122,7 +1122,11 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations
                         Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX);End|] |> ResizeArray)
                         End
                     |] |> ResizeArray); End |]
-            |]) // TODO heightmap, blocklight, skylight                                                  )
+            |]) // TODO heightmap, blocklight, skylight
+        putThingRecomputeLight(x-2,y+4,z-2,map,"redstone_torch",5) 
+        putThingRecomputeLight(x-2,y+4,z+2,map,"redstone_torch",5) 
+        putThingRecomputeLight(x+2,y+4,z-2,map,"redstone_torch",5) 
+        putThingRecomputeLight(x+2,y+4,z+2,map,"redstone_torch",5) 
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
                 if abs(x-i) > 2 || abs(z-j) > 2 then
@@ -1293,7 +1297,8 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                     nearDecoration <- true
             if not nearDecoration then
                 for y = 90 downto 64 do
-                    let bid = map.GetBlockInfo(x,y,z).BlockID 
+                    let bi = map.GetBlockInfo(x,y,z)
+                    let bid = bi.BlockID 
                     if bid = 48uy && checkForPlus(x,y,z,0uy,48uy) then // 48 = moss stone
                         // is a '+' of moss stone with air, e.g. surface boulder in mega taiga
                         if rng.Next(5) = 0 then // TODO probability, so don't place on all
@@ -1322,7 +1327,7 @@ let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],deco
                                 let y = y - 1
                                 putTrappedChestWithLoot(x,y,z,"aesthetic2")
                                 points.[2].Add( (x,y,z) )
-                    elif bid = 9uy then
+                    elif bid = 9uy && bi.BlockData = 0uy then  // water falling straight down has different damage value, only want sources
                         if y >= hm.[x,z]-1 then // 9=water, at top of heightmap (-1 because lake surface is actually just below heightmap)
                             let b = biome.[x,z]
                             // not one of these
@@ -1506,7 +1511,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                                                     "3. RED BEACONS\n\nBook loot from the prior step tells you to explore the world for RED beacons ('F' on spoiler map image), which denote a cobwebbed dungeon on the surface.  The loot box at the center has the first monument block and more gear upgrades."
                                                     "4. MOUNTAIN PEAKS\n\nBook loot from the prior step tells you to explore the world for dangerous looking mountain peaks ('P' on spoiler map image), which have a loot box guarded by spawners, protected by bedrock, and illuminated with redstone torches. Buried treasure directions, and more loot!"
                                                     "5. SECRET TREASURE\n\nBook loot from the prior step tells you where to dig for treasure ('H' on the spoiler map image). You'll find the second monument block, and faster travel/exploration."
-                                                    "6. FINAL DUNGEON\n\nBook loot from the prior step tells you to explore one quadrant of the world for a BLACK beacon ('X' on spoiler map image), which is the final dungeon. It's like the first cave dungeon, but harder, and has the final monument block."
+                                                    "6. FINAL DUNGEON\n\nBook loot from the prior step tells you to explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), which is the final dungeon. It's like the first cave dungeon, but harder, and has the final monument block."
                                                  |]))
     I(sprintf "fill 0 %d 0 0 253 0 air" !y) // remove all the ICBs, just leave the RCBs
     putBeaconAt(map,1,h,1,0uy,false)  // beacon at spawn for convenience
@@ -1607,13 +1612,14 @@ let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decoration
                             map.SetBlockIDAndDamage(x+2,h+2,z+2,209uy,0uy) // 209=end_gateway
                             map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",hm.[1,1]+12);Int("Z",5);End]|>ResizeArray); End |] |])
                             putBeaconAt(map,x+2,h+12,z+2,0uy,false)
-                            placeRepeating(x+2,h+18,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+17) (z+2)) // absolute coords since execute-at
-                            map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+18,z+2)
-                            placeImpulse(x+2,h+17,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-2) 0) // remove glass at spawn //note brittle coords of block
-                            placeChain(x+2,h+16,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
-                            placeImpulse(x+2,h+15,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]+12) spz (x+2) (h+6) (z+2))
-                            placeChain(x+2,h+14,z+2,sprintf "setblock %d %d %d chest 2 replace {CustomName:\"Teleporter to %s\",Items:[{Slot:13b,id:water_bucket,Count:1}]}" spx (hm.[1,1]+11) spz dirName)
-                            placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~5 ~ air") // erase us
+                            placeRepeating(x+2,h+19,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+18) (z+2)) // absolute coords since execute-at
+                            map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+19,z+2)
+                            placeImpulse(x+2,h+18,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-2) 0) // remove glass at spawn //note brittle coords of block
+                            placeChain(x+2,h+17,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
+                            placeImpulse(x+2,h+16,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]+12) spz (x+2) (h+6) (z+2))
+                            placeChain(x+2,h+15,z+2,sprintf "setblock %d %d %d chest 2 replace {CustomName:\"Teleporter to %s\",Items:[{Slot:13b,id:water_bucket,Count:1}]}" spx (hm.[1,1]+11) spz dirName)
+                            placeChain(x+2,h+14,z+2,"""tellraw @a [{"text":"A two-way teleporter to/from spawn has been unlocked nearby"}]""")
+                            placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~6 ~ air") // erase us
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
             failwith "no teleporters"
@@ -1694,7 +1700,7 @@ let makeCrazyMap(worldSaveFolder) =
         printfn "...done!")
     time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
-        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, decorations)
+        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, DAYLIGHT_RADIUS, decorations)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
 
@@ -1735,6 +1741,17 @@ After 1.5 hours, I had P2 iron armor, inf Pow5 box, lousy sword, ok pick, ~20 st
 Can roughly speed past that by gifting yourself a tier 4 chest, then almost immediately can take on mountains
 
 Previous runs took 2 hours to get to start of 1st beacon, have I gotten better/inured, or has it gotten too easy at start?
+
+-----
+
+first full playthrough (Dec 20, seed 27):
+ - 2 hours to finish first cave dungeon
+ - 1 hour conquer flat (block 1)
+ - 30 mins second flat for more loot
+ - 30 mins mountain (nearby, easyish)
+ - 30 mins for secret (block 2)
+ - 1 hour final dungeon (block 3)
+5.5 hours to complete, knowing route and just speedrunning it
 
 *)
 

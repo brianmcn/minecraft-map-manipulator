@@ -1247,8 +1247,10 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
-let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, decorations) =
+let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, circleRadius, decorations) =
     let image = new System.Drawing.Bitmap(xlen,zlen)
+    let RM = (circleRadius-1)*(circleRadius-1)
+    let R = (circleRadius+1)*(circleRadius+1)
     for x = xmin to xmin+xlen-1 do
         for y = zmin to zmin+zlen-1 do
             let biome = biome.[x,y]
@@ -1258,6 +1260,8 @@ let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, dec
             let r,g,b = 
                 if (x%512=0) || (y%512=0) then
                     r/2,g/2,b/2  // dark lines on region bounds
+                elif x*x+y*y > RM && x*x+y*y < R then
+                    r/2,g/2,b/2  // dark lines on circle
                 else
                     r,g,b
             image.SetPixel(x-xmin, y-zmin, System.Drawing.Color.FromArgb(r,g,b))
