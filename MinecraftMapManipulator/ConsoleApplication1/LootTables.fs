@@ -142,6 +142,7 @@ let LOOT_AESTHETIC_CHESTS =
                         Item("minecraft:stone",[SetCount(64,64);SetData(3)]), 1, 0, []  // diorite
                         Item("minecraft:brick_block",[SetCount(64,64)]), 1, 0, []
                         Item("minecraft:hardened_clay",[SetCount(64,64)]), 1, 0, []
+                        Item("minecraft:netherrack",[SetCount(64,64)]), 1, 0, []
                         // fun
                         Item("minecraft:name_tag",[SetCount(3,10)]), 1, 0, []
                 ])]
@@ -274,30 +275,29 @@ let enchantmentsInTiers =
             // tier 1 has none
         ]
         [
-            //"fire_protection"
+            //"fire_protection"    // rarely wanted
             "feather_falling"
             "blast_protection"
             "projectile_protection"
-            //"respiration"
-            //"aqua_affinity"
-            "thorns"
+            //"respiration"        // not very useful this map
+            //"aqua_affinity"      // not very useful this map
+            //"thorns"             // rarely wanted
             "smite"
             "bane_of_arthropods"
             "knockback"
             "fire_aspect"
             "efficiency"
             "silk_touch"
-            "fortune"
+            //"fortune"            // not very useful this map
             "power"
             "punch"
             "flame"
-            //"depth_strider"
+            //"depth_strider"      // not very useful this map
             "frost_walker"
         ]
         [
             "efficiency"
             "protection"
-            "frost_walker"
             "sharpness"
 //            "looting"  // TODO figure out if/what looting does
             "unbreaking"
@@ -378,18 +378,18 @@ let sampleTier2Chest = // dungeons and mineshafts
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
                Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0, []])
-               Pool(Roll(0,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","What's Next?",[|
-                                            """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
-                                        |]))]),1,0, []])
                Pool(Roll(1,3),[arrows,1,0, []])
                tierxyLootPct [] 2 3 [FOOD] 16 
                tierxyLootPct [] 2 3 [FOOD] 16 
                OneOfAtNPercent([Item("minecraft:iron_pickaxe",[]);Item("minecraft:iron_sword",[]);Item("minecraft:iron_axe",[]);Item("minecraft:iron_ingot",[SetCount(2,9)])],50,[])
-               Pool(Roll(0,1),
+               Pool(Roll(1,1),
                     [LootTable("empty"), 20, 0, []
                      Item("minecraft:saddle",[]), 20, 0, []
                      Item("minecraft:iron_horse_armor",[]), 15, 0, []
                      Item("minecraft:diamond_horse_armor",[]), 5, 0, []])
+               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","1. After gearing up",[|
+                                            """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
+                                        |]))]),1,0, []])
              ]
 let sampleTier3Chest = // end of green beacon cave
         Pools[ Pool(Roll(12,12),[tierNBookItem(3),1,0, []])
@@ -402,7 +402,7 @@ let sampleTier3Chest = // end of green beacon cave
                Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(20,30)]),1,0, []])
                Pool(Roll(1,1),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","What's Next?",[|
+               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","2. After green beacon cave",[|
                                             """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
                                         |]))]),1,0, []])
              ]
@@ -416,7 +416,7 @@ let sampleTier4Chest = // end of flat dungeon
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","'What Next' hints",[|
+               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","3. After red beacon webs",[|
                                             """{"text":"Once strong enough, attack dangerous-looking mountain peaks with glassed loot boxes to get a map to the best treasure!"}"""
                                         |]))]),1,0, []])
              ]
