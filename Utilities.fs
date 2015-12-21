@@ -1155,6 +1155,8 @@ let writtenBookNBTString(author, title, pages:string[]) =
 let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
     sprintf "/give @p minecraft:written_book 1 0 %s" (writtenBookNBTString(author, title, pages))
 
+let wrapInJSONText(s) = sprintf """{"text":"%s"}""" s
+let wrapInJSONTextContinued(s) = sprintf """{"text":"%s\n\n(continued...)"}""" s
 
 let placeCommandBlocksInTheWorldTemp(fil) =
     let region = new RegionFile(fil)
@@ -1247,10 +1249,16 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
-let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, circleRadius, decorations) =
+let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
     let image = new System.Drawing.Bitmap(xlen,zlen)
-    let RM = (circleRadius-1)*(circleRadius-1)
-    let R = (circleRadius+1)*(circleRadius+1)
+    let isCircle(distSq) =
+        let mutable c = false
+        for r in circleRadii do
+            let RM = (r-1)*(r-1)
+            let R = (r+1)*(r+1)
+            if distSq > RM && distSq < R then
+                c <- true
+        c
     for x = xmin to xmin+xlen-1 do
         for y = zmin to zmin+zlen-1 do
             let biome = biome.[x,y]
@@ -1260,7 +1268,7 @@ let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, cir
             let r,g,b = 
                 if (x%512=0) || (y%512=0) then
                     r/2,g/2,b/2  // dark lines on region bounds
-                elif x*x+y*y > RM && x*x+y*y < R then
+                elif isCircle(x*x+y*y) then
                     r/2,g/2,b/2  // dark lines on circle
                 else
                     r,g,b
