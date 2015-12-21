@@ -30,7 +30,7 @@ type MobSpawnerInfo() =
             Short("Delay",this.Delay)
             Short("MinSpawnDelay",this.MinSpawnDelay)
             Short("MaxSpawnDelay",this.MaxSpawnDelay)
-            Compound("SpawnData",[|String("id",this.BasicMob);End|] |> ResizeArray)
+            Compound("SpawnData",[|yield String("id",this.BasicMob);yield! this.ExtraNbt;yield End|] |> ResizeArray)
             List("SpawnPotentials",Compounds[|
                                                 [|
                                                 Compound("Entity",[|yield String("id",this.BasicMob); yield! this.ExtraNbt; yield End|] |> ResizeArray)
@@ -174,7 +174,8 @@ let putGlowstoneRecomputeLight(sx,sy,sz,map:MapFolder) = putThingRecomputeLight(
 let SPAWN_PROTECTION_DISTANCE_PEAK = 400
 let SPAWN_PROTECTION_DISTANCE_FLAT = 260
 let SPAWN_PROTECTION_DISTANCE_GREEN = 200
-let STRUCTURE_SPACING = 170
+let STRUCTURE_SPACING = 170  // no two of same structure within this dist of each other
+let DECORATION_SPACING = 60  // no two decos this close together
 let DAYLIGHT_RADIUS = 180
 
 let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,itemsNbt) =
@@ -482,7 +483,7 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Event
             if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 500 then  // only keep mid-sized ones...
                 if not hasDoneFinal && dist.[besti,bestj,bestk] > 300 && ex*ex+ez*ez > 600*600 then
                     thisIsFinal <- true
-                log.LogSummary(sprintf "added %s beacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL" else "") ex ey ez dist.[besti,bestj,bestk])
+                log.LogSummary(sprintf "added %sbeacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL " else "") ex ey ez dist.[besti,bestj,bestk])
                 decorations.Add((if thisIsFinal then 'X' else 'B'),ex,ez)
                 let mutable i,j,k = besti,bestj,bestk
                 let fullDist = dist.[besti,bestj,bestk]
@@ -951,7 +952,7 @@ let replaceSomeBiomes(map:MapFolder, log:EventAndProgressLog, biome:_[,]) =
 
 // also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
 
-let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, bestNearbyDist) =
+let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, bestNearbyDist, hmDiffPerCC, decorations:ResizeArray<_>) =
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     printfn "PART..."
     // find all points height over threshold
@@ -981,12 +982,19 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
     let highPoints = ResizeArray()
     // pick highest in each CC    // TODO consider all local maxima? or make cutoff for CC be topY-constant, to disconnect high ranges?
     for hs in CCs.Values do
-        let p = hs |> Seq.maxBy (fun (x,z) -> heightMap.[x,z])
+        let hix,hiz = hs |> Seq.maxBy (fun (x,z) -> heightMap.[x,z])
+        let hihm = heightMap.[hix,hiz]
         let minx = hs |> Seq.minBy fst |> fst
         let maxx = hs |> Seq.maxBy fst |> fst
         let minz = hs |> Seq.minBy snd |> snd
         let maxz = hs |> Seq.maxBy snd |> snd
-        highPoints.Add(p,(minx,minz),(maxx,maxz))  // retain the bounds of the CC
+        if hmDiffPerCC > 0 then
+            // rather than only pick one 'highest' point from each CC, instead consider all points near the top (withing hmDiffPerCC) of the CC
+            for p in hs |> Seq.filter (fun (x,z) -> hihm - heightMap.[x,z] < hmDiffPerCC) do
+                highPoints.Add(p,(minx,minz),(maxx,maxz))  // retain the bounds of the CC
+        else
+            // just choose one representative to try
+            highPoints.Add((hix,hiz),(minx,minz),(maxx,maxz))  // retain the bounds of the CC
     // find the 'best' ones based on which have lots of high ground near them
     let score(x,z) =
         try
@@ -995,6 +1003,7 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
             for a = x-D to x+D do
                 for b = z-D to z+D do
                     s <- s + heightMap.[a,b] - (heightMap.[x,z]-20)  // want high ground nearby, but not a huge narrow spike above moderately high ground
+            // TODO XXX with this, higher is not better; a great hill always score higher than a very good tall mountain
             s
         with _ -> 0  // deal with array index out of bounds
     let distance2(a,b,c,d) = (a-c)*(a-c)+(b-d)*(b-d)
@@ -1002,7 +1011,8 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
     for ((hx,hz),a,b) in highPoints |> Seq.sortByDescending (fun (p,_,_) -> score p) do
         if hx > MINIMUM+32 && hx < MINIMUM+LENGTH-32 && hz > MINIMUM+32 && hz < MINIMUM+LENGTH-32 then  // not at edge of bounds
             if bestHighPoints |> Seq.forall (fun ((ex,ez),_,_,_s) -> distance2(ex,ez,hx,hz) > STRUCTURE_SPACING*STRUCTURE_SPACING) then
-                bestHighPoints.Add( ((hx,hz),a,b,score(hx,hz)) )
+                if decorations |> Seq.forall (fun (_,ex,ez) -> distance2(ex,ez,hx,hz) > DECORATION_SPACING*DECORATION_SPACING) then
+                    bestHighPoints.Add( ((hx,hz),a,b,score(hx,hz)) )
     bestHighPoints  // [(point, lo-bound-of-CC, hi-bound-of-CC, score)]
 
 let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),_)) =
@@ -1045,26 +1055,26 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
                                 fz <- z
     printfn ""
     if found then
-        Some(fx,fy,fz)
+        Some((fx,fy,fz),(highx,highz))
     else
         None
 
 let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
-let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations:ResizeArray<_>) =
-    let bestHighPoints = findBestPeaksAlgorithm(hm,80,100,15) // TODO XXX
+let findSomeMountainPeaks(map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>) =
+    let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,90,110,10,8,decorations) // TODO XXX
     let RADIUS = 20
-    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_PEAK*SPAWN_PROTECTION_DISTANCE_PEAK)
-    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
-    let unused = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z <= STRUCTURE_SPACING*STRUCTURE_SPACING)
-    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > STRUCTURE_SPACING*STRUCTURE_SPACING)
-    let otherUnused = (bestHighPoints |> Seq.toArray).[10..]
+    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 0)  // negative scores often mean tall spike with no nearby same-height ground, get rid of them
+    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_PEAK*SPAWN_PROTECTION_DISTANCE_PEAK)
+    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
+    ////////////////////////////////////////////////
     // best hiding spot
     let timer = System.Diagnostics.Stopwatch.StartNew()
     printfn "find best hiding spot..."
-    let (bx,by,bz) = Seq.append unused otherUnused |> Seq.choose (fun x -> findHidingSpot(map,hm,x)) |> Seq.maxBy (fun (_,y,_) -> y)
-    log.LogInfo(sprintf "best hiding spot: %4d %4d %4d" bx by bz)
+    let ((bx,by,bz),(usedX,usedZ)) = bestHighPoints |> Seq.choose (fun x -> findHidingSpot(map,hm,x)) |> Seq.maxBy (fun ((_,y,_),_) -> y)
+    let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> not(x=usedX && z=usedZ)) // rest are for mountain peaks
+    log.LogSummary(sprintf "best hiding spot: %4d %4d %4d" bx by bz)
     decorations.Add('H',bx,bz)
     hiddenX <- bx
     hiddenZ <- bz
@@ -1105,15 +1115,16 @@ let findSomeMountainPeaks(map:MapFolder,hm, log:EventAndProgressLog, decorations
     map.SetBlockIDAndDamage(bx,by,bz,54uy,2uy)  // chest
     map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
     putGlowstoneRecomputeLight(bx,by-1,bz,map)
+    /////////////////////////////////////////////////////////////////
     // mountain peaks
-    let bestHighPoints = try Seq.take 10 bestHighPoints with _e -> bestHighPoints
+    let bestHighPoints = try Seq.take 10 bestHighPoints |> ResizeArray with _e -> bestHighPoints |> ResizeArray
     // decorate map with dungeon ascent
     let rng = System.Random()
     for (x,z),_,_,s in bestHighPoints do
         decorations.Add('P',x,z)
-        log.LogSummary(sprintf "added mountain peak (score %d) at %d %d" s x z)
+        let y = hmIgnoringLeaves.[x,z]
+        log.LogSummary(sprintf "added mountain peak (score %d) at %d %d %d" s x y z)
         let spawners = SpawnerAccumulator("spawners around mountain peak")
-        let y = hm.[x,z]
         putTreasureBoxWithItemsAt(map,x,y,z,[|
                 [| Byte("Slot",12uy); Byte("Count",1uy); String("id","minecraft:written_book"); Compound("tag",
                         Utilities.makeWrittenBookTags("Lorgon111","4. Secret Treasure", 
@@ -1181,7 +1192,7 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations
                     score <- score + ds
             a.[x,z] <- score
     printfn ""
-    let bestFlatPoints = findBestPeaksAlgorithm(a,2000,3000,D)
+    let bestFlatPoints = findBestPeaksAlgorithm(a,2000,3000,D,0,decorations)
     let RADIUS = 40
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_FLAT*SPAWN_PROTECTION_DISTANCE_FLAT)
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
@@ -1231,10 +1242,10 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations
                             map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
                             let possibleSpawners = [|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
                             let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)], Delay=1s)
-                            if ms.BasicMob = "Spider" && rng.Next(2) = 0 then
+                            if ms.BasicMob = "Spider" && rng.Next(2) = 0 && dist < RADIUS/2 then
                                 ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
                             spawners.Add(ms)
-                        elif rng.Next(2) > 0 then
+                        elif rng.Next(3) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
         spawners.AddToMapAndLog(map,log)
     ()
@@ -1693,23 +1704,23 @@ let makeCrazyMap(worldSaveFolder) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    xtime (fun () -> placeTeleporters(map, hm, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(map, log))
+    time (fun () -> placeTeleporters(map, hm, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
     time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(map, log, biome))
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> findSomeMountainPeaks(map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> replaceSomeBiomes(map, log, biome))
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK], decorations)
