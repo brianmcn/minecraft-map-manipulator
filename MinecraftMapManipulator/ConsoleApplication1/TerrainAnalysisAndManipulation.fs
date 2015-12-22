@@ -346,7 +346,7 @@ let mutable finalEZ = 0
 let MINIMUM = -1024
 let LENGTH = 2048
 
-let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let YMIN = 10
     let YLEN = 50
     let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
@@ -489,7 +489,6 @@ let findUndergroundAirSpaceConnectedComponents(map:MapFolder, hm:_[,], log:Event
                 let fullDist = dist.[besti,bestj,bestk]
                 let mutable count = 0
                 let spawners = SpawnerAccumulator("spawners along path")
-                let rng = System.Random()
                 let possibleSpawners = 
                     if thisIsFinal then
                         [|(3,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
@@ -835,12 +834,11 @@ let canPlaceSpawner(map:MapFolder,x,y,z) =
     else
         false
 
-let substituteBlocks(map:MapFolder, log:EventAndProgressLog) =
+let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog) =
     let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
     let HIY = 120
     let spawners1 = SpawnerAccumulator("rand spawners from granite")
     let spawners2 = SpawnerAccumulator("rand spawners from redstone")
-    let rng = System.Random()
     let possibleSpawners1 = [|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (1,"Blaze"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
     let spawner1(x,y,z) =
         let kind = possibleSpawners1.[rng.Next(possibleSpawners1.Length)]
@@ -884,7 +882,7 @@ let substituteBlocks(map:MapFolder, log:EventAndProgressLog) =
     spawners2.AddToMapAndLog(map,log)
     printfn ""
 
-let replaceSomeBiomes(map:MapFolder, log:EventAndProgressLog, biome:_[,]) =
+let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLog, biome:_[,]) =
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     // find plains biomes
     for x = MINIMUM to MINIMUM+LENGTH-1 do
@@ -915,7 +913,6 @@ let replaceSomeBiomes(map:MapFolder, log:EventAndProgressLog, biome:_[,]) =
     for k in tooSmall do
         CCs.Remove(k) |> ignore
     log.LogInfo(sprintf "found %d decent-sized plains biomes outside DAYLIGHT_RADIUS" CCs.Count)
-    let rng = System.Random()
     let mutable hellCount, skyCount = 0,0
     for KeyValue(_k,v) in CCs do
         if rng.Next(10) = 0 then
@@ -1062,7 +1059,7 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
 let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
-let findSomeMountainPeaks(map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,90,110,10,8,decorations) // TODO XXX
     let RADIUS = 20
     let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 0)  // negative scores often mean tall spike with no nearby same-height ground, get rid of them
@@ -1119,7 +1116,6 @@ let findSomeMountainPeaks(map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgres
     // mountain peaks
     let bestHighPoints = try Seq.take 10 bestHighPoints |> ResizeArray with _e -> bestHighPoints |> ResizeArray
     // decorate map with dungeon ascent
-    let rng = System.Random()
     for (x,z),_,_,s in bestHighPoints do
         decorations.Add('P',x,z)
         let y = hmIgnoringLeaves.[x,z]
@@ -1171,7 +1167,7 @@ let findSomeMountainPeaks(map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgres
         spawners.AddToMapAndLog(map,log)
     ()
 
-let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
     // then treat 'goodness' as 'height', and the existing 'find mountain peaks' algorithm may work
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -1198,7 +1194,6 @@ let findSomeFlatAreas(map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
     let bestFlatPoints = try Seq.take 10 bestFlatPoints with _e -> bestFlatPoints
     // decorate map with dungeon
-    let rng = System.Random()
     for (x,z),_,_,s in bestFlatPoints do
         decorations.Add('F',x,z)
         log.LogSummary(sprintf "added flat set piece (score %d) at %d %d" s x z)
@@ -1277,11 +1272,10 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
-let addRandomLootz(map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],decorations:ResizeArray<_>) =
+let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],decorations:ResizeArray<_>) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
     let points = Array.init 20 (fun x -> ResizeArray())
-    let rng = System.Random()
     let noneWithin(r,points,x,_y,z) =
         let mutable ok = true
         for px,_,pz in points do
@@ -1647,7 +1641,8 @@ let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decoration
             failwith "no teleporters"
     ()
 
-let makeCrazyMap(worldSaveFolder) =
+let makeCrazyMap(worldSaveFolder, rngSeed) =
+    let rng = ref(System.Random())
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
     let map = new MapFolder(worldSaveFolder + """\region\""")
     let log = EventAndProgressLog()
@@ -1659,6 +1654,7 @@ let makeCrazyMap(worldSaveFolder) =
         printfn "SKIPPING SOMETHING"
         log.LogSummary("SKIPPED SOMETHING")
     let time f =
+        rng := new System.Random(rngSeed)  // each section re-seeds, to avoid effects bleeding across sections
         let timer = System.Diagnostics.Stopwatch.StartNew()
         f()
         printfn "Time so far: %f minutes" mainTimer.Elapsed.TotalMinutes
@@ -1706,13 +1702,13 @@ let makeCrazyMap(worldSaveFolder) =
         )
     time (fun () -> placeTeleporters(map, hm, log, decorations))
     time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(map, hm, log, decorations))
-    time (fun () -> findSomeFlatAreas(map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(map, log, hm, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(map, log, biome))
+    time (fun () -> addRandomLootz(!rng, map, log, hm, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome))
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
