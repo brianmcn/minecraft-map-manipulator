@@ -80,3 +80,18 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
                                             Delay=1s, // primed
                                             MinSpawnDelay=200s, MaxSpawnDelay=400s) // 10-20s, rather than 10-40s
 
+let BIOME_HELL_PERCENTAGE = 0.1
+let BIOME_SKY_PERCENTAGE = 0.2
+
+let SPAWN_PROTECTION_DISTANCE_GREEN = 200
+let SPAWN_PROTECTION_DISTANCE_FLAT = 260
+let SPAWN_PROTECTION_DISTANCE_PEAK = 400
+let SPAWN_PROTECTION_DISTANCE_PURPLE = 600
+let STRUCTURE_SPACING = 170  // no two of same structure within this dist of each other
+let DECORATION_SPACING = 60  // no two decos this close together
+let DAYLIGHT_RADIUS = 180
+
+// map size; probably would require other changes to change these
+let MINIMUM = -1024
+let LENGTH = 2048
+

@@ -875,6 +875,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         P "scoreboard players test Time S 0 0"
         C (sprintf "tp @a[score_home_min=1] %s 180 0" OFFERING_SPOT.STR)
         C (sprintf """tellraw @a[score_home_min=1] ["Teleporting back to %s"]""" OFFERING_SPOT.STR)
+        C "effect @a[score_home_min=1] saturation 10 4 true"  // feed (and probably will heal some too, but don't want to chain many commands here on clock)
         C "scoreboard players set @a home 0"
         C "scoreboard players enable @a home"  // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
         |]
@@ -2447,8 +2448,10 @@ do
 
 
     // TODO
-    // factor constants, put all (and world gen) info in summary
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
+    // tnt exploding a morse code explosion-sound something?!?
+    // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
+    // fix heightmap issues
 
     
     let worldSeed = 14

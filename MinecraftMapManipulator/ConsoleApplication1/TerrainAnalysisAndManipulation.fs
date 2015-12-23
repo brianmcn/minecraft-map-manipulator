@@ -37,7 +37,6 @@ let repopulateAsAnotherBiome() =
 
 ////////////////////////////////////////////
 
-
 let debugRegion() =
     //let user = "brianmcn"
     let user = "Admin1"
@@ -72,7 +71,6 @@ let debugRegion() =
                             a.[i] <- NBT.Byte("TerrainPopulated", 1uy)
     regionFile.Write(fil+".new")
                 
-
 ////////////////////////////////////////////
 
 type Thingy(point:int, isLeft:bool, isRight:bool) =
@@ -118,19 +116,14 @@ type Partition(orig : Thingy) as this =
             thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
             thisRoot.rank <- thisRoot.rank + 1 
 
+////////////////////////////////////
+
 let putThingRecomputeLight(sx,sy,sz,map:MapFolder,thing,dmg) =
     // for lighted blocks (e.g. thing="glowstone"), to have Minecraft recompute the light, use a command block and a tile tick
     map.SetBlockIDAndDamage(sx,sy,sz,137uy,0uy)  // command block
     map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "setblock ~ ~ ~ %s %d" thing dmg); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
     map.AddTileTick("minecraft:command_block",1,0,sx,sy,sz)
 let putGlowstoneRecomputeLight(sx,sy,sz,map:MapFolder) = putThingRecomputeLight(sx,sy,sz,map,"glowstone",0)
-
-let SPAWN_PROTECTION_DISTANCE_PEAK = 400
-let SPAWN_PROTECTION_DISTANCE_FLAT = 260
-let SPAWN_PROTECTION_DISTANCE_GREEN = 200
-let STRUCTURE_SPACING = 170  // no two of same structure within this dist of each other
-let DECORATION_SPACING = 60  // no two decos this close together
-let DAYLIGHT_RADIUS = 180
 
 let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,itemsNbt) =
     for x = sx-2 to sx+2 do
@@ -208,8 +201,6 @@ type SpawnerAccumulator(description) =
         for KeyValue(k,v) in spawnerTypeCount |> Seq.sortBy (fun (KeyValue(k,_)) -> k)do
             sb.Append(sprintf "   %s:%3d" k v) |> ignore
         log.LogSummary(sprintf "   %s:%s" description (sb.ToString()))
-
-
 
 let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:EventAndProgressLog) =
     let MINIMUM = -DAYLIGHT_RADIUS
@@ -296,9 +287,6 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:EventAndProgressLog) 
 
 let mutable finalEX = 0
 let mutable finalEZ = 0
-
-let MINIMUM = -1024
-let LENGTH = 2048
 
 let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let YMIN = 10
@@ -435,7 +423,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
             else
             log.LogInfo(sprintf "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez)
             if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 500 then  // only keep mid-sized ones...
-                if not hasDoneFinal && dist.[besti,bestj,bestk] > 300 && ex*ex+ez*ez > 600*600 then
+                if not hasDoneFinal && dist.[besti,bestj,bestk] > 300 && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
                     thisIsFinal <- true
                 log.LogSummary(sprintf "added %sbeacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL " else "") ex ey ez dist.[besti,bestj,bestk])
                 decorations.Add((if thisIsFinal then 'X' else 'B'),ex,ez)
@@ -856,12 +844,12 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
     log.LogInfo(sprintf "found %d decent-sized plains biomes outside DAYLIGHT_RADIUS" CCs.Count)
     let mutable hellCount, skyCount = 0,0
     for KeyValue(_k,v) in CCs do
-        if rng.Next(10) = 0 then
+        if rng.NextDouble() < BIOME_HELL_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,8uy) // 8 = Hell
                 biome.[x,z] <- 8uy
             hellCount <- hellCount + 1
-        elif rng.Next(5) = 0 then
+        elif rng.NextDouble() < BIOME_SKY_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,9uy) // 9 = Sky
                 biome.[x,z] <- 9uy
@@ -1001,7 +989,7 @@ let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
 let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>) =
-    let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,90,110,10,8,decorations) // TODO XXX
+    let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,90,110,10,8,decorations) // TODO XXX // 8 may be too high
     let RADIUS = 20
     let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 0)  // negative scores often mean tall spike with no nearby same-height ground, get rid of them
     let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_PEAK*SPAWN_PROTECTION_DISTANCE_PEAK)
@@ -1408,7 +1396,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I("weather clear 999999")
     I("give @a iron_axe 1 0 {ench:[{id:18s,lvl:5s}]}")
     I("give @a shield")
-    I("give @a cooked_beef 6")
+    I("give @a cooked_beef 6")  // TODO too op? maybe more bread is better
     I("give @a dirt 64")
     I("scoreboard objectives add hidden dummy")
     I("scoreboard objectives add Deaths stat.deaths")
@@ -1669,24 +1657,6 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     // TODO automate world creation...
 
 
-//works:
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Zombie},Weight:1,Properties:[]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-// hmm:
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Type:{id:Spider},Weight:1,Properties:[{id:Spider,Passengers:[{"id":"Skeleton"}]}]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Type:Spider,Weight:1,Properties:[{Passengers:[{"id":"Skeleton"}]}]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Type:Spider,Weight:1,Properties:[{id:Spider,Passengers:[{"id":"Skeleton"}]}]}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{"id":"Skeleton"}]},Weight:1}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-
-//works:
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{id:Skeleton}]},Weight:1}],SpawnData:{id:Ghast},Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{id:Skeleton}]},Weight:1}],Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-// with bow
-// setblock ~ ~5 ~ mob_spawner 0 replace {SpawnPotentials:[{Entity:{id:Spider,Passengers:[{id:Skeleton,HandItems:[{id:bow,Count:1},{}]}]},Weight:1}],Delay:-1s,MaxNearbyEntities:6s,SpawnCount:4s,SpawnRange:4s,RequiredPlayerRange:16s,MinSpawnDelay:200s,MaxSpawnDelay:800s}
-
-
-
-// {MaxNearbyEntities:6s,RequiredPlayerRange:16s,SpawnCount:4s,SpawnData:{id:"Skeleton"},MaxSpawnDelay:800s,Delay:329s,x:99977,y:39,z:-24,id:"MobSpawner",SpawnRange:4s,MinSpawnDelay:200s,SpawnPotentials:[0:{Entity:{id:"Skeleton"},Weight:1}]}
 
 (*
 
