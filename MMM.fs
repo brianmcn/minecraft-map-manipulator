@@ -2434,19 +2434,26 @@ do
     
 
     let biomeSize = 3
-    let go = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
+    let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
+    //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,0)
+    let brianRngSeed = 0
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
-    // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",go) | _ -> nbt))
+    // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
 
+    // TODO
+    // factor constants, put all (and world gen) info in summary
+    // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
+
     
-    //System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
-    //genTerrainWithMCServer(14,       MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom))
+    let worldSeed = 14
+    //System.Windows.Clipboard.SetText(custom)
+    //genTerrainWithMCServer(worldSeed,custom)
 
 
 

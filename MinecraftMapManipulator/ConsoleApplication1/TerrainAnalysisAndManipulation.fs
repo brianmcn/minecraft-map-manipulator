@@ -2,53 +2,7 @@
 
 open NBT_Manipulation
 open RegionFiles
-
-    //map.SetBlockIDAndDamage(-342, 11, 97, 52uy, 0uy) // 52 = monster spawner
-type MobSpawnerInfo() =
-    member val RequiredPlayerRange =  16s with get, set
-    member val SpawnCount          =   4s with get, set
-    member val SpawnRange          =   4s with get, set
-    member val MaxNearbyEntities   =   6s with get, set
-    member val Delay               =  -1s with get, set
-    member val MinSpawnDelay       = 200s with get, set
-    member val MaxSpawnDelay       = 800s with get, set
-    member val x = 0 with get, set 
-    member val y = 0 with get, set 
-    member val z = 0 with get, set 
-    member val BasicMob = "Zombie" with get, set  // TODO multiple choice SpawnPotentials
-    member val ExtraNbt = [] with get, set // Ex: skel jockey  Passengers:[{id:Skeleton,HandItems:[{id:bow,Count:1},{}]}]  ->    [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
-    member this.AsNbtTileEntity() =
-        [|
-            Int("x", this.x)
-            Int("y", this.y)
-            Int("z", this.z)
-            String("id","MobSpawner")
-            Short("RequiredPlayerRange",this.RequiredPlayerRange)
-            Short("SpawnCount",this.SpawnCount)
-            Short("SpawnRange",this.SpawnRange)
-            Short("MaxNearbyEntities",this.MaxNearbyEntities)
-            Short("Delay",this.Delay)
-            Short("MinSpawnDelay",this.MinSpawnDelay)
-            Short("MaxSpawnDelay",this.MaxSpawnDelay)
-            Compound("SpawnData",[|yield String("id",this.BasicMob);yield! this.ExtraNbt;yield End|] |> ResizeArray)
-            List("SpawnPotentials",Compounds[|
-                                                [|
-                                                Compound("Entity",[|yield String("id",this.BasicMob); yield! this.ExtraNbt; yield End|] |> ResizeArray)
-                                                Int("Weight",1)
-                                                End
-                                                |]
-                                            |])
-            End
-        |]
-
-////////////////////////////////////////////
-
-let spiderJockeyMSI(x,y,z) = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Spider", ExtraNbt=[ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )] )
-
-let skeletonMSI(x,y,z) = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Skeleton", ExtraNbt=[ List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
-
-////////////////////////////////////////////
-
+open CustomizationKnobs
 
 let repopulateAsAnotherBiome() =
     //let user = "brianmcn"
@@ -491,9 +445,9 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 let spawners = SpawnerAccumulator("spawners along path")
                 let possibleSpawners = 
                     if thisIsFinal then
-                        [|(3,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                        PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA
                     else
-                        [|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
+                        GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA
                 while i<>bi || j<>bj || k<>bk do
                     let ni, nj, nk = // next points (step back using info from 'prev')
                         let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
@@ -501,8 +455,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     let ii,jj,kk = prev.[i,j,k]%3<>0, prev.[i,j,k]%3<>1, prev.[i,j,k]%3<>2   // ii/jj/kk track 'normal' to the path
                     // maybe put mob spawner nearby
                     let pct = float count / (float fullDist * 3.0)
-                    let pct = if thisIsFinal then pct * 2.0 else pct
-                    if rng.NextDouble() < pct then
+                    if rng.NextDouble() < pct*possibleSpawners.DensityMultiplier then
                         let xx,yy,zz = (i,j,k)
                         let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
                         let mutable ok = false
@@ -519,11 +472,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                             if candidates.Count > 0 then
                                 let x,y,z = candidates.[rng.Next(candidates.Count-1)]
                                 map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
-                                let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
-                                let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind)
-                                if thisIsFinal then 
-                                    ms.MaxSpawnDelay <- 400s
-                                    ms.Delay <- int16 (rng.Next(100))
+                                let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
                                 spawners.Add(ms)
                                 ok <- true
                             spread <- spread + 1
@@ -839,16 +788,6 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
     let HIY = 120
     let spawners1 = SpawnerAccumulator("rand spawners from granite")
     let spawners2 = SpawnerAccumulator("rand spawners from redstone")
-    let possibleSpawners1 = [|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (1,"Blaze"); (1,"Creeper")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-    let spawner1(x,y,z) =
-        let kind = possibleSpawners1.[rng.Next(possibleSpawners1.Length)]
-        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, MaxSpawnDelay=400s)
-        spawners1.Add(ms)
-    let possibleSpawners2 = [|(1,"Zombie"); (1,"Skeleton"); (1,"Spider"); (1,"Blaze"); (1,"Creeper"); (1,"CaveSpider")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-    let spawner2(x,y,z) =
-        let kind = possibleSpawners2.[rng.Next(possibleSpawners2.Length)]
-        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, MaxSpawnDelay=400s)
-        spawners2.Add(ms)
     printf "SUBST"
     for y = LOY to HIY do
         printf "."
@@ -865,13 +804,15 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     elif bid = 1uy && dmg = 1uy then // granite ->
                         if canPlaceSpawner(map,x,y,z) then
                             map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
-                            spawner1(x,y,z)
+                            let ms = GRANITE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                            spawners1.Add(ms)
                         else
                             map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 73uy && dmg = 0uy then // redstone ore ->
                         if canPlaceSpawner(map,x,y,z) then
                             map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
-                            spawner2(x,y,z)
+                            let ms = REDTSONE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                            spawners2.Add(ms)
                         else
                             map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
@@ -1143,16 +1084,12 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                     let dist = abs(x-i) + abs(z-j)
                     let pct = float (2*RADIUS-dist) / float(RADIUS*25)
                     // spawners on terrain
-                    if rng.NextDouble() < pct then
+                    if rng.NextDouble() < pct*MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA.DensityMultiplier then
                         let x = i
                         let z = j
                         let y = hm.[x,z]
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-                        let possibleSpawners = [|(4,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-                        let kind = possibleSpawners.[rng.Next(possibleSpawners.Length)]
-                        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=kind, Delay=1s)
-                        if ms.BasicMob = "Spider" then
-                            ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
+                        let ms = MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
                         spawners.Add(ms)
                     // red torches for mood lighting
                     elif rng.NextDouble() < pct then
@@ -1229,16 +1166,14 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                 if abs(x-i) > 2 || abs(z-j) > 2 then
                     let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
                     let pct = float (RADIUS-dist/2) / ((float RADIUS) * 2.0)
-                    if rng.NextDouble() < pct then
+                    let possibleSpawners = if dist < RADIUS/2 then FLAT_COBWEB_INNER_SPAWNER_DATA else FLAT_COBWEB_OUTER_SPAWNER_DATA 
+                    if rng.NextDouble() < pct*possibleSpawners.DensityMultiplier then
                         let x = i
                         let z = j
                         let y = hm.[x,z] + rng.Next(2)
-                        if rng.Next(10+dist/2) = 0 then // TODO XXX
+                        if rng.Next(10+dist/2) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-                            let possibleSpawners = [|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|] |> Array.collect (fun (n,k) -> Array.replicate n k)
-                            let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=possibleSpawners.[rng.Next(possibleSpawners.Length)], Delay=1s)
-                            if ms.BasicMob = "Spider" && rng.Next(2) = 0 && dist < RADIUS/2 then
-                                ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
+                            let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
                             spawners.Add(ms)
                         elif rng.Next(3) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
@@ -1257,17 +1192,13 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
                 // double all existing mob spawners
                 if bid = 52uy then // 52-mob spawner
                     let bite = map.GetTileEntity(x,y,z) // caches height map as side effect
-                    let kind =
+                    let originalKind =
                         match bite.Value with
                         | Compound(_,cs) ->
                             match cs |> Seq.find (fun x -> x.Name = "SpawnData") with
                             | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
                     map.SetBlockIDAndDamage(x, y+1, z, 52uy, 0uy) // 52 = monster spawner
-                    let ms = MobSpawnerInfo(x=x, y=y+1, z=z, BasicMob=(if kind = "Spider" || kind = "CaveSpider" then "Skeleton" else "CaveSpider"), 
-                                            Delay=1s, // primed
-                                            MinSpawnDelay=200s, MaxSpawnDelay=400s, // 10-20s, rather than 10-40s
-                                            ExtraNbt=[ if kind = "CaveSpider" then 
-                                                            yield List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]) ] ) 
+                    let ms = VANILLA_DUNGEON_EXTRA(x,y+1,z,originalKind)
                     spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
@@ -1641,7 +1572,7 @@ let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decoration
             failwith "no teleporters"
     ()
 
-let makeCrazyMap(worldSaveFolder, rngSeed) =
+let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let rng = ref(System.Random())
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
     let map = new MapFolder(worldSaveFolder + """\region\""")
@@ -1662,6 +1593,9 @@ let makeCrazyMap(worldSaveFolder, rngSeed) =
         log.LogSummary("-----")
     log.LogSummary("Debugging output for automated map generation")
     log.LogSummary("DON'T READ THIS UNLESS YOU WANT SPOILERS")
+    log.LogSummary("-------------------")
+    log.LogSummary("Terrain generation options:")
+    log.LogSummary(customTerrainGenerationOptions)
     log.LogSummary("-------------------")
     time (fun () ->
         let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
