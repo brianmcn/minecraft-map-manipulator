@@ -61,6 +61,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Algorithms.fs" />
     <Compile Include="..\..\PhotoToMinecraft.fs">
       <Link>PhotoToMinecraft.fs</Link>
     </Compile>

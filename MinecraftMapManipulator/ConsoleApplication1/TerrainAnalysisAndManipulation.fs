@@ -1,5 +1,6 @@
 ﻿module TerrainAnalysisAndManipulation
 
+open Algorithms
 open NBT_Manipulation
 open RegionFiles
 open CustomizationKnobs
@@ -72,51 +73,6 @@ let debugRegion() =
     regionFile.Write(fil+".new")
                 
 ////////////////////////////////////////////
-
-type Thingy(point:int, isLeft:bool, isRight:bool) =
-    let mutable isLeft = isLeft
-    let mutable isRight = isRight
-    member this.Point = point
-    member this.IsLeft with get() = isLeft and set(x) = isLeft <- x
-    member this.IsRight with get() = isRight and set(x) = isRight <- x
-
-// A partition is a mutable set of values, where one arbitrary value in the set 
-// is chosen as the canonical representative for that set. 
-[<AllowNullLiteral>]
-type Partition(orig : Thingy) as this =  
-    [<DefaultValue(false)>] val mutable parent : Partition
-    [<DefaultValue(false)>] val mutable rank : int 
-    let rec FindHelper(x : Partition) = 
-        if System.Object.ReferenceEquals(x.parent, x) then 
-            x 
-        else 
-            x.parent <- FindHelper(x.parent) 
-            x.parent 
-    do this.parent <- this 
-    // The representative element in this partition 
-    member this.Find() = 
-        FindHelper(this) 
-    // The original value of this element 
-    member this.Value = orig 
-    // Merges two partitions 
-    member this.Union(other : Partition) = 
-        let thisRoot = this.Find() 
-        let otherRoot = other.Find() 
-        if thisRoot.rank < otherRoot.rank then 
-            otherRoot.parent <- thisRoot
-            thisRoot.Value.IsLeft <- thisRoot.Value.IsLeft || otherRoot.Value.IsLeft 
-            thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
-        elif thisRoot.rank > otherRoot.rank then 
-            thisRoot.parent <- otherRoot 
-            otherRoot.Value.IsLeft <- otherRoot.Value.IsLeft || thisRoot.Value.IsLeft 
-            otherRoot.Value.IsRight <- otherRoot.Value.IsRight || thisRoot.Value.IsRight
-        elif not (System.Object.ReferenceEquals(thisRoot, otherRoot)) then 
-            otherRoot.parent <- thisRoot 
-            thisRoot.Value.IsLeft <- thisRoot.Value.IsLeft || otherRoot.Value.IsLeft 
-            thisRoot.Value.IsRight <- thisRoot.Value.IsRight || otherRoot.Value.IsRight
-            thisRoot.rank <- thisRoot.rank + 1 
-
-////////////////////////////////////
 
 let putThingRecomputeLight(sx,sy,sz,map:MapFolder,thing,dmg) =
     // for lighted blocks (e.g. thing="glowstone"), to have Minecraft recompute the light, use a command block and a tile tick
@@ -202,7 +158,7 @@ type SpawnerAccumulator(description) =
             sb.Append(sprintf "   %s:%3d" k v) |> ignore
         log.LogSummary(sprintf "   %s:%s" description (sb.ToString()))
 
-let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:EventAndProgressLog) =
+let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog) =
     let MINIMUM = -DAYLIGHT_RADIUS
     let LENGTH = 2*DAYLIGHT_RADIUS
     let YMIN = 50
@@ -231,7 +187,7 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:EventAndProgressLog) 
                 let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
                 if currentSectionBlocks.[bix] = 0uy then
-                    a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hm.[x,z])))
+                    a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hmIgnoringLeaves.[x,z])))
     printfn ""
     printf "CONNECT"
     // connected-components them
@@ -239,11 +195,11 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:EventAndProgressLog) 
         printf "."
         for x = MINIMUM+1 to MINIMUM+LENGTH-1 do
             for z = MINIMUM+1 to MINIMUM+LENGTH-1 do
-                if a.[x,y,z]<>null && a.[x+1,y,z]<>null && (y < hm.[x,z] || y < hm.[x+1,z]) then
+                if a.[x,y,z]<>null && a.[x+1,y,z]<>null && (y < hmIgnoringLeaves.[x,z] || y < hmIgnoringLeaves.[x+1,z]) then
                     a.[x,y,z].Union(a.[x+1,y,z])
-                if a.[x,y,z]<>null && a.[x,y+1,z]<>null && (y < hm.[x,z]) then
+                if a.[x,y,z]<>null && a.[x,y+1,z]<>null && (y < hmIgnoringLeaves.[x,z]) then
                     a.[x,y,z].Union(a.[x,y+1,z])
-                if a.[x,y,z]<>null && a.[x,y,z+1]<>null && (y < hm.[x,z] || y < hm.[x,z+1]) then
+                if a.[x,y,z]<>null && a.[x,y,z+1]<>null && (y < hmIgnoringLeaves.[x,z] || y < hmIgnoringLeaves.[x,z+1]) then
                     a.[x,y,z].Union(a.[x,y,z+1])
     printfn ""
     printf "ANALYZE"
@@ -268,15 +224,17 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], log:EventAndProgressLog) 
             let mutable bestX,bestY,bestZ = 9999,0,9999
             for p in hs do
                 let x,y,z = XYZP(p)
-                if y >= hm.[x,z] && (x*x+z*z < bestX*bestX+bestZ*bestZ) then
+                if y >= hmIgnoringLeaves.[x,z] && (x*x+z*z < bestX*bestX+bestZ*bestZ) then
                     bestX <- x
                     bestY <- y
                     bestZ <- z
             if bestY <> 0 then
                 // found highest point in this cave exposed to surface
                 for y = bestY + 10 to bestY + 25 do
-                    map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone // TODO heightmap
+                    map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
                 putGlowstoneRecomputeLight(bestX,bestY+26,bestZ,map)
+                hm.[bestX,bestZ] <- bestY+27
+                map.SetHeightMap(bestX, bestZ, bestY+27)
                 caveCount <- caveCount + 1
                 (*
                 for p in hs do
@@ -1560,6 +1518,70 @@ let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decoration
             failwith "no teleporters"
     ()
 
+let findMountainToHollowOut(map : MapFolder, hm, hmIgnoringLeaves :_[,], log, decorations) =
+    let YMAX = 100
+    let (xmin,zmin),(xmax,zmax),area = findMaximalRectangle(Array2D.initBased MINIMUM MINIMUM LENGTH LENGTH (fun x z -> hmIgnoringLeaves.[x,z] > YMAX))
+    printfn "%A %A %d" (xmin,zmin) (xmax,zmax) area
+    let midx = xmin + (xmax-xmin)/2
+    let midz = zmin + (zmax-zmin)/2
+    let D = 100
+    let XMIN = midx - D/2
+    let ZMIN = midz - D/2
+    let YMIN = 60
+    let data = Array2D.initBased (XMIN-1) (ZMIN-1) (D+2) (D+2) (fun x z -> // data.[x,z].[y] = my temp block stuff
+        Array.init 256 (fun y -> 
+            if x = XMIN-1 || x = XMIN+D || z = ZMIN-1 || z = ZMIN+D then 999 // sentinels at array edges
+            else if y <= hmIgnoringLeaves.[x,z] then 0 else 999))   // don't touch any blocks above HM
+    // find existing block shell
+    let q = System.Collections.Generic.Queue<_>()
+    for x = XMIN to XMIN+D-1 do
+        for z = ZMIN to ZMIN+D-1 do
+            let h = hmIgnoringLeaves.[x,z]
+            let mutable y = h  // topmost block
+            data.[x,z].[y] <- 1  // 1 = existing shell
+            // make bedrock shell "below"
+            y <- y - 1
+            data.[x,z].[y] <- 1  // 1 = existing shell
+            while y > hmIgnoringLeaves.[x-1,z] || y > hmIgnoringLeaves.[x,z-1] || y > hmIgnoringLeaves.[x+1,z] || y > hmIgnoringLeaves.[x,z+1] do
+                y <- y - 1
+                data.[x,z].[y] <- 1  // 1 = existing shell
+                q.Enqueue(x,y,z)
+            data.[x,z].[y] <- 2  // 2 = bedrock inner shell
+            q.Enqueue(x,y,z)
+    let GOALX, GOALY, GOALZ = midx, YMIN, midz
+    let compute(x,y,z) =
+        if data.[x,z].[y+1] = 1 || data.[x-1,z].[y] = 1 || data.[x,z-1].[y] = 1 || data.[x+1,z].[y] = 1 || data.[x,z+1].[y] = 1 then
+            data.[x,z].[y] <- 2 // bedrock if next to outer shell
+        else
+            data.[x,z].[y] <- 3 // air if otherwise in interior
+        q.Enqueue(x,y,z)
+    // find rest of bedrock/air space
+    while not(q.Count=0) do
+        let x,y,z = q.Dequeue()
+        if x > GOALX && data.[x-1,z].[y]=0 then
+            compute(x-1,y,z)
+        elif x < GOALX && data.[x+1,z].[y]=0 then
+            compute(x+1,y,z)
+        if z > GOALZ && data.[x,z-1].[y]=0 then
+            compute(x,y,z-1)
+        elif z < GOALZ && data.[x,z+1].[y]=0 then
+            compute(x,y,z+1)
+        if y > GOALY && data.[x,z].[y-1]=0 then
+            compute(x,y-1,z)
+    for x = XMIN to XMIN+D-1 do
+        for z = ZMIN to ZMIN+D-1 do
+            for y = YMIN to 255 do
+                if data.[x,z].[y] = 2 then
+                    map.SetBlockIDAndDamage(x,y,z,7uy,0uy) // 7=bedrock
+                elif data.[x,z].[y] = 3 then
+                    map.SetBlockIDAndDamage(x,y,z,0uy,0uy) // 0 = air
+    // TODO deal with overhangs showing exposed bedrock?
+    // TODO entrance, floor, populate
+    // TODO log, decorations, etc
+
+
+
+
 let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let rng = ref(System.Random())
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
@@ -1622,23 +1644,24 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    time (fun () -> placeTeleporters(map, hm, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome))
-    time (fun() ->   // after hiding spots figured
+    time (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> placeTeleporters(map, hm, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome))
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK], decorations)

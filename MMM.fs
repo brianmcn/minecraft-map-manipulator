@@ -2370,8 +2370,8 @@ let doTrie(r:RegionFile) =
 
 [<System.STAThread()>]  
 do   
-    //let user = "brianmcn"
-    let user = "Admin1"
+    let user = "brianmcn"
+    //let user = "Admin1"
     //killAllEntities()
     //dumpChunkInfo("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
@@ -2437,7 +2437,7 @@ do
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
-    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM"""
+    let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
@@ -2451,10 +2451,13 @@ do
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
     // tnt exploding a morse code explosion-sound something?!?
     // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
-    // fix heightmap issues
+    // fix heightmap issues? blocklight/skylight?
+    // hollow out mountain, for top-down, multi-tier, encased in bedrock dungeon?
+    // forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
+    // desert falling sand could also open hole into giant underground cavern of some sort?
 
     
-    let worldSeed = 14
+    let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)
     //genTerrainWithMCServer(worldSeed,custom)
 
