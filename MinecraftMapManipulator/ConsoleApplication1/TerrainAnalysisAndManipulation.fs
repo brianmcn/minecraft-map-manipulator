@@ -308,7 +308,8 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
     for p in goodCCs.Values |> Seq.head do
         let x,y,z = XYZP(p)
         if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
-            sk.[x,y,z] <- 1y
+            if x > -1000 && x < -750 && z > -800 && z < -500 then // TODO artificial to reduce space
+                sk.[x,y,z] <- 1y
     Algorithms.skeletonize(sk, (fun (x,y,z,iter) -> map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
     let mutable numEndpoints = 0
     for y = YMIN+1 to YMIN+YLEN do

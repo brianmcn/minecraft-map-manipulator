@@ -122,36 +122,42 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
             // thus, let's look for a 'bigger surface', and just erode would-be endpoints that appear to actually be mere 'bumps'.
             let mutable neighborNeighbors = 0
             if a.[x+1,y,z] <> 0y then
+                if a.[x+2,y,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y+1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y-1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
             elif a.[x-1,y,z] <> 0y then
+                if a.[x-2,y,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y+1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y-1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
             elif a.[x,y+1,z] <> 0y then
+                if a.[x,y+2,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y+1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y+1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y+1,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y+1,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
             elif a.[x,y-1,z] <> 0y then
+                if a.[x,y-2,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y-1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y-1,z] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y-1,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y-1,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
             elif a.[x,y,z+1] <> 0y then
+                if a.[x,y,z+2] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y+1,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y-1,z+1] > 0y then neighborNeighbors <- neighborNeighbors + 1
             elif a.[x,y,z-1] <> 0y then
+                if a.[x,y,z-2] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x+1,y,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x-1,y,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y+1,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
                 if a.[x,y-1,z-1] > 0y then neighborNeighbors <- neighborNeighbors + 1
-            if neighborNeighbors <= 0 then                // TODO ad-hoc, maybe 0?
+            if neighborNeighbors <= 1 then
                 TRUE_ENDPOINT
             else
                 NAIVE_ENDPOINT
@@ -194,6 +200,8 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
     printfn "SKEL"
     let mutable iter = 0
     let mutable ok = true
+    // TODO note, two parallel spines diagonal from one another (touch diagonally), way to get rid of?
+    // TODO pure diagonal cave had no endpoint, just eroded one color to next, all endpoints were bumps (true endpoint only sees straight ones, not diagonals)
     while ok do
         let mutable wereAnyRemoved  = false
         for d = 0 to 5 do
@@ -205,6 +213,17 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                     let dx, dy, dz, b = DIRS.[d-3]
                     let dx, dy, dz = -dx, -dy, -dz
                     dx,dy,dz,b
+            // remove any naive bumps
+            let onesSnapshot = ones |> Seq.toArray 
+            Array.sortInPlace onesSnapshot 
+            for x,y,z in onesSnapshot do
+                let e = isEndpoint(x,y,z)
+                if e = NAIVE_ENDPOINT then
+                    a.[x,y,z] <- -1y
+                    ones.Remove(x,y,z) |> ignore
+                    wereAnyRemoved <- true
+                    onRemove(x,y,z,min iter 15)
+            // main algorithm
             let onesSnapshot = ones |> Seq.toArray 
             Array.sortInPlace onesSnapshot 
             for x,y,z in onesSnapshot do
@@ -212,24 +231,28 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                 if e = TRUE_ENDPOINT then
                     a.[x,y,z] <- 3y
                     ones.Remove(x,y,z) |> ignore
-                elif e = NAIVE_ENDPOINT then
+                elif e = NAIVE_ENDPOINT then  // TODO check all naive endpoints before doing any other erasure
                     a.[x,y,z] <- -1y
                     ones.Remove(x,y,z) |> ignore
                     wereAnyRemoved <- true
-                    onRemove(x,y,z,iter)
+                    onRemove(x,y,z,min iter 15)
                 elif find(x-dx,y-dy,z-dz,dx,dy,dz,"OXX") then
-                    // TODO don't introduce concavities
+                    // don't introduce concavities
                     //    XXX                      XXX
                     //  ->XXX   should not become  OXX 
                     //    XXX                      XXX
+                    if  a.[x+1,y,z] > 0y && a.[x-1,y,z] > 0y ||
+                        a.[x,y+1,z] > 0y && a.[x,y-1,z] > 0y ||
+                        a.[x,y,z+1] > 0y && a.[x,y,z-1] > 0y then
+                        () // do nothing to avoid adding concavity
                     // 
                     //       XO                                                                   XX
                     //      OXX                                                                    X
                     //  L-shaped connector                                                      already connected in another plane
-                    if  find(x+b.[0].[0],y+b.[0].[1],z+b.[0].[2],dx,dy,dz,"XO") && not(find(x+b.[0].[0]+b.[2].[0],y+b.[0].[1]+b.[2].[1],z+b.[0].[2]+b.[2].[2],dx,dy,dz,"XX") && find(x+dx+b.[2].[0],y+dy+b.[2].[1],z+dz+b.[2].[2],dx,dy,dz,"X") || find(x+b.[0].[0]+b.[3].[0],y+b.[0].[1]+b.[3].[1],z+b.[0].[2]+b.[3].[2],dx,dy,dz,"XX") && find(x+dx+b.[3].[0],y+dy+b.[3].[1],z+dz+b.[3].[2],dx,dy,dz,"X")) ||
-                        find(x+b.[1].[0],y+b.[1].[1],z+b.[1].[2],dx,dy,dz,"XO") && not(find(x+b.[1].[0]+b.[2].[0],y+b.[1].[1]+b.[2].[1],z+b.[1].[2]+b.[2].[2],dx,dy,dz,"XX") && find(x+dx+b.[2].[0],y+dy+b.[2].[1],z+dz+b.[2].[2],dx,dy,dz,"X") || find(x+b.[1].[0]+b.[3].[0],y+b.[1].[1]+b.[3].[1],z+b.[1].[2]+b.[3].[2],dx,dy,dz,"XX") && find(x+dx+b.[3].[0],y+dy+b.[3].[1],z+dz+b.[3].[2],dx,dy,dz,"X")) ||
-                        find(x+b.[2].[0],y+b.[2].[1],z+b.[2].[2],dx,dy,dz,"XO") && not(find(x+b.[2].[0]+b.[0].[0],y+b.[2].[1]+b.[0].[1],z+b.[2].[2]+b.[0].[2],dx,dy,dz,"XX") && find(x+dx+b.[0].[0],y+dy+b.[0].[1],z+dz+b.[0].[2],dx,dy,dz,"X") || find(x+b.[2].[0]+b.[1].[0],y+b.[2].[1]+b.[1].[1],z+b.[2].[2]+b.[1].[2],dx,dy,dz,"XX") && find(x+dx+b.[1].[0],y+dy+b.[1].[1],z+dz+b.[1].[2],dx,dy,dz,"X")) ||
-                        find(x+b.[3].[0],y+b.[3].[1],z+b.[3].[2],dx,dy,dz,"XO") && not(find(x+b.[3].[0]+b.[0].[0],y+b.[3].[1]+b.[0].[1],z+b.[3].[2]+b.[0].[2],dx,dy,dz,"XX") && find(x+dx+b.[0].[0],y+dy+b.[0].[1],z+dz+b.[0].[2],dx,dy,dz,"X") || find(x+b.[3].[0]+b.[1].[0],y+b.[3].[1]+b.[1].[1],z+b.[3].[2]+b.[1].[2],dx,dy,dz,"XX") && find(x+dx+b.[1].[0],y+dy+b.[1].[1],z+dz+b.[1].[2],dx,dy,dz,"X")) then
+                    elif find(x+b.[0].[0],y+b.[0].[1],z+b.[0].[2],dx,dy,dz,"XO") && not(find(x+b.[0].[0]+b.[2].[0],y+b.[0].[1]+b.[2].[1],z+b.[0].[2]+b.[2].[2],dx,dy,dz,"XX") && find(x+dx+b.[2].[0],y+dy+b.[2].[1],z+dz+b.[2].[2],dx,dy,dz,"X") || find(x+b.[0].[0]+b.[3].[0],y+b.[0].[1]+b.[3].[1],z+b.[0].[2]+b.[3].[2],dx,dy,dz,"XX") && find(x+dx+b.[3].[0],y+dy+b.[3].[1],z+dz+b.[3].[2],dx,dy,dz,"X")) ||
+                         find(x+b.[1].[0],y+b.[1].[1],z+b.[1].[2],dx,dy,dz,"XO") && not(find(x+b.[1].[0]+b.[2].[0],y+b.[1].[1]+b.[2].[1],z+b.[1].[2]+b.[2].[2],dx,dy,dz,"XX") && find(x+dx+b.[2].[0],y+dy+b.[2].[1],z+dz+b.[2].[2],dx,dy,dz,"X") || find(x+b.[1].[0]+b.[3].[0],y+b.[1].[1]+b.[3].[1],z+b.[1].[2]+b.[3].[2],dx,dy,dz,"XX") && find(x+dx+b.[3].[0],y+dy+b.[3].[1],z+dz+b.[3].[2],dx,dy,dz,"X")) ||
+                         find(x+b.[2].[0],y+b.[2].[1],z+b.[2].[2],dx,dy,dz,"XO") && not(find(x+b.[2].[0]+b.[0].[0],y+b.[2].[1]+b.[0].[1],z+b.[2].[2]+b.[0].[2],dx,dy,dz,"XX") && find(x+dx+b.[0].[0],y+dy+b.[0].[1],z+dz+b.[0].[2],dx,dy,dz,"X") || find(x+b.[2].[0]+b.[1].[0],y+b.[2].[1]+b.[1].[1],z+b.[2].[2]+b.[1].[2],dx,dy,dz,"XX") && find(x+dx+b.[1].[0],y+dy+b.[1].[1],z+dz+b.[1].[2],dx,dy,dz,"X")) ||
+                         find(x+b.[3].[0],y+b.[3].[1],z+b.[3].[2],dx,dy,dz,"XO") && not(find(x+b.[3].[0]+b.[0].[0],y+b.[3].[1]+b.[0].[1],z+b.[3].[2]+b.[0].[2],dx,dy,dz,"XX") && find(x+dx+b.[0].[0],y+dy+b.[0].[1],z+dz+b.[0].[2],dx,dy,dz,"X") || find(x+b.[3].[0]+b.[1].[0],y+b.[3].[1]+b.[1].[1],z+b.[3].[2]+b.[1].[2],dx,dy,dz,"XX") && find(x+dx+b.[1].[0],y+dy+b.[1].[1],z+dz+b.[1].[2],dx,dy,dz,"X")) then
                             //a.[x,y,z] <- 2y
                             //ones.Remove(x,y,z) |> ignore
                             () // don't permanently save connectors, as the things they connect may be eroded away, just skip for now
@@ -237,7 +260,7 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                         a.[x,y,z] <- -1y
                         ones.Remove(x,y,z) |> ignore
                         wereAnyRemoved <- true
-                        onRemove(x,y,z,iter)
+                        onRemove(x,y,z,min iter 15)
             decrement()
         if not wereAnyRemoved then
             ok <- false
