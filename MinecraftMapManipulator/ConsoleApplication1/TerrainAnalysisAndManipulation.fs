@@ -304,6 +304,23 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
+    let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+    for p in goodCCs.Values |> Seq.head do
+        let x,y,z = XYZP(p)
+        if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
+            sk.[x,y,z] <- 1y
+    Algorithms.skeletonize(sk, (fun (x,y,z,iter) -> map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
+    let mutable numEndpoints = 0
+    for y = YMIN+1 to YMIN+YLEN do
+        for x = MINIMUM+1 to MINIMUM+LENGTH do
+            for z = MINIMUM+1 to MINIMUM+LENGTH do
+                if sk.[x,y,z]>0y then
+                    map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
+                if sk.[x,y,z]=3y then
+                    printfn "EP %d %d %d" x y z
+                    numEndpoints <- numEndpoints + 1
+    printfn "there were %d endpoints" numEndpoints 
+    if false then // TODO remove
     // These arrays are large enough that I think they get pinned in permanent memory, reuse them
     let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let prev = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
@@ -1420,7 +1437,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     for x = -2 to 4 do
         for z = 2 to 8 do
             for dh = 9 to 15 do
-                map.SetBlockIDAndDamage(x,h+dh,z,166uy,0uy) // 166=barrier
+                map.SetBlockIDAndDamage(x,h+dh,z,166uy,0uy) // 166=barrier  // TODO barrier is bad design, do something else
     // put monument
     for x = -1 to 3 do
         for z = 3 to 7 do
@@ -1640,15 +1657,15 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
                 let mutable y = h
-                while (let bid = map.MaybeGetBlockInfo(x,y,z).BlockID in bid = 0uy || bid = 18uy || bid = 161uy || bid = 78uy) do // air, leaves, leaves2, snow_layer
+                while (let bid = map.MaybeGetBlockInfo(x,y,z).BlockID in bid = 0uy || bid = 18uy || bid = 161uy || bid = 78uy || bid = 31uy || bid = 175uy || bid = 32uy || bid = 37uy || bid = 38uy || bid = 39uy || bid = 40uy) do // air, leaves, leaves2, snow_layer, tallgrass, double_plant, deadbush, yellow_flower, red_flower, brown_mushroom, red_mushroom
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    time (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> placeTeleporters(map, hm, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
