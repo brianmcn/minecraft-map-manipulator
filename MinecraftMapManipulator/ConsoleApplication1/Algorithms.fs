@@ -177,20 +177,28 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
             if s.[i] = 'X' && a.[x+i*dx,y+i*dy,z+i*dz] <= 0y then
                 ok <- false
         ok
+    let endpoints = new System.Collections.Generic.HashSet<_>()
     let ones = new System.Collections.Generic.HashSet<_>()
+    let recentlyRemoved = new System.Collections.Generic.HashSet<_>()
+    let iter = ref 0
+    let remove(x,y,z) =
+        a.[x,y,z] <- -1y
+        ones.Remove(x,y,z) |> ignore
+        onRemove(x,y,z,!iter%16)
+        recentlyRemoved.Add(x,y,z) |> ignore
     let decrement() =
-        for x = a.GetLowerBound(0) to a.GetLowerBound(0)+a.GetLength(0)-1 do
-            for y = a.GetLowerBound(1) to a.GetLowerBound(1)+a.GetLength(1)-1 do
-                for z = a.GetLowerBound(2) to a.GetLowerBound(2)+a.GetLength(2)-1 do
-                    if a.[x,y,z] < 0y then
-                        a.[x,y,z] <- a.[x,y,z] - 1y
-                        if a.[x,y,z] <= -5y then
-                            a.[x,y,z] <- 0y
+        let rrSnapshot = recentlyRemoved|> Seq.toArray 
+        for x,y,z in rrSnapshot do
+            a.[x,y,z] <- a.[x,y,z] - 1y
+            if a.[x,y,z] <= -5y then
+                a.[x,y,z] <- 0y
+                recentlyRemoved.Remove(x,y,z) |> ignore
     for x = a.GetLowerBound(0) to a.GetLowerBound(0)+a.GetLength(0)-1 do
         for y = a.GetLowerBound(1) to a.GetLowerBound(1)+a.GetLength(1)-1 do
             for z = a.GetLowerBound(2) to a.GetLowerBound(2)+a.GetLength(2)-1 do
                 if a.[x,y,z] = 1y then
                     ones.Add(x,y,z) |> ignore
+    // TODO endpoint short dist from 3-junction skeleton, can just trim that bit in post
     // do an initial smoothing, by pruning immediate endpoints
     let onesSnapshot = ones |> Seq.toArray 
     for x,y,z in onesSnapshot do
@@ -198,10 +206,8 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
             a.[x,y,z] <- 0y
             ones.Remove(x,y,z) |> ignore
     printfn "SKEL"
-    let mutable iter = 0
     let mutable ok = true
     // TODO note, two parallel spines diagonal from one another (touch diagonally), way to get rid of?
-    // TODO pure diagonal cave had no endpoint, just eroded one color to next, all endpoints were bumps (true endpoint only sees straight ones, not diagonals)
     while ok do
         let mutable wereAnyRemoved  = false
         for d = 0 to 5 do
@@ -215,27 +221,24 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                     dx,dy,dz,b
             // remove any naive bumps
             let onesSnapshot = ones |> Seq.toArray 
-            Array.sortInPlace onesSnapshot 
+            //Array.sortInPlace onesSnapshot 
             for x,y,z in onesSnapshot do
                 let e = isEndpoint(x,y,z)
                 if e = NAIVE_ENDPOINT then
-                    a.[x,y,z] <- -1y
-                    ones.Remove(x,y,z) |> ignore
+                    remove(x,y,z)
                     wereAnyRemoved <- true
-                    onRemove(x,y,z,min iter 15)
             // main algorithm
             let onesSnapshot = ones |> Seq.toArray 
-            Array.sortInPlace onesSnapshot 
+            //Array.sortInPlace onesSnapshot 
             for x,y,z in onesSnapshot do
                 let e = isEndpoint(x,y,z)
                 if e = TRUE_ENDPOINT then
                     a.[x,y,z] <- 3y
                     ones.Remove(x,y,z) |> ignore
-                elif e = NAIVE_ENDPOINT then  // TODO check all naive endpoints before doing any other erasure
-                    a.[x,y,z] <- -1y
-                    ones.Remove(x,y,z) |> ignore
+                    endpoints.Add(x,y,z) |> ignore
+                elif e = NAIVE_ENDPOINT then
+                    remove(x,y,z)
                     wereAnyRemoved <- true
-                    onRemove(x,y,z,min iter 15)
                 elif find(x-dx,y-dy,z-dz,dx,dy,dz,"OXX") then
                     // don't introduce concavities
                     //    XXX                      XXX
@@ -257,13 +260,43 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                             //ones.Remove(x,y,z) |> ignore
                             () // don't permanently save connectors, as the things they connect may be eroded away, just skip for now
                     else
-                        a.[x,y,z] <- -1y
-                        ones.Remove(x,y,z) |> ignore
+                        remove(x,y,z)
                         wereAnyRemoved <- true
-                        onRemove(x,y,z,min iter 15)
             decrement()
         if not wereAnyRemoved then
             ok <- false
-        iter <- iter + 1
+        incr iter
     printfn ""
-    () // just return, a is skeletonized, 3s are endpoints    
+    // a is skeletonized, 3s are endpoints    
+    let mutable endpointsWithLengths = ResizeArray()
+    let ALL = [| (1,0,0); (0,1,0); (0,0,1); (-1,0,0); (0,-1,0); (0,0,-1) |]
+    for x,y,z in endpoints do
+        let mutable skip = -1
+        let mutable count = 0
+        let mutable ok = true
+        let mutable cx,cy,cz = x,y,z
+        while ok do
+            let mutable next = None
+            for i = 0 to 5 do
+                if i <> skip then
+                    let dx,dy,dz = ALL.[i]
+                    if a.[cx+dx,cy+dy,cz+dz] > 0y then
+                        match next with
+                        | None -> 
+                            next <- Some(cx+dx,cy+dy,cz+dz)
+                            count <- count + 1
+                            skip <- (i + 3) % 6
+                        | _ -> ok <- false
+            match next with
+            | Some(i,j,k) ->
+                cx <- i
+                cy <- j
+                cz <- k
+            | _ -> 
+                // a segment not connected to a more branching skeleton, just choosing to ignore
+                ok <- false
+                count <- -1
+        endpointsWithLengths.Add(count, (x,y,z))
+    endpointsWithLengths.Sort()
+    for l,e in endpointsWithLengths do
+        printfn "EPwL: %3d  %A" l e

@@ -304,23 +304,24 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
-    let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-    for p in goodCCs.Values |> Seq.head do
-        let x,y,z = XYZP(p)
-        if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
-            if x > -1000 && x < -750 && z > -800 && z < -500 then // TODO artificial to reduce space
-                sk.[x,y,z] <- 1y
-    Algorithms.skeletonize(sk, (fun (x,y,z,iter) -> map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
-    let mutable numEndpoints = 0
-    for y = YMIN+1 to YMIN+YLEN do
-        for x = MINIMUM+1 to MINIMUM+LENGTH do
-            for z = MINIMUM+1 to MINIMUM+LENGTH do
-                if sk.[x,y,z]>0y then
-                    map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
-                if sk.[x,y,z]=3y then
-                    printfn "EP %d %d %d" x y z
-                    numEndpoints <- numEndpoints + 1
-    printfn "there were %d endpoints" numEndpoints 
+    for s in goodCCs.Values do
+        let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+        for p in s do
+            let x,y,z = XYZP(p)
+            if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
+                //if x > -1000 && x < -750 && z > -800 && z < -500 then // TODO artificial to reduce space
+                    sk.[x,y,z] <- 1y
+        Algorithms.skeletonize(sk, (fun (x,y,z,iter) -> ())) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
+        let mutable numEndpoints = 0
+        for y = YMIN+1 to YMIN+YLEN do
+            for x = MINIMUM+1 to MINIMUM+LENGTH do
+                for z = MINIMUM+1 to MINIMUM+LENGTH do
+                    if sk.[x,y,z]>0y then
+                        map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
+                    if sk.[x,y,z]=3y then
+                        //printfn "EP %d %d %d" x y z
+                        numEndpoints <- numEndpoints + 1
+        printfn "there were %d endpoints" numEndpoints 
     if false then // TODO remove
     // These arrays are large enough that I think they get pinned in permanent memory, reuse them
     let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
