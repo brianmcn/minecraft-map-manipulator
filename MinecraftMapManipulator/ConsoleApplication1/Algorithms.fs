@@ -94,6 +94,45 @@ let findMaximalRectangle(a:bool[,]) =
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
+    let visited = new System.Collections.Generic.Dictionary<_,_>()  // key exists = visited, value = previous direction
+    let q = new System.Collections.Generic.Queue<_>()
+    let mutable e = None
+    q.Enqueue(sx,sy,sz)
+    visited.Add((sx,sy,sz), -1)
+    while q.Count > 0 do
+        let x,y,z = q.Dequeue()
+        if isEnd(x,y,z) then
+            e <- Some (x,y,z)
+            while q.Count > 0 do
+                q.Dequeue() |> ignore
+        else
+            for diffi = 0 to differences.Length-1 do
+                let dx,dy,dz = differences.[diffi]
+                let nx,ny,nz = x+dx, y+dy, z+dz
+                if canMove(nx,ny,nz) && not(visited.ContainsKey(nx,ny,nz)) then
+                    visited.Add((nx,ny,nz), diffi)
+                    q.Enqueue(nx,ny,nz)
+    match e with
+    | None -> failwith "no path found"
+    | Some(ex,ey,ez) ->
+        let path = ResizeArray()
+        let moves = ResizeArray()
+        let mutable cx,cy,cz = ex,ey,ez
+        while visited.[cx,cy,cz] <> -1 do
+            path.Add( cx,cy,cz )
+            moves.Add( visited.[cx,cy,cz] )
+            let dx,dy,dz = differences.[ visited.[cx,cy,cz] ]
+            cx <- cx - dx
+            cy <- cy - dy
+            cz <- cz - dz
+        path.Add( cx,cy,cz )
+        path.Reverse()
+        moves.Reverse()
+        ((ex,ey,ez), path, moves)  // path is list of points from start to end, inclusive; moves is differences-indexes
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 // saw various complicated 3-d skeletonization / thinning voxel algorithms
 // http://dsp.stackexchange.com/questions/1154/open-source-implementation-of-3d-thinning-algorithm
 // https://view.officeapps.live.com/op/view.aspx?src=http%3A%2F%2Fwww.massey.ac.nz%2F~mjjohnso%2Fnotes%2F59731%2Fpresentations%2FThinning%2520Algorithm.doc

@@ -2455,6 +2455,15 @@ do
     // hollow out mountain, for top-down, multi-tier, encased in bedrock dungeon?
     // forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
     // desert falling sand could also open hole into giant underground cavern of some sort?
+    // ghast spawner atop mtn when broken could lead to ladder down to hollowed mountain dungeon
+    // thread LootTableSeed through my rng for reproducibility
+
+    // redo teleporters and add villager trades for emerald blocks for potion buffs:
+    // no barrier blocks, use bedrock columns at corners of monument (ask obe ideas to prevent building nearby)
+    // replace bedrock with teleporter and villager
+    // villagers have 1 of 4 trades, emerald block for a potion of 99:99 of haste, speed, strength, or health boost (maybe all 4 also trade for night vision?) (last until player dies) (how ensure trade not 'run out'?)
+    // hide emeralds in various chests I'll be adding, remove emerald ore from extreme hills
+    // makes bonus chests more fun, encourages exploration, and provides another crutch for players to get buff
     
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)

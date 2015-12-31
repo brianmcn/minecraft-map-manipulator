@@ -304,28 +304,27 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
-    for s in goodCCs.Values do
-        let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-        for p in s do
-            let x,y,z = XYZP(p)
-            if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
-                //if x > -1000 && x < -750 && z > -800 && z < -500 then // TODO artificial to reduce space
-                    sk.[x,y,z] <- 1y
-        Algorithms.skeletonize(sk, (fun (x,y,z,iter) -> ())) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
-        let mutable numEndpoints = 0
-        for y = YMIN+1 to YMIN+YLEN do
-            for x = MINIMUM+1 to MINIMUM+LENGTH do
-                for z = MINIMUM+1 to MINIMUM+LENGTH do
-                    if sk.[x,y,z]>0y then
-                        map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
-                    if sk.[x,y,z]=3y then
-                        //printfn "EP %d %d %d" x y z
-                        numEndpoints <- numEndpoints + 1
-        printfn "there were %d endpoints" numEndpoints 
     if false then // TODO remove
+        for s in goodCCs.Values do
+            let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+            for p in s do
+                let x,y,z = XYZP(p)
+                if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
+                    //if x > -1000 && x < -750 && z > -800 && z < -500 then // TODO artificial to reduce space
+                        sk.[x,y,z] <- 1y
+            Algorithms.skeletonize(sk, (fun (x,y,z,iter) -> ())) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
+            let mutable numEndpoints = 0
+            for y = YMIN+1 to YMIN+YLEN do
+                for x = MINIMUM+1 to MINIMUM+LENGTH do
+                    for z = MINIMUM+1 to MINIMUM+LENGTH do
+                        if sk.[x,y,z]>0y then
+                            map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
+                        if sk.[x,y,z]=3y then
+                            //printfn "EP %d %d %d" x y z
+                            numEndpoints <- numEndpoints + 1
+            printfn "there were %d endpoints" numEndpoints 
     // These arrays are large enough that I think they get pinned in permanent memory, reuse them
     let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-    let prev = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let mutable hasDoneFinal, thisIsFinal = false, false
     for hs in goodCCs.Values do
         let mutable bestX,bestY,bestZ = 0,0,0
@@ -336,6 +335,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 bestY <- y
                 bestZ <- z
         // have a point at the top of the CC, now find furthest low point away (Dijkstra variant)
+        // TODO redo this with sparse representation and fix more var names
         // re-init the array:
         for ii = MINIMUM to MINIMUM+LENGTH+1 do
             for jj = YMIN to YMIN+YLEN+1 do
@@ -360,52 +360,24 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                             bestj <- j+dj
                             bestk <- k+dk
         if bj <> bestj then  // we actually reached a low point; if not, nothing else to do
-            // now find shortest from that bottom to top
-            // re-init the arrays:
-            for ii = MINIMUM to MINIMUM+LENGTH+1 do
-                for jj = YMIN to YMIN+YLEN+1 do
-                    for kk = MINIMUM to MINIMUM+LENGTH+1 do
-                        dist.[ii,jj,kk] <- 999999
-                        prev.[ii,jj,kk] <- -1
-            let bi,bj,bk = besti,bestj,bestk
-            q.Enqueue(bi,bj,bk)
-            dist.[bi,bj,bk] <- 0
-            let mutable besti,bestj,bestk = bi, bj, bk
-            while q.Count > 0 do
-                let i,j,k = q.Dequeue()
-                let d = dist.[i,j,k]
-                let x,y,z = (i,j,k)
-                if (y>=hm.[x,z]) then // surface
-                    // found shortest
-                    besti <- i
-                    bestj <- j
-                    bestk <- k
-                    while q.Count > 0 do
-                        q.Dequeue() |> ignore
-                else
-                    for diffi = 0 to DIFFERENCES.Length-1 do
-                        let di,dj,dk = DIFFERENCES.[diffi]
-                        if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
-                            dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
-                            prev.[i+di,j+dj,k+dk] <- diffi
-                            q.Enqueue(i+di,j+dj,k+dk)
-            // found a path
-            let sx,sy,sz = (bi,bj,bk)
-            let ex,ey,ez = (besti,bestj,bestk)
+            let sx,sy,sz = (besti,bestj,bestk)
+            let ((ex,ey,ez), path, moves) = Algorithms.findShortestPath(sx,sy,sz,(fun (x,y,z)->a.[x,y,z]<>null),(fun (x,y,z)->y>=hm.[x,z]),DIFFERENCES)
             // ensure beacon in decent bounds
-            let DB = 60
-            if ex < MINIMUM+DB || ez < MINIMUM+DB || ex > MINIMUM+LENGTH-DB || ez > MINIMUM+LENGTH-DB || 
-                (ex > -SPAWN_PROTECTION_DISTANCE_GREEN && ex < SPAWN_PROTECTION_DISTANCE_GREEN && ez > -SPAWN_PROTECTION_DISTANCE_GREEN && ez < SPAWN_PROTECTION_DISTANCE_GREEN)  then
+            let tooClose(x,_y,z) =
+                let DB = 60
+                x < MINIMUM+DB || z < MINIMUM+DB || x > MINIMUM+LENGTH-DB || z > MINIMUM+LENGTH-DB || 
+                    (x > -SPAWN_PROTECTION_DISTANCE_GREEN && x < SPAWN_PROTECTION_DISTANCE_GREEN && z > -SPAWN_PROTECTION_DISTANCE_GREEN && z < SPAWN_PROTECTION_DISTANCE_GREEN)
+            if tooClose(sx,sy,sz) || tooClose(ex,ey,ez) then
                 () // skip if too close to 0,0 or to map bounds
             else
-            log.LogInfo(sprintf "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz dist.[besti,bestj,bestk] ex ey ez)
-            if dist.[besti,bestj,bestk] > 100 && dist.[besti,bestj,bestk] < 500 then  // only keep mid-sized ones...
-                if not hasDoneFinal && dist.[besti,bestj,bestk] > 300 && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
+            let fullDist = path.Count
+            log.LogInfo(sprintf "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz fullDist ex ey ez)
+            if fullDist > 100 && fullDist < 500 then  // only keep mid-sized ones...
+                if not hasDoneFinal && fullDist > 300 && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
                     thisIsFinal <- true
-                log.LogSummary(sprintf "added %sbeacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL " else "") ex ey ez dist.[besti,bestj,bestk])
+                log.LogSummary(sprintf "added %sbeacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL " else "") ex ey ez fullDist)
                 decorations.Add((if thisIsFinal then 'X' else 'B'),ex,ez)
-                let mutable i,j,k = besti,bestj,bestk
-                let fullDist = dist.[besti,bestj,bestk]
+                let mutable i,j,k = ex,ey,ez
                 let mutable count = 0
                 let spawners = SpawnerAccumulator("spawners along path")
                 let possibleSpawners = 
@@ -413,11 +385,12 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA
                     else
                         GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA
-                while i<>bi || j<>bj || k<>bk do
-                    let ni, nj, nk = // next points (step back using info from 'prev')
-                        let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
+                moves.Reverse()
+                for m in moves do
+                    let ni, nj, nk = // next points (could also use 'path' backwards, but need movement info)
+                        let dx,dy,dz = DIFFERENCES.[m]
                         i-dx,j-dy,k-dz
-                    let ii,jj,kk = prev.[i,j,k]%3<>0, prev.[i,j,k]%3<>1, prev.[i,j,k]%3<>2   // ii/jj/kk track 'normal' to the path
+                    let ii,jj,kk = m%3<>0, m%3<>1, m%3<>2   // ii/jj/kk track 'normal' to the path
                     // maybe put mob spawner nearby
                     let pct = float count / (float fullDist * 3.0)
                     if rng.NextDouble() < pct*possibleSpawners.DensityMultiplier then
@@ -452,6 +425,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     j <- nj
                     k <- nk
                     count <- count + 1
+                assert(i=sx && j=sy && k=sz)
                 // write out all the spawner data we just placed
                 spawners.AddToMapAndLog(map,log)
                 putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
