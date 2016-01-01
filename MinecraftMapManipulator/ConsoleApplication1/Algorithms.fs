@@ -94,7 +94,8 @@ let findMaximalRectangle(a:bool[,]) =
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
+// dijkstra
+let findShortestPathCore(sx,sy,sz,canMove,isEnd,differences:_[],findLongest) =
     let visited = new System.Collections.Generic.Dictionary<_,_>()  // key exists = visited, value = previous direction
     let q = new System.Collections.Generic.Queue<_>()
     let mutable e = None
@@ -102,11 +103,14 @@ let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
     visited.Add((sx,sy,sz), -1)
     while q.Count > 0 do
         let x,y,z = q.Dequeue()
+        let mutable keepGoing = true
         if isEnd(x,y,z) then
             e <- Some (x,y,z)
-            while q.Count > 0 do
-                q.Dequeue() |> ignore
-        else
+            if not findLongest then
+                while q.Count > 0 do
+                    q.Dequeue() |> ignore
+                keepGoing <- false
+        if keepGoing then
             for diffi = 0 to differences.Length-1 do
                 let dx,dy,dz = differences.[diffi]
                 let nx,ny,nz = x+dx, y+dy, z+dz
@@ -114,7 +118,7 @@ let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
                     visited.Add((nx,ny,nz), diffi)
                     q.Enqueue(nx,ny,nz)
     match e with
-    | None -> failwith "no path found"
+    | None -> None
     | Some(ex,ey,ez) ->
         let path = ResizeArray()
         let moves = ResizeArray()
@@ -129,7 +133,12 @@ let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
         path.Add( cx,cy,cz )
         path.Reverse()
         moves.Reverse()
-        ((ex,ey,ez), path, moves)  // path is list of points from start to end, inclusive; moves is differences-indexes
+        Some((ex,ey,ez), path, moves)  // path is list of points from start to end, inclusive; moves is differences-indexes
+
+let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
+    findShortestPathCore(sx,sy,sz,canMove,isEnd,differences,false)
+let findLongestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
+    findShortestPathCore(sx,sy,sz,canMove,isEnd,differences,true)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -144,7 +153,7 @@ let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
 //          2 in, is a connector
 //          3 in, is an endpoint
 
-let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s and 0s, will find skeleton of 1s, boundary should be all 0 sentinels
+let skeletonize(a:sbyte[,,],onRemove,initOnes) = // init array passed in should be all 1s/0s, will find skeleton of 1s, boundary should be all 0 sentinels; last args will be mutated if non-null
     let TRUE_ENDPOINT = 7
     let NAIVE_ENDPOINT = 8
     let NON_ENDPOINT = 9
@@ -217,14 +226,8 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                 ok <- false
         ok
     let endpoints = new System.Collections.Generic.HashSet<_>()
-    let ones = new System.Collections.Generic.HashSet<_>()
     let recentlyRemoved = new System.Collections.Generic.HashSet<_>()
     let iter = ref 0
-    let remove(x,y,z) =
-        a.[x,y,z] <- -1y
-        ones.Remove(x,y,z) |> ignore
-        onRemove(x,y,z,!iter%16)
-        recentlyRemoved.Add(x,y,z) |> ignore
     let decrement() =
         let rrSnapshot = recentlyRemoved|> Seq.toArray 
         for x,y,z in rrSnapshot do
@@ -232,11 +235,24 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
             if a.[x,y,z] <= -5y then
                 a.[x,y,z] <- 0y
                 recentlyRemoved.Remove(x,y,z) |> ignore
-    for x = a.GetLowerBound(0) to a.GetLowerBound(0)+a.GetLength(0)-1 do
-        for y = a.GetLowerBound(1) to a.GetLowerBound(1)+a.GetLength(1)-1 do
-            for z = a.GetLowerBound(2) to a.GetLowerBound(2)+a.GetLength(2)-1 do
-                if a.[x,y,z] = 1y then
-                    ones.Add(x,y,z) |> ignore
+    let ones = 
+        if initOnes = null then
+            let ones = new System.Collections.Generic.HashSet<_>()
+            for x = a.GetLowerBound(0) to a.GetLowerBound(0)+a.GetLength(0)-1 do
+                for y = a.GetLowerBound(1) to a.GetLowerBound(1)+a.GetLength(1)-1 do
+                    for z = a.GetLowerBound(2) to a.GetLowerBound(2)+a.GetLength(2)-1 do
+                        if a.[x,y,z] = 1y then
+                            ones.Add(x,y,z) |> ignore
+            ones
+        else
+            initOnes
+    let removeCore(x,y,z) =
+        a.[x,y,z] <- -1y
+        onRemove(x,y,z,!iter%16)
+        recentlyRemoved.Add(x,y,z) |> ignore
+    let remove(x,y,z) =
+        removeCore(x,y,z)
+        ones.Remove(x,y,z) |> ignore
     // TODO endpoint short dist from 3-junction skeleton, can just trim that bit in post
     // do an initial smoothing, by pruning immediate endpoints
     let onesSnapshot = ones |> Seq.toArray 
@@ -259,15 +275,17 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                     let dx, dy, dz = -dx, -dy, -dz
                     dx,dy,dz,b
             // remove any naive bumps
-            let onesSnapshot = ones |> Seq.toArray 
-            //Array.sortInPlace onesSnapshot 
-            for x,y,z in onesSnapshot do
+            if ones.RemoveWhere(fun(x,y,z) ->   // RemoveWhere does not require creating a snapshot to iterate-and-remove
                 let e = isEndpoint(x,y,z)
                 if e = NAIVE_ENDPOINT then
-                    remove(x,y,z)
+                    removeCore(x,y,z)
+                    true
+                else
+                    false                
+                ) > 0 then
                     wereAnyRemoved <- true
             // main algorithm
-            let onesSnapshot = ones |> Seq.toArray 
+            let onesSnapshot = ones |> Seq.toArray    // TODO cheaper way to keep track of snapshots/diffs?
             //Array.sortInPlace onesSnapshot 
             for x,y,z in onesSnapshot do
                 let e = isEndpoint(x,y,z)
@@ -337,5 +355,6 @@ let skeletonize(a:sbyte[,,],onRemove) = // init array passed in should be all 1s
                 count <- -1
         endpointsWithLengths.Add(count, (x,y,z))
     endpointsWithLengths.Sort()
-    for l,e in endpointsWithLengths do
-        printfn "EPwL: %3d  %A" l e
+    //for l,e in endpointsWithLengths do
+    //    printfn "EPwL: %3d  %A" l e
+    ones, endpoints

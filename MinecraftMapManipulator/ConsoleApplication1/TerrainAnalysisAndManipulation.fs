@@ -184,7 +184,9 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
                     curx <- x
                     cury <- y
                     curz <- z
-                let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+                let dx = (x+51200) % 16
+                let dy = y % 16
+                let dz = (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
                 if currentSectionBlocks.[bix] = 0uy then
                     a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hmIgnoringLeaves.[x,z])))
@@ -251,7 +253,9 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
     let YLEN = 50
     let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
     let PT(x,y,z) = 
-        let i,j,k = x-MINIMUM, y-YMIN, z-MINIMUM
+        let i = x-MINIMUM
+        let j = y-YMIN
+        let k = z-MINIMUM
         i*YLEN*LENGTH + k*YLEN + j
     let XYZP(pt) =
         let i = pt / (YLEN*LENGTH)
@@ -271,7 +275,9 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     curx <- x
                     cury <- y
                     curz <- z
-                let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+                let dx = (x+51200) % 16
+                let dy = y % 16
+                let dz = (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
                 if currentSectionBlocks.[bix] = 0uy then // air
                     a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hm.[x,z])))
@@ -304,64 +310,49 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
-    if false then // TODO remove
-        for s in goodCCs.Values do
-            let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-            for p in s do
-                let x,y,z = XYZP(p)
-                if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
-                    //if x > -1000 && x < -750 && z > -800 && z < -500 then // TODO artificial to reduce space
-                        sk.[x,y,z] <- 1y
-            Algorithms.skeletonize(sk, (fun (x,y,z,iter) -> ())) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
-            let mutable numEndpoints = 0
-            for y = YMIN+1 to YMIN+YLEN do
-                for x = MINIMUM+1 to MINIMUM+LENGTH do
-                    for z = MINIMUM+1 to MINIMUM+LENGTH do
-                        if sk.[x,y,z]>0y then
-                            map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
-                        if sk.[x,y,z]=3y then
-                            //printfn "EP %d %d %d" x y z
-                            numEndpoints <- numEndpoints + 1
-            printfn "there were %d endpoints" numEndpoints 
-    // These arrays are large enough that I think they get pinned in permanent memory, reuse them
-    let dist = System.Array.CreateInstance(typeof<int>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> int[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
     let mutable hasDoneFinal, thisIsFinal = false, false
-    for hs in goodCCs.Values do
-        let mutable bestX,bestY,bestZ = 0,0,0
-        for p in hs do
+    for s in goodCCs.Values do
+        let mutable topX,topY,topZ = 0,0,0
+        let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
+        let ones = new System.Collections.Generic.HashSet<_>()
+        let atHeightMap = new System.Collections.Generic.HashSet<_>()
+        for p in s do
             let x,y,z = XYZP(p)
-            if y > bestY then
-                bestX <- x
-                bestY <- y
-                bestZ <- z
-        // have a point at the top of the CC, now find furthest low point away (Dijkstra variant)
-        // TODO redo this with sparse representation and fix more var names
-        // re-init the array:
-        for ii = MINIMUM to MINIMUM+LENGTH+1 do
-            for jj = YMIN to YMIN+YLEN+1 do
-                for kk = MINIMUM to MINIMUM+LENGTH+1 do
-                    dist.[ii,jj,kk] <- 999999
-        let q = new System.Collections.Generic.Queue<_>()
-        let bi,bj,bk = (bestX,bestY,bestZ)
-        q.Enqueue(bi,bj,bk)
-        dist.[bi,bj,bk] <- 0
-        let mutable besti,bestj,bestk = bi, bj, bk
-        while q.Count > 0 do
-            let i,j,k = q.Dequeue()
-            let d = dist.[i,j,k]
-            for diffi = 0 to DIFFERENCES.Length-1 do
-                let di,dj,dk = DIFFERENCES.[diffi]
-                if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
-                    dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
-                    q.Enqueue(i+di,j+dj,k+dk)
-                    if j = YMIN+1 then  // low point
-                        if dist.[besti,bestj,bestk] < d+1 then
-                            besti <- i+di
-                            bestj <- j+dj
-                            bestk <- k+dk
-        if bj <> bestj then  // we actually reached a low point; if not, nothing else to do
-            let sx,sy,sz = (besti,bestj,bestk)
-            let ((ex,ey,ez), path, moves) = Algorithms.findShortestPath(sx,sy,sz,(fun (x,y,z)->a.[x,y,z]<>null),(fun (x,y,z)->y>=hm.[x,z]),DIFFERENCES)
+            if y > topY then
+                topX <- x
+                topY <- y
+                topZ <- z
+            if y > YMIN && y < YMIN+YLEN && x > MINIMUM && x < MINIMUM+LENGTH && z > MINIMUM && z < MINIMUM+LENGTH then
+                sk.[x,y,z] <- 1y
+                ones.Add(x,y,z) |> ignore
+            if y = hm.[x,z] then
+                atHeightMap.Add(x,y,z) |> ignore
+        let skel,endp = Algorithms.skeletonize(sk, ignore, ones) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
+        skel.UnionWith(endp)
+        match Algorithms.findShortestPath(topX,topY,topZ,(fun (x,y,z)->a.[x,y,z]<>null),(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
+        | None -> printf "FAILED to get to skeleton" // TODO why ever?
+        | Some((tsx,tsy,tsz),_path,_moves) ->
+(*
+        for x,y,z in skel do
+            map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
+*)
+        printfn "there were %d endpoints" endp.Count
+        match Algorithms.findLongestPath(tsx,tsy,tsz,(fun (x,y,z)->skel.Contains(x,y,z)),(fun (_x,y,_z)->y<YMIN+4),DIFFERENCES) with
+        | None -> // if didn't reach low point, nothing else to do
+            printfn "FAILED to get near bottom (skeleton too far away?)" // TODO ok?
+        | Some((sx,sy,sz),_,_) ->
+            let pointsToAddBetweenHMAndSkeleton = new System.Collections.Generic.HashSet<_>()
+            for x,y,z in atHeightMap do
+                match Algorithms.findShortestPath(x,y,z,(fun (x,y,z)->a.[x,y,z]<>null),(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
+                | None -> printf "FAILED to get to skeleton" // TODO why ever?
+                | Some(_,path,_moves) ->
+                    for x,y,z in path do
+                        pointsToAddBetweenHMAndSkeleton.Add(x,y,z) |> ignore
+            skel.UnionWith(pointsToAddBetweenHMAndSkeleton)
+            match Algorithms.findShortestPath(sx,sy,sz,(fun (x,y,z)->skel.Contains(x,y,z)),(fun (x,y,z)->y>=hm.[x,z]),DIFFERENCES) with
+            | None -> printfn "FAILED to get back up to HM at top" // TODO now impossible, right?
+            | Some((ex,ey,ez), path, moves) ->
+            printfn "ALL find-paths succeeded, yay"
             // ensure beacon in decent bounds
             let tooClose(x,_y,z) =
                 let DB = 60
