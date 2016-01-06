@@ -1339,7 +1339,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I(sprintf "setworldspawn 1 %d 1" h)
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
-    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 hollow" (h-5) h)  // teleport room, surface is monument floor
+    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 hollow" (h-6) h)  // teleport room, surface is monument floor
     I("scoreboard objectives add hidden dummy")
     I("scoreboard objectives add Deaths stat.deaths")
     I("scoreboard objectives setdisplay sidebar Deaths")
@@ -1356,7 +1356,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     
 
 
-    putBeaconAt(map,1,h-5,1,0uy,false)  // beacon at spawn for convenience
+    putBeaconAt(map,1,h-6,1,0uy,false)  // beacon at spawn for convenience
     map.SetBlockIDAndDamage(1,h,1,120uy,0uy) // 120=end portal frame
     // clear space above spawn platform
     for x = -2 to 4 do
@@ -1457,14 +1457,30 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     r.PlaceCommandBlocksStartingAt(0,h-3,3,finalCmds,"check ctm win")
 *)
 
-let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let placeCommand(x,y,z,command,bid,auto,_name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",auto); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
     let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,0uy,"minecraft:command_block")
     let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,1uy,"minecraft:repeating_command_block")
     let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,1uy,"minecraft:chain_command_block")
-    for xs,zs,dirName,spx,spz,flx,flz in [-512,-512,"NorthWest (-X,-Z)",-1,-1,-0.5,-0.5; -512,512,"SouthWest (-X,+Z)",-1,3,-0.5,2.5; 512,512,"SouthEast (+X,+Z)",3,3,2.5,2.5; 512,-512,"NorthEast (+X,-Z)",3,-1,2.5,-0.5] do
+    let villagerData(i) =
+        match i with
+        | 0 -> """Profession:1,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:3b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:1b,Amplifier:0b,Duration:99999999}],display:{Name:"Infinite speed",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 1=speed
+        | 1 -> """Profession:2,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:2b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:3b,Amplifier:0b,Duration:99999999}],display:{Name:"Infinite haste",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 3=haste
+        | 2 -> """Profession:3,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:4b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:5b,Amplifier:0b,Duration:99999999}],display:{Name:"Infinite strength",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 5=strength
+        | 3 -> """Profession:4,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:5b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:21b,Amplifier:1b,Duration:99999999}],display:{Name:"Infinite health boost",Lore:["Lasts until you die or drink milk"]}}}}]}"""// 21=health boost
+        | _ -> failwith "bad villager #"
+    let unusedVillagers = ResizeArray [| 0; 1; 2; 3 |]
+    let villagers = ResizeArray()
+    for i = 0 to 3 do
+        let n = rng.Next(unusedVillagers.Count)
+        villagers.Add(villagerData(unusedVillagers.[n]))
+        unusedVillagers.RemoveAt(n)
+    for xs,zs,dirName,spx,spz,tpdata,vd in [-512,-512,"NorthWest (-X,-Z)",-1,-1,"~0.5 ~0.2 ~0.5 -45 10",villagers.[0]
+                                            -512,+512,"SouthWest (-X,+Z)",-1,3,"~0.5 ~0.2 ~-0.5 -135 10",villagers.[1]
+                                            +512,+512,"SouthEast (+X,+Z)",3,3,"~-0.5 ~0.2 ~-0.5 135 10",villagers.[2]
+                                            +512,-512,"NorthEast (+X,-Z)",3,-1,"~-0.5 ~0.2 ~0.5 45 10",villagers.[3]] do
         let mutable found = false
         for dx = -30 to 30 do
             if not found then
@@ -1495,14 +1511,17 @@ let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decoration
                             map.SetBlockIDAndDamage(x+2,h+2,z+2,209uy,0uy) // 209=end_gateway
                             map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",hm.[1,1]-4);Int("Z",1);End]|>ResizeArray); End |] |])
                             putBeaconAt(map,x+2,h+12,z+2,0uy,false)
-                            placeRepeating(x+2,h+19,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+18) (z+2)) // absolute coords since execute-at
-                            map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+19,z+2)
-                            placeImpulse(x+2,h+18,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-7) 0) // expose teleporters at spawn //note brittle coords of block
-                            placeChain(x+2,h+17,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
-                            placeImpulse(x+2,h+16,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-4) spz (x+2) (h+6) (z+2))
-                            placeChain(x+2,h+15,z+2,sprintf "summon Villager %1.1f %d.5 %1.1f {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"Teleporter to %s\"}" flx (hm.[1,1]-3) flz dirName) // TODO give villager trade; TODO tp facing dir (SE+X+Z was 135 0)
-                            placeChain(x+2,h+14,z+2,"""tellraw @a [{"text":"A two-way teleporter to/from spawn has been unlocked nearby"}]""")
-                            placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~6 ~ air") // erase us
+                            placeRepeating(x+2,h+22,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+21) (z+2)) // absolute coords since execute-at
+                            map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+22,z+2)
+                            placeImpulse(x+2,h+21,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-7) 0) // expose teleporters at spawn //note brittle coords of block
+                            placeChain(x+2,h+20,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
+                            placeImpulse(x+2,h+19,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-5) spz (x+2) (h+6) (z+2))
+                            placeChain(x+2,h+18,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"Teleporter to %s\",%s}" spx (hm.[1,1]-3) spz dirName vd)
+                            placeChain(x+2,h+17,z+2,"""tellraw @a [{"text":"A two-way teleporter to/from spawn has been unlocked nearby"}]""")
+                            placeChain(x+2,h+16,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
+                            placeImpulse(x+2,h+15,z+2,"")
+                            placeChain(x+2,h+14,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (hm.[1,1]-3) spz tpdata)
+                            placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
             failwith "no teleporters"
@@ -1635,7 +1654,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> placeTeleporters(map, hm, log, decorations))
+    time (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))

@@ -89,7 +89,7 @@ let ENCHANTS =
 let POTION_EFFECTS =
     [|1,"Speed";2,"Slowness";3,"Haste";4,"Mining Fatigue";5,"Strength";6,"Instant Health";7,"Instant Damage";8,"Jump Boost";9,"Nausea";
       10,"Regeneration";11,"Resistance";12,"Fire Resistance";13,"Water Breathing";14,"Invisibility";15,"Blindness";16,"Night vision";17,"Hunger";18,"Weakness";19,"Poison";
-      20,"Wither";21,"Health Boost";22,"Absorption";23,"Saturation"|]
+      20,"Wither";21,"Health Boost";22,"Absorption";23,"Saturation";24,"Glowing";25,"Levitation";26,"Luck";27,"Bad Luck"|]
 
 let WOOL_COLORS = [|0,"White";1,"Orange";2,"Magenta";3,"Light Blue";4,"Yellow";5,"Lime";6,"Pink";7,"Gray";8,"Light Gray";9,"Cyan";10,"Purple";11,"Blue";12,"Brown";13,"Green";14,"Red";15,"Black"|]
 
