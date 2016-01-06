@@ -2366,12 +2366,108 @@ let doTrie(r:RegionFile) =
     r.PlaceCommandBlocksStartingAt(30,0,0,initCmds,"init",false)
 ////////////////////////////////////////////
 
+let musicStuff() =
+    let MUSIC_DIR = """C:\Users\Admin1\Desktop\Music\"""
+    let FFMPEG_DIR = """C:\Users\Admin1\Desktop\ffmpeg-20160105-git-68eb208-win64-static\bin\"""
+    let OUT_DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\resourcepacks\BrianResourcePack\assets\minecraft\sounds\"""
+    let DEFAULT_FILTER = """-filter_complex afade=t=in:st=0:d=0.02:c=tri,afade=t=out:st=4.98:d=0.02:c=tri"""
+    let FADEOUT_FILTER = """-filter_complex afade=t=in:st=0:d=0.02:c=tri,afade=t=out:st=0:d=5:c=tri"""
+    let FADEIN_FILTER  = """-filter_complex afade=t=in:st=0:d=5:c=tri,afade=t=out:st=4.98:d=0.02:c=tri"""
+    let SECONDS_PER_TRACK = 5
+    let SEGMENTS = 60
+    let MAX_TICK = SEGMENTS * SECONDS_PER_TRACK * 20 // 20 = ticks per second
+    let TRACKS = [|"cat"; "else"; "far"|]
+    let breakUpOggFiles = false
+    if breakUpOggFiles then
+        for track in TRACKS do
+            for i = 0 to SEGMENTS-1 do
+                let startTime = i * SECONDS_PER_TRACK
+                let run(args) = 
+                    let psi = ProcessStartInfo(UseShellExecute=true, RedirectStandardInput=false, RedirectStandardOutput=false)
+                    psi.WorkingDirectory <- FFMPEG_DIR
+                    psi.FileName <- "ffmpeg.exe"
+                    psi.Arguments <- args
+                    let proc = new Process(StartInfo=psi)
+                    proc.Start() |> ignore
+                let file = sprintf "%s%02d" track i
+                let args = sprintf "-y -ss %d -i %s%s.ogg -t %d %s %s%s.ogg" startTime MUSIC_DIR track SECONDS_PER_TRACK DEFAULT_FILTER OUT_DIR file
+                run(args)
+                printfn """  "brian.%s": { "category": "record", "sounds": [ {"name":"%s","stream":true} ] },""" file file
+                let file = sprintf "%s%02dfadeout" track i
+                let args = sprintf "-y -ss %d -i %s%s.ogg -t %d %s %s%s.ogg" startTime MUSIC_DIR track SECONDS_PER_TRACK FADEOUT_FILTER OUT_DIR file
+                run(args)
+                printfn """  "brian.%s": { "category": "record", "sounds": [ {"name":"%s","stream":true} ] },""" file file
+                let file = sprintf "%s%02dfadein" track i
+                let args = sprintf "-y -ss %d -i %s%s.ogg -t %d %s %s%s.ogg" startTime MUSIC_DIR track SECONDS_PER_TRACK FADEIN_FILTER OUT_DIR file
+                run(args)
+                printfn """  "brian.%s": { "category": "record", "sounds": [ {"name":"%s","stream":true} ] },""" file file
+        printfn ""
+        printfn "Now delete all the 'extra' files from the output directory, since ffmpeg can leave bad bits when starting past EOF (anything less than 10KB file size)"
+    let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\MusicTestRR\region\r.0.0.mca"""
+    let r = new RegionFile(fil)
+    let cmds = 
+        [|
+            O "scoreboard objectives add Prev dummy"
+            U "scoreboard objectives add Curr dummy"
+            U "scoreboard objectives add Tick dummy"
+            U "gamerule commandBlockOutput false"
+            U "gamerule doDaylightCycle false"
+            U "time set 500"
+            U "scoreboard players set Tick Tick -1"
+            U "scoreboard players set N Tick 100"
+            U "scoreboard players set @a Prev 0"
+            U "fill 10 55 10 19 55 19 stone"
+            U "fill 10 55 20 19 55 29 lapis_block"
+        |]
+    r.PlaceCommandBlocksStartingAtSelfDestruct(1,60,1,cmds,"")
+    let cmds = 
+        [|
+            yield O "fill 20 60 1 100 60 100 air"
+            yield U "fill ~ ~ ~-1 ~ ~ ~100 air"
+            yield P "scoreboard players add Tick Tick 1"
+            yield U "scoreboard players operation Test Tick = Tick Tick"
+            yield U "scoreboard players operation Test Tick %= N Tick"
+            yield U (sprintf "scoreboard players test Tick Tick %d" (MAX_TICK+5))  // supposed to be silent at end of loop anyway, just ensure we get all segments even after the delay to run code below
+            yield C "scoreboard players set Tick Tick -1"
+            yield U "scoreboard players test Test Tick * 0"
+            yield C "blockdata ~ ~ ~2 {auto:1b}"
+            yield C "blockdata ~ ~ ~1 {auto:0b}"
+            yield O "scoreboard players operation @a Tick = Tick Tick"
+            yield U "scoreboard players operation @a Tick /= N Tick"  // @p Tick is which segment
+            yield U """tellraw @a ["segment #",{"score":{"name":"@p","objective":"Tick"}}]"""
+            yield U "execute @a ~ ~ ~ scoreboard players operation @p[r=0,c=1] Prev = @p[r=0,c=1] Curr"
+            yield U "scoreboard players set @a Curr 0"  // default
+            yield U "scoreboard players set @a[x=10,y=1,z=10,dx=10,dy=200,dz=10] Curr 1"  // region score
+            yield U "scoreboard players set @a[x=10,y=1,z=20,dx=10,dy=200,dz=10] Curr 2"  // region score
+            for k = 0 to SEGMENTS-1 do
+                yield U (sprintf "execute @a[score_Tick=%d,score_Tick_min=%d] ~ ~ ~ blockdata %d 60 1 {auto:1b}" k k (20+k))
+                //yield U (sprintf "execute @a[score_Tick=%d,score_Tick_min=%d] ~ ~ ~ blockdata %d 60 1 {auto:0b}" k k (20+k))
+        |]
+    r.PlaceCommandBlocksStartingAt(2,60,1,cmds,"")
+    for k = 0 to SEGMENTS-1 do
+        let cmds = 
+            [|
+                yield O "blockdata ~ ~ ~ {auto:0b}"
+                for i = 0 to TRACKS.Length-1 do
+                    for j = 0 to TRACKS.Length-1 do
+                        if i=j then
+                            yield U (sprintf "execute @a[score_Prev=%d,score_Prev_min=%d,score_Curr=%d,score_Curr_min=%d] ~ ~ ~ playsound %s @p[r=0,c=1] ~ 255 ~ 64 1 0" i i j j (sprintf "brian.%s%02d" TRACKS.[i] k))
+                        else
+                            yield U (sprintf "execute @a[score_Prev=%d,score_Prev_min=%d,score_Curr=%d,score_Curr_min=%d] ~ ~ ~ playsound %s @p[r=0,c=1] ~ 255 ~ 64 1 0" i i j j (sprintf "brian.%s%02dfadeout" TRACKS.[i] k))
+                            yield U (sprintf "execute @a[score_Prev=%d,score_Prev_min=%d,score_Curr=%d,score_Curr_min=%d] ~ ~ ~ playsound %s @p[r=0,c=1] ~ 255 ~ 64 1 0" i i j j (sprintf "brian.%s%02dfadein" TRACKS.[j] k))
+            |]
+        r.PlaceCommandBlocksStartingAt(20+k,60,1,cmds,"")
+    // TODO have each track have its own repeat length, have Tick mode segment # based on biome track?
+
+    r.Write(fil+".new")
+    System.IO.File.Delete(fil)
+    System.IO.File.Move(fil+".new",fil)
 
 
 [<System.STAThread()>]  
 do   
-    let user = "brianmcn"
-    //let user = "Admin1"
+    //let user = "brianmcn"
+    let user = "Admin1"
     //killAllEntities()
     //dumpChunkInfo("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
@@ -2439,13 +2535,15 @@ do
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
+
+    musicStuff()
 
     // TODO
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
@@ -2464,6 +2562,7 @@ do
     // villagers have 1 of 4 trades, emerald block for a potion of 99:99 of haste, speed, strength, or health boost (maybe all 4 also trade for night vision?) (last until player dies) (how ensure trade not 'run out'?)
     // hide emeralds in various chests I'll be adding, remove emerald ore from extreme hills
     // makes bonus chests more fun, encourages exploration, and provides another crutch for players to get buff
+    // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
     
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)
