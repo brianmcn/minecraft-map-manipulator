@@ -332,10 +332,6 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
         match Algorithms.findShortestPath(topX,topY,topZ,(fun (x,y,z)->a.[x,y,z]<>null),(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
         | None -> printf "FAILED to get to skeleton" // TODO why ever?
         | Some((tsx,tsy,tsz),_path,_moves) ->
-(*
-        for x,y,z in skel do
-            map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
-*)
         printfn "there were %d endpoints" endp.Count
         match Algorithms.findLongestPath(tsx,tsy,tsz,(fun (x,y,z)->skel.Contains(x,y,z)),(fun (_x,y,_z)->y<YMIN+4),DIFFERENCES) with
         | None -> // if didn't reach low point, nothing else to do
@@ -391,8 +387,9 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         while not ok do
                             let candidates = ResizeArray()
                             let xs = if ii then [xx-spread .. xx+spread] else [xx]
-                            let ys = if jj then [yy-spread .. yy+spread] else [yy]
+                            let ys = if jj then [yy-spread .. yy+spread-1] else [yy]  // look less in the ceiling, since ceiling spawners often can't spawn mobs
                             let zs = if kk then [zz-spread .. zz+spread] else [zz]
+                            // TODO still possible to place spawners in ceiling where can't spawn mobs, if skeleton happened to be close to ceiling; improve?
                             for x in xs do
                                 for y in ys do
                                     for z in zs do
@@ -446,6 +443,10 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                             |]
                     map.SetBlockIDAndDamage(bx,by,bz,54uy,2uy)  // chest
                     map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
+                let debugSkeleton = false
+                if debugSkeleton then
+                    for x,y,z in skel do
+                        map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
         log.LogSummary("FAILED TO PLACE FINAL")
@@ -698,8 +699,8 @@ let canPlaceSpawner(map:MapFolder,x,y,z) =
         true
     elif map.GetBlockInfo(x,y+1,z).BlockID = 0uy then
         true
-    elif map.GetBlockInfo(x,y-1,z).BlockID = 0uy then
-        true
+    //elif map.GetBlockInfo(x,y-1,z).BlockID = 0uy then  // don't place if only visible at y-1, this means it's in the ceiling, and likely can't spawn tall mobs
+    //    true
     elif map.GetBlockInfo(x+1,y+1,z).BlockID = 0uy then
         true
     elif map.GetBlockInfo(x-1,y+1,z).BlockID = 0uy then
@@ -1335,11 +1336,10 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
     //I("gamerule keepInventory true")
+    I(sprintf "setworldspawn 1 %d 1" h)
+    I("gamerule spawnRadius 2")
     I("weather clear 999999")
-    I("give @a iron_axe 1 0 {ench:[{id:18s,lvl:5s}]}")
-    I("give @a shield")
-    I("give @a cooked_beef 6")  // TODO too op? maybe more bread is better
-    I("give @a dirt 64")
+    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 hollow" (h-5) h)  // teleport room, surface is monument floor
     I("scoreboard objectives add hidden dummy")
     I("scoreboard objectives add Deaths stat.deaths")
     I("scoreboard objectives setdisplay sidebar Deaths")
@@ -1349,96 +1349,101 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I(sprintf "scoreboard players set fZ hidden %d" finalEZ)
     I("scoreboard players set CTM hidden 0")
     // repeat blocks to check for CTM completion
-    I(sprintf "blockdata 0 %d 3 {auto:1b}" (h-2))
-    I(sprintf "blockdata 1 %d 3 {auto:1b}" (h-2))
-    I(sprintf "blockdata 2 %d 3 {auto:1b}" (h-2))
-    I(Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Rules",
-                                                 [|
-                                                    Utilities.wrapInJSONTextContinued "RULES\n\nMy personal belief is that in Minecraft there are no rules; you should play whatever way you find most fun."
-                                                    Utilities.wrapInJSONTextContinued "That said, I have created a map designed to help you have fun, and the next pages have some suggestions that I think will make it the most fun for most players."
-                                                    Utilities.wrapInJSONTextContinued "Suggestions\n\nThis map has only been tested in single-player.\n\nSurvive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn."
-                                                    Utilities.wrapInJSONText "Use normal difficulty.\n\nYou CAN use/move/craft enderchests.\n\nDon't go to Nether or leave the worldborder.\n\nYou can use beds to set spawn, but they don't affect the daylight cycle."
-                                                 |]))
-    I(Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Map Overview",
-                                                 [|
-                                                    Utilities.wrapInJSONTextContinued "OVERVIEW\n\nCTM Maps are often most fun to play blind, but there are a few things you ought to know about this map before getting started."
-                                                    Utilities.wrapInJSONTextContinued "Note: if you have not played Minecraft 1.9 before, I do not recommend playing this map as your first 1.9 map. Get used to 1.9 first."
-                                                    Utilities.wrapInJSONTextContinued "CTM\n\nThis is a three objective Complete The Monument (CTM) map.  The goal/objective blocks you need are hidden in chests in various dungeons in the world."
-                                                    Utilities.wrapInJSONTextContinued "OPEN WORLD\n\nThis is an open-world map that takes place on a 2048x2048 piece of (heavily modified) Minecraft terrain. Spawn is 0,0 and there's a worldborder 1024 blocks out."
-                                                    Utilities.wrapInJSONTextContinued "...\nThere are multiple versions of most dungeons, and you'll find many just by wandering around. You'll find more books that suggest the best thing to do next after completing each dungeon."
-                                                    Utilities.wrapInJSONTextContinued "DAYLIGHT CYCLE\n\nThe sun is not moving in the sky. Near spawn it's permanently daytime, and the rest you can discover for yourself."
-                                                    Utilities.wrapInJSONTextContinued "MOBS\n\nMob loot drops are heavily modified in this map, but the mobs themselves are completely vanilla. There are many spawners in the map; both to guard loot, and to surprise you."
-                                                    Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
-                                                    Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books; you don't have to farm xp/drops, or mine for diamonds/enchanting, in order to progress, but you can if you want."
-                                                    Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
-                                                    Utilities.wrapInJSONText "...\nIf you encounter something especially weird, don't over-think the map-maker rationale; it's possible my code had a bug and did something silly."
-                                                 |]))
-    I(Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Getting started",
-                                                 [|
-                                                    Utilities.wrapInJSONTextContinued "You have some starting items, but you'll still want to gather some wood and do some caving near spawn to get more supplies."
-                                                    Utilities.wrapInJSONText "Explore! If you travel too far from spawn, things will get scarier, so I recommend caving near spawn to improve your gear until you are strong enough to venture further and you discover suggestions of what to try next."
-                                                 |]))
-    I(Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Hints and Spoilers",
-                                                 [|
-                                                    Utilities.wrapInJSONTextContinued "The following pages outline the simplest 'progression order' of the map. You can refer to this if you get stuck, but DON'T READ THIS UNLESS YOU NEED TO BECAUSE YOU'RE STUCK."
-                                                    Utilities.wrapInJSONTextContinued "Note: In the map folder on disk, there are two pictures of the terrain, one has locations of major dungeons labeled (spoilers), the other does not."
-                                                    Utilities.wrapInJSONTextContinued "1. GEARING UP\n\nGetting your first cobblestone is not so easy, though there are at least 5 different ways you can obtain it."
-                                                    Utilities.wrapInJSONTextContinued "...\nCaving near spawn to find dungeons (which are somewhat common) or abandoned mineshafts is the best way to find initial loot to gear up. You can also mine iron and gold (or even diamonds) for early gear."
-                                                    Utilities.wrapInJSONTextContinued "2. GREEN BEACONS\n\nNext explore the world for GREEN beacons ('B' on spoiler map image), which lead to underground dungeons. You'll find a marked path through a cave and spawners guarding a good loot box."
-                                                    Utilities.wrapInJSONTextContinued "3. RED BEACONS\n\nNext explore the world for RED beacons ('F' on spoiler map image): cobwebbed dungeons on the surface.  The loot box at the center has the first monument block and more gear upgrades."
-                                                    Utilities.wrapInJSONTextContinued "4. MOUNTAIN PEAKS\n\nNext explore the world for dangerous looking mountain peaks ('P' on spoiler map image), illuminated with redstone torches. Buried treasure directions, and more loot!"
-                                                    Utilities.wrapInJSONTextContinued "5. SECRET TREASURE\n\nNext dig for treasure at the given coordinates ('H' on the spoiler map image). You'll find the second monument block, and faster travel/exploration."
-                                                    Utilities.wrapInJSONText "6. FINAL DUNGEON\n\nFinally explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), the final dungeon. It's like the first dungeon, but harder, and has the final monument block."
-                                                 |]))
+    I(sprintf "blockdata 0 %d 5 {auto:1b}" (h))
+    I(sprintf "blockdata 1 %d 5 {auto:1b}" (h))
+    I(sprintf "blockdata 2 %d 5 {auto:1b}" (h))
     I(sprintf "fill 0 %d 0 0 253 0 air" !y) // remove all the ICBs, just leave the RCBs
-    putBeaconAt(map,1,h,1,0uy,false)  // beacon at spawn for convenience
-    // clear space above beacon
-    for x = -1 to 3 do
-        for z = -1 to 3 do
-            if x<>1 || z<>1 then
-                map.SetBlockIDAndDamage(x,h+0,z,0uy,0uy) // air
+    
+
+
+    putBeaconAt(map,1,h-5,1,0uy,false)  // beacon at spawn for convenience
+    map.SetBlockIDAndDamage(1,h,1,120uy,0uy) // 120=end portal frame
+    // clear space above spawn platform
+    for x = -2 to 4 do
+        for z = -2 to 4 do
             map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
             map.SetBlockIDAndDamage(x,h+2,z,0uy,0uy) // air
             map.SetBlockIDAndDamage(x,h+3,z,0uy,0uy) // air
-    // for teleport area...
-    for x = -2 to 4 do
-        for z = 2 to 8 do
-            for dh = 9 to 15 do
-                map.SetBlockIDAndDamage(x,h+dh,z,166uy,0uy) // 166=barrier  // TODO barrier is bad design, do something else
-    // put monument
-    for x = -1 to 3 do
-        for z = 3 to 7 do
-            map.SetBlockIDAndDamage(x,h-1,z,7uy,0uy) // bedrock
-            for dh = 0 to 8 do
-                map.SetBlockIDAndDamage(x,h+dh,z,0uy,0uy) // air
-            // skip dh=9, has barrier
-            for dh = 10 to 14 do
-                map.SetBlockIDAndDamage(x,h+dh,z,20uy,0uy) // 20=glass (will be teleport area)
-    // remove glass cmd
-    map.SetBlockIDAndDamage(0,h-2,0,137uy,0uy)
-    map.AddOrReplaceTileEntities([| [| Int("x",0); Int("y",h-2); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d air" -2 (h+11) 2 4 (h+15) 8); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
+            map.SetBlockIDAndDamage(x,h+4,z,0uy,0uy) // air
     // rest of monument
-    map.SetBlockIDAndDamage(2,h,6,7uy,0uy)
-    map.SetBlockIDAndDamage(1,h,6,7uy,0uy)
-    map.SetBlockIDAndDamage(0,h,6,7uy,0uy)
-    map.SetBlockIDAndDamage(2,h,5,68uy,2uy) // wall_sign
-    map.SetBlockIDAndDamage(1,h,5,68uy,2uy)
-    map.SetBlockIDAndDamage(0,h,5,68uy,2uy)
+    map.SetBlockIDAndDamage(2,h+1,4,7uy,0uy) // 7=bedrock
+    map.SetBlockIDAndDamage(1,h+1,4,7uy,0uy)
+    map.SetBlockIDAndDamage(0,h+1,4,7uy,0uy)
+    map.SetBlockIDAndDamage(2,h+1,3,68uy,2uy) // 68=wall_sign
+    map.SetBlockIDAndDamage(1,h+1,3,68uy,2uy)
+    map.SetBlockIDAndDamage(0,h+1,3,68uy,2uy)
     map.AddOrReplaceTileEntities([|
-                                    [| Int("x",2); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"End Stone Brick"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
-                                    [| Int("x",1); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"Purpur Block"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
-                                    [| Int("x",0); Int("y",h); Int("z",5); String("id","Sign"); String("Text1","""{"text":"Sponge"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",2); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"text":"End Stone Brick"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",1); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"text":"Purpur Block"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",0); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"text":"Sponge"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
                                  |])
+
+    let chestItems = 
+        Compounds[| 
+                yield [| Byte("Count", 1uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 1uy); Short("Damage",0s); String("id","minecraft:shield"); End |]
+                yield [| Byte("Count",10uy); Byte("Slot", 2uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
+                yield [| Byte("Count",64uy); Byte("Slot", 3uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","Rules",
+                            [|
+                                Utilities.wrapInJSONTextContinued "RULES\n\nMy personal belief is that in Minecraft there are no rules; you should play whatever way you find most fun."
+                                Utilities.wrapInJSONTextContinued "That said, I have created a map designed to help you have fun, and the next pages have some suggestions that I think will make it the most fun for most players."
+                                Utilities.wrapInJSONTextContinued "Suggestions\n\nThis map has only been tested in single-player.\n\nSurvive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn."
+                                Utilities.wrapInJSONText "Use normal difficulty.\n\nYou CAN use/move/craft enderchests.\n\nDon't go to Nether or leave the worldborder.\n\nYou can use beds to set spawn, but they don't affect the daylight cycle."
+                            |]) |> ResizeArray); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","Map Overview",
+                            [|
+                                Utilities.wrapInJSONTextContinued "OVERVIEW\n\nCTM Maps are often most fun to play blind, but there are a few things you ought to know about this map before getting started."
+                                Utilities.wrapInJSONTextContinued "Note: if you have not played Minecraft 1.9 before, I do not recommend playing this map as your first 1.9 map. Get used to 1.9 first."
+                                Utilities.wrapInJSONTextContinued "CTM\n\nThis is a three objective Complete The Monument (CTM) map.  The goal/objective blocks you need are hidden in chests in various dungeons in the world."
+                                Utilities.wrapInJSONTextContinued "OPEN WORLD\n\nThis is an open-world map that takes place on a 2048x2048 piece of (heavily modified) Minecraft terrain. Spawn is 0,0 and there's a worldborder 1024 blocks out."
+                                Utilities.wrapInJSONTextContinued "...\nThere are multiple versions of most dungeons, and you'll find many just by wandering around. You'll find more books that suggest the best thing to do next after completing each dungeon."
+                                Utilities.wrapInJSONTextContinued "DAYLIGHT CYCLE\n\nThe sun is not moving in the sky. Near spawn it's permanently daytime, and the rest you can discover for yourself."
+                                Utilities.wrapInJSONTextContinued "MOBS\n\nMob loot drops are heavily modified in this map, but the mobs themselves are completely vanilla. There are many spawners in the map; both to guard loot, and to surprise you."
+                                Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
+                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books; you don't have to farm xp/drops, or mine for diamonds/enchanting, in order to progress, but you can if you want."
+                                Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
+                                Utilities.wrapInJSONText "...\nIf you encounter something especially weird, don't over-think the map-maker rationale; it's possible my code had a bug and did something silly."
+                            |]) |> ResizeArray); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","Getting started",
+                            [|
+                                Utilities.wrapInJSONTextContinued "You have some starting items, but you'll still want to gather some wood and do some caving near spawn to get more supplies."
+                                Utilities.wrapInJSONText "Explore! If you travel too far from spawn, things will get scarier, so I recommend caving near spawn to improve your gear until you are strong enough to venture further and you discover suggestions of what to try next."
+                            |]) |> ResizeArray); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","Hints and Spoilers",
+                            [|
+                                Utilities.wrapInJSONTextContinued "The following pages outline the simplest 'progression order' of the map. You can refer to this if you get stuck, but DON'T READ THIS UNLESS YOU NEED TO BECAUSE YOU'RE STUCK."
+                                Utilities.wrapInJSONTextContinued "Note: In the map folder on disk, there are two pictures of the terrain, one has locations of major dungeons labeled (spoilers), the other does not."
+                                Utilities.wrapInJSONTextContinued "1. GEARING UP\n\nGetting your first cobblestone is not so easy, though there are at least 5 different ways you can obtain it."
+                                Utilities.wrapInJSONTextContinued "...\nCaving near spawn to find dungeons (which are somewhat common) or abandoned mineshafts is the best way to find initial loot to gear up. You can also mine iron and gold (or even diamonds) for early gear."
+                                Utilities.wrapInJSONTextContinued "2. GREEN BEACONS\n\nNext explore the world for GREEN beacons ('B' on spoiler map image), which lead to underground dungeons. You'll find a marked path through a cave and spawners guarding a good loot box."
+                                Utilities.wrapInJSONTextContinued "3. RED BEACONS\n\nNext explore the world for RED beacons ('F' on spoiler map image): cobwebbed dungeons on the surface.  The loot box at the center has the first monument block and more gear upgrades."
+                                Utilities.wrapInJSONTextContinued "4. MOUNTAIN PEAKS\n\nNext explore the world for dangerous looking mountain peaks ('P' on spoiler map image), illuminated with redstone torches. Buried treasure directions, and more loot!"
+                                Utilities.wrapInJSONTextContinued "5. SECRET TREASURE\n\nNext dig for treasure at the given coordinates ('H' on the spoiler map image). You'll find the second monument block, and faster travel/exploration."
+                                Utilities.wrapInJSONText "6. FINAL DUNGEON\n\nFinally explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), the final dungeon. It's like the first dungeon, but harder, and has the final monument block."
+                            |]) |> ResizeArray); End |]
+            |]
+    // TODO factor next two lines into a function
+    map.SetBlockIDAndDamage(1,h+1,-2,54uy,2uy)  // 54=chest
+    map.AddOrReplaceTileEntities([| [| Int("x",1); Int("y",h+1); Int("z",-2); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Welcome!"); End |] |])
+    // 'expose teleport area' cmd
+    map.SetBlockIDAndDamage(0,h-7,0,137uy,0uy)
+    map.AddOrReplaceTileEntities([| [| Int("x",0); Int("y",h-7); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 h 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
     let r = map.GetRegion(1,1)
     let cmds(x,tilename) = 
         [|
-            P (sprintf "testforblock %d %d 6 %s" x (h+1) tilename)
+            P (sprintf "testforblock %d %d 4 %s" x (h+2) tilename)
             C "scoreboard players add CTM hidden 1"
             C """tellraw @a ["You placed ",{"score":{"name":"CTM","objective":"hidden"}}," of 3 objective blocks so far!"]"""
             C "fill ~ ~ ~ ~ ~ ~-3 air"
         |]
     for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
-        r.PlaceCommandBlocksStartingAt(x,h-2,3,cmds(x,tilename),"check ctm block")
+        r.PlaceCommandBlocksStartingAt(x,h,5,cmds(x,tilename),"check ctm block")
+(*  TODO
     let finalCmds = 
         [|
             O "scoreboard players test CTM hidden 3 *"
@@ -1450,6 +1455,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
             C "fill 0 254 0 0 255 0 air"  // remove day/night blocks
         |]
     r.PlaceCommandBlocksStartingAt(0,h-3,3,finalCmds,"check ctm win")
+*)
 
 let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let placeCommand(x,y,z,command,bid,auto,_name) =
@@ -1458,7 +1464,7 @@ let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decoration
     let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,0uy,"minecraft:command_block")
     let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,1uy,"minecraft:repeating_command_block")
     let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,1uy,"minecraft:chain_command_block")
-    for xs,zs,dirName,spx,spz in [-512,-512,"NorthWest (-X,-Z)",-1,3; -512,512,"SouthWest (-X,+Z)",-1,7; 512,512,"SouthEast (+X,+Z)",3,7; 512,-512,"NorthEast (+X,-Z)",3,3] do
+    for xs,zs,dirName,spx,spz,flx,flz in [-512,-512,"NorthWest (-X,-Z)",-1,-1,-0.5,-0.5; -512,512,"SouthWest (-X,+Z)",-1,3,-0.5,2.5; 512,512,"SouthEast (+X,+Z)",3,3,2.5,2.5; 512,-512,"NorthEast (+X,-Z)",3,-1,2.5,-0.5] do
         let mutable found = false
         for dx = -30 to 30 do
             if not found then
@@ -1487,14 +1493,14 @@ let placeTeleporters(map:MapFolder, hm:_[,], log:EventAndProgressLog, decoration
                                     map.SetBlockIDAndDamage(x+i,h+6,z+j,0uy,0uy)  // 0=air
                                     map.SetBlockIDAndDamage(x+i,h+7,z+j,0uy,0uy)  // 0=air
                             map.SetBlockIDAndDamage(x+2,h+2,z+2,209uy,0uy) // 209=end_gateway
-                            map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",hm.[1,1]+12);Int("Z",5);End]|>ResizeArray); End |] |])
+                            map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",hm.[1,1]-4);Int("Z",1);End]|>ResizeArray); End |] |])
                             putBeaconAt(map,x+2,h+12,z+2,0uy,false)
                             placeRepeating(x+2,h+19,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+18) (z+2)) // absolute coords since execute-at
                             map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+19,z+2)
-                            placeImpulse(x+2,h+18,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-2) 0) // remove glass at spawn //note brittle coords of block
+                            placeImpulse(x+2,h+18,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-7) 0) // expose teleporters at spawn //note brittle coords of block
                             placeChain(x+2,h+17,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
-                            placeImpulse(x+2,h+16,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]+12) spz (x+2) (h+6) (z+2))
-                            placeChain(x+2,h+15,z+2,sprintf "setblock %d %d %d chest 2 replace {CustomName:\"Teleporter to %s\",Items:[{Slot:13b,id:water_bucket,Count:1}]}" spx (hm.[1,1]+11) spz dirName)
+                            placeImpulse(x+2,h+16,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-4) spz (x+2) (h+6) (z+2))
+                            placeChain(x+2,h+15,z+2,sprintf "summon Villager %1.1f %d.5 %1.1f {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"Teleporter to %s\"}" flx (hm.[1,1]-3) flz dirName) // TODO give villager trade; TODO tp facing dir (SE+X+Z was 135 0)
                             placeChain(x+2,h+14,z+2,"""tellraw @a [{"text":"A two-way teleporter to/from spawn has been unlocked nearby"}]""")
                             placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~6 ~ air") // erase us
         if not found then
@@ -1629,16 +1635,16 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> placeTeleporters(map, hm, log, decorations))
+    time (fun () -> placeTeleporters(map, hm, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> addRandomLootz(!rng, map, log, hm, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome))
-    xtime (fun() ->   // after hiding spots figured
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->

@@ -265,7 +265,7 @@ let skeletonize(a:sbyte[,,],onRemove,initOnes) = // init array passed in should 
     // TODO note, two parallel spines diagonal from one another (touch diagonally), way to get rid of?
     while ok do
         let mutable wereAnyRemoved  = false
-        for d = 0 to 5 do
+        for d = 5 downto 0 do  // prefer dy to be negative before positive, so that skeletons are biased to be lower
             printf "."
             let dx, dy, dz, b = 
                 if d <= 2 then // + dirs

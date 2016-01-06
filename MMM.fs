@@ -2458,6 +2458,8 @@ let musicStuff() =
             |]
         r.PlaceCommandBlocksStartingAt(20+k,60,1,cmds,"")
     // TODO have each track have its own repeat length, have Tick mode segment # based on biome track?
+    // TODO use the 'play 46 null sounds at once' strategy to end all sound, and then have continual tracks that fade in at each 5s start point, and only stop at transitions
+    // TODO can make computation more efficient using a armor stand to track segment number with a tp each 5s segment
 
     r.Write(fil+".new")
     System.IO.File.Delete(fil)
@@ -2535,7 +2537,7 @@ do
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2543,26 +2545,23 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
 
-    musicStuff()
+    //musicStuff()
 
     // TODO
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
     // tnt exploding a morse code explosion-sound something?!?
     // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
     // fix heightmap issues? blocklight/skylight?
-    // hollow out mountain, for top-down, multi-tier, encased in bedrock dungeon?
+    // hollow out mountain, for top-down, multi-tier, encased in bedrock dungeon? ghast spawner atop mtn when broken could lead to ladder down to hollowed mountain dungeon
     // forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
     // desert falling sand could also open hole into giant underground cavern of some sort?
-    // ghast spawner atop mtn when broken could lead to ladder down to hollowed mountain dungeon
-    // thread LootTableSeed through my rng for reproducibility
+    // thread LootTableSeed through my rng for loot reproducibility
+    // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
 
     // redo teleporters and add villager trades for emerald blocks for potion buffs:
-    // no barrier blocks, use bedrock columns at corners of monument (ask obe ideas to prevent building nearby)
-    // replace bedrock with teleporter and villager
     // villagers have 1 of 4 trades, emerald block for a potion of 99:99 of haste, speed, strength, or health boost (maybe all 4 also trade for night vision?) (last until player dies) (how ensure trade not 'run out'?)
     // hide emeralds in various chests I'll be adding, remove emerald ore from extreme hills
     // makes bonus chests more fun, encourages exploration, and provides another crutch for players to get buff
-    // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
     
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)
