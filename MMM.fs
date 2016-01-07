@@ -2548,20 +2548,40 @@ do
     //musicStuff()
 
     // TODO
+
+    // good ideas
+    // thread LootTableSeed through my rng for loot reproducibility
+    // hide emeralds in various chests I'll be adding
+    // random chest locations:
+    //   - bottom of surface ravine (low heightmap)
+    //   - top center of red/brown giant mushrooms
+    //   - top of waterfall somehow? (find flowing water above 80, trace upwards...?)
+    //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
+    // (from obe and self:) more gold, less iron up high
+    // ***set pieces (persistence-required mobs placed in map)
+    // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
+    // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
+    // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
+    // ***hyper-spawner (dispenser with eggs)
+    // ***places where gravel floor falls
+    //   - desert trap, can rig sand to fall like 10 blocks to obsidian line hole with a low-range spawner underneath, or have TNT, etc, can find flat areas, preserve cacti, etc.
+    //   - key is getting player to set off trap, need a hook: gold block, chest, etc. and a few of them so not every one is a trap
+    // ***should bats have a 1/100 chance of a great drop? gapple? and a book saying how lucky they are?
+    // ***witch zones / guardian zones
+    // ***skeleton trap, electrified creeper
+    // ***primed tnt buried in walls
+
+
+    // other ideas
     // tnt exploding a morse code explosion-sound something?!?
     // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
     // fix heightmap issues? blocklight/skylight?
     // hollow out mountain, for top-down, multi-tier, encased in bedrock dungeon? ghast spawner atop mtn when broken could lead to ladder down to hollowed mountain dungeon
     // forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
     // desert falling sand could also open hole into giant underground cavern of some sort?
-    // thread LootTableSeed through my rng for loot reproducibility
     // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
-
-    // redo teleporters and add villager trades for emerald blocks for potion buffs:
-    // villagers have 1 of 4 trades, emerald block for a potion of 99:99 of haste, speed, strength, or health boost (maybe all 4 also trade for night vision?) (last until player dies) (how ensure trade not 'run out'?)
-    // hide emeralds in various chests I'll be adding, remove emerald ore from extreme hills
-    // makes bonus chests more fun, encourages exploration, and provides another crutch for players to get buff
+    // TODOs and refactorings...
     
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)

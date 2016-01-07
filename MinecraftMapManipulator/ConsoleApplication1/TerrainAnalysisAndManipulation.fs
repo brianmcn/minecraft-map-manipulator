@@ -74,6 +74,35 @@ let debugRegion() =
                 
 ////////////////////////////////////////////
 
+let putChestCore(x,y,z,chestBid,chestDmg,items,customName,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
+    map.SetBlockIDAndDamage(x,y,z,chestBid,chestDmg)
+    let te = [| yield Int("x",x); yield Int("y",y); yield Int("z",z)
+                yield String("id","Chest"); yield String("Lock",""); 
+                yield List("Items",items)
+                yield String("CustomName",customName)
+                if lootTable <> null then
+                    yield String("LootTable",lootTable)
+                    yield Long("LootTableSeed",lootTableSeed)
+                yield End |]
+    if tileEntities <> null then
+        tileEntities.Add( te )
+    else
+        map.AddOrReplaceTileEntities[| te |]
+
+let putTrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,map,tileEntities) =
+    putChestCore(x,y,z,146uy,2uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 146=trapped chest
+
+let putUntrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,map,tileEntities) =
+    putChestCore(x,y,z,54uy,2uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 54=(non-trapped) chest
+
+let putTrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
+    putChestCore(x,y,z,146uy,2uy,items,customName,null,0L,map,tileEntities)  // 146=trapped chest
+
+let putUntrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
+    putChestCore(x,y,z,54uy,2uy,items,customName,null,0L,map,tileEntities)  // 54=(non-trapped) chest
+
+///////////////////////////////////////////////
+
 let putThingRecomputeLight(sx,sy,sz,map:MapFolder,thing,dmg) =
     // for lighted blocks (e.g. thing="glowstone"), to have Minecraft recompute the light, use a command block and a tile tick
     map.SetBlockIDAndDamage(sx,sy,sz,137uy,0uy)  // command block
@@ -91,17 +120,7 @@ let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,itemsNbt) =
         for y = sy+1 to sy+2 do
             for z = sz-2 to sz+2 do
                 map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
-    map.SetBlockIDAndDamage(sx,sy+1,sz,54uy,2uy)  // chest
-    map.AddOrReplaceTileEntities([| [| yield Int("x",sx)
-                                       yield Int("y",sy+1)
-                                       yield Int("z",sz)
-                                       yield String("id","Chest")
-                                       yield List("Items",Compounds itemsNbt)
-                                       if lootTableName <> null then
-                                            yield String("LootTable",lootTableName)
-                                       yield String("Lock","")
-                                       yield String("CustomName","Lootz!")
-                                       yield End |] |])
+    putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,"Lootz!",lootTableName,0L,map,null)
 
 let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
     putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,[| |])
@@ -441,8 +460,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                                   )
                                          End |]
                             |]
-                    map.SetBlockIDAndDamage(bx,by,bz,54uy,2uy)  // chest
-                    map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
+                    putUntrappedChestWithItemsAt(bx,by,bz,"Winner!",chestItems,map,null)
                 let debugSkeleton = false
                 if debugSkeleton then
                     for x,y,z in skel do
@@ -981,8 +999,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                                   )
                          End |]
             |]
-    map.SetBlockIDAndDamage(bx,by,bz,54uy,2uy)  // chest
-    map.AddOrReplaceTileEntities([| [| Int("x",bx); Int("y",by); Int("z",bz); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Winner!"); End |] |])
+    putUntrappedChestWithItemsAt(bx,by,bz,"Hidden treasure!",chestItems,map,null)
     putGlowstoneRecomputeLight(bx,by-1,bz,map)
     /////////////////////////////////////////////////////////////////
     // mountain peaks
@@ -1154,9 +1171,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         map.GetBlockInfo(x,y,z+1).BlockID = plus &&
         map.GetBlockInfo(x,y,z-1).BlockID = plus
     let putTrappedChestWithLoot(x,y,z,chestName) =
-        let lootTableName = sprintf "%s:chests/%s" LootTables.LOOT_NS_PREFIX chestName
-        map.SetBlockIDAndDamage(x,y,z,146uy,2uy)  // trapped chest
-        tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Chest"); List("Items",Compounds[| |]); String("LootTable",lootTableName); String("Lock",""); String("CustomName","Lootz!"); End |]
+        let lootTable = sprintf "%s:chests/%s" LootTables.LOOT_NS_PREFIX chestName
+        putTrappedChestWithLootTableAt(x,y,z,"Lootz!",lootTable,0L,map,tileEntities)
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         if x%200 = 0 then
             printfn "%d" x
@@ -1427,9 +1443,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                                 Utilities.wrapInJSONText "6. FINAL DUNGEON\n\nFinally explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), the final dungeon. It's like the first dungeon, but harder, and has the final monument block."
                             |]) |> ResizeArray); End |]
             |]
-    // TODO factor next two lines into a function
-    map.SetBlockIDAndDamage(1,h+1,-2,54uy,2uy)  // 54=chest
-    map.AddOrReplaceTileEntities([| [| Int("x",1); Int("y",h+1); Int("z",-2); String("id","Chest"); List("Items",chestItems); String("Lock",""); String("CustomName","Welcome!"); End |] |])
+    putUntrappedChestWithItemsAt(1,h+1,-2,"Welcome!",chestItems,map,null)
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(0,h-7,0,137uy,0uy)
     map.AddOrReplaceTileEntities([| [| Int("x",0); Int("y",h-7); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 h 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
