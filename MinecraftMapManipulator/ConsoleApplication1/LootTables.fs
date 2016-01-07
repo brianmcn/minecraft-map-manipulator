@@ -145,7 +145,10 @@ let LOOT_AESTHETIC_CHESTS =
                         Item("minecraft:netherrack",[SetCount(64,64)]), 1, 0, []
                         // fun
                         Item("minecraft:name_tag",[SetCount(3,10)]), 1, 0, []
-                ])]
+                    ])
+                        // tradeable
+               Pool(Roll(1,1), [Item("minecraft:emerald",[]), 1, 0, []])
+               ]
         // tier 2
         Pools [Pool(Roll(6,6), [
                         // blocks
@@ -173,6 +176,8 @@ let LOOT_AESTHETIC_CHESTS =
                Pool(Roll(2,2), [Item("minecraft:rail",[SetCount(64,64)]), 1, 0, []])
                Pool(Roll(2,2), [Item("minecraft:golden_rail",[SetCount(64,64)]), 1, 0, []])
                Pool(Roll(2,2), [Item("minecraft:redstone_block",[SetCount(64,64)]), 1, 0, []])
+                        // tradeable
+               Pool(Roll(1,1), [Item("minecraft:emerald",[]), 1, 0, []])
                ]
         // tier 3
         Pools [Pool(Roll(6,6), [

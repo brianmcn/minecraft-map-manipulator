@@ -2550,11 +2550,9 @@ do
     // TODO
 
     // good ideas
-    // hide emeralds in various chests I'll be adding
     // random chest locations:
     //   - bottom of surface ravine (low heightmap)
     //   - top center of red/brown giant mushrooms
-    //   - top of waterfall somehow? (find flowing water above 80, trace upwards...?)
     //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
     // (from obe and self:) more gold, less iron up high

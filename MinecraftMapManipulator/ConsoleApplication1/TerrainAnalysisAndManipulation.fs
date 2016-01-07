@@ -1151,7 +1151,7 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
-let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],biome:_[,],decorations:ResizeArray<_>) =
+let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
     let points = Array.init 20 (fun x -> ResizeArray())
@@ -1173,6 +1173,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     let putTrappedChestWithLoot(x,y,z,chestName) =
         let lootTable = sprintf "%s:chests/%s" LootTables.LOOT_NS_PREFIX chestName
         putTrappedChestWithLootTableAt(x,y,z,"Lootz!",lootTable,int64(rng.Next()),map,tileEntities)
+    let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
+    let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         if x%200 = 0 then
             printfn "%d" x
@@ -1249,9 +1251,33 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                             putTrappedChestWithLoot(x,y,z,"aesthetic1")
                                             points.[4].Add( (x,y,z) )
                                             // TODO sometimes be a trap
+                    elif bid = 9uy && bi.BlockData <> 0uy || bid = 8uy then  // flowing water
+                        if not(flowingWaterVisited.Contains(x,y,z)) then
+                            flowingWaterVisited.Add(x,y,z) |> ignore
+                            let q = new System.Collections.Generic.Queue<_>()
+                            q.Enqueue(x,y,z)
+                            while not(q.Count=0) do
+                                let cx,cy,cz = q.Dequeue()
+                                let isValid(coord) = coord >= MINIMUM && coord <= MINIMUM+LENGTH-1
+                                for dx,dy,dz in [1,0,0; -1,0,0; 0,0,1; 0,0,-1; 0,1,0] do
+                                    let nx,ny,nz = cx+dx, cy+dy, cz+dz
+                                    if isValid(nx) && isValid(nz) then
+                                        if not(flowingWaterVisited.Contains(nx,ny,nz)) && not(waterfallTopVisited.Contains(nx,ny,nz)) then
+                                            let nbi = map.GetBlockInfo(nx,ny,nz)
+                                            if nbi.BlockID = 9uy && nbi.BlockData <> 0uy || nbi.BlockID = 8uy then  // flowing water
+                                                flowingWaterVisited.Add(nx,ny,nz) |> ignore
+                                                q.Enqueue(nx,ny,nz)
+                                            elif nbi.BlockID = 9uy && nbi.BlockData = 0uy then  // stationary water
+                                                waterfallTopVisited.Add(nx,ny,nz) |> ignore
+                                                if hmIgnoringLeaves.[cx,cz] <= cy+1 then
+                                                    printfn "found waterfall top at %d %d %d" nx ny nz
+                                                    // chest below
+                                                    putTrappedChestWithLoot(nx,ny-1,nz,"aesthetic2")
+                                                    points.[5].Add( (nx,ny-1,nz) )
+                                                else
+                                                    printfn "ignoring waterfall top at %d %d %d because underground" nx ny nz // no harm in placing chests there, but probably no one will find them, prefer to have count of findable ones; in one map, 24 of 72 waterfall tops were on surface
                     else
                         () // TODO other stuff
-                        // 56, 205, 20, 65,
                 // end for y
                 let y = 62
                 let PIXELS = 
@@ -1668,16 +1694,16 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome))
-    time (fun() ->   // after hiding spots figured
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
