@@ -181,8 +181,8 @@ let LOOT_AESTHETIC_CHESTS =
                         Item("minecraft:prismarine",[SetCount(64,64)]), 1, 0, []
                         Item("minecraft:sea_lantern",[SetCount(64,64)]), 1, 0, []
                         ])
-               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Basic blocks\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic1\"}}""" LOOT_NS_PREFIX)]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Nicer blocks and fun\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic2\"}}""" LOOT_NS_PREFIX)]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Basic blocks\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic1\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
+               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Nicer blocks and fun\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic2\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
                OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_chestplate",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:diamond_leggings",[])],100,[])
                ]
     |] 
@@ -394,7 +394,7 @@ let sampleTier2Chest = // dungeons and mineshafts
 let sampleTier3Chest = // end of green beacon cave
         Pools[ Pool(Roll(12,12),[tierNBookItem(3),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(3,5),1,0, []])
-               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt("""{display:{Name:\"Dungeon Loot\"},BlockEntityTag:{LootTable:\"minecraft:chests/simple_dungeon\"}}""")]),1,0, []])
+               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt("""{display:{Name:\"Dungeon Loot\"},BlockEntityTag:{LootTable:\"minecraft:chests/simple_dungeon\",LootTableSeed:0L}}""")]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:experience_bottle",[SetCount(64,64)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
@@ -411,7 +411,7 @@ let sampleTier4Chest = // end of flat dungeon
                Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:enchanted_book",[SetNbt("""{StoredEnchantments:[{id:0s,lvl:4s}]}""")]),1,0, []]) // protection IV book
                Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
-               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Green Beacon Cave Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier3\"}}""" LOOT_NS_PREFIX)]),1,0, []])
+               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Green Beacon Cave Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier3\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
@@ -423,7 +423,7 @@ let sampleTier4Chest = // end of flat dungeon
 let sampleTier5Chest =
         Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
-               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Red Beacon Web Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier4\"}}""" LOOT_NS_PREFIX)]),1,0, []])
+               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Red Beacon Web Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier4\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])

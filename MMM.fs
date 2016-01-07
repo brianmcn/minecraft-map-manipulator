@@ -2550,7 +2550,6 @@ do
     // TODO
 
     // good ideas
-    // thread LootTableSeed through my rng for loot reproducibility
     // hide emeralds in various chests I'll be adding
     // random chest locations:
     //   - bottom of surface ravine (low heightmap)

@@ -110,7 +110,7 @@ let putThingRecomputeLight(sx,sy,sz,map:MapFolder,thing,dmg) =
     map.AddTileTick("minecraft:command_block",1,0,sx,sy,sz)
 let putGlowstoneRecomputeLight(sx,sy,sz,map:MapFolder) = putThingRecomputeLight(sx,sy,sz,map,"glowstone",0)
 
-let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,itemsNbt) =
+let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed,itemsNbt) =
     for x = sx-2 to sx+2 do
         for z = sz-2 to sz+2 do
             map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
@@ -120,13 +120,13 @@ let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,itemsNbt) =
         for y = sy+1 to sy+2 do
             for z = sz-2 to sz+2 do
                 map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
-    putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,"Lootz!",lootTableName,0L,map,null)
+    putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,"Lootz!",lootTableName,lootTableSeed,map,null)
 
-let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName) =
-    putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,[| |])
+let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed) =
+    putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,lootTableSeed,[| |])
 
 let putTreasureBoxWithItemsAt(map:MapFolder,sx,sy,sz,itemsNbt) =
-    putTreasureBoxAtCore(map,sx,sy,sz,null,itemsNbt)
+    putTreasureBoxAtCore(map,sx,sy,sz,null,0L,itemsNbt)
 
 let putBeaconAt(map:MapFolder,ex,ey,ez,colorDamage,addAirSpace) =
     if addAirSpace then
@@ -438,7 +438,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
                 map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
                 // put treasure at bottom end
-                putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX)
+                putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX,int64(rng.Next()))
                 if thisIsFinal then
                     thisIsFinal <- false
                     hasDoneFinal <- true
@@ -1018,7 +1018,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                             |]) |> ResizeArray); End |]
                 [| Byte("Slot",14uy); Byte("Count",1uy); String("id","chest"); Compound("tag", [|
                         Compound("display",[|String("Name","Mountain Peak Loot");End|] |> ResizeArray)
-                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX);End|] |> ResizeArray)
+                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX);Long("LootTableSeed",int64(rng.Next()));End|] |> ResizeArray)
                         End
                     |] |> ResizeArray); End |]
             |]) // TODO heightmap, blocklight, skylight
@@ -1091,7 +1091,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                     |] |> ResizeArray); End |]
                 [| Byte("Slot",14uy); Byte("Count",1uy); String("id","chest"); Compound("tag", [|
                         Compound("display",[|String("Name","Red Beacon Web Loot");End|] |> ResizeArray)
-                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX);End|] |> ResizeArray)
+                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX);Long("LootTableSeed",int64(rng.Next()));End|] |> ResizeArray)
                         End
                     |] |> ResizeArray); End |]
             |]) // TODO heightmap, blocklight, skylight
@@ -1172,7 +1172,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         map.GetBlockInfo(x,y,z-1).BlockID = plus
     let putTrappedChestWithLoot(x,y,z,chestName) =
         let lootTable = sprintf "%s:chests/%s" LootTables.LOOT_NS_PREFIX chestName
-        putTrappedChestWithLootTableAt(x,y,z,"Lootz!",lootTable,0L,map,tileEntities)
+        putTrappedChestWithLootTableAt(x,y,z,"Lootz!",lootTable,int64(rng.Next()),map,tileEntities)
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         if x%200 = 0 then
             printfn "%d" x
