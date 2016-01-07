@@ -2537,7 +2537,8 @@ do
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.treeify(new MapFolder(worldSaveFolder + """\region\"""))
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2552,10 +2553,9 @@ do
     // good ideas
     // random chest locations:
     //   - bottom of surface ravine (low heightmap)
-    //   - top center of red/brown giant mushrooms
     //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
-    // (from obe and self:) more gold, less iron up high
+    // (from obe and self:) more gold, less iron up high (after armor-rebalance changes, maybe?)
     // ***set pieces (persistence-required mobs placed in map)
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
     // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)

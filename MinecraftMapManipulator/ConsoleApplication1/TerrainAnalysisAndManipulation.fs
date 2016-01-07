@@ -177,6 +177,160 @@ type SpawnerAccumulator(description) =
             sb.Append(sprintf "   %s:%3d" k v) |> ignore
         log.LogSummary(sprintf "   %s:%s" description (sb.ToString()))
 
+/////////////////////////////////////////////////////////////////
+
+// throughout, will ignore leave decay states, wood orientations
+type WoodType =
+    | OAK
+    | SPRUCE
+    | BIRCH
+    | JUNGLE
+    | ACACIA
+    | DARK_OAK
+    member this.IsLog(bid,dmg) =
+        match this with
+        | OAK    -> bid=17uy && (dmg &&& 3uy)=0uy
+        | SPRUCE -> bid=17uy && (dmg &&& 3uy)=1uy
+        | BIRCH  -> bid=17uy && (dmg &&& 3uy)=2uy
+        | JUNGLE -> bid=17uy && (dmg &&& 3uy)=3uy
+        | ACACIA   -> bid=162uy && (dmg &&& 3uy)=0uy
+        | DARK_OAK -> bid=162uy && (dmg &&& 3uy)=1uy
+    member this.IsLeaves(bid,dmg) =
+        match this with
+        | OAK    -> bid=18uy && (dmg &&& 3uy)=0uy
+        | SPRUCE -> bid=18uy && (dmg &&& 3uy)=1uy
+        | BIRCH  -> bid=18uy && (dmg &&& 3uy)=2uy
+        | JUNGLE -> bid=18uy && (dmg &&& 3uy)=3uy
+        | ACACIA   -> bid=161uy && (dmg &&& 3uy)=0uy
+        | DARK_OAK -> bid=161uy && (dmg &&& 3uy)=1uy
+    static member AsLog(bid,dmg) =
+        if bid=17uy && (dmg &&& 3uy)=0uy then Some OAK
+        elif bid=17uy && (dmg &&& 3uy)=1uy then Some SPRUCE
+        elif bid=17uy && (dmg &&& 3uy)=2uy then Some BIRCH
+        elif bid=17uy && (dmg &&& 3uy)=3uy then Some JUNGLE
+        elif bid=162uy && (dmg &&& 3uy)=0uy then Some ACACIA
+        elif bid=162uy && (dmg &&& 3uy)=1uy then Some DARK_OAK
+        else None
+    static member AsLeaves(bid,dmg) =
+        if bid=18uy && (dmg &&& 3uy)=0uy then Some OAK
+        elif bid=18uy && (dmg &&& 3uy)=1uy then Some SPRUCE
+        elif bid=18uy && (dmg &&& 3uy)=2uy then Some BIRCH
+        elif bid=18uy && (dmg &&& 3uy)=3uy then Some JUNGLE
+        elif bid=161uy && (dmg &&& 3uy)=0uy then Some ACACIA
+        elif bid=161uy && (dmg &&& 3uy)=1uy then Some DARK_OAK
+        else None
+
+type MCTree(woodType) =
+    let logs = ResizeArray()
+    let leaves = ResizeArray()
+    let mutable lly = 0
+    member this.WoodType = woodType
+    member this.Logs = logs
+    member this.Leaves = leaves
+    member this.LowestLeafY with get() = lly and set(y) = lly <- y
+
+let treeify(map:MapFolder) =
+    let INTERIOR_WINDOW_SIZE = 128
+    let BORDER_SIZE = 8
+    let WINDOW_SIZE = INTERIOR_WINDOW_SIZE + 2*BORDER_SIZE
+    let MIN_XZ = MINIMUM+INTERIOR_WINDOW_SIZE-BORDER_SIZE
+    let MAX_XZ = MINIMUM+LENGTH-INTERIOR_WINDOW_SIZE+BORDER_SIZE
+    let allTrees = ResizeArray()
+    for wx in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ-WINDOW_SIZE] do
+        for wz in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ-WINDOW_SIZE] do
+            printfn "%d %d is corner, %d %d is int corner" wx wz (wx+BORDER_SIZE) (wz+BORDER_SIZE)
+            let visitedLogs = new System.Collections.Generic.HashSet<_>()
+            let treesInThisWindow = ResizeArray()
+            for y = 63 to 128 do // TODO what is pragmatic
+                for x = wx to wx+WINDOW_SIZE-1 do
+                    for z = wz to wz+WINDOW_SIZE-1 do
+                        let bi = map.GetBlockInfo(x,y,z)
+                        match WoodType.AsLog(bi.BlockID, bi.BlockData) with
+                        | None -> ()
+                        | Some woodType ->
+                            if not(visitedLogs.Contains(x,y,z)) then
+                                // due to yxz iteration order, this is the northwest lowest stump, use it as the canonical location of the tree
+                                let treeIsInInterior = x >= wx + BORDER_SIZE && x <= wx+WINDOW_SIZE-1-BORDER_SIZE && z >= wz + BORDER_SIZE && z <= wz+WINDOW_SIZE-1-BORDER_SIZE
+                                visitedLogs.Add(x,y,z) |> ignore
+                                let tree = MCTree(woodType)
+                                tree.Logs.Add(x,y,z)
+                                let q = new System.Collections.Generic.Queue<_>()
+                                q.Enqueue(x,y,z)
+                                while q.Count <> 0 do
+                                    let cx,cy,cz = q.Dequeue()
+                                    for dx in [-1;0;1] do
+                                        for dz in [-1;0;1] do
+                                            for dy in [0;1] do // y is iterating up in the outer loop, so we always found bottom first, only need to go up
+                                                let nx,ny,nz = cx+dx, cy+dy, cz+dz
+                                                // we may have wandered out of bounds, stay inside our outer window
+                                                if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                                                    if not(visitedLogs.Contains(nx,ny,nz)) then
+                                                        let nbi = map.GetBlockInfo(nx,ny,nz)
+                                                        if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(woodType) then
+                                                            visitedLogs.Add(nx,ny,nz) |> ignore
+                                                            tree.Logs.Add(nx,ny,nz)
+                                                            q.Enqueue(nx,ny,nz)
+                                if tree.Logs.Count > 2 then
+                                    treesInThisWindow.Add(tree)
+                                    if treeIsInInterior then
+                                        allTrees.Add(tree)
+                                        //printfn "found tree at %d %d %d" x y z
+                                else
+                                    printfn "ignoring tiny tree (jungle floor? burned?) at %d %d %d" x y z
+            // now that we have all the tree wood in the large window, determine leaf ownership
+            // first find lowest point where each tree can own a leaf
+            for t in treesInThisWindow do
+                let ls = t.Logs.ToArray()
+                Array.sortInPlaceBy (fun (x,y,z) -> y,x,z) ls
+                t.LowestLeafY <- -1
+                for cx,cy,cz in ls do
+                    if t.LowestLeafY = -1 then
+                        let mutable numAdjacentLeaves = 0
+                        for dx,dz in [-1,0; 1,0; 0,-1; 0,1] do
+                            let nx,ny,nz = cx+dx, cy, cz+dz
+                            // we may have wandered out of bounds, stay inside our outer window
+                            if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                                let nbi = map.GetBlockInfo(nx,ny,nz)
+                                if WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                    numAdjacentLeaves <- numAdjacentLeaves + 1
+                        if numAdjacentLeaves >=2 then
+                            t.LowestLeafY <- cy
+            // then walk outwards from all logs over all trees, claiming ownership
+            let claimedLeaves = new System.Collections.Generic.HashSet<_>()
+            let q = new System.Collections.Generic.Queue<_>()
+            for t in treesInThisWindow do
+                for cx,cy,cz in t.Logs do
+                    if cy >= t.LowestLeafY then
+                        q.Enqueue(cx,cy,cz,t,0)
+            while q.Count <> 0 do
+                let cx,cy,cz,t,i = q.Dequeue()
+                for dx,dy,dz in [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0] do // TODO ever need to go dy = -1? i don't think so
+                    let nx,ny,nz = cx+dx, cy+dy, cz+dz
+                    // we may have wandered out of bounds, stay inside our outer window
+                    if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                        if not(claimedLeaves.Contains(nx,ny,nz)) then
+                            let nbi = map.GetBlockInfo(nx,ny,nz)
+                            if WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                claimedLeaves.Add(nx,ny,nz) |> ignore
+                                t.Leaves.Add(nx,ny,nz)
+                                if i < 6 then // don't go more than 7 steps away from log to claim
+                                    q.Enqueue(nx,ny,nz,t,i+1)
+    printfn "There were %d trees found" allTrees.Count
+    // debug by visualizing ownership
+    let mutable color = 0uy
+    for t in allTrees do
+        for x,y,z in t.Logs do
+            map.SetBlockIDAndDamage(x,y,z,159uy,color) // 159=stained_hardened_clay
+        for x,y,z in t.Leaves do
+            map.SetBlockIDAndDamage(x,y,z,35uy,color) // 35=wool
+        color <- color + 1uy
+        if color = 16uy then
+            color <- 0uy
+    // TODO one known bug, where a 2x2 tall tree intersects a smaller tree's leaves mid-tall-2x2-stump, and tall 2x2 has a LowestLeafY value that's too small and claims leaves
+    map.WriteAll()
+
+/////////////////////////////////////////////////////////////////
+
 let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog) =
     let MINIMUM = -DAYLIGHT_RADIUS
     let LENGTH = 2*DAYLIGHT_RADIUS
@@ -1276,6 +1430,9 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                     points.[5].Add( (nx,ny-1,nz) )
                                                 else
                                                     printfn "ignoring waterfall top at %d %d %d because underground" nx ny nz // no harm in placing chests there, but probably no one will find them, prefer to have count of findable ones; in one map, 24 of 72 waterfall tops were on surface
+                    elif bid = 100uy && bi.BlockData = 5uy then  // 100=red_mushroom_block, 5=red only on top-center
+                        putTrappedChestWithLoot(x,y,z,"aesthetic1")
+                        points.[6].Add( (x,y,z) )
                     else
                         () // TODO other stuff
                 // end for y
