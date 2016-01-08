@@ -103,30 +103,41 @@ let putUntrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
 
 ///////////////////////////////////////////////
 
+let runCommandBlockOnLoadCore(sx,sy,sz,map:MapFolder,cmd,futureTime) =
+    map.SetBlockIDAndDamage(sx,sy,sz,137uy,0uy)  // command block
+    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command",cmd); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
+    map.AddTileTick("minecraft:command_block",futureTime,0,sx,sy,sz)
+let runCommandBlockOnLoad(sx,sy,sz,map:MapFolder,cmd) =
+    runCommandBlockOnLoadCore(sx,sy,sz,map:MapFolder,cmd,1)
+
+let runCommandBlockOnLoadSelfDestruct(sx,sy,sz,map:MapFolder,cmd) =
+    // place block here and y-1, first runs cmd, then fills both with air
+    runCommandBlockOnLoadCore(sx,sy,sz,map,cmd,1)
+    runCommandBlockOnLoadCore(sx,sy-1,sz,map,"fill ~ ~ ~ ~ ~1 ~ air",2)
+
 let putThingRecomputeLight(sx,sy,sz,map:MapFolder,thing,dmg) =
     // for lighted blocks (e.g. thing="glowstone"), to have Minecraft recompute the light, use a command block and a tile tick
-    map.SetBlockIDAndDamage(sx,sy,sz,137uy,0uy)  // command block
-    map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "setblock ~ ~ ~ %s %d" thing dmg); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
-    map.AddTileTick("minecraft:command_block",1,0,sx,sy,sz)
+    runCommandBlockOnLoad(sx,sy,sz,map,sprintf "setblock ~ ~ ~ %s %d" thing dmg)
 let putGlowstoneRecomputeLight(sx,sy,sz,map:MapFolder) = putThingRecomputeLight(sx,sy,sz,map,"glowstone",0)
 
-let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed,itemsNbt) =
-    for x = sx-2 to sx+2 do
-        for z = sz-2 to sz+2 do
-            map.SetBlockIDAndDamage(x,sy,z,22uy,0uy)  // lapis block
-            map.SetBlockIDAndDamage(x,sy+3,z,22uy,0uy)  // lapis block
-    putGlowstoneRecomputeLight(sx,sy,sz,map)
-    for x = sx-2 to sx+2 do
+let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed,itemsNbt,topbid,topdmg,glassbid,glassdmg,radius) =
+    let RADIUS = radius
+    for x = sx-RADIUS to sx+RADIUS do
+        for z = sz-RADIUS to sz+RADIUS do
+            map.SetBlockIDAndDamage(x,sy,z,topbid,topdmg)  // lapis block
+            map.SetBlockIDAndDamage(x,sy+3,z,topbid,topdmg)  // lapis block
+    for x = sx-RADIUS to sx+RADIUS do
         for y = sy+1 to sy+2 do
-            for z = sz-2 to sz+2 do
-                map.SetBlockIDAndDamage(x,y,z,20uy,0uy)  // glass
+            for z = sz-RADIUS to sz+RADIUS do
+                map.SetBlockIDAndDamage(x,y,z,glassbid,glassdmg)  // glass
+    putGlowstoneRecomputeLight(sx,sy+2,sz,map)
     putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,"Lootz!",lootTableName,lootTableSeed,map,null)
 
 let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed) =
-    putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,lootTableSeed,[| |])
+    putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,lootTableSeed,[| |],22uy,0uy,20uy,0uy,2) //22=lapis, 20=glass
 
 let putTreasureBoxWithItemsAt(map:MapFolder,sx,sy,sz,itemsNbt) =
-    putTreasureBoxAtCore(map,sx,sy,sz,null,0L,itemsNbt)
+    putTreasureBoxAtCore(map,sx,sy,sz,null,0L,itemsNbt,22uy,0uy,20uy,0uy,2) //22=lapis, 20=glass
 
 let putBeaconAt(map:MapFolder,ex,ey,ez,colorDamage,addAirSpace) =
     if addAirSpace then
@@ -1336,7 +1347,14 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
     let RADIUS = 40
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_FLAT*SPAWN_PROTECTION_DISTANCE_FLAT)
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
-    let bestFlatPoints = try Seq.take 10 bestFlatPoints with _e -> bestFlatPoints
+    let allFlatPoints = bestFlatPoints |> Seq.toArray 
+    let bestFlatPoints, nextBestFlatPoints = 
+        if allFlatPoints.Length < 10 then
+            allFlatPoints, [| |]
+        elif allFlatPoints.Length < 20 then
+            allFlatPoints.[0..9], allFlatPoints.[10..]
+        else
+            allFlatPoints.[0..9], allFlatPoints.[10..19]
     // decorate map with dungeon
     for (x,z),_,_,s in bestFlatPoints do
         decorations.Add('F',x,z)
@@ -1385,6 +1403,38 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                         elif rng.Next(3) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
         spawners.AddToMapAndLog(map,log)
+    // decorate map with set piece
+    for (cx,cz),_,_,s in nextBestFlatPoints do
+        // TODO alternate mob/loot loadouts
+        // TODO other loot in chest?
+        decorations.Add('S',cx,cz)
+        log.LogSummary(sprintf "added set piece (score %d) at %d %d" s cx cz)
+        let spawners = SpawnerAccumulator("spawners around set piece")
+        let ROUT,RMID,RIN = 11,7,1
+        for x = cx-ROUT to cx+ROUT do
+            for z = cz-ROUT to cz+ROUT do
+                if ((x=cx-ROUT || x=cx+ROUT) && (z<=cz-RMID+3 || z>=cz+RMID-3)) ||
+                   ((z=cz-ROUT || z=cz+ROUT) && (x<=cx-RMID+3 || x>=cx+RMID-3)) then
+                    for y = hm.[x,z] to hm.[x,z]+7 do
+                        map.SetBlockIDAndDamage(x,y,z,20uy,0uy) // 20=glass
+                if ((x=cx-RMID || x=cx+RMID) && (z>=cz-RMID+3 && z<=cz+RMID-3)) ||
+                   ((z=cz-RMID || z=cz+RMID) && (x>=cx-RMID+3 && x<=cx+RMID-3)) then
+                    for y = hm.[x,z] to hm.[x,z]+7 do
+                        map.SetBlockIDAndDamage(x,y,z,20uy,0uy) // 20=glass
+        let y = hm.[cx,cz] 
+        let chestItems = // smite V diamond sword
+            [| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:diamond_sword"); Compound("tag", [|List("ench",Compounds[|[|Short("id",17s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |] |]
+        putTreasureBoxAtCore(map,cx,y+4,cz,null,0L,chestItems,49uy,0uy,20uy,0uy,1) // 49=obsidian, 20=glass
+        for x,z in [cx-2,cz-2; cx-2,cz+2; cx+2,cz-2; cx+2,cz+2] do
+            runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Skeleton ~ ~1 ~ {SkeletonType:1b,PersistenceRequired:1b}")
+        for x,z in [cx-2,cz; cx+2,cz] do
+            runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Witch ~ ~1 ~ {PersistenceRequired:1b}")
+        for x,z in [cx-RMID,cz-RMID; cx-RMID,cz+RMID; cx+RMID,cz-RMID; cx+RMID,cz+RMID] do
+            map.SetBlockIDAndDamage(x, hm.[x,z], z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+            spawners.Add(FLAT_SET_PIECE_SPAWNER_DATA.NextSpawnerAt(x,hm.[x,z],z,rng))
+            map.SetBlockIDAndDamage(x, y+16, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+            spawners.Add(new MobSpawnerInfo(x=x,y=y+16,z=z,BasicMob="Ghast",Delay=1s)) // "ceiling protection" to dissuade cheesing it from above
+        spawners.AddToMapAndLog(map,log)
     ()
 
 let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
@@ -1413,6 +1463,7 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
 let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
+    let lootLocations = ResizeArray()
     let points = Array.init 20 (fun x -> ResizeArray())
     let noneWithin(r,points,x,_y,z) =
         let mutable ok = true
@@ -1432,6 +1483,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     let putTrappedChestWithLoot(x,y,z,chestName) =
         let lootTable = sprintf "%s:chests/%s" LootTables.LOOT_NS_PREFIX chestName
         putTrappedChestWithLootTableAt(x,y,z,"Lootz!",lootTable,int64(rng.Next()),map,tileEntities)
+        lootLocations.Add(x,y,z)
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
     for x = MINIMUM to MINIMUM+LENGTH-1 do
@@ -1609,6 +1661,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     // end for x
     map.AddOrReplaceTileEntities(tileEntities)
     log.LogSummary(sprintf "added %d extra loot chests: %s" tileEntities.Count (points |> Array.map (fun ps -> sprintf "%d" ps.Count) |> String.concat(", ")))
+    for x,_,z in lootLocations do
+        decorations.Add('*',x,z)
 
 let placeStartingCommands(map:MapFolder,hm:_[,]) =
     let placeCommand(x,y,z,command,bid,name) =
@@ -1956,18 +2010,18 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
-    time (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> allTrees := treeify(map))
+    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
@@ -1976,8 +2030,8 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         printfn "...done!")
     time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
-        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, 
-                                [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK], decorations)
+        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
+                                [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], decorations)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
 

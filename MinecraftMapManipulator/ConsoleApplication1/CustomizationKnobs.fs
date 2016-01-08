@@ -67,6 +67,8 @@ let FLAT_COBWEB_OUTER_SPAWNER_DATA =
     SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.0)
 let FLAT_COBWEB_INNER_SPAWNER_DATA = 
     SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.333)
+let FLAT_SET_PIECE_SPAWNER_DATA = 
+    SpawnerData([|(4,"Zombie"); (1,"Skeleton") |],                                              1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s))
 
 // terrain ore substitutes
 let GRANITE_SPAWNER_DATA = 
@@ -80,16 +82,26 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
                                             Delay=1s, // primed
                                             MinSpawnDelay=200s, MaxSpawnDelay=400s) // 10-20s, rather than 10-40s
 
+
+// TODO kind/freq of armor/weapon/food drops can affect difficulty
+// TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
+// TODO freq of random loot chests? (may interact with trades by having emeralds, may contain gapples or occasional OP weapon/armor? ...)
+// TODO (eventually maybe) number of monumnet blocks / major dungeon types?
+
+// TODO initial terrain biome/etc stuff (is a kind of aesthetic customization)
+
 let BIOME_HELL_PERCENTAGE = 0.1
 let BIOME_SKY_PERCENTAGE = 0.2
 
 let SPAWN_PROTECTION_DISTANCE_GREEN = 200
-let SPAWN_PROTECTION_DISTANCE_FLAT = 260
-let SPAWN_PROTECTION_DISTANCE_PEAK = 400
-let SPAWN_PROTECTION_DISTANCE_PURPLE = 600
+let SPAWN_PROTECTION_DISTANCE_FLAT = 350
+let SPAWN_PROTECTION_DISTANCE_PEAK = 500
+let SPAWN_PROTECTION_DISTANCE_PURPLE = 700
 let STRUCTURE_SPACING = 170  // no two of same structure within this dist of each other
 let DECORATION_SPACING = 60  // no two decos this close together
 let DAYLIGHT_RADIUS = 180
+
+
 
 // map size; probably would require other changes to change these
 let MINIMUM = -1024

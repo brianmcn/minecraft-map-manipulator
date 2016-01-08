@@ -2550,12 +2550,19 @@ do
     // TODO
 
     // good ideas
+    // wither skeletons - i have none?
+    // ***set pieces (persistence-required mobs placed in map)
+    //   - if in plains, how not just bow down from afar? put in glass building? spawn from dispenser? building/structure helps a ton... glass peristyle? spawner as well as set piece mobs?
+    //   - land guardians may make a good set piece (protection books?)
+    //   - wither skellies/other undead could be one (smite sword?)
     // random chest locations:
     //   - bottom of surface ravine (low heightmap)
     //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle
-    // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes?
-    // (from obe and self:) more gold, less iron up high (after armor-rebalance changes, maybe?)
-    // ***set pieces (persistence-required mobs placed in map)
+    //   - just anywhere on a plain with a mob-set-piece guarding it makes for interesting bits
+    // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?
+    // (from obe and self:) more gold, less iron up high (after armor-rebalance changes, maybe?) ensure progression speed not too hasty
+    // increase radii of no-peaks/no-flats, so must travel farther to find some main dungeons
+    // note radii of final-dungeon-beacon on the map
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
     // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
     // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
@@ -2567,9 +2574,13 @@ do
     // ***witch zones / guardian zones
     // ***skeleton trap, electrified creeper
     // ***primed tnt buried in walls
-
+    // "retro"/"throwback"?
+    // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
+    // floating structures? lava/watter pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
+    // legendary: seeing x from afar leads to seeing y up close...
 
     // other ideas
+    // teleporters could be color-coded (easier to remember?)
     // tnt exploding a morse code explosion-sound something?!?
     // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
     // fix heightmap issues? blocklight/skylight?

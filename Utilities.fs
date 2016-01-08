@@ -520,11 +520,11 @@ let renamer() =
 
 let ALPHABET5 = 
     [|
-    "XXXX.XXX..XXXX.XXX..XXXX.XXXX.XXXX.X..X.XXXX....X.X..X.X....X..X.X..X.XXXX.XXXX.XXXX.XXXX.XXXX.XXXX.X..X.X..X.X..X.X..X.X..X.XXXX..X.X...XX...........XXX.."
-    "X..X.X..X.X....X..X.X....X....X....X..X..XX.....X.X..X.X....XXXX.XX.X.X..X.X..X.X..X.X..X.X.....XX..X..X.X..X.X..X.X..X.X..X....X..X.X....X.............X.."
-    "XXXX.XXX..X....X..X.XXXX.XXXX.X.XX.XXXX..XX.....X.XXX..X....X..X.X.XX.X..X.XXXX.X..X.XXXX.XXXX..XX..X..X.X..X.X..X..XX...XX...XX........................X.."
-    "X..X.X..X.X....X..X.X....X....X..X.X..X..XX..X..X.X..X.X....X..X.X..X.X..X.X....X.XX.X.X.....X..XX..X..X.XXXX.XXXX.X..X..XX..X...............XX...XX....X.."
-    "X..X.XXX..XXXX.XXXX.XXXX.X....XXXX.X..X.XXXX..XX..X..X.XXXX.X..X.X..X.XXXX.X....XXXX.X..X.XXXX..XX..XXXX..XX..X..X.X..X..XX..XXXX............XX....X..XXXX."
+    "XXXX.XXX..XXXX.XXX..XXXX.XXXX.XXXX.X..X.XXXX....X.X..X.X....X..X.X..X.XXXX.XXXX.XXXX.XXXX.XXXX.XXXX.X..X.X..X.X..X.X..X.X..X.XXXX..X.X...XX................XXX.."
+    "X..X.X..X.X....X..X.X....X....X....X..X..XX.....X.X..X.X....XXXX.XX.X.X..X.X..X.X..X.X..X.X.....XX..X..X.X..X.X..X.X..X.X..X....X..X.X....X..................X.."
+    "XXXX.XXX..X....X..X.XXXX.XXXX.X.XX.XXXX..XX.....X.XXX..X....X..X.X.XX.X..X.XXXX.X..X.XXXX.XXXX..XX..X..X.X..X.X..X..XX...XX...XX.......................X.....X.."
+    "X..X.X..X.X....X..X.X....X....X..X.X..X..XX..X..X.X..X.X....X..X.X..X.X..X.X....X.XX.X.X.....X..XX..X..X.XXXX.XXXX.X..X..XX..X...............XX...XX.........X.."
+    "X..X.XXX..XXXX.XXXX.XXXX.X....XXXX.X..X.XXXX..XX..X..X.XXXX.X..X.X..X.XXXX.X....XXXX.X..X.XXXX..XX..XXXX..XX..X..X.X..X..XX..XXXX............XX....X.......XXXX."
     |]
 let ALPHABET5INDEX(c) =
     if c >= 'A' && c <= 'Z' then
@@ -537,8 +537,10 @@ let ALPHABET5INDEX(c) =
         Some 28
     elif c = ',' then
         Some 29
-    elif c = '1' then
+    elif c = '*' then
         Some 30
+    elif c = '1' then
+        Some 31
     else 
         None
 
@@ -1249,7 +1251,7 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
-let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
+let makeBiomeMap(regionFolder,biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
     let image = new System.Drawing.Bitmap(xlen,zlen)
     let isCircle(distSq) =
         let mutable c = false
@@ -1271,7 +1273,15 @@ let makeBiomeMap(regionFolder,biome:byte[,], xmin, xlen:int, zmin, zlen:int, cir
                 elif isCircle(x*x+y*y) then
                     r/2,g/2,b/2  // dark lines on circle
                 else
-                    r,g,b
+                    if x/6%2=0 && y/6%2=0 then
+                        if hmIgnoringLeaves.[x,y] > 100 then // TODO named constants
+                            r*1/3,g*1/3,b*1/3
+                        elif hmIgnoringLeaves.[x,y] > 80 then // TODO named constants
+                            r*2/3,g*2/3,b*2/3
+                        else
+                            r,g,b
+                    else
+                        r,g,b
             image.SetPixel(x-xmin, y-zmin, System.Drawing.Color.FromArgb(r,g,b))
     let placeRedLetterAt(letter, centerX, centerZ) =
         let D = 9
