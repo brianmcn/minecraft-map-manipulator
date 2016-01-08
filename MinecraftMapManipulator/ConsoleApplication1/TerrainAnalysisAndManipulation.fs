@@ -397,6 +397,7 @@ let treeify(map:MapFolder) =
             processLeaves([-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0; 0,-1,0]) // note this also goes y-1, normally does not
     // done with processing...
     printfn "There were %d trees found" allTrees.Count
+(*
     // debug by visualizing ownership
     let mutable color = 0uy
     for t in allTrees do
@@ -407,8 +408,9 @@ let treeify(map:MapFolder) =
         color <- color + 1uy
         if color = 16uy then
             color <- 0uy
-    // TODO one known bug, where a 2x2 tall tree intersects a smaller tree's leaves mid-tall-2x2-stump, and tall 2x2 has a LowestLeafY value that's too small and claims leaves
     map.WriteAll()
+*)
+    allTrees
 
 /////////////////////////////////////////////////////////////////
 
@@ -1007,7 +1009,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
     spawners2.AddToMapAndLog(map,log)
     printfn ""
 
-let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLog, biome:_[,]) =
+let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLog, biome:_[,], allTrees:ResizeArray<MCTree>) =
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     // find plains biomes
     for x = MINIMUM to MINIMUM+LENGTH-1 do
@@ -1038,19 +1040,41 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
     for k in tooSmall do
         CCs.Remove(k) |> ignore
     log.LogInfo(sprintf "found %d decent-sized plains biomes outside DAYLIGHT_RADIUS" CCs.Count)
-    let mutable hellCount, skyCount = 0,0
+    // preprocess trees
+    let treeByXZ = new System.Collections.Generic.Dictionary<_,_>()
+    for t in allTrees do
+        let x,_,z = t.CanonicalStump
+        if not(treeByXZ.ContainsKey(x,z)) then
+            treeByXZ.Add((x,z),ResizeArray[t])
+        else
+            treeByXZ.[x,z].Add(t)
+    let mutable hellBiomeCount, skyBiomeCount, hellTreeCount, skyTreeCount = 0,0,0,0
     for KeyValue(_k,v) in CCs do
         if rng.NextDouble() < BIOME_HELL_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,8uy) // 8 = Hell
                 biome.[x,z] <- 8uy
-            hellCount <- hellCount + 1
+                if treeByXZ.ContainsKey(x,z) then
+                    for t in treeByXZ.[x,z] do
+                        for x,y,z in t.Logs do
+                            map.SetBlockIDAndDamage(x,y,z,112uy,0uy) // 112=nether_brick
+                        for x,y,z,_ in t.Leaves do
+                            map.SetBlockIDAndDamage(x,y,z,87uy,0uy) // 87=netherrack
+                        hellTreeCount <- hellTreeCount + 1
+            hellBiomeCount <- hellBiomeCount + 1
         elif rng.NextDouble() < BIOME_SKY_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,9uy) // 9 = Sky
                 biome.[x,z] <- 9uy
-            skyCount <- skyCount + 1
-    log.LogSummary(sprintf "Added %d Hell biomes and %d Sky biomes (replacing Plains)" hellCount skyCount)
+                if treeByXZ.ContainsKey(x,z) then
+                    for t in treeByXZ.[x,z] do
+                        for x,y,z in t.Logs do
+                            map.SetBlockIDAndDamage(x,y,z,49uy,0uy) // 49=obsidian
+                        for x,y,z,_ in t.Leaves do
+                            map.SetBlockIDAndDamage(x,y,z,120uy,0uy) // 120=end_portal_frame
+                        skyTreeCount <- skyTreeCount + 1
+            skyBiomeCount <- skyBiomeCount + 1
+    log.LogSummary(sprintf "Added %d Hell biomes (%d trees) and %d Sky biomes (%d trees) replacing some Plains" hellBiomeCount skyBiomeCount hellTreeCount skyTreeCount)
 
 // mappings: should probably be to a chance set that's a function of difficulty or something...
 // given that I can customize them, but want same custom settings for whole world generation, just consider as N buckets, but can e.g. customize the granite etc for more 'choice'...
@@ -1931,24 +1955,26 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
-    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    let allTrees = ref null
+    time (fun () -> allTrees := treeify(map))
+    time (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome))
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", biome, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK], decorations)
