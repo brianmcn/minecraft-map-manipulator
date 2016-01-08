@@ -224,24 +224,40 @@ type MCTree(woodType) =
     let logs = ResizeArray()
     let leaves = ResizeArray()
     let mutable lly = 0
+    let mutable cs = 0,0,0
     member this.WoodType = woodType
     member this.Logs = logs
     member this.Leaves = leaves
     member this.LowestLeafY with get() = lly and set(y) = lly <- y
+    member this.CanonicalStump with get() = cs and set(p) = cs <- p
+
+type PriorityQueue() =
+    let mutable pq = Set.empty 
+    let mutable count = 0
+    member this.Enqueue(pri,v) = 
+        pq <- pq.Add(pri,v)
+        count <- count + 1
+    member this.Dequeue() =
+        let r = pq.MinimumElement 
+        pq <- pq.Remove(r)
+        count <- count - 1
+        r
+    member this.Count = count
 
 let treeify(map:MapFolder) =
-    let INTERIOR_WINDOW_SIZE = 128
+    let TREE_MIN_Y = 63
+    let INTERIOR_WINDOW_SIZE = 126 // (so that windows fit snugly in 2048x2048 with 8 border)
     let BORDER_SIZE = 8
     let WINDOW_SIZE = INTERIOR_WINDOW_SIZE + 2*BORDER_SIZE
-    let MIN_XZ = MINIMUM+INTERIOR_WINDOW_SIZE-BORDER_SIZE
-    let MAX_XZ = MINIMUM+LENGTH-INTERIOR_WINDOW_SIZE+BORDER_SIZE
+    let MIN_XZ = MINIMUM+BORDER_SIZE
+    let MAX_XZ = MINIMUM+LENGTH-1-WINDOW_SIZE
     let allTrees = ResizeArray()
-    for wx in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ-WINDOW_SIZE] do
-        for wz in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ-WINDOW_SIZE] do
+    for wx in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ] do
+        for wz in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ] do
             printfn "%d %d is corner, %d %d is int corner" wx wz (wx+BORDER_SIZE) (wz+BORDER_SIZE)
             let visitedLogs = new System.Collections.Generic.HashSet<_>()
             let treesInThisWindow = ResizeArray()
-            for y = 63 to 128 do // TODO what is pragmatic
+            for y = TREE_MIN_Y to 128 do // TODO what is pragmatic
                 for x = wx to wx+WINDOW_SIZE-1 do
                     for z = wz to wz+WINDOW_SIZE-1 do
                         let bi = map.GetBlockInfo(x,y,z)
@@ -254,6 +270,7 @@ let treeify(map:MapFolder) =
                                 visitedLogs.Add(x,y,z) |> ignore
                                 let tree = MCTree(woodType)
                                 tree.Logs.Add(x,y,z)
+                                tree.CanonicalStump <- x,y,z
                                 let q = new System.Collections.Generic.Queue<_>()
                                 q.Enqueue(x,y,z)
                                 while q.Count <> 0 do
@@ -276,7 +293,7 @@ let treeify(map:MapFolder) =
                                         allTrees.Add(tree)
                                         //printfn "found tree at %d %d %d" x y z
                                 else
-                                    printfn "ignoring tiny tree (jungle floor? burned?) at %d %d %d" x y z
+                                    printfn "ignoring tiny tree (jungle floor? burned? diagonal across border? below ground poke above?) at %d %d %d" x y z
             // now that we have all the tree wood in the large window, determine leaf ownership
             // first find lowest point where each tree can own a leaf
             for t in treesInThisWindow do
@@ -293,36 +310,100 @@ let treeify(map:MapFolder) =
                                 let nbi = map.GetBlockInfo(nx,ny,nz)
                                 if WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
                                     numAdjacentLeaves <- numAdjacentLeaves + 1
+                                    // large oaks can have low offshoot branches where leaves are below them in only one direction, try to kludge that case
+                                    let nbi = map.GetBlockInfo(nx,ny+1,nz)
+                                    if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                        numAdjacentLeaves <- numAdjacentLeaves + 1 // if same-type log above leaf, assume branching oak and ensure LLY adjusts for this
+                                    // sometimes the 'side' of one low tree crashes into the 'stem' of another, usually we can detect and prevent this thusly:
+                                    if nbi.BlockID = 0uy then
+                                        // was air just above the supposed 'bottom connecting leaf', but bottom connecting leaves never have air above, I think, so reject
+                                        numAdjacentLeaves <- numAdjacentLeaves - 1
+                                    else
+                                        // another way to detect is to see if there are also lowest-leaves on the opposite side of the stem here:
+                                        let nx,ny,nz = cx-dx, cy, cz-dz
+                                        if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                                            let mutable nbi = map.GetBlockInfo(nx,ny,nz)
+                                            if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                                // seems to be two-wide tree, go one further back
+                                                let nx,ny,nz = cx-2*dx, cy, cz-2*dz
+                                                if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                                                    nbi <- map.GetBlockInfo(nx,ny,nz)
+                                            if not(WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType)) then
+                                                // we didn't find lower leaves on the opposite side, suggesting this may be a crashing-stem case
+                                                numAdjacentLeaves <- numAdjacentLeaves - 1
                         if numAdjacentLeaves >=2 then
                             t.LowestLeafY <- cy
             // then walk outwards from all logs over all trees, claiming ownership
             let claimedLeaves = new System.Collections.Generic.HashSet<_>()
-            let q = new System.Collections.Generic.Queue<_>()
-            for t in treesInThisWindow do
+            let claimAttemptsAtThisPriority = new System.Collections.Generic.Dictionary<_,ResizeArray<_>>()
+            let computeXZsq(t:MCTree,x,z) =
+                let tx,_,tz = t.CanonicalStump 
+                let dx = x - tx
+                let dz = z - tz
+                dx*dx+dz*dz
+            let pq = PriorityQueue()
+            for treeIndex = 0 to treesInThisWindow.Count-1 do
+                let t = treesInThisWindow.[treeIndex]
                 for cx,cy,cz in t.Logs do
                     if cy >= t.LowestLeafY then
-                        q.Enqueue(cx,cy,cz,t,0)
-            while q.Count <> 0 do
-                let cx,cy,cz,t,i = q.Dequeue()
-                for dx,dy,dz in [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0] do // TODO ever need to go dy = -1? i don't think so
-                    let nx,ny,nz = cx+dx, cy+dy, cz+dz
-                    // we may have wandered out of bounds, stay inside our outer window
-                    if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
-                        if not(claimedLeaves.Contains(nx,ny,nz)) then
-                            let nbi = map.GetBlockInfo(nx,ny,nz)
-                            if WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
-                                claimedLeaves.Add(nx,ny,nz) |> ignore
-                                t.Leaves.Add(nx,ny,nz)
-                                if i < 6 then // don't go more than 7 steps away from log to claim
-                                    q.Enqueue(nx,ny,nz,t,i+1)
+                        pq.Enqueue(0,(cx,cy,cz,treeIndex))
+            let processLeaves(dirs) =
+                let finishThisPriority(currentPriority) =
+                    for KeyValue((x,y,z),ts) in claimAttemptsAtThisPriority do
+//                        if (x,y,z)=(514,75,328) then
+//                            printfn "hey"
+                        claimedLeaves.Add(x,y,z) |> ignore
+                        let a = ts.ToArray()
+                        Array.sortInPlaceBy (fun ti -> computeXZsq(treesInThisWindow.[ti],x,z)) a
+                        // TODO? could maybe mitigate 'ties' by looking at symmetry-around-trunk, e.g. if the opposite x/z around my trunk is air, then prefer to give this leaf to someone else...
+                        // even non-ties, e.g. close calls still favor symmetry over distance-to-truck, actually.  but not bad just applies trunk-distance metric.
+                        treesInThisWindow.[a.[0]].Leaves.Add(x,y,z,currentPriority)
+                    claimAttemptsAtThisPriority.Clear()
+                let mutable currentPriority = 0
+                while pq.Count <> 0 do
+                    let ci,(cx,cy,cz,treeIndex) = pq.Dequeue()
+                    let t = treesInThisWindow.[treeIndex]
+                    if ci <> currentPriority then
+                        finishThisPriority(currentPriority)
+                        currentPriority <- ci
+                    for dx,dy,dz in dirs do
+                        let nx,ny,nz = cx+dx, cy+dy, cz+dz
+//                        if (nx,ny,nz)=(514,75,328) then
+//                            printfn "hey"
+                        // we may have wandered out of bounds, stay inside our outer window
+                        if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 && ny > TREE_MIN_Y then
+                            if not(claimedLeaves.Contains(nx,ny,nz)) then
+                                let nbi = map.GetBlockInfo(nx,ny,nz)
+                                if WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                    let ni = if dy=0 then ci+2 else ci+3  // cost more 'points' to go vertically away from logs, so we claim horizontally faster than vertically
+                                    // TODO manhattan distance here means that x+3 claims before x+2,z+2 even though latter is euclidian-better
+                                    let mutable alreadyEnqueued = false
+                                    if claimAttemptsAtThisPriority.ContainsKey(nx,ny,nz) then
+                                        if claimAttemptsAtThisPriority.[nx,ny,nz].Contains(treeIndex) then
+                                            alreadyEnqueued <- true
+                                        else
+                                            claimAttemptsAtThisPriority.[nx,ny,nz].Add(treeIndex)
+                                    else
+                                        claimAttemptsAtThisPriority.Add((nx,ny,nz), ResizeArray[treeIndex])
+                                    if not alreadyEnqueued then
+                                        pq.Enqueue(ni,(nx,ny,nz,treeIndex)) // just keep going so long as we're claiming
+                finishThisPriority(currentPriority)
+            processLeaves([-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0])
+            // go back and attempt to deal with unclaimed leaves that failed my original ownership heuristic
+            for treeIndex = 0 to treesInThisWindow.Count-1 do
+                let t = treesInThisWindow.[treeIndex]
+                for x,y,z,i in t.Leaves do
+                    pq.Enqueue(i,(x,y,z,treeIndex))
+            processLeaves([-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0; 0,-1,0]) // note this also goes y-1, normally does not
+    // done with processing...
     printfn "There were %d trees found" allTrees.Count
     // debug by visualizing ownership
     let mutable color = 0uy
     for t in allTrees do
         for x,y,z in t.Logs do
             map.SetBlockIDAndDamage(x,y,z,159uy,color) // 159=stained_hardened_clay
-        for x,y,z in t.Leaves do
-            map.SetBlockIDAndDamage(x,y,z,35uy,color) // 35=wool
+        for x,y,z,_i in t.Leaves do
+            map.SetBlockIDAndDamage(x,y,z,95uy,color) // 95=stained_glass
         color <- color + 1uy
         if color = 16uy then
             color <- 0uy
