@@ -192,6 +192,7 @@ let LOOT_AESTHETIC_CHESTS =
                ]
     |] 
 
+// TODO make a customization knob to buff/nerf these drops/chances, perhaps?
 let LOOT_ARMOR =
     [|
         // tier 1
@@ -262,6 +263,7 @@ let LOOT_TOOLS =
                                ])]
     |]
 
+// TODO make a customization knob to buff/nerf these drops/chances, perhaps?
 let LOOT_FOOD =
     [|
         // tier 1

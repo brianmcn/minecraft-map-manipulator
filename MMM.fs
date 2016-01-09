@@ -2466,6 +2466,58 @@ let musicStuff() =
     System.IO.File.Move(fil+".new",fil)
 
 
+///////////////////////////////////////////////////////
+type ImageWPFWindow(img) as this =  
+    inherit System.Windows.Window()    
+    do 
+        this.SizeToContent <- System.Windows.SizeToContent.WidthAndHeight 
+        this.Content <- img
+
+let plotRegionalDifficulty() =
+    let difficulty = 2 // normal
+    let moonPhase = 1.0 // full
+    let N = 100
+    let image = new System.Drawing.Bitmap(N+1,N+1)
+    for totalPlayTimeN = 0 to N do
+        let totalPlayTimePct = float totalPlayTimeN / float N
+        let totalPlayTimeHours = 21.0 * totalPlayTimePct 
+        for chunkInhabitedTimeN = 0 to N do
+            let chunkInhabitedTimePct = float chunkInhabitedTimeN / float N
+            let chunhInhabitedTimeHours = 50.0 * chunkInhabitedTimePct 
+
+            // wiki formula
+            let TotalTimeFactor = (min 20.0 (totalPlayTimeHours - 1.0)) / 80.0        // range: 0.0 - 0.25
+            let mutable ChunkFactor = (min 1.0 (chunhInhabitedTimeHours / 50.0))      // init range: 0.0 - 1.0
+            if difficulty <> 3 then
+                ChunkFactor <- ChunkFactor * 0.75
+            ChunkFactor <- ChunkFactor + (min (moonPhase/4.0) TotalTimeFactor)
+            if difficulty = 1 then
+                ChunkFactor <- ChunkFactor / 2.0
+            let mutable RegionalDifficulty = 0.75 + TotalTimeFactor + ChunkFactor
+            if difficulty = 2 then
+                RegionalDifficulty <- RegionalDifficulty * 2.0
+            if difficulty = 3 then
+                RegionalDifficulty <- RegionalDifficulty * 3.0
+            // wiki says The regional difficulty ranges from 0.75–1.5 on easy, 1.5–4.0 on normal, and 2.25–6.75 on hard.
+
+            let gameUsedValue = min 1.0 (max 0.0 ((RegionalDifficulty - 2.0) / 2.0))
+            if totalPlayTimeN = 50 then
+                printf "%1.2f " gameUsedValue
+            let r,g,b = 
+                if gameUsedValue = 0.0 then
+                    255, 0, 0
+                elif gameUsedValue = 1.0 then
+                    0, 150, 0
+                else
+                    int(255.0 * gameUsedValue), int(255.0 * gameUsedValue), int(255.0 * gameUsedValue)
+            image.SetPixel(chunkInhabitedTimeN, totalPlayTimeN, System.Drawing.Color.FromArgb(r,g,b))
+        if totalPlayTimeN = 50 then
+            printfn ""
+    let img = PhotoToMinecraft.bmpToImage(image,8.0)
+    let app =  new System.Windows.Application()  
+    app.Run(new ImageWPFWindow(img)) |> ignore 
+    // neat, this demos that if TotalPlayTime is 11 hours, at normal diff, full moon, ChunkInhabitedTime knob changes game value smoothly from 0.0 to 0.75, which is very useful.
+
 [<System.STAThread()>]  
 do   
     //let user = "brianmcn"
@@ -2533,11 +2585,11 @@ do
     
 
     let biomeSize = 3
-    let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,45,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
+    let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,35,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2546,15 +2598,17 @@ do
 
 
     //musicStuff()
+    plotRegionalDifficulty()
 
     // TODO
 
     // good ideas
-    // wither skeletons - i have none?
+    // futz with InhabitedTime for regional difficulty increasing outward from spawn (or in certain biomes?) (also level.dat 'Time' at 21 hours = 1512000)
+    //    The regional difficulty ranges from 0.75–1.5 on easy, 1.5–4.0 on normal, and 2.25–6.75 on hard. The current regional difficulty is shown on the Debug screen as “Local Difficulty".
+    //    Yes, peg level.dat with Long("Time",792000L) which is 11 hours, and vary chunks' Long("InhabitedTime",N) from N=0L to 3600000L (0-50 hours)
     // ***set pieces (persistence-required mobs placed in map)
-    //   - if in plains, how not just bow down from afar? put in glass building? spawn from dispenser? building/structure helps a ton... glass peristyle? spawner as well as set piece mobs?
     //   - land guardians may make a good set piece (protection books?)
-    //   - wither skellies/other undead could be one (smite sword?)
+    //   - something to protect a good bow? close to spawn? kinda hard to get good bow early
     // random chest locations:
     //   - bottom of surface ravine (low heightmap)
     //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle
@@ -2578,6 +2632,15 @@ do
     // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
     // floating structures? lava/watter pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
     // legendary: seeing x from afar leads to seeing y up close...
+    // test new flat set piece
+    // test new iron/gold distr.
+    // test new dungeon chance
+    // leverage cave-skeletonization to make off-redstone-path side loot/spawners
+    // have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
+    //    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
+    //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
+
+
 
     // other ideas
     // teleporters could be color-coded (easier to remember?)

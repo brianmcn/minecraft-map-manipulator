@@ -108,7 +108,7 @@ let runCommandBlockOnLoadCore(sx,sy,sz,map:MapFolder,cmd,futureTime) =
     map.AddOrReplaceTileEntities([| [| Int("x",sx); Int("y",sy); Int("z",sz); String("id","Control"); Byte("auto",0uy); String("Command",cmd); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",1uy); End |] |])
     map.AddTileTick("minecraft:command_block",futureTime,0,sx,sy,sz)
 let runCommandBlockOnLoad(sx,sy,sz,map:MapFolder,cmd) =
-    runCommandBlockOnLoadCore(sx,sy,sz,map:MapFolder,cmd,1)
+    runCommandBlockOnLoadCore(sx,sy,sz,map,cmd,1)
 
 let runCommandBlockOnLoadSelfDestruct(sx,sy,sz,map:MapFolder,cmd) =
     // place block here and y-1, first runs cmd, then fills both with air
@@ -646,7 +646,11 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         i-dx,j-dy,k-dz
                     let ii,jj,kk = m%3<>0, m%3<>1, m%3<>2   // ii/jj/kk track 'normal' to the path
                     // maybe put mob spawner nearby
-                    let pct = float count / (float fullDist * 3.0)
+                    let pct = 
+                        if float count / float fullDist > 0.95 then
+                            0.0  // don't put spawners right before the loot box
+                        else 
+                            float count / (float fullDist * 3.0)
                     if rng.NextDouble() < pct*possibleSpawners.DensityMultiplier then
                         let xx,yy,zz = (i,j,k)
                         let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
@@ -933,8 +937,8 @@ let oreSpawnCustom =
         "diorite",  12,120, 0,  80
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
-        "iron",      9,  6, 0,  64
-        "gold",      9,  4, 0,  48
+        "iron",      9,  5, 0,  58
+        "gold",      9,  5, 0,  62
         "redstone",  3,  4, 0,  32
         "diamond",   4,  1, 0,  16
     |]
@@ -1761,7 +1765,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                                 Utilities.wrapInJSONTextContinued "DAYLIGHT CYCLE\n\nThe sun is not moving in the sky. Near spawn it's permanently daytime, and the rest you can discover for yourself."
                                 Utilities.wrapInJSONTextContinued "MOBS\n\nMob loot drops are heavily modified in this map, but the mobs themselves are completely vanilla. There are many spawners in the map; both to guard loot, and to surprise you."
                                 Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
-                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books; you don't have to farm xp/drops, or mine for diamonds/enchanting, in order to progress, but you can if you want."
+                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you do not have to farm xp/drops, mine for diamonds, or make an enchanting table, but you can if you want."
                                 Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
                                 Utilities.wrapInJSONText "...\nIf you encounter something especially weird, don't over-think the map-maker rationale; it's possible my code had a bug and did something silly."
                             |]) |> ResizeArray); End |]
