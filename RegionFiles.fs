@@ -41,6 +41,7 @@ type RegionFile(filename) =
     let isChunkDirty = Array2D.create 32 32 false
     let chunkHeightMapCache : TwoDArrayFacadeOverOneDArray<int>[,] = Array2D.create 32 32 null   // chunkHeightMapCache.[cx,cz].[x,z]
     let chunkBiomeCache : TwoDArrayFacadeOverOneDArray<byte>[,] = Array2D.create 32 32 null   // chunkBiomeCache.[cx,cz].[x,z]
+    let chunkInhabitedTimeCache = Array2D.create 32 32 -1L // -1 means unrepesented/unknown
     let chunkSectionsCache : (NBT[]*byte[]*byte[])[][,] = Array2D.init 32 32 (fun _ _ -> Array.create 16 (null,null,null))   // chunkSectionsCache.[cx,cz].[sy]
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
@@ -87,7 +88,27 @@ type RegionFile(filename) =
                 match nbts.[i] with
                 | NBT.ByteArray(_,flatArray) ->
                     chunkBiomeCache.[cx,cz] <- TwoDArrayFacadeOverOneDArray(flatArray)
+        if chunkInhabitedTimeCache.[cx,cz] = -1L then
+            let chunkLevel = match chunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+            match chunkLevel with 
+            | Compound(_n,nbts) -> 
+                let i = nbts.FindIndex (fun nbt -> nbt.Name = "InhabitedTime")
+                match nbts.[i] with
+                | NBT.Long(_,v) -> chunkInhabitedTimeCache.[cx,cz] <- v
         chunk
+    let updateChunksWithSideData() =
+        // Some data (like InhabitedTime) is stored 'off to the side' for efficient read/write, with values that may differ from what's in the NBT.  
+        // Throughout, we treat the side data as canonical and the NBT data as stale.
+        // This function updates the NBT to be current with the side data, e.g. so we can write NBT out to disk.
+        for cx = 0 to 31 do
+            for cz = 0 to 31 do
+                if chunks.[cx,cz] <> End then
+                    if chunkInhabitedTimeCache.[cx,cz] <> -1L then
+                        let chunkLevel = match chunks.[cx,cz] with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+                        match chunkLevel with 
+                        | Compound(n,nbts) -> 
+                            let i = nbts.FindIndex (fun nbt -> nbt.Name = "InhabitedTime")
+                            nbts.[i] <- NBT.Long("InhabitedTime", chunkInhabitedTimeCache.[cx,cz])
     let mutable numCommandBlocksPlaced = 0
     do
         if not(System.IO.File.Exists(filename)) then
@@ -146,6 +167,7 @@ type RegionFile(filename) =
     member this.RX = rx  // e.g. 1 means starts at x coord 512
     member this.RZ = rz
     member this.Write(outputFilename) =
+        updateChunksWithSideData()
         let zeros = Array.zeroCreate 4096 : byte[]
         let chunkOffsetTable = Array.zeroCreate 1024 : int[]
         let timeStampInfo = Array.zeroCreate 1024 : int[]
@@ -200,6 +222,7 @@ type RegionFile(filename) =
             s2 <- (s2 + s1) % 65521
         s2*65536 + s1
     member private this.SetChunkDirty(x,z) = // x,z are world coordinates
+        // we note chunks where we want to recompute light as 'dirty'
         let xx = ((x+51200)%512)/16   // TODO start using DIV and MOD
         let zz = ((z+51200)%512)/16
         isChunkDirty.[xx,zz] <- true
@@ -348,6 +371,19 @@ type RegionFile(filename) =
         if biome = null then
             failwith "no Biome cached"
         biome.[MOD(x,16),MOD(z,16)] <- bio
+    member this.GetInhabitedTime(x, z) =      // note, reads value from entire chunk
+        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        let cx = ((x+51200)%512)/16
+        let cz = ((z+51200)%512)/16
+        let inhabitedTime = chunkInhabitedTimeCache.[cx,cz]
+        if inhabitedTime = -1L then
+            failwith "no InhabitedTime cached"
+        inhabitedTime
+    member this.SetInhabitedTime(x, z, it) =  // note, sets value for whole chunk
+        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        let cx = ((x+51200)%512)/16
+        let cz = ((z+51200)%512)/16
+        chunkInhabitedTimeCache.[cx,cz] <- it
     member this.PlaceCommandBlocksStartingAtSelfDestruct(c:Coords,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAtSelfDestruct(c.X,c.Y,c.Z,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(c:Coords,cmds:_[],comment) =
@@ -635,6 +671,16 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.SetBiome(x,z,b)
+    member this.GetInhabitedTime(x,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.GetInhabitedTime(x,z)
+    member this.SetInhabitedTime(x,z,it) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.SetInhabitedTime(x,z,it)
     member this.GetRegion(x,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000

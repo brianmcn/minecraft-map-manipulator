@@ -2589,7 +2589,7 @@ do
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2598,7 +2598,7 @@ do
 
 
     //musicStuff()
-    plotRegionalDifficulty()
+    //plotRegionalDifficulty()
 
     // TODO
 
@@ -2606,6 +2606,10 @@ do
     // futz with InhabitedTime for regional difficulty increasing outward from spawn (or in certain biomes?) (also level.dat 'Time' at 21 hours = 1512000)
     //    The regional difficulty ranges from 0.75–1.5 on easy, 1.5–4.0 on normal, and 2.25–6.75 on hard. The current regional difficulty is shown on the Debug screen as “Local Difficulty".
     //    Yes, peg level.dat with Long("Time",792000L) which is 11 hours, and vary chunks' Long("InhabitedTime",N) from N=0L to 3600000L (0-50 hours)
+    //    maybe increase around flat/peak dungeons and set pieces?
+//        map.SetInhabitedTime(1,1,3600000L)  // TODO add this stuff
+
+    // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // ***set pieces (persistence-required mobs placed in map)
     //   - land guardians may make a good set piece (protection books?)
     //   - something to protect a good bow? close to spawn? kinda hard to get good bow early
@@ -2615,8 +2619,6 @@ do
     //   - just anywhere on a plain with a mob-set-piece guarding it makes for interesting bits
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?
     // (from obe and self:) more gold, less iron up high (after armor-rebalance changes, maybe?) ensure progression speed not too hasty
-    // increase radii of no-peaks/no-flats, so must travel farther to find some main dungeons
-    // note radii of final-dungeon-beacon on the map
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
     // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
     // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
@@ -2624,8 +2626,6 @@ do
     // ***places where gravel floor falls
     //   - desert trap, can rig sand to fall like 10 blocks to obsidian line hole with a low-range spawner underneath, or have TNT, etc, can find flat areas, preserve cacti, etc.
     //   - key is getting player to set off trap, need a hook: gold block, chest, etc. and a few of them so not every one is a trap
-    // ***should bats have a 1/100 chance of a great drop? gapple? and a book saying how lucky they are?
-    // ***witch zones / guardian zones
     // ***skeleton trap, electrified creeper
     // ***primed tnt buried in walls
     // "retro"/"throwback"?
@@ -2639,6 +2639,9 @@ do
     // have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
     //    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
+    // could put more than one spawner in wall in green/purple cave as progress... could extinguish lava -> obsidian for less light...
+    // rand cave wall spawners guarding iron/gold blocks?
+    // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
 
 
 

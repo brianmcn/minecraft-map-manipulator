@@ -1251,7 +1251,7 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
-let makeBiomeMap(regionFolder,biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
+let makeBiomeMap(regionFolder, map:MapFolder, biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
     let image = new System.Drawing.Bitmap(xlen,zlen)
     let isCircle(distSq) =
         let mutable c = false
@@ -1282,6 +1282,11 @@ let makeBiomeMap(regionFolder,biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen
                             r,g,b
                     else
                         r,g,b
+            let r,g,b = 
+                if map.GetInhabitedTime(x,y) >= 3600000L then
+                    r/2,g/2,b/2  // darken 'hard' areas
+                else
+                    r,g,b
             image.SetPixel(x-xmin, y-zmin, System.Drawing.Color.FromArgb(r,g,b))
     let placeRedLetterAt(letter, centerX, centerZ) =
         let D = 9

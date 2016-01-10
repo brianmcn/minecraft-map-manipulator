@@ -336,10 +336,12 @@ let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/1
 let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])
 let arrows = Item("minecraft:arrow", [SetCount(6,9)])
+let luckyGapple = Item("minecraft:golden_apple", [SetCount(1,1);SetNbt("""{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}""")])
 let MOB = [KilledByPlayer]
 let LOOT_FROM_DEFAULT_MOBS =
     [|
-//        "minecraft:entities/bat"
+        // PASSIVE
+        "minecraft:entities/bat", Pools [OneOfAtNPercent([luckyGapple],2,MOB)]
 //        "minecraft:entities/chicken
 //        "minecraft:entities/cow
 //        "minecraft:entities/endermite
@@ -355,6 +357,7 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/squid
 //        "minecraft:entities/wolf
 
+        // HOSTILE
         "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/creeper", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
@@ -372,7 +375,7 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/slime
         "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
         "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
-//        "minecraft:entities/wither_skeleton
+        "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
 //        "minecraft:entities/zombie_horse
         "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
