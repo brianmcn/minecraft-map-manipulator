@@ -629,94 +629,97 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
             if fullDist > 100 && fullDist < 500 then  // only keep mid-sized ones...
                 if not hasDoneFinal && fullDist > 300 && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
                     thisIsFinal <- true
-                log.LogSummary(sprintf "added %sbeacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL " else "") ex ey ez fullDist)
-                decorations.Add((if thisIsFinal then 'X' else 'B'),ex,ez)
-                let mutable i,j,k = ex,ey,ez
-                let mutable count = 0
-                let spawners = SpawnerAccumulator("spawners along path")
-                let possibleSpawners = 
+                elif not (ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE) then
+                    // don't bother with green beacons near edge of map
+                    log.LogSummary(sprintf "added %sbeacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL " else "") ex ey ez fullDist)
+                    decorations.Add((if thisIsFinal then 'X' else 'B'),ex,ez)
+                    let mutable i,j,k = ex,ey,ez
+                    let mutable count = 0
+                    let spawners = SpawnerAccumulator("spawners along path")
+                    let possibleSpawners = 
+                        if thisIsFinal then
+                            PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA
+                        else
+                            GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA
+                    moves.Reverse()
+                    for m in moves do
+                        let ni, nj, nk = // next points (could also use 'path' backwards, but need movement info)
+                            let dx,dy,dz = DIFFERENCES.[m]
+                            i-dx,j-dy,k-dz
+                        let ii,jj,kk = m%3<>0, m%3<>1, m%3<>2   // ii/jj/kk track 'normal' to the path
+                        makeAreaHard(map,ni,nk)
+                        // maybe put mob spawner nearby
+                        let pct = 
+                            if float count / float fullDist > 0.95 then
+                                0.0  // don't put spawners right before the loot box
+                            else 
+                                float count / (float fullDist * 3.0)
+                        if rng.NextDouble() < pct*possibleSpawners.DensityMultiplier then
+                            let xx,yy,zz = (i,j,k)
+                            let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
+                            let mutable ok = false
+                            while not ok do
+                                let candidates = ResizeArray()
+                                let xs = if ii then [xx-spread .. xx+spread] else [xx]
+                                let ys = if jj then [yy-spread .. yy+spread-1] else [yy]  // look less in the ceiling, since ceiling spawners often can't spawn mobs
+                                let zs = if kk then [zz-spread .. zz+spread] else [zz]
+                                // TODO still possible to place spawners in ceiling where can't spawn mobs, if skeleton happened to be close to ceiling; improve?
+                                for x in xs do
+                                    for y in ys do
+                                        for z in zs do
+                                            if map.GetBlockInfo(x,y,z).BlockID <> 0uy then // if not air
+                                                candidates.Add(x,y,z)
+                                if candidates.Count > 0 then
+                                    let x,y,z = candidates.[rng.Next(candidates.Count-1)]
+                                    map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
+                                    let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
+                                    spawners.Add(ms)
+                                    ok <- true
+                                spread <- spread + 1
+                                if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
+                                    ok <- true
+                        // put stripe on the ground
+                        let mutable pi,pj,pk = i,j,k
+                        while a.[pi,pj,pk]<>null do
+                            pj <- pj - 1
+                        map.SetBlockIDAndDamage(pi,pj,pk,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
+                        i <- ni
+                        j <- nj
+                        k <- nk
+                        count <- count + 1
+                    assert(i=sx && j=sy && k=sz)
+                    // write out all the spawner data we just placed
+                    spawners.AddToMapAndLog(map,log)
+                    putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
+                    map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
+                    // put treasure at bottom end
+                    putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX,int64(rng.Next()))
                     if thisIsFinal then
-                        PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA
-                    else
-                        GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA
-                moves.Reverse()
-                for m in moves do
-                    let ni, nj, nk = // next points (could also use 'path' backwards, but need movement info)
-                        let dx,dy,dz = DIFFERENCES.[m]
-                        i-dx,j-dy,k-dz
-                    let ii,jj,kk = m%3<>0, m%3<>1, m%3<>2   // ii/jj/kk track 'normal' to the path
-                    // maybe put mob spawner nearby
-                    let pct = 
-                        if float count / float fullDist > 0.95 then
-                            0.0  // don't put spawners right before the loot box
-                        else 
-                            float count / (float fullDist * 3.0)
-                    if rng.NextDouble() < pct*possibleSpawners.DensityMultiplier then
-                        let xx,yy,zz = (i,j,k)
-                        let mutable spread = 1   // check in outwards 'rings' around the path until we find a block we can replace
-                        let mutable ok = false
-                        while not ok do
-                            let candidates = ResizeArray()
-                            let xs = if ii then [xx-spread .. xx+spread] else [xx]
-                            let ys = if jj then [yy-spread .. yy+spread-1] else [yy]  // look less in the ceiling, since ceiling spawners often can't spawn mobs
-                            let zs = if kk then [zz-spread .. zz+spread] else [zz]
-                            // TODO still possible to place spawners in ceiling where can't spawn mobs, if skeleton happened to be close to ceiling; improve?
-                            for x in xs do
-                                for y in ys do
-                                    for z in zs do
-                                        if map.GetBlockInfo(x,y,z).BlockID <> 0uy then // if not air
-                                            candidates.Add(x,y,z)
-                            if candidates.Count > 0 then
-                                let x,y,z = candidates.[rng.Next(candidates.Count-1)]
-                                map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
-                                let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
-                                spawners.Add(ms)
-                                ok <- true
-                            spread <- spread + 1
-                            if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
-                                ok <- true
-                    // put stripe on the ground
-                    let mutable pi,pj,pk = i,j,k
-                    while a.[pi,pj,pk]<>null do
-                        pj <- pj - 1
-                    map.SetBlockIDAndDamage(pi,pj,pk,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
-                    i <- ni
-                    j <- nj
-                    k <- nk
-                    count <- count + 1
-                assert(i=sx && j=sy && k=sz)
-                // write out all the spawner data we just placed
-                spawners.AddToMapAndLog(map,log)
-                putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
-                map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
-                // put treasure at bottom end
-                putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX,int64(rng.Next()))
-                if thisIsFinal then
-                    thisIsFinal <- false
-                    hasDoneFinal <- true
-                    finalEX <- ex
-                    finalEZ <- ez
-                    // replace final treasure
-                    let bx,by,bz = sx,sy+1,sz // chest location, will overwrite it inside treasure box
-                    let chestItems = 
-                        Compounds[| 
-                                yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:sponge"); Compound("tag", [|
-                                            Compound("display",[|String("Name","Monument Block: Sponge");End|] |> ResizeArray); End |] |> ResizeArray); End |]
-                                yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                                         Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Congratulations!", 
-                                                                                     [| 
-                                                                                        """{"text":"Once all monument blocks are placed on the monument, you win! ..."}"""
-                                                                                        """{"text":"I hope enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO..."}"""
-                                                                                        """{"text":"If you enjoyed and would like to leave me a donation, I'd very much appreciate that! TODO donation link"}"""
-                                                                                     |]) |> ResizeArray
-                                                  )
-                                         End |]
-                            |]
-                    putUntrappedChestWithItemsAt(bx,by,bz,"Winner!",chestItems,map,null)
-                let debugSkeleton = false
-                if debugSkeleton then
-                    for x,y,z in skel do
-                        map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
+                        thisIsFinal <- false
+                        hasDoneFinal <- true
+                        finalEX <- ex
+                        finalEZ <- ez
+                        // replace final treasure
+                        let bx,by,bz = sx,sy+1,sz // chest location, will overwrite it inside treasure box
+                        let chestItems = 
+                            Compounds[| 
+                                    yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:sponge"); Compound("tag", [|
+                                                Compound("display",[|String("Name","Monument Block: Sponge");End|] |> ResizeArray); End |] |> ResizeArray); End |]
+                                    yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                                             Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Congratulations!", 
+                                                                                         [| 
+                                                                                            """{"text":"Once all monument blocks are placed on the monument, you win! ..."}"""
+                                                                                            """{"text":"I hope enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO..."}"""
+                                                                                            """{"text":"If you enjoyed and would like to leave me a donation, I'd very much appreciate that! TODO donation link"}"""
+                                                                                         |]) |> ResizeArray
+                                                      )
+                                             End |]
+                                |]
+                        putUntrappedChestWithItemsAt(bx,by,bz,"Winner!",chestItems,map,null)
+                    let debugSkeleton = false
+                    if debugSkeleton then
+                        for x,y,z in skel do
+                            map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
         log.LogSummary("FAILED TO PLACE FINAL")
@@ -1057,12 +1060,15 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
     log.LogInfo(sprintf "found %d decent-sized plains biomes outside DAYLIGHT_RADIUS" CCs.Count)
     // preprocess trees
     let treeByXZ = new System.Collections.Generic.Dictionary<_,_>()
-    for t in allTrees do
-        let x,_,z = t.CanonicalStump
-        if not(treeByXZ.ContainsKey(x,z)) then
-            treeByXZ.Add((x,z),ResizeArray[t])
-        else
-            treeByXZ.[x,z].Add(t)
+    if allTrees = null then
+        printfn "allTrees WAS NULL, SKIPPING TREE REDO"
+    else
+        for t in allTrees do
+            let x,_,z = t.CanonicalStump
+            if not(treeByXZ.ContainsKey(x,z)) then
+                treeByXZ.Add((x,z),ResizeArray[t])
+            else
+                treeByXZ.[x,z].Add(t)
     let mutable hellBiomeCount, skyBiomeCount, hellTreeCount, skyTreeCount = 0,0,0,0
     for KeyValue(_k,v) in CCs do
         if rng.NextDouble() < BIOME_HELL_PERCENTAGE then
@@ -1302,6 +1308,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
         putThingRecomputeLight(x+2,y+4,z+2,map,"redstone_torch",5) 
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
+                makeAreaHard(map,i,j)
                 if abs(x-i) > 2 || abs(z-j) > 2 then
                     let dist = abs(x-i) + abs(z-j)
                     let pct = float (2*RADIUS-dist) / float(RADIUS*25)
@@ -1392,6 +1399,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
         // surround with danger
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
+                makeAreaHard(map,i,j)
                 if abs(x-i) > 2 || abs(z-j) > 2 then
                     let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
                     let pct = float (RADIUS-dist/2) / ((float RADIUS) * 2.0)
@@ -1425,6 +1433,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                    ((z=cz-RMID || z=cz+RMID) && (x>=cx-RMID+3 && x<=cx+RMID-3)) then
                     for y = hm.[x,z] to hm.[x,z]+7 do
                         map.SetBlockIDAndDamage(x,y,z,20uy,0uy) // 20=glass
+                makeAreaHard(map,x,z)
         let y = hm.[cx,cz] 
         let chestItems = // smite V diamond sword
             [| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:diamond_sword"); Compound("tag", [|List("ench",Compounds[|[|Short("id",17s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |] |]
@@ -1960,6 +1969,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let hm = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let hmIgnoringLeaves = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let biome = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
+    let origBiome = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let xtime _ = 
         printfn "SKIPPING SOMETHING"
         log.LogSummary("SKIPPED SOMETHING")
@@ -2006,6 +2016,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                             map.SetBiome(x,z,15uy)  // 15 = MushroomIslandShore
                     | None -> failwith "unexpected alpha wm"
                 biome.[x,z] <- map.GetBiome(x,z)
+                origBiome.[x,z] <- biome.[x,z]
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
                 let mutable y = h
@@ -2019,22 +2030,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     xtime (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
-    time (fun() ->   // after hiding spots figured
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    time (fun() ->
+    xtime (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
     time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
-        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
+        Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], decorations)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)

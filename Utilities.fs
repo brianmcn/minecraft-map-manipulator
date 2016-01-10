@@ -1251,7 +1251,7 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
-let makeBiomeMap(regionFolder, map:MapFolder, biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
+let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
     let image = new System.Drawing.Bitmap(xlen,zlen)
     let isCircle(distSq) =
         let mutable c = false
@@ -1261,37 +1261,43 @@ let makeBiomeMap(regionFolder, map:MapFolder, biome:byte[,], hmIgnoringLeaves:in
             if distSq > RM && distSq < R then
                 c <- true
         c
-    for x = xmin to xmin+xlen-1 do
-        for y = zmin to zmin+zlen-1 do
-            let biome = biome.[x,y]
-            let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=int biome) |> (fun (_,_,color) -> color)
-            let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
-            assert(mci = mapColorIndex)
-            let r,g,b = 
-                if (x%512=0) || (y%512=0) then
-                    r/2,g/2,b/2  // dark lines on region bounds
-                elif isCircle(x*x+y*y) then
-                    r/2,g/2,b/2  // dark lines on circle
-                else
-                    if x/6%2=0 && y/6%2=0 then
-                        if hmIgnoringLeaves.[x,y] > 100 then // TODO named constants
-                            r*1/3,g*1/3,b*1/3
-                        elif hmIgnoringLeaves.[x,y] > 80 then // TODO named constants
-                            r*2/3,g*2/3,b*2/3
+    let draw(biome:_[,],showHard) =
+        for x = xmin to xmin+xlen-1 do
+            for y = zmin to zmin+zlen-1 do
+                let biome = biome.[x,y]
+                let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=int biome) |> (fun (_,_,color) -> color)
+                let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
+                assert(mci = mapColorIndex)
+                let r,g,b = 
+                    if (x%512=0) || (y%512=0) then
+                        r/2,g/2,b/2  // dark lines on region bounds
+                    elif isCircle(x*x+y*y) then
+                        r/2,g/2,b/2  // dark lines on circle
+                    else
+                        if x/6%2=0 && y/6%2=0 then
+                            if hmIgnoringLeaves.[x,y] > 100 then // TODO named constants
+                                r*1/3,g*1/3,b*1/3
+                            elif hmIgnoringLeaves.[x,y] > 80 then // TODO named constants
+                                r*2/3,g*2/3,b*2/3
+                            else
+                                r,g,b
                         else
                             r,g,b
+                let r,g,b = 
+                    // only in the non-spoilers...
+                    if showHard && map.GetInhabitedTime(x,y) >= 3600000L then
+                        r/2,g/2,b/2  // darken 'hard' areas
                     else
                         r,g,b
-            let r,g,b = 
-                if map.GetInhabitedTime(x,y) >= 3600000L then
-                    r/2,g/2,b/2  // darken 'hard' areas
-                else
-                    r,g,b
-            image.SetPixel(x-xmin, y-zmin, System.Drawing.Color.FromArgb(r,g,b))
+                image.SetPixel(x-xmin, y-zmin, System.Drawing.Color.FromArgb(r,g,b))
+    draw(origBiome,false)
+    let mapFolder = System.IO.Path.GetDirectoryName(regionFolder)
+    image.Save(System.IO.Path.Combine(mapFolder,"mapOverview.png"))
+
     let placeRedLetterAt(letter, centerX, centerZ) =
         let D = 9
-        let ix = centerX - 5*(D+1)
-        let iy = centerZ - 5*(D+1)
+        let ix = centerX - 4*(D+1)/2  // letters 4 wide
+        let iy = centerZ - 5*(D+1)/2  // letters 5 tall
         match ALPHABET5INDEX letter with
         | Some i ->
             for j = 0 to 4 do
@@ -1303,8 +1309,8 @@ let makeBiomeMap(regionFolder, map:MapFolder, biome:byte[,], hmIgnoringLeaves:in
                                     image.SetPixel(ix+k*D+dx-xmin, iy+j*D+dy-zmin, System.Drawing.Color.FromArgb(255,0,0))
                                 with _ -> () // if goes off edge, just don't draw
         | None -> failwith "bad letter"
-    let mapFolder = System.IO.Path.GetDirectoryName(regionFolder)
-    image.Save(System.IO.Path.Combine(mapFolder,"mapOverview.png"))
+        //image.SetPixel(centerX-xmin, centerZ-zmin, System.Drawing.Color.FromArgb(0,255,255)) // remove this, just for debugging
+    draw(biome,true)
     for (c,x,z) in decorations do
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))

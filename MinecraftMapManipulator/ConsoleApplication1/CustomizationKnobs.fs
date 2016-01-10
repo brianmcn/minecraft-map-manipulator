@@ -102,6 +102,8 @@ let DECORATION_SPACING = 60  // no two decos this close together
 let DAYLIGHT_RADIUS = 180
 
 
+let makeAreaHard(map:RegionFiles.MapFolder,x,z) =
+    map.SetInhabitedTime(x,z,3600000L)
 
 // map size; probably would require other changes to change these
 let MINIMUM = -1024
