@@ -577,6 +577,11 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
+    let replaceGroundBelowWith(x,y,z,bid,dmg) = 
+        let mutable pi,pj,pk = x,y,z
+        while a.[pi,pj,pk]<>null do
+            pj <- pj - 1
+        map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
     let mutable hasDoneFinal, thisIsFinal = false, false
     for s in goodCCs.Values do
         let mutable topX,topY,topZ = 0,0,0
@@ -679,10 +684,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                 if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
                                     ok <- true
                         // put stripe on the ground
-                        let mutable pi,pj,pk = i,j,k
-                        while a.[pi,pj,pk]<>null do
-                            pj <- pj - 1
-                        map.SetBlockIDAndDamage(pi,pj,pk,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
+                        replaceGroundBelowWith(i,j,k,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
                         i <- ni
                         j <- nj
                         k <- nk
@@ -716,14 +718,12 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                              End |]
                                 |]
                         putUntrappedChestWithItemsAt(bx,by,bz,"Winner!",chestItems,map,null)
-                    let debugSkeleton = true
+                    let debugSkeleton = false
                     if debugSkeleton then
                         for x,y,z in skel do
                             map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
                     if not thisIsFinal then // no reason for side paths in final dungeon
-                        // path is beacon to box
-                        // endp is endpoints
-                        // skel is whole skeleton
+                        // make side paths with extra loot
                         printfn "computing paths endpoints -> redstone"
                         let path = new System.Collections.Generic.HashSet<_>(path)
                         let sidePaths = ResizeArray()
@@ -742,191 +742,32 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                     else
                                         sidePaths.Add(sidePath)
                         //sideLengths.Sort()
+                        let tes = ResizeArray()
                         for sidePath in sidePaths do
                             let l = sidePath.Count 
                             if l >= 10 && l <= 40 then
                                 for x,y,z in sidePath do
-                                    map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane
+                                    if debugSkeleton then
+                                        map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane
+                                    // put stripe on the ground
+                                    replaceGroundBelowWith(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
+                                // put chest on ground at dead end
+                                let mutable x,y,z = sidePath.[0]
+                                while a.[x,y,z]<>null do
+                                    y <- y - 1
+                                y <- y + 1
+                                // TODO probably make a loot tabel, be more interesting
+                                // TODO sometimes be trap or troll
+                                let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
+                                putTrappedChestWithItemsAt(x,y,z,"Dead end, turn back & try again", chestItems, map, tes)
                                 log.LogInfo(sprintf "added side path length %d" l)
-                        // TODO
-                        // try making side paths like path (redstone on floor), no clue which is 'main' versus side
-                        // put chests at each dead-end, maybe in chest rename to "dead end, try another path" or something, and have loot or trap
+                        map.AddOrReplaceTileEntities(tes)
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
         log.LogSummary("FAILED TO PLACE FINAL")
         failwith "final failed"
-    (*
-    This section is not done.  There is no loot, and also the glowstone at entrance can block the beacon from other structures.
-
-    // find completely flat floors underground
-    printfn ""
-    printf "FLAT FLOOR ANALYSIS"
-    let MAXR, THRESHHOLDR, YWEIGHT = 18, 12, 3
-    let YDIFF = (float MAXR) / sqrt(float YWEIGHT) |> int
-    let D = 6 // length of side of square we're looking for
-    let ff = System.Array.CreateInstance(typeof<System.Collections.Generic.HashSet<int> >, [|LENGTH+2; YLEN+2|], [|MINIMUM; YMIN|]) :?> System.Collections.Generic.HashSet<int>[,]  // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
-    for y = YMIN to YMIN+YLEN-1-YDIFF do
-        printf "."
-        for x = MINIMUM to MINIMUM+LENGTH-1 do
-            ff.[x,y] <- new System.Collections.Generic.HashSet<int>()
-            let mutable r = 0 // count of how many air-above-non-air we've found in a row along z
-            for z = MINIMUM to MINIMUM+LENGTH-1 do
-                if a.[x,y,z]=null && a.[x,y+1,z]<>null && a.[x,y+2,z]<>null then  // TODO lava/water pools
-                    r <- r + 1
-                else
-                    r <- 0
-                if r >= D then
-                    ff.[x,y].Add(z) |> ignore  // ff.[x,y] contains z iff (x,y,z-6) to (x,y,z) are all non-air-with-air-above blocks
-    printfn ""
-    let flatCorners = ResizeArray()
-    for y = YMIN+1 to YMIN+YLEN-1-YDIFF do
-        printf "."
-        for x = MINIMUM+D-1 to MINIMUM+LENGTH-1 do
-            for z in ff.[x,y] do
-                let mutable ok = true
-                for d = 1 to D-1 do
-                    if not(ff.[x-d,y].Contains(z)) then
-                        ok <- false
-                if ok then
-                    flatCorners.Add( (x,y,z) )
-    printfn ""
-    // find good 'cul-de-sac rooms'
-    let UNVISITED = (-9999,-9999,-9999)
-    let VISITED_NEAR = (7777,7777,7777)
-    let culDeSacRooms = ResizeArray()
-    for x,y,z in flatCorners do
-        let x,y,z = x-D/2, y+1, z-D/2  // center air space
-        let boundaryPoints = ResizeArray()
-        let visited = System.Array.CreateInstance(typeof<int*int*int>, [|MAXR*2+3; MAXR*2+3; MAXR*2+3|], [|x-MAXR-1; y-MAXR-1; z-MAXR-1|]) :?> (int*int*int)[,,]
-        for i = x-MAXR-1 to x+MAXR+1 do
-            for j = y-MAXR-1 to y+MAXR+1 do
-                for k = z-MAXR-1 to z+MAXR+1 do
-                    visited.[i,j,k] <- UNVISITED
-        visited.[x,y,z] <- VISITED_NEAR
-        // 3 states, unvisited, visited within THRESHHOLDR, or visited beyond THRESHHOLDR with a record of first point past threshold
-        // explore contiguous air until reach MAXR away from center
-        let q = new System.Collections.Generic.Queue<_>()
-        q.Enqueue(x,y,z)
-        let distSq(i,j,k) = (x-i)*(x-i) + YWEIGHT*(y-j)*(y-j) + (z-k)*(z-k)  // make diff y seem farther away
-        while not(q.Count=0) do
-            let i,j,k = q.Dequeue()
-            let prevVisit = visited.[i,j,k]
-            for di,dj,dk in DIFFERENCES do
-                let i,j,k = i+di,j+dj,k+dk
-                if visited.[i,j,k] = UNVISITED && a.[i,j,k]<>null then // if new and air
-                    if prevVisit = VISITED_NEAR then
-                        if distSq(i,j,k) < THRESHHOLDR*THRESHHOLDR then
-                            visited.[i,j,k] <- VISITED_NEAR
-                            //map.SetBlockIDAndDamage(i,j,k,95uy,0uy) // TODO debug
-                        else
-                            visited.[i,j,k] <- i,j,k // first point past threshhold
-                            //map.SetBlockIDAndDamage(i,j,k,95uy,2uy) // TODO debug
-                    else
-                        visited.[i,j,k] <- prevVisit
-                        //map.SetBlockIDAndDamage(i,j,k,95uy,8uy) // TODO debug
-                    if distSq(i,j,k) < MAXR*MAXR then
-                        q.Enqueue(i,j,k)
-                    else
-                        boundaryPoints.Add( (i,j,k) )
-                        //map.SetBlockIDAndDamage(i,j,k,95uy,15uy) // TODO debug
-        if boundaryPoints.Count > 0 then
-            let i,j,k = boundaryPoints.[0]
-            let v = visited.[i,j,k]
-            let mutable n, ok = 1, true
-            while ok && n < boundaryPoints.Count do
-                let i,j,k = boundaryPoints.[n]
-                if visited.[i,j,k] <> v then
-                    ok <- false
-                    //printfn "rejected, as %A escapes via %A but %A escapes via %A" boundaryPoints.[n] visited.[i,j,k] boundaryPoints.[0] v
-                n <- n + 1
-            if ok then
-                let mutable dup = false
-                for cx,cy,cz in culDeSacRooms do
-                    if distSq(cx,cy,cz) < MAXR*MAXR then
-                        dup <- true  // we find a lot of overlapping flat areas, ignore duplicates
-                if not dup then
-                    log.LogInfo(sprintf "ACCEPTED, all exits of %A go through %A" (x,y,z) v)
-                    culDeSacRooms.Add( (x,y,z) )
-        ()
-    log.LogInfo(sprintf "There are %d cul-de-sac rooms" culDeSacRooms.Count)
-    let mutable reachableCount = 0
-    for x,y,z in culDeSacRooms do
-            let q = new System.Collections.Generic.Queue<_>()
-            // now find shortest from that point to top
-            // re-init the arrays:
-            for ii = MINIMUM to MINIMUM+LENGTH+1 do
-                for jj = YMIN to YMIN+YLEN+1 do
-                    for kk = MINIMUM to MINIMUM+LENGTH+1 do
-                        dist.[ii,jj,kk] <- 999999
-                        prev.[ii,jj,kk] <- -1
-            let bi,bj,bk = x,y,z
-            q.Enqueue(bi,bj,bk)
-            dist.[bi,bj,bk] <- 0
-            let mutable besti,bestj,bestk = -99999,-99999,-99999
-            while q.Count > 0 do
-                let i,j,k = q.Dequeue()
-                let d = dist.[i,j,k]
-                let x,y,z = (i,j,k)
-                if (y>=hm.[x,z]) then // surface
-                    // found shortest
-                    besti <- i
-                    bestj <- j
-                    bestk <- k
-                    while q.Count > 0 do
-                        q.Dequeue() |> ignore
-                else
-                    for diffi = 0 to DIFFERENCES.Length-1 do
-                        let di,dj,dk = DIFFERENCES.[diffi]
-                        if a.[i+di,j+dj,k+dk]<>null && dist.[i+di,j+dj,k+dk] > d+1 then
-                            dist.[i+di,j+dj,k+dk] <- d+1  // TODO bias to walls
-                            prev.[i+di,j+dj,k+dk] <- diffi
-                            q.Enqueue(i+di,j+dj,k+dk)
-            if besti <> -99999 then
-                // found an exit
-                log.LogInfo(sprintf "Can get to cul-de-sec %A from surface %A" (x,y,z) (besti,bestj,bestk))
-                reachableCount <- reachableCount + 1
-                // TODO put some loot or something, have a purpose
-                let mutable i,j,k = besti,bestj,bestk
-                let mutable count = 0
-                putGlowstoneRecomputeLight(i,80,k,map)  // TODO arbitrary height constant
-                while i<>x || j<>y || k<>z do
-                    let ni, nj, nk = // next points (step back using info from 'prev')
-                        let dx,dy,dz = DIFFERENCES.[prev.[i,j,k]]
-                        i-dx,j-dy,k-dz
-                    i <- ni
-                    j <- nj
-                    k <- nk
-                    count <- count + 1
-                    if count%10 = 0 then
-                        // find nearest wall/floor, place red torch
-                        let numAirBeforeNonAir = Array.zeroCreate 6
-                        for n = 0 to 5 do
-                            let mutable ii, jj, kk = i, j, k
-                            let di,dj,dk = DIFFERENCES.[n]
-                            if dj = 1 then
-                                numAirBeforeNonAir.[n] <- 99999 // don't look up
-                            else
-                                while a.[ii,jj,kk] <> null do
-                                    ii <- ii + di
-                                    jj <- jj + dj
-                                    kk <- kk + dk
-                                    numAirBeforeNonAir.[n] <- numAirBeforeNonAir.[n] + 1
-                        let nearestDist = Array.min numAirBeforeNonAir
-                        let dirIdx = numAirBeforeNonAir |> Array.findIndex(fun x -> x = nearestDist)
-                        let di,dj,dk = DIFFERENCES.[dirIdx]
-                        map.SetBlockIDAndDamage(i+di*nearestDist, j+dj*nearestDist, k+dk*nearestDist, 3uy, 0uy)  // dirt, in case was liquid or something
-                        let nearestDist = nearestDist - 1
-                        map.SetBlockIDAndDamage(i+di*nearestDist, j+dj*nearestDist, k+dk*nearestDist, 76uy,   // lit red torch
-                                                if di = 1 then 2uy elif dk = 1 then 4uy elif di = -1 then 1uy elif dk = -1 then 3uy elif dj = -1 then 5uy else failwith "unexpected") // attached to dirt block in right orientation
-    printfn ""
-    log.LogSummary(sprintf "found %d reachable cul-de-sac rooms" reachableCount)
-    *)
 ////
 (* 
-
-Can get to cul-de-sec (436, 18, 362) from surface (402, 36, 227)
-Can get to cul-de-sec (-691, 21, -636) from surface (-695, 55, -744)
-Can get to cul-de-sec (-728, 30, -24) from surface (-627, 55, 1)
 
 MAP DEFAULTS 
 ore    size tries

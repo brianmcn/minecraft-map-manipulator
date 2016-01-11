@@ -2612,7 +2612,9 @@ do
     // TODO
 
     // good ideas
-    // leverage cave-skeletonization to make off-redstone-path side loot/spawners
+    // need another food tier with 'apple' (better cookie, less bread), apples can be goode side-loot
+    // may need path/rail/something to/towards teleporters to help folks find them
+    // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // ***set pieces (persistence-required mobs placed in map)
     //   - land guardians may make a good set piece (protection books?)
