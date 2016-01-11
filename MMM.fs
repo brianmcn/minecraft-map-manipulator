@@ -2589,10 +2589,12 @@ do
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
+    CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
-    // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
+    // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
@@ -2603,12 +2605,7 @@ do
     // TODO
 
     // good ideas
-    // futz with InhabitedTime for regional difficulty increasing outward from spawn (or in certain biomes?) (also level.dat 'Time' at 21 hours = 1512000)
-    //    The regional difficulty ranges from 0.75–1.5 on easy, 1.5–4.0 on normal, and 2.25–6.75 on hard. The current regional difficulty is shown on the Debug screen as “Local Difficulty".
-    //    Yes, peg level.dat with Long("Time",792000L) which is 11 hours, and vary chunks' Long("InhabitedTime",N) from N=0L to 3600000L (0-50 hours)
-    //    maybe increase around flat/peak dungeons and set pieces?
-//        map.SetInhabitedTime(1,1,3600000L)  // TODO add this stuff
-
+    // leverage cave-skeletonization to make off-redstone-path side loot/spawners
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // ***set pieces (persistence-required mobs placed in map)
     //   - land guardians may make a good set piece (protection books?)
@@ -2635,7 +2632,6 @@ do
     // test new flat set piece
     // test new iron/gold distr.
     // test new dungeon chance
-    // leverage cave-skeletonization to make off-redstone-path side loot/spawners
     // have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
     //    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)

@@ -649,7 +649,7 @@ let removeAllTileTicks(fil) =
 let editMapDat(file) =
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
-    let nbt = cataNBT (fun nbt -> 
+    let nbt = cataNBT (fun _pl nbt -> 
         match nbt with 
         |NBT.Compound("data",_) ->  Compound("data",[|
                                                     Byte("scale",0uy)
@@ -661,14 +661,14 @@ let editMapDat(file) =
                                                     ByteArray("colors",Array.zeroCreate 16384)
                                                     End
                                                     |] |> ResizeArray)
-        | _ -> nbt) id nbt
+        | _ -> nbt) (fun _pl nbt -> nbt) [] nbt
     printfn "%s" (nbt.ToString())
     writeDatFile(file+".new", nbt)
 
 let mapDatToPng(mapDatFile:string, newPngFilename:string) =
     let nbt = readDatFile(mapDatFile)
     let out = new System.Drawing.Bitmap(128, 128)
-    let nbt = cataNBT (fun nbt -> 
+    let nbt = cataNBT (fun _pl nbt -> 
         match nbt with 
         | NBT.Compound("data",a) ->
             match a |> Seq.find(fun x -> x.Name = "colors") with
@@ -679,13 +679,13 @@ let mapDatToPng(mapDatFile:string, newPngFilename:string) =
                         let r,g,b = MAP_COLOR_TABLE |> Array.find (fun (x,y) -> x = int b) |> snd
                         out.SetPixel(x,y,System.Drawing.Color.FromArgb(r,g,b))
             id nbt
-        | _ -> nbt) id nbt
+        | _ -> nbt) (fun _pl nbt -> nbt) [] nbt
     out.Save(newPngFilename, System.Drawing.Imaging.ImageFormat.Png)
 
 let updateDat(file,f) =
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())
-    let nbt = cataNBT f id nbt
+    let nbt = cataNBT f (fun _pl nbt -> nbt) [] nbt
     printfn "%s" (nbt.ToString())
     if System.IO.File.Exists(file+".new") then
         System.IO.File.Delete(file+".new")

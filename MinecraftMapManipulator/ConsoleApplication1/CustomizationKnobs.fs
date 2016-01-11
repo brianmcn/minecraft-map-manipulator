@@ -101,9 +101,21 @@ let STRUCTURE_SPACING = 170  // no two of same structure within this dist of eac
 let DECORATION_SPACING = 60  // no two decos this close together
 let DAYLIGHT_RADIUS = 180
 
+/////////////////////////////////
+// regional difficulty settings
+// (also influenced by easy/medium/hard and phase of moon)
 
 let makeAreaHard(map:RegionFiles.MapFolder,x,z) =
     map.SetInhabitedTime(x,z,3600000L)
+let makeMapTimeNhours(levelDat, n) =
+    let ticks = (int64 n) * 60L  *60L *20L
+    let replaceLevelDatTime pl nbt =
+        match pl, nbt with 
+        | Compound("Data",_)::_, NBT.Long("Time",_old) -> NBT.Long("Time",ticks)
+        | _ -> nbt
+    Utilities.updateDat(levelDat, replaceLevelDatTime)
+
+/////////////////////////////////
 
 // map size; probably would require other changes to change these
 let MINIMUM = -1024

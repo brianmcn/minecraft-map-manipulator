@@ -274,7 +274,7 @@ and NBT =
 
 /////////////////////////////////////////////////////////////////////////////
 
-let rec cataNBT f g nbt =
+let rec cataNBT f g parentList nbt =
     match nbt with
     | End
     | Byte _
@@ -285,10 +285,10 @@ let rec cataNBT f g nbt =
     | Double _
     | ByteArray _
     | String _
-    | IntArray _ -> f nbt
-    | List(n,pay) -> f (List(n, cataPayload f g pay))
-    | Compound(n,a) -> f (Compound(n, a |> Seq.map (cataNBT f g) |> ResizeArray))
-and cataPayload f g pay =
+    | IntArray _ -> f parentList nbt
+    | List(n,pay) -> f parentList (List(n, cataPayload f g (nbt::parentList) pay))
+    | Compound(n,a) -> f parentList (Compound(n, a |> Seq.map (cataNBT f g (nbt::parentList)) |> ResizeArray))
+and cataPayload f g parentList pay =
     match pay with
     | Bytes _
     | Shorts _
@@ -297,9 +297,9 @@ and cataPayload f g pay =
     | Floats _
     | Doubles _
     | Strings _
-    | IntArrays _ -> g pay
+    | IntArrays _ -> g parentList pay
     | Compounds(aa) ->
-        g(Compounds(aa |> Array.map (Array.map (cataNBT f g))))
+        g parentList (Compounds(aa |> Array.map (Array.map (cataNBT f g parentList))))
 
 /////////////////////////////////////////////////////////////////////////////
 
