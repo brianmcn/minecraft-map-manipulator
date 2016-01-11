@@ -340,21 +340,21 @@ let skeletonize(a:sbyte[,,],onRemove,initOnes) = // init array passed in should 
                     if a.[cx+dx,cy+dy,cz+dz] > 0y then
                         match next with
                         | None -> 
-                            next <- Some(cx+dx,cy+dy,cz+dz)
+                            next <- Some(cx+dx,cy+dy,cz+dz,(i + 3) % 6)
                             count <- count + 1
-                            skip <- (i + 3) % 6
                         | _ -> ok <- false
             match next with
-            | Some(i,j,k) ->
+            | Some(i,j,k,nextSkip) ->
                 cx <- i
                 cy <- j
                 cz <- k
+                skip <- nextSkip
             | _ -> 
                 // a segment not connected to a more branching skeleton, just choosing to ignore
                 ok <- false
                 count <- -1
         endpointsWithLengths.Add(count, (x,y,z))
-    endpointsWithLengths.Sort()
+    //endpointsWithLengths.Sort()
     //for l,e in endpointsWithLengths do
     //    printfn "EPwL: %3d  %A" l e
-    ones, endpoints
+    ones, endpoints, endpointsWithLengths 

@@ -546,7 +546,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 let dy = y % 16
                 let dz = (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
-                if currentSectionBlocks.[bix] = 0uy then // air
+                if currentSectionBlocks.[bix] = 0uy || currentSectionBlocks.[bix] = 30uy then // air or cobweb
                     a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hm.[x,z])))
     printfn ""
     printf "CONNECT"
@@ -594,7 +594,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 ones.Add(x,y,z) |> ignore
             if y = hm.[x,z] then
                 atHeightMap.Add(x,y,z) |> ignore
-        let skel,endp = Algorithms.skeletonize(sk, ignore, ones) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
+        let skel,endp,epwl = Algorithms.skeletonize(sk, ignore, ones) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
         skel.UnionWith(endp)
         match Algorithms.findShortestPath(topX,topY,topZ,(fun (x,y,z)->a.[x,y,z]<>null),(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
         | None -> printf "FAILED to get to skeleton" // TODO why ever?
@@ -716,10 +716,41 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                              End |]
                                 |]
                         putUntrappedChestWithItemsAt(bx,by,bz,"Winner!",chestItems,map,null)
-                    let debugSkeleton = false
+                    let debugSkeleton = true
                     if debugSkeleton then
                         for x,y,z in skel do
                             map.SetBlockIDAndDamage(x,y,z,102uy,0uy) // 102 = glass_pane
+                    if not thisIsFinal then // no reason for side paths in final dungeon
+                        // path is beacon to box
+                        // endp is endpoints
+                        // skel is whole skeleton
+                        printfn "computing paths endpoints -> redstone"
+                        let path = new System.Collections.Generic.HashSet<_>(path)
+                        let sidePaths = ResizeArray()
+                        for distToSkel,(ex,ey,ez) in epwl do
+                            if distToSkel > 5 then
+                                match Algorithms.findShortestPath(ex,ey,ez,(fun (x,y,z) -> skel.Contains(x,y,z)), (fun (x,y,z) -> path.Contains(x,y,z)), DIFFERENCES) with
+                                | None -> ()
+                                | Some((sx,sy,sz), sidePath, sideMoves) -> 
+                                    let mutable numVerticalMoves = 0
+                                    for i in sideMoves do
+                                        let _dx,dy,_dz = DIFFERENCES.[i]
+                                        if dy <> 0 then
+                                            numVerticalMoves <- numVerticalMoves + 1
+                                    if numVerticalMoves * 3 > sidePath.Count then
+                                        () // skip, the skeleton algorithm has some flaws (e.g. ravines) that have useless tall spurs, only accept side paths that are mostly x/z moves
+                                    else
+                                        sidePaths.Add(sidePath)
+                        //sideLengths.Sort()
+                        for sidePath in sidePaths do
+                            let l = sidePath.Count 
+                            if l >= 10 && l <= 40 then
+                                for x,y,z in sidePath do
+                                    map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane
+                                log.LogInfo(sprintf "added side path length %d" l)
+                        // TODO
+                        // try making side paths like path (redstone on floor), no clue which is 'main' versus side
+                        // put chests at each dead-end, maybe in chest rename to "dead end, try another path" or something, and have loot or trap
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
         log.LogSummary("FAILED TO PLACE FINAL")
@@ -2031,19 +2062,19 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
     time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
     xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    xtime (fun() ->
+    time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], decorations)
@@ -2057,8 +2088,6 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         printfn "%s" s
     System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"summary.txt"),log.SummaryEvents())
     System.IO.File.WriteAllLines(System.IO.Path.Combine(worldSaveFolder,"all.txt"),log.AllEvents())
-    printfn "press a key to end"
-    System.Console.ReadKey() |> ignore
     // TODO automate world creation...
 
 
