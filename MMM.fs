@@ -2613,7 +2613,7 @@ do
 
     // good ideas
     // need another food tier with 'apple' (better cookie, less bread), apples can be goode side-loot
-    // may need path/rail/something to/towards teleporters to help folks find them
+    // raise box/ceil of mtn peak (see one near -500/-800 buried in mtn top)
     // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // ***set pieces (persistence-required mobs placed in map)
@@ -2647,6 +2647,7 @@ do
     // could put more than one spawner in wall in green/purple cave as progress... could extinguish lava -> obsidian for less light...
     // rand cave wall spawners guarding iron/gold blocks?
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
+    // TODOs and refactorings...
 
 
 
@@ -2659,7 +2660,6 @@ do
     // forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
     // desert falling sand could also open hole into giant underground cavern of some sort?
     // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
-    // TODOs and refactorings...
     
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)

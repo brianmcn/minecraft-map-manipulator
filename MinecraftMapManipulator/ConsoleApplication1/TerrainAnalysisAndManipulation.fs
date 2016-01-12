@@ -1698,7 +1698,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     r.PlaceCommandBlocksStartingAt(0,h-3,3,finalCmds,"check ctm win")
 *)
 
-let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
     let placeCommand(x,y,z,command,bid,auto,_name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",auto); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
@@ -1763,6 +1763,46 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], log:EventAndProg
                             placeImpulse(x+2,h+15,z+2,"")
                             placeChain(x+2,h+14,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (hm.[1,1]-3) spz tpdata)
                             placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us
+                            // place an 8-way path out to make these more findable
+                            let DIRS = [|-1,-1; -1,0; -1,+1; 0,+1; +1,+1; +1,0; +1,-1; 0,-1|]  // dx, dz
+                            let WIDE = [| -2; -1; 0; 1; 2 |]
+                            let cx, cz = x+2, z+2
+                            let TABLE = 
+                                [|
+                                    1uy,3uy      // stone (and variants)   -> dirt
+                                    2uy,208uy    // grass                  -> grass_path
+                                    3uy,110uy    // dirt (and variants)    -> mycelium
+                                    7uy, 7uy     // bedrock (to keep algorithm from falling off a cliff)
+                                    12uy,24uy    // sand                   -> sandstone
+                                    13uy,82uy    // gravel                 -> clay
+                                    24uy,159uy   // sandstone              -> stained_hardned_clay
+                                    78uy,171uy   // snow_layer             -> carpet
+                                    80uy,35uy    // snow                   -> wool
+                                    82uy,1uy     // clay                   -> stone
+                                    110uy,2uy    // mycelium               -> grass
+                                    159uy,172uy  // stained_hardened_clay  -> hardened_clay
+                                    172uy,159uy  // hardened_clay          -> stained_hardened_clay
+                                |]
+                            let subst(x,z) =
+                                let mutable y = hmIgnoringLeaves.[x,z]
+                                let mutable ok = false
+                                while not ok do
+                                    let bid = map.GetBlockInfo(x,y,z).BlockID
+                                    match TABLE |> Array.tryFind (fun (orig,_new) -> orig=bid) with
+                                    | None -> y <- y - 1
+                                    | Some(_,n) ->
+                                        ok <- true
+                                        map.SetBlockIDAndDamage(x,y,z,n,0uy)
+                            for i = 0 to 7 do
+                                let dx,dz = DIRS.[i]
+                                let ax,az = DIRS.[(i+2)%8]  // right angle
+                                let mutable ix,iz = cx+dx*4, cz+dz*4
+                                for dist = 0 to 250 do
+                                    ix <- ix + dx
+                                    iz <- iz + dz
+                                    let w = rng.Next(WIDE.Length)
+                                    if dist<50 && dist%3=0 || dist<100 && dist%4=0 || dist<150 && dist%5=0 || dist<200 && dist%6=0 || dist<250 && dist%7=0 then
+                                        subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az)
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
             failwith "no teleporters"
@@ -1899,15 +1939,15 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let allTrees = ref null
     xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, log, decorations))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees))
     xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
@@ -1956,6 +1996,219 @@ first full playthrough (Dec 20, seed 27):
 
 
 (*
+
+Jan 11 (have learned release/optimize)
+
+Debugging output for automated map generation
+DON'T READ THIS UNLESS YOU WANT SPOILERS
+-------------------
+Terrain generation options:
+{"coordinateScale":684.412,"heightScale":684.412,"lowerLimitScale":512.0,"upperLimitScale":512.0,"depthNoiseScaleX":200.0,"depthNoiseScaleZ":200.0,"depthNoiseScaleExponent":0.5,"mainNoiseScaleX":80.0,"mainNoiseScaleY":160.0,"mainNoiseScaleZ":80.0,"baseSize":8.5,"stretchY":12.0,"biomeDepthWeight":1.0,"biomeDepthOffset":0.0,"biomeScaleWeight":1.0,"biomeScaleOffset":0.0,"seaLevel":63,"useCaves":true,"useDungeons":true,"dungeonChance":35,"useStrongholds":false,"useVillages":false,"useMineShafts":true,"useTemples":false,"useMonuments":false,"useRavines":true,"useWaterLakes":true,"waterLakeChance":25,"useLavaLakes":true,"lavaLakeChance":80,"useLavaOceans":false,"fixedBiome":-1,"biomeSize":3,"riverSize":4,"dirtSize":33,"dirtCount":90,"dirtMinHeight":0,"dirtMaxHeight":256,"gravelSize":33,"gravelCount":8,"gravelMinHeight":0,"gravelMaxHeight":256,"graniteSize":3,"graniteCount":12,"graniteMinHeight":0,"graniteMaxHeight":80,"dioriteSize":12,"dioriteCount":120,"dioriteMinHeight":0,"dioriteMaxHeight":80,"andesiteSize":33,"andesiteCount":0,"andesiteMinHeight":0,"andesiteMaxHeight":80,"coalSize":17,"coalCount":20,"coalMinHeight":0,"coalMaxHeight":128,"ironSize":9,"ironCount":5,"ironMinHeight":0,"ironMaxHeight":58,"goldSize":9,"goldCount":5,"goldMinHeight":0,"goldMaxHeight":62,"redstoneSize":3,"redstoneCount":4,"redstoneMinHeight":0,"redstoneMaxHeight":32,"diamondSize":4,"diamondCount":1,"diamondMinHeight":0,"diamondMaxHeight":16,"lapisSize":7,"lapisCount":1,"lapisCenterHeight":16,"lapisSpread":16}
+-------------------
+(this section took 0.158570 minutes)
+-----
+CACHE HM AND BIOME...
+(this section took 0.022084 minutes)
+-----
+(this section took 1.695067 minutes)
+-----
+(this section took 0.002612 minutes)
+-----
+TP at -542 -510
+TP at -523 490
+TP at 482 501
+TP at 484 -515
+(this section took 0.000664 minutes)
+-----
+added 878 extra dungeon spawners underground
+(this section took 0.327069 minutes)
+-----
+added random spawners underground
+   rand spawners from granite:   Total:1821   Blaze:116   Creeper:106   Skeleton:510   Spider:552   Zombie:537
+   rand spawners from redstone:   Total:836   Blaze:139   CaveSpider:125   Creeper:148   Skeleton:132   Spider:141   Zombie:151
+(this section took 0.599089 minutes)
+-----
+There are 36 CCs with the desired property
+(-411,11,-84) is 571 blocks from (-539,52,-149)
+(-720,11,-613) is 521 blocks from (-698,57,-747)
+(-817,11,73) is 253 blocks from (-747,51,109)
+(-297,13,916) is 211 blocks from (-273,56,945)
+(-744,11,-83) is 614 blocks from (-626,57,0)
+(-792,11,-603) is 287 blocks from (-761,59,-632)
+(-813,11,718) is 136 blocks from (-794,32,741)
+(-478,11,710) is 328 blocks from (-512,59,609)
+(-618,12,-348) is 147 blocks from (-651,40,-365)
+(-514,11,-621) is 152 blocks from (-534,59,-650)
+(-430,11,456) is 216 blocks from (-518,47,417)
+added FINAL beacon at -518 47 417 which travels 216
+   spawners along path:   Total: 65   CaveSpider: 15   Creeper:  8   Skeleton: 10   Witch:  6   Zombie: 26
+added side path length 31
+added side path length 24
+added side path length 19
+(-291,13,-44) is 171 blocks from (-255,53,-24)
+added beacon at -255 53 -24 which travels 171
+   spawners along path:   Total: 28   Creeper:  5   Skeleton:  1   Zombie: 22
+added side path length 31
+(-358,13,-314) is 280 blocks from (-364,34,-292)
+added beacon at -364 34 -292 which travels 280
+   spawners along path:   Total: 46   Creeper:  7   Skeleton:  5   Zombie: 34
+added side path length 22
+added side path length 27
+added side path length 33
+added side path length 27
+added side path length 19
+added side path length 37
+added side path length 18
+added side path length 36
+(-314,13,218) is 196 blocks from (-293,36,301)
+added beacon at -293 36 301 which travels 196
+   spawners along path:   Total: 27   Creeper:  1   Skeleton:  5   Zombie: 21
+added side path length 34
+added side path length 37
+added side path length 21
+added side path length 37
+added side path length 34
+added side path length 34
+added side path length 17
+added side path length 36
+added side path length 38
+added side path length 15
+(-33,12,692) is 407 blocks from (-156,43,672)
+added beacon at -156 43 672 which travels 407
+   spawners along path:   Total: 67   Creeper:  6   Skeleton: 13   Zombie: 48
+added side path length 30
+added side path length 33
+added side path length 30
+added side path length 38
+(-158,11,-406) is 535 blocks from (-258,59,-408)
+(236,11,-6) is 183 blocks from (217,51,-59)
+added beacon at 217 51 -59 which travels 183
+   spawners along path:   Total: 36   Creeper:  2   Skeleton:  5   Zombie: 29
+added side path length 10
+added side path length 19
+added side path length 39
+(8,13,-611) is 134 blocks from (-16,47,-626)
+added beacon at -16 47 -626 which travels 134
+   spawners along path:   Total: 17   Creeper:  2   Skeleton:  3   Zombie: 12
+added side path length 33
+added side path length 29
+added side path length 29
+added side path length 38
+added side path length 32
+added side path length 27
+(272,11,-408) is 635 blocks from (51,59,-539)
+(291,11,-218) is 312 blocks from (304,56,-119)
+added beacon at 304 56 -119 which travels 312
+   spawners along path:   Total: 50   Creeper:  9   Skeleton: 10   Zombie: 31
+added side path length 18
+added side path length 39
+added side path length 31
+(301,11,362) is 116 blocks from (306,56,409)
+added beacon at 306 56 409 which travels 116
+   spawners along path:   Total: 19   Creeper:  3   Skeleton:  1   Zombie: 15
+added side path length 35
+added side path length 27
+added side path length 19
+(409,12,-604) is 431 blocks from (349,56,-618)
+(533,12,17) is 511 blocks from (402,45,227)
+(799,11,-697) is 181 blocks from (846,57,-754)
+(653,11,283) is 206 blocks from (693,59,306)
+(616,13,164) is 611 blocks from (792,37,-32)
+(851,11,-449) is 324 blocks from (681,30,-447)
+(779,13,-373) is 198 blocks from (878,54,-406)
+(886,12,-625) is 208 blocks from (927,45,-628)
+(932,11,-176) is 391 blocks from (883,59,-153)
+(this section took 1.207022 minutes)
+-----
+added flat set piece (score 3007097) at -543 300
+   spawners around cobweb flat:   Total:103   Blaze:  4   CaveSpider: 35   Spider: 27   Spiderextra: 10   Witch: 27
+added flat set piece (score 1895511) at -305 482
+   spawners around cobweb flat:   Total: 95   Blaze:  4   CaveSpider: 33   Spider: 33   Spiderextra:  6   Witch: 19
+added flat set piece (score -258250) at -745 5
+   spawners around cobweb flat:   Total:102   Blaze:  4   CaveSpider: 35   Spider: 42   Spiderextra:  8   Witch: 13
+added flat set piece (score -331480) at -706 503
+   spawners around cobweb flat:   Total:101   Blaze:  4   CaveSpider: 38   Spider: 35   Spiderextra:  7   Witch: 17
+added flat set piece (score -428310) at -638 885
+   spawners around cobweb flat:   Total:104   Blaze:  4   CaveSpider: 39   Spider: 37   Spiderextra:  3   Witch: 21
+added flat set piece (score -430885) at 898 -366
+   spawners around cobweb flat:   Total:102   Blaze:  4   CaveSpider: 42   Spider: 31   Spiderextra:  6   Witch: 19
+added flat set piece (score -488065) at 963 838
+   spawners around cobweb flat:   Total:104   Blaze:  4   CaveSpider: 34   Spider: 36   Spiderextra:  7   Witch: 23
+added flat set piece (score -555861) at 109 371
+   spawners around cobweb flat:   Total: 93   Blaze:  4   CaveSpider: 37   Spider: 25   Spiderextra:  6   Witch: 21
+added flat set piece (score -702542) at -696 -193
+   spawners around cobweb flat:   Total:101   Blaze:  4   CaveSpider: 40   Spider: 33   Spiderextra:  7   Witch: 17
+added flat set piece (score -795322) at 574 -423
+   spawners around cobweb flat:   Total: 98   Blaze:  4   CaveSpider: 37   Spider: 36   Spiderextra:  2   Witch: 19
+added set piece (score -1786277) at 10 624
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  1   Zombie:  3
+added set piece (score -1891785) at 933 -763
+   spawners around set piece:   Total:  8   Ghast:  4   Zombie:  4
+added set piece (score -2316893) at -954 -462
+   spawners around set piece:   Total:  8   Ghast:  4   Zombie:  4
+added set piece (score -2615455) at -676 -529
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  1   Zombie:  3
+added set piece (score -2692687) at 409 -739
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  2   Zombie:  2
+added set piece (score -3011300) at -323 804
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  2   Zombie:  2
+added set piece (score -3215198) at 725 -234
+   spawners around set piece:   Total:  8   Ghast:  4   Zombie:  4
+added set piece (score -3801827) at 233 803
+   spawners around set piece:   Total:  8   Ghast:  4   Zombie:  4
+added set piece (score -3929946) at 974 -149
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  1   Zombie:  3
+added set piece (score -5129940) at 273 -909
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  2   Zombie:  2
+(this section took 0.259758 minutes)
+-----
+best hiding spot:  377  121  722
+('find best hiding spot' sub-section took 0.147781 minutes)
+added mountain peak (score 9594) at -520 105 -758
+   spawners around mountain peak:   Total: 75   Blaze:  1   CaveSpider: 29   Ghast:  6   Spiderextra: 21   Zombie: 18
+added mountain peak (score 8865) at -840 114 913
+   spawners around mountain peak:   Total: 77   Blaze:  5   CaveSpider: 33   Ghast:  5   Spiderextra: 13   Zombie: 21
+added mountain peak (score 8561) at -741 106 -848
+   spawners around mountain peak:   Total: 70   Blaze:  7   CaveSpider: 26   Ghast:  2   Spiderextra: 16   Zombie: 19
+added mountain peak (score 7864) at 568 106 -968
+   spawners around mountain peak:   Total: 60   Blaze:  2   CaveSpider: 21   Ghast:  2   Spiderextra: 18   Zombie: 17
+added mountain peak (score 7790) at 984 117 944
+   spawners around mountain peak:   Total: 66   Blaze:  4   CaveSpider: 19   Ghast:  4   Spiderextra: 15   Zombie: 24
+added mountain peak (score 7297) at -206 121 492
+   spawners around mountain peak:   Total: 66   Blaze:  6   CaveSpider: 18   Ghast:  5   Spiderextra: 13   Zombie: 24
+added mountain peak (score 6333) at -987 107 -985
+   spawners around mountain peak:   Total: 61   Blaze:  4   CaveSpider: 21   Ghast:  5   Spiderextra: 15   Zombie: 16
+added mountain peak (score 5784) at -827 120 -677
+   spawners around mountain peak:   Total: 64   Blaze:  6   CaveSpider: 21   Ghast:  2   Spiderextra: 18   Zombie: 17
+added mountain peak (score 4697) at 549 106 -593
+   spawners around mountain peak:   Total: 67   Blaze:  4   CaveSpider: 24   Ghast:  8   Spiderextra: 14   Zombie: 17
+added mountain peak (score 3665) at 897 113 -592
+   spawners around mountain peak:   Total: 70   Blaze:  6   CaveSpider: 25   Ghast:  3   Spiderextra: 13   Zombie: 23
+(this section took 0.154550 minutes)
+-----
+highlighted 13 cave entrances near spawn
+(this section took 0.009072 minutes)
+-----
+added 341 extra loot chests: 47, 150, 14, 51, 7, 16, 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13
+(this section took 0.177114 minutes)
+-----
+found 45 decent-sized plains biomes outside DAYLIGHT_RADIUS
+Added 1 Hell biomes (10 trees) and 31 Sky biomes (173 trees) replacing some Plains
+(this section took 0.011299 minutes)
+-----
+START CMDS
+(this section took 0.000668 minutes)
+-----
+SAVING FILES
+(this section took 1.112201 minutes)
+-----
+WRITING MAP PNG IMAGES
+(this section took 0.085014 minutes)
+-----
+Took 5.822694 total minutes
+
+
+
 
 Dec 19
 SUMMARY

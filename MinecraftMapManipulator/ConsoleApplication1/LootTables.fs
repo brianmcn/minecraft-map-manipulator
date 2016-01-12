@@ -175,7 +175,7 @@ let LOOT_AESTHETIC_CHESTS =
                         // rail
                Pool(Roll(2,2), [Item("minecraft:rail",[SetCount(64,64)]), 1, 0, []])
                Pool(Roll(2,2), [Item("minecraft:golden_rail",[SetCount(64,64)]), 1, 0, []])
-               Pool(Roll(2,2), [Item("minecraft:redstone_block",[SetCount(64,64)]), 1, 0, []])
+               Pool(Roll(2,2), [Item("minecraft:redstone_block",[SetCount(64,64)]), 1, 0, []]) // TODO comparators/quartz/pistons/slime blocks?
                         // tradeable
                Pool(Roll(1,1), [Item("minecraft:emerald",[]), 1, 0, []])
                ]
