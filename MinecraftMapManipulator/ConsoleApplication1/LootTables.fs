@@ -136,7 +136,7 @@ let OneOfAtNPercent(entryData, n, conds) =
 let LOOT_AESTHETIC_CHESTS =
     [|
         // tier 1
-        Pools [Pool(Roll(8,8), [
+        Pools [Pool(Roll(6,6), [
                         // blocks
                         Item("minecraft:stone",[SetCount(64,64);SetData(1)]), 1, 0, []  // granite
                         Item("minecraft:stone",[SetCount(64,64);SetData(3)]), 1, 0, []  // diorite
@@ -146,7 +146,17 @@ let LOOT_AESTHETIC_CHESTS =
                         // fun
                         Item("minecraft:name_tag",[SetCount(3,10)]), 1, 0, []
                     ])
-                        // tradeable
+               Pool(Roll(3,3), [
+                        // utility blocks (pretty, and useful)
+                        Item("minecraft:log",[SetCount(64,64);SetData(0)]), 1, 0, []  // oak
+                        Item("minecraft:log",[SetCount(64,64);SetData(1)]), 1, 0, []  // spruce
+                        Item("minecraft:log",[SetCount(64,64);SetData(2)]), 1, 0, []  // birch
+                        Item("minecraft:log",[SetCount(64,64);SetData(3)]), 1, 0, []  // jungle
+                        Item("minecraft:log2",[SetCount(64,64);SetData(0)]), 1, 0, []  // acacia
+                        Item("minecraft:log2",[SetCount(64,64);SetData(1)]), 1, 0, []  // dark oak
+                        // fun
+                        Item("minecraft:name_tag",[SetCount(3,10)]), 1, 0, []
+                    ])                        // tradeable
                Pool(Roll(1,1), [Item("minecraft:emerald",[]), 1, 0, []])
                ]
         // tier 2
@@ -185,6 +195,7 @@ let LOOT_AESTHETIC_CHESTS =
                         Item("minecraft:quartz_block",[SetCount(64,64)]), 1, 0, []
                         Item("minecraft:prismarine",[SetCount(64,64)]), 1, 0, []
                         Item("minecraft:sea_lantern",[SetCount(64,64)]), 1, 0, []
+                        Item("minecraft:hay_block",[SetCount(64,64)]), 1, 0, []
                         ])
                Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Basic blocks\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic1\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Nicer blocks and fun\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic2\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
@@ -235,6 +246,7 @@ let LOOT_TOOLS =
                         Item("minecraft:wooden_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0, []
                         Item("minecraft:wooden_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0, []
                         Item("minecraft:stone_axe",      [EnchantWithLevels( 1,15,false)]), 1, 0, []
+                        Item("minecraft:bucket",         []), 1, 0, []
                                ])]
         // tier 2
         Pools [Pool(Roll(1,1), [
@@ -267,12 +279,14 @@ let LOOT_TOOLS =
 let LOOT_FOOD =
     [|
         // tier 1
-        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(5,10)]), 1, 0, []])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(6,10)]), 1, 0, []])]
         // tier 2
-        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0, []])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(6,10)]), 1, 0, []])]
         // tier 3
-        Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0, []])]
         // tier 4
+        Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
+        // tier 5
         Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0, []])]
     |]
 
@@ -314,7 +328,6 @@ let enchantmentsInTiers =
             "protection"
             "sharpness"
 //            "looting"  // TODO figure out if/what looting does
-            "infinity"
             "mending"
         ]
     |]
@@ -358,19 +371,19 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/wolf
 
         // HOSTILE
-        "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
-        "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB)]
+        "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 4 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
+        "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/creeper", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
 //        "minecraft:entities/elder_guardian
         "minecraft:entities/enderman", Pools [Pool(Roll(1,1),[Item("minecraft:ender_pearl",[SetCount(0,1);LootingEnchant(0,1)]),0,1, []]) // usual default drop
                                               tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)  // extra loot
                                              ]
-        "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
+        "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 3 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
 //        "minecraft:entities/guardian
 //        "minecraft:entities/magma_cube"
 //        "minecraft:entities/shulker
-//        "minecraft:entities/silverfish
-        "minecraft:entities/skeleton", Pools [Pool(Roll(1,1),[Item("minecraft:bone",[SetCount(0,2)]),1,0,[]]);tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
+        "minecraft:entities/silverfish", Pools [tierxyLootPct MOB 2 3 [FOOD] 20] // TODO what ought silverfish drop?
+        "minecraft:entities/skeleton", Pools [Pool(Roll(1,1),[Item("minecraft:bone",[SetCount(0,2)]),1,0,[]]);tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
         "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
@@ -378,7 +391,7 @@ let LOOT_FROM_DEFAULT_MOBS =
         "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
 //        "minecraft:entities/zombie_horse
-        "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
+        "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
     |]
 
 let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
@@ -389,8 +402,7 @@ let sampleTier2Chest = // dungeons and mineshafts
                Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0, []])
                Pool(Roll(1,3),[arrows,1,0, []])
-               tierxyLootPct [] 2 3 [FOOD] 16 
-               tierxyLootPct [] 2 3 [FOOD] 16 
+               tierxyLootPct [] 2 3 [FOOD] 99
                OneOfAtNPercent([Item("minecraft:iron_pickaxe",[]);Item("minecraft:iron_sword",[]);Item("minecraft:iron_axe",[]);Item("minecraft:iron_ingot",[SetCount(2,9)])],50,[])
                Pool(Roll(1,1),
                     [LootTable("empty"), 20, 0, []
@@ -411,7 +423,7 @@ let sampleTier3Chest = // end of green beacon cave
                Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(20,30)]),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(20,30)]),1,0, []])
                Pool(Roll(1,1),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"3),1,0, []])
+               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
                Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","2. After green beacon cave",[|
                                             """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
                                         |]))]),1,0, []])
@@ -437,7 +449,7 @@ let sampleTier5Chest =
                Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
+               Pool(Roll(1,1),[LootTable(LOOT_FORMAT"food"5),1,0, []])
              ]
 let noFishingForYou =
         Pools[ Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
@@ -481,6 +493,8 @@ let writeAllLootTables(worldSaveFolder) =
                 yield (LOOT_FORMAT"armor"i, LOOT_ARMOR.[i-1])
                 yield (LOOT_FORMAT"tools"i, LOOT_TOOLS.[i-1])
                 yield (LOOT_FORMAT"food"i,  LOOT_FOOD.[i-1])
+            let i = 5
+            yield (LOOT_FORMAT"food"i,  LOOT_FOOD.[i-1])
         |]
     writeLootTables(otherTables, worldSaveFolder)
 

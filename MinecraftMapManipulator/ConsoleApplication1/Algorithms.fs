@@ -329,7 +329,7 @@ let skeletonize(a:sbyte[,,],onRemove,initOnes) = // init array passed in should 
     let ALL = [| (1,0,0); (0,1,0); (0,0,1); (-1,0,0); (0,-1,0); (0,0,-1) |]
     for x,y,z in endpoints do
         let mutable skip = -1
-        let mutable count = 0
+        let mutable countx, county, countz = 0, 0, 0
         let mutable ok = true
         let mutable cx,cy,cz = x,y,z
         while ok do
@@ -341,7 +341,12 @@ let skeletonize(a:sbyte[,,],onRemove,initOnes) = // init array passed in should 
                         match next with
                         | None -> 
                             next <- Some(cx+dx,cy+dy,cz+dz,(i + 3) % 6)
-                            count <- count + 1
+                            if dx <> 0 then 
+                                countx <- countx + 1
+                            if dy <> 0 then 
+                                county <- county + 1
+                            if dx <> 0 then 
+                                countz <- countz + 1
                         | _ -> ok <- false
             match next with
             | Some(i,j,k,nextSkip) ->
@@ -352,8 +357,10 @@ let skeletonize(a:sbyte[,,],onRemove,initOnes) = // init array passed in should 
             | _ -> 
                 // a segment not connected to a more branching skeleton, just choosing to ignore
                 ok <- false
-                count <- -1
-        endpointsWithLengths.Add(count, (x,y,z))
+                countx <- -1
+                county <- -1
+                countz <- -1
+        endpointsWithLengths.Add(countx, county, countz, (x,y,z))
     //endpointsWithLengths.Sort()
     //for l,e in endpointsWithLengths do
     //    printfn "EPwL: %3d  %A" l e

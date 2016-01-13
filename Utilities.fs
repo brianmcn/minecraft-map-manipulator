@@ -684,9 +684,9 @@ let mapDatToPng(mapDatFile:string, newPngFilename:string) =
 
 let updateDat(file,f) =
     let nbt = readDatFile(file)
-    printfn "%s" (nbt.ToString())
+    //printfn "%s" (nbt.ToString())
     let nbt = cataNBT f (fun _pl nbt -> nbt) [] nbt
-    printfn "%s" (nbt.ToString())
+    //printfn "%s" (nbt.ToString())
     if System.IO.File.Exists(file+".new") then
         System.IO.File.Delete(file+".new")
     writeDatFile(file+".new", nbt)
@@ -1251,8 +1251,18 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
-let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, decorations) =
+let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, squareCenterRadiuses, decorations) =
     let image = new System.Drawing.Bitmap(xlen,zlen)
+    let isSquare(x,y) =
+        let mutable s = false
+        for xc,yc,r in squareCenterRadiuses do
+            let xmin,xmax = xc-r,xc+r
+            let ymin,ymax = yc-r,yc+r
+            if xmin <= x && x <= xmax && (y=ymin || y=ymax) && x/10%2=0 then
+                s <- true
+            if ymin <= y && y <= ymax && (x=xmin || x=xmax) && y/10%2=0 then
+                s <- true
+        s
     let isCircle(distSq) =
         let mutable c = false
         for r in circleRadii do
@@ -1261,7 +1271,7 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
             if distSq > RM && distSq < R then
                 c <- true
         c
-    let draw(biome:_[,],showHard) =
+    let draw(biome:_[,],showSpoilers) =
         for x = xmin to xmin+xlen-1 do
             for y = zmin to zmin+zlen-1 do
                 let biome = biome.[x,y]
@@ -1271,8 +1281,8 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
                 let r,g,b = 
                     if (x%512=0) || (y%512=0) then
                         r/2,g/2,b/2  // dark lines on region bounds
-                    elif isCircle(x*x+y*y) then
-                        r/2,g/2,b/2  // dark lines on circle
+                    elif isCircle(x*x+y*y) || (showSpoilers && isSquare(x,y)) then
+                        r/2,g/2,b/2  // dark lines on circle or square
                     else
                         if x/6%2=0 && y/6%2=0 then
                             if hmIgnoringLeaves.[x,y] > 100 then // TODO named constants
@@ -1284,8 +1294,7 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
                         else
                             r,g,b
                 let r,g,b = 
-                    // only in the non-spoilers...
-                    if showHard && map.GetInhabitedTime(x,y) >= 3600000L then
+                    if showSpoilers && map.GetInhabitedTime(x,y) >= 3600000L then
                         r/2,g/2,b/2  // darken 'hard' areas
                     else
                         r,g,b

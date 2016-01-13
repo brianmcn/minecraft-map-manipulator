@@ -2590,7 +2590,7 @@ do
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
-    //CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11) // TODO put this back in
+    CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
     TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
@@ -2609,22 +2609,17 @@ do
 
 
 
-    // TODO
+    // to test
+    // made some changes to cave-side-paths, see if ok
 
-    // good ideas
-    // need another food tier with 'apple' (better cookie, less bread), apples can be goode side-loot
-    // raise box/ceil of mtn peak (see one near -500/-800 buried in mtn top)
+    // TODO: bugs & good ideas
+    // still hard to get init bow
+    // note to self: craft gapples next time
+
+    // spawner underneath dead-end chest?
     // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
-    // ***set pieces (persistence-required mobs placed in map)
-    //   - land guardians may make a good set piece (protection books?)
-    //   - something to protect a good bow? close to spawn? kinda hard to get good bow early
-    // random chest locations:
-    //   - bottom of surface ravine (low heightmap)
-    //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle
-    //   - just anywhere on a plain with a mob-set-piece guarding it makes for interesting bits
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?
-    // (from obe and self:) more gold, less iron up high (after armor-rebalance changes, maybe?) ensure progression speed not too hasty
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
     // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
     // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
@@ -2636,22 +2631,26 @@ do
     // ***primed tnt buried in walls
     // "retro"/"throwback"?
     // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
-    // floating structures? lava/watter pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
+    // floating structures? lava/water pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
     // legendary: seeing x from afar leads to seeing y up close...
+    // test new food balance
     // test new flat set piece
     // test new iron/gold distr.
     // test new dungeon chance
+    // test new distances to main dungeons
+    // test if teleporters get discovered
+    // test if peaks (hmDiffPerCC value) look ok
     // have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
     //    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
-    // could put more than one spawner in wall in green/purple cave as progress... could extinguish lava -> obsidian for less light...
     // rand cave wall spawners guarding iron/gold blocks?
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
     // TODOs and refactorings...
-
+    // SMP-loot?
 
 
     // other ideas
+    // could put more than one spawner in wall in green/purple cave as progress... could extinguish lava -> obsidian for less light...
     // teleporters could be color-coded (easier to remember?)
     // tnt exploding a morse code explosion-sound something?!?
     // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
@@ -2660,6 +2659,13 @@ do
     // forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
     // desert falling sand could also open hole into giant underground cavern of some sort?
     // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
+    // more random chest locations:
+    //   - bottom of surface ravine (low heightmap)
+    //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle
+    //   - just anywhere on a plain with a mob-set-piece guarding it makes for interesting bits
+    // more variants of set pieces (persistence-required mobs placed in map)
+    //   - land guardians may make a good set piece (protection books?)
+    //   - something to protect a good bow? close to spawn? kinda hard to get good bow early
     
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)
