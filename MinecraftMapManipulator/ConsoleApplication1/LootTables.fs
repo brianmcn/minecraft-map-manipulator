@@ -281,7 +281,7 @@ let LOOT_FOOD =
         // tier 1
         Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(6,10)]), 1, 0, []])]
         // tier 2
-        Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(6,10)]), 1, 0, []])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(4,6)]), 1, 0, []])]
         // tier 3
         Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0, []])]
         // tier 4
@@ -347,7 +347,7 @@ let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/1
             yield (ed, n, 0, conds)
        ]
 let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
-let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])
+let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])  // TODO gold pile?
 let arrows = Item("minecraft:arrow", [SetCount(6,9)])
 let luckyGapple = Item("minecraft:golden_apple", [SetCount(1,1);SetNbt("""{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}""")])
 let MOB = [KilledByPlayer]

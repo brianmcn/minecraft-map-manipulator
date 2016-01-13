@@ -2518,6 +2518,75 @@ let plotRegionalDifficulty() =
     app.Run(new ImageWPFWindow(img)) |> ignore 
     // neat, this demos that if TotalPlayTime is 11 hours, at normal diff, full moon, ChunkInhabitedTime knob changes game value smoothly from 0.0 to 0.75, which is very useful.
 
+////////////////////////////////////////
+
+type InputEvent = 
+    | CONSOLE of string     // stuff typed into the keyboard console of this program 
+    | MINECRAFT of string   // the stdout of the Minecraft process 
+
+let chatToVoiceDemo() =
+    use inputEvents = new System.Collections.Concurrent.BlockingCollection<_>()
+    // SETUP MINECRAFT 
+    let minecraftStdin = 
+        let psi = new ProcessStartInfo(UseShellExecute=false, RedirectStandardInput=true, RedirectStandardOutput=true) 
+        psi.WorkingDirectory <- """C:\Users\Admin1\Desktop\Server""" 
+        psi.FileName <- "java" 
+        psi.Arguments <- "-Xms1024M -Xmx1024M -d64 -jar minecraft_server.16w02a.jar nogui" 
+        let proc = new Process(StartInfo=psi) 
+        // START MINECRAFT 
+        do
+            proc.Start() |> ignore 
+            let rec rcvloop() = 
+                let data = proc.StandardOutput.ReadLine() 
+                if data <> null then 
+                    inputEvents.Add(MINECRAFT data) 
+                    rcvloop() 
+            let t = new System.Threading.Thread(rcvloop) 
+            t.Start() 
+        proc.StandardInput 
+    // SETUP & START CONSOLE 
+    do 
+        printfn "press q <enter> to quit" 
+        let rec sendloop() = 
+            let i = System.Console.ReadLine() 
+            if i <> "q" then 
+                inputEvents.Add(CONSOLE i) 
+                sendloop() 
+            else 
+                inputEvents.CompleteAdding() 
+        let t = new System.Threading.Thread(sendloop) 
+        t.Start() 
+    let ss = System.Speech.Synthesis.SpeechSynthesizer()
+    // MAIN LOOP 
+    for e in inputEvents.GetConsumingEnumerable() do 
+        match e with 
+        | MINECRAFT data -> 
+                try 
+                    printfn "MINECRAFT> %s" data 
+                    match data.IndexOf("Lorgon111") with 
+                    | -1 -> () 
+                    | n ->  
+                    let data = data.Substring(n+"Lorgon111".Length) 
+                    let PROMPT = "> !"
+                    let PROMPT = "> "
+                    match data.LastIndexOf(PROMPT) with      // may be color reset code between name and text, match separately 
+                    | -1 -> () 
+                    | n ->  
+                        let text = data.Substring(n+PROMPT.Length).ToLowerInvariant()
+                        let words = text.Split([|" "|], System.StringSplitOptions.RemoveEmptyEntries) 
+                        for w in words do
+                            printfn "M: %s" w
+                        ss.Speak(text)
+                with e ->  
+                    printfn "MINECRAFT FAULT> %s" (e.ToString()) 
+                    reraise() 
+
+        | CONSOLE data -> 
+            printfn "C: %s" data
+
+////////////////////////////////////////
+
+
 [<System.STAThread()>]  
 do   
     //let user = "brianmcn"
@@ -2577,13 +2646,14 @@ do
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\seed31Copy\region\r.0.0.mca""")
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
-    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w50a.zip""","""C:\Users\Admin1\Desktop\15w51a.zip""")
     //placeCertainBlocksInTheWorld()
     //placeVideoFramesInTheWorld()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
     //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo45a\igloo_bottom.nbt""")
     
 
+    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w51b.zip""","""C:\Users\Admin1\Desktop\16w02a.zip""")
+    
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,35,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
@@ -2591,7 +2661,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2601,6 +2671,7 @@ do
 
     //musicStuff()
     //plotRegionalDifficulty()
+    chatToVoiceDemo()
 
 
     printfn "press a key to end"
@@ -2616,13 +2687,13 @@ do
     // still hard to get init bow
     // note to self: craft gapples next time
 
-    // spawner underneath dead-end chest?
     // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
     // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
     // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
+    // spawner underneath dead-end chest?
     // ***hyper-spawner (dispenser with eggs)
     // ***places where gravel floor falls
     //   - desert trap, can rig sand to fall like 10 blocks to obsidian line hole with a low-range spawner underneath, or have TNT, etc, can find flat areas, preserve cacti, etc.
@@ -2631,7 +2702,6 @@ do
     // ***primed tnt buried in walls
     // "retro"/"throwback"?
     // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
-    // floating structures? lava/water pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
     // legendary: seeing x from afar leads to seeing y up close...
     // test new food balance
     // test new flat set piece
@@ -2643,13 +2713,14 @@ do
     // have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
     //    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
-    // rand cave wall spawners guarding iron/gold blocks?
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
     // TODOs and refactorings...
     // SMP-loot?
+    // return to spawn from teleporter, villagers don't immediately appear on client?
 
 
     // other ideas
+    // floating structures? lava/water pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
     // could put more than one spawner in wall in green/purple cave as progress... could extinguish lava -> obsidian for less light...
     // teleporters could be color-coded (easier to remember?)
     // tnt exploding a morse code explosion-sound something?!?
@@ -2666,6 +2737,7 @@ do
     // more variants of set pieces (persistence-required mobs placed in map)
     //   - land guardians may make a good set piece (protection books?)
     //   - something to protect a good bow? close to spawn? kinda hard to get good bow early
+    // rand cave wall spawners guarding iron/gold blocks?
     
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)
