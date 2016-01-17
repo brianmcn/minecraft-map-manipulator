@@ -203,17 +203,25 @@ let LOOT_AESTHETIC_CHESTS =
                ]
     |] 
 
+// TODO was noting that RNG is not always kind; may get lots of armor and never get leggings.  I could flatten it out if I did something like:
+//        - instead of armor pieces, drop an 'armor token' item
+//        - have a 20Hz cmd that adds a score/tag to the token
+//        - if any score/tag items exist, call a routine that converts it to armor; that routine implements 'fairness'
+//        - the 'token' swapping is basically how eventide trance did drops, so it can't be too awful for overhead
+
 // TODO make a customization knob to buff/nerf these drops/chances, perhaps?
 let LOOT_ARMOR =
     [|
         // tier 1
         Pools [Pool(Roll(1,1), [
-                        Item("minecraft:leather_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0, []
-                        //Item("minecraft:leather_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0
-                        //Item("minecraft:leather_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0
-                        Item("minecraft:leather_boots",      [EnchantWithLevels(1,15,false)]), 1, 0, []
-                        Item("minecraft:golden_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0, []
-                        Item("minecraft:golden_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        //Item("minecraft:leather_helmet",     [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        //Item("minecraft:leather_chestplate", [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        //Item("minecraft:leather_leggings",   [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        //Item("minecraft:leather_boots",      [EnchantWithLevels(1,15,false)]), 1, 0, []
+                        Item("minecraft:golden_helmet",     []), 1, 0, []
+                        Item("minecraft:golden_chestplate", []), 1, 0, []
+                        Item("minecraft:golden_leggings",   []), 1, 0, []
+                        Item("minecraft:golden_boots",      []), 1, 0, []
                                ])]
         // tier 2
         Pools [Pool(Roll(1,1), [
@@ -237,6 +245,12 @@ let LOOT_ARMOR =
                         Item("minecraft:iron_boots",      [EnchantWithLevels(16,30,false)]), 1, 0, []
                                ])]
     |]
+
+// TODO should I somehow stop mob-dropping useless tools late in the game? after first monument block, they might no longer be desirable?
+//       - or maybe even player-configurable? ('stop dropping wood/stone tools' toggle, sets score, kills the drops?)
+//       - or maybe the drops get better but rarer (e.g. iron stuff after first block?)
+// NOTE: this also suggest a way to make the game 'revert to normal' after you win, could have all the 'normal' drops conditioned on a win score.  
+// But would incur a perf penalty for eternity, just to save people from deleting some files, in the rare case people want to continue playing survival after won.
 
 let LOOT_TOOLS =
     [|
@@ -346,6 +360,8 @@ let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/1
         for ed in tierNLootData y kinds do 
             yield (ed, n, 0, conds)
        ]
+let defaultMobDrop(itemName, countMin, countMax, lootingMin, lootingMax) = 
+    Pool(Roll(1,1),[Item(sprintf "minecraft:%s" itemName,[SetCount(countMin,countMax);LootingEnchant(lootingMin,lootingMax)]),0,1, []])
 let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])  // TODO gold pile?
 let arrows = Item("minecraft:arrow", [SetCount(6,9)])
@@ -373,9 +389,10 @@ let LOOT_FROM_DEFAULT_MOBS =
         // HOSTILE
         "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 4 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB)]
-        "minecraft:entities/creeper", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
+        "minecraft:entities/creeper", Pools [defaultMobDrop("gunpowder",0,1,0,1)
+                                             tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
 //        "minecraft:entities/elder_guardian
-        "minecraft:entities/enderman", Pools [Pool(Roll(1,1),[Item("minecraft:ender_pearl",[SetCount(0,1);LootingEnchant(0,1)]),0,1, []]) // usual default drop
+        "minecraft:entities/enderman", Pools [defaultMobDrop("ender_pearl",0,1,0,1)
                                               tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)  // extra loot
                                              ]
         "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 3 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
@@ -383,7 +400,8 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/magma_cube"
 //        "minecraft:entities/shulker
         "minecraft:entities/silverfish", Pools [tierxyLootPct MOB 2 3 [FOOD] 20] // TODO what ought silverfish drop?
-        "minecraft:entities/skeleton", Pools [Pool(Roll(1,1),[Item("minecraft:bone",[SetCount(0,2)]),1,0,[]]);tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
+        "minecraft:entities/skeleton", Pools [defaultMobDrop("bone",0,2,0,1)
+                                              tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
         "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
@@ -442,7 +460,7 @@ let sampleTier4Chest = // end of flat dungeon
                                             """{"text":"Once strong enough, attack dangerous-looking mountain peaks with glassed loot boxes to get a map to the best treasure!"}"""
                                         |]))]),1,0, []])
              ]
-let sampleTier5Chest =
+let sampleTier5Chest = // mountain peak loot
         Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
                Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
                Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Red Beacon Web Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier4\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
@@ -461,7 +479,6 @@ let LOOT_FROM_DEFAULT_CHESTS =
         "minecraft:chests/simple_dungeon", sampleTier2Chest
         "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
         "minecraft:gameplay/fishing", noFishingForYou
-        // TODO all the others
         // hack to get mine there
         sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
         sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
@@ -470,8 +487,6 @@ let LOOT_FROM_DEFAULT_CHESTS =
         sprintf "%s:chests/aesthetic2" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[1]
         sprintf "%s:chests/aesthetic3" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[2]   // TODO refactor %s:%s/%s%d naming into constants/enums/etc
     |]
-// TODO fix fishing
-
 
 let writeLootTables(tables, worldSaveFolder) =
     for (name:string, table:LootTable) in tables do

@@ -99,6 +99,7 @@ let SPAWN_PROTECTION_DISTANCE_PEAK = 500
 let SPAWN_PROTECTION_DISTANCE_PURPLE = 700
 let STRUCTURE_SPACING = 170  // no two of same structure within this dist of each other
 let DECORATION_SPACING = 60  // no two decos this close together
+let RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION = 50 // no rand loot chests near dungeons, for example
 let DAYLIGHT_RADIUS = 180
 
 /////////////////////////////////

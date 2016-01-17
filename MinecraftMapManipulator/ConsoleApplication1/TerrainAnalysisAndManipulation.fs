@@ -579,7 +579,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
     let replaceGroundBelowWith(x,y,z,bid,dmg) = 
         let mutable pi,pj,pk = x,y,z
-        while a.[pi,pj,pk]<>null do
+        while a.[pi,pj,pk]<>null do // TODO non-{air/cobweb} ground clutter such as ferns might cause redstone to be up a block higher than desirable; does this happen much? care?
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
     let mutable hasDoneFinal, thisIsFinal = false, false
@@ -756,7 +756,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                 while a.[x,y,z]<>null do
                                     y <- y - 1
                                 y <- y + 1
-                                // TODO probably make a loot tabel, be more interesting
+                                // TODO probably make a loot table, be more interesting
                                 // TODO sometimes be trap or troll
                                 let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                 putTrappedChestWithItemsAt(x,y,z,"Dead end, turn back & try again", chestItems, map, tes)
@@ -859,6 +859,7 @@ let canPlaceSpawner(map:MapFolder,x,y,z) =
     else
         false
 
+// TODO consider eliminating all cobwebs (if so, can change logic that checks cobwebs, and have more control over access to bows)
 let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog) =
     let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
     let HIY = 120
@@ -1020,7 +1021,7 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
                     CCs.[rep].Add( (x,z) ) |> ignore
     printfn "ANALYZE..."
     let highPoints = ResizeArray()
-    // pick highest in each CC    // TODO consider all local maxima? or make cutoff for CC be topY-constant, to disconnect high ranges?
+    // pick highest in each CC    // TODO consider all local maxima? right now the hmDiffPerCC gives some alternatives that are ok
     for hs in CCs.Values do
         let hix,hiz = hs |> Seq.maxBy (fun (x,z) -> heightMap.[x,z])
         let hihm = heightMap.[hix,hiz]
@@ -1035,24 +1036,22 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
         else
             // just choose one representative to try
             highPoints.Add((hix,hiz),(minx,minz),(maxx,maxz))  // retain the bounds of the CC
+    let highPoints = highPoints |> Seq.filter (fun ((hx,hz),_,_) -> hx > MINIMUM+32 && hx < MINIMUM+LENGTH-32 && hz > MINIMUM+32 && hz < MINIMUM+LENGTH-32) // not at edge of bounds
     // find the 'best' ones based on which have lots of high ground near them
     let score(x,z) =
-        try
-            let mutable s = 0
-            let D = bestNearbyDist
-            for a = x-D to x+D do
-                for b = z-D to z+D do
-                    s <- s + heightMap.[a,b] - (heightMap.[x,z]-20)  // want high ground nearby, but not a huge narrow spike above moderately high ground
-            // TODO XXX with this, higher is not better; a great hill always score higher than a very good tall mountain
-            s
-        with _ -> 0  // deal with array index out of bounds
+        let mutable s = 0
+        let D = bestNearbyDist
+        for a = x-D to x+D do
+            for b = z-D to z+D do
+                s <- s + heightMap.[a,b] - (heightMap.[x,z]-20)  // want high ground nearby, but not a huge narrow spike above moderately high ground
+        // with this, higher is not better; a great hill always score higher than a very good tall mountain
+        s
     let distance2(a,b,c,d) = (a-c)*(a-c)+(b-d)*(b-d)
     let bestHighPoints = ResizeArray()
     for ((hx,hz),a,b) in highPoints |> Seq.sortByDescending (fun (p,_,_) -> score p) do
-        if hx > MINIMUM+32 && hx < MINIMUM+LENGTH-32 && hz > MINIMUM+32 && hz < MINIMUM+LENGTH-32 then  // not at edge of bounds
-            if bestHighPoints |> Seq.forall (fun ((ex,ez),_,_,_s) -> distance2(ex,ez,hx,hz) > STRUCTURE_SPACING*STRUCTURE_SPACING) then
-                if decorations |> Seq.forall (fun (_,ex,ez) -> distance2(ex,ez,hx,hz) > DECORATION_SPACING*DECORATION_SPACING) then
-                    bestHighPoints.Add( ((hx,hz),a,b,score(hx,hz)) )
+        if bestHighPoints |> Seq.forall (fun ((ex,ez),_,_,_s) -> distance2(ex,ez,hx,hz) > STRUCTURE_SPACING*STRUCTURE_SPACING) then
+            if decorations |> Seq.forall (fun (_,ex,ez) -> distance2(ex,ez,hx,hz) > DECORATION_SPACING*DECORATION_SPACING) then
+                bestHighPoints.Add( ((hx,hz),a,b,score(hx,hz)) )
     bestHighPoints  // [(point, lo-bound-of-CC, hi-bound-of-CC, score)]
 
 let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),_)) =
@@ -1150,6 +1149,8 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                 yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:elytra"); End |]
                 // jump boost pots
                 for slot in [2uy;3uy;4uy;5uy;6uy;11uy;12uy;14uy;15uy] do
+                    // TODO give name/lore to be clear what they do
+                    // TODO stack them?
                     yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",100);End|]|]);End|]|>ResizeArray); End |]
                 yield [| Byte("Slot",21uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|
                             Compound("display",[|String("Name","Monument Block: Purpur Block");End|] |> ResizeArray)
@@ -1240,6 +1241,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
     printfn ""
     let bestFlatPoints = findBestPeaksAlgorithm(a,2000,3000,D,0,decorations)
     let RADIUS = 40
+    let BEDROCK_HEIGHT = 127
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_FLAT*SPAWN_PROTECTION_DISTANCE_FLAT)
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
     let allFlatPoints = bestFlatPoints |> Seq.toArray 
@@ -1256,6 +1258,8 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
         log.LogSummary(sprintf "added flat set piece (score %d) at %d %d" s x z)
         let spawners = SpawnerAccumulator("spawners around cobweb flat")
         let y = hm.[x,z]
+        if y > BEDROCK_HEIGHT - 10 then
+            failwith "unexpected very high flat dungeon"
         putTreasureBoxWithItemsAt(map,x,y,z,[|
                 [| Byte("Slot",12uy); Byte("Count",1uy); String("id","end_bricks"); Compound("tag", [|
                         Compound("display",[|String("Name","Monument Block: End Stone Brick");End|] |> ResizeArray)
@@ -1282,7 +1286,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
         spawners.Add(ms)
         for dx = -3 to 3 do
             for dz = -3 to 3 do
-                map.SetBlockIDAndDamage(x+dx, y+6, z+dz, 7uy, 0uy) // 7 = bedrock ceiling // TODO heightmap, blocklight, skylight
+                map.SetBlockIDAndDamage(x+dx, y+6, z+dz, 7uy, 0uy) // 7 = bedrock ceiling
         // surround with danger
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
@@ -1296,12 +1300,19 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                         let z = j
                         let y = hm.[x,z] + rng.Next(2)
                         if rng.Next(12+dist/2) = 0 then
-                            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+                            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
                             let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
                             spawners.Add(ms)
                         elif rng.Next(3) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
+                    elif rng.Next(100) = 0 then
+                        putThingRecomputeLight(i,hm.[i,j],j,map,"redstone_torch",5) 
         spawners.AddToMapAndLog(map,log)
+        let CR = RADIUS+7 // ceiling radius
+        for i = x-CR to x+CR do
+            for j = z-CR to z+CR do
+                map.SetBlockIDAndDamage(i,BEDROCK_HEIGHT,j,7uy,0uy) // 7 = bedrock
+                hm.[i,j] <- BEDROCK_HEIGHT
     // decorate map with set piece
     for (cx,cz),_,_,s in nextBestFlatPoints do
         // TODO alternate mob/loot loadouts
@@ -1309,7 +1320,10 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
         decorations.Add('S',cx,cz)
         log.LogSummary(sprintf "added set piece (score %d) at %d %d" s cx cz)
         let spawners = SpawnerAccumulator("spawners around set piece")
-        let ROUT,RMID,RIN = 11,7,1
+        let ROUT,RMID = 11,7
+        let y = hm.[cx,cz] 
+        if y > BEDROCK_HEIGHT - 18 then
+            failwith "unexpected very high flat set piece"
         for x = cx-ROUT to cx+ROUT do
             for z = cz-ROUT to cz+ROUT do
                 if ((x=cx-ROUT || x=cx+ROUT) && (z<=cz-RMID+3 || z>=cz+RMID-3)) ||
@@ -1321,21 +1335,25 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                     for y = hm.[x,z] to hm.[x,z]+7 do
                         map.SetBlockIDAndDamage(x,y,z,20uy,0uy) // 20=glass
                 makeAreaHard(map,x,z)
-        let y = hm.[cx,cz] 
         let chestItems = // smite V diamond sword
             [| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:diamond_sword"); Compound("tag", [|List("ench",Compounds[|[|Short("id",17s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
                [| Byte("Count", 1uy); Byte("Slot", 22uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
         putTreasureBoxAtCore(map,cx,y+4,cz,null,0L,chestItems,49uy,0uy,20uy,0uy,1) // 49=obsidian, 20=glass
         for x,z in [cx-2,cz-2; cx-2,cz+2; cx+2,cz-2; cx+2,cz+2] do
-            runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Skeleton ~ ~1 ~ {SkeletonType:1b,PersistenceRequired:1b}")
+            runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Skeleton ~ ~1 ~ {HandItems:[{id:iron_sword,Count:1},{}],SkeletonType:1b,PersistenceRequired:1b}")
         for x,z in [cx-2,cz; cx+2,cz] do
             runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Witch ~ ~1 ~ {PersistenceRequired:1b}")
         for x,z in [cx-RMID,cz-RMID; cx-RMID,cz+RMID; cx+RMID,cz-RMID; cx+RMID,cz+RMID] do
-            map.SetBlockIDAndDamage(x, hm.[x,z], z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
-            spawners.Add(FLAT_SET_PIECE_SPAWNER_DATA.NextSpawnerAt(x,hm.[x,z],z,rng))
-            map.SetBlockIDAndDamage(x, y+16, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+            putThingRecomputeLight(x,hm.[x,z],z,map,"redstone_torch",5) 
+            map.SetBlockIDAndDamage(x, hm.[x,z]+1, z, 52uy, 0uy) // 52 = monster spawner
+            spawners.Add(FLAT_SET_PIECE_SPAWNER_DATA.NextSpawnerAt(x,hm.[x,z]+1,z,rng))
+            map.SetBlockIDAndDamage(x, y+16, z, 52uy, 0uy) // 52 = monster spawner
             spawners.Add(new MobSpawnerInfo(x=x,y=y+16,z=z,BasicMob="Ghast",Delay=1s)) // "ceiling protection" to dissuade cheesing it from above
         spawners.AddToMapAndLog(map,log)
+        for x = cx-ROUT to cx+ROUT do
+            for z = cz-ROUT to cz+ROUT do
+                map.SetBlockIDAndDamage(x,BEDROCK_HEIGHT,z,7uy,0uy) // 7 = bedrock
+                hm.[x,z] <- BEDROCK_HEIGHT
     ()
 
 let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
@@ -1387,13 +1405,14 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         lootLocations.Add(x,y,z)
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
+    // TODO consider fun names for each kind of chest (a la /help command)
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         if x%200 = 0 then
             printfn "%d" x
         for z = MINIMUM to MINIMUM+LENGTH-1 do
             let mutable nearDecoration = false
             for _,dx,dz in decorations do
-                if (x-dx)*(x-dx) + (z-dz)*(z-dz) < 50*50 then // TODO distance constant
+                if (x-dx)*(x-dx) + (z-dz)*(z-dz) < RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION*RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION then
                     nearDecoration <- true
             if not nearDecoration then
                 for y = 90 downto 64 do
@@ -1589,9 +1608,8 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
             for y = 60 to h do
                 map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
             putGlowstoneRecomputeLight(x,h+1,z,map)
-    R(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // TODO multiplayer?
     R(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DAYLIGHT_RADIUS)
-    // TODO first time enter night, give a message explaining?
+    R(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit flat set pieces)
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
     //I("gamerule keepInventory true")

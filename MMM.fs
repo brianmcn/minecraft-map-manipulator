@@ -2549,6 +2549,12 @@ let chatToVoiceDemo() =
         printfn "press q <enter> to quit" 
         let rec sendloop() = 
             let i = System.Console.ReadLine() 
+            if i = "go" then
+                for i = 1 to 9 do
+                    minecraftStdin.WriteLine("execute @p ~ ~ ~ tp @e[type=Villager] ~ ~ ~ ~10 ~")
+                    minecraftStdin.WriteLine("execute @p ~ ~ ~ tp @e[type=Villager] ~ ~ ~0.11 ~ ~")
+                    minecraftStdin.Flush()
+                    System.Threading.Thread.Sleep(100)
             if i <> "q" then 
                 inputEvents.Add(CONSOLE i) 
                 sendloop() 
@@ -2661,7 +2667,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2671,7 +2677,7 @@ do
 
     //musicStuff()
     //plotRegionalDifficulty()
-    chatToVoiceDemo()
+    //chatToVoiceDemo()
 
 
     printfn "press a key to end"
@@ -2686,6 +2692,7 @@ do
     // TODO: bugs & good ideas
     // still hard to get init bow
     // note to self: craft gapples next time
+    // start with enderchest at spawn
 
     // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
@@ -2715,8 +2722,9 @@ do
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
     // TODOs and refactorings...
-    // SMP-loot?
+    // SMP-loot? mob drops probably work out ok, main thing is probably dungeon loot chests, which will bottleneck more in SMP...
     // return to spawn from teleporter, villagers don't immediately appear on client?
+    // noisemaker noteblock troll underground?
 
 
     // other ideas
