@@ -74,8 +74,7 @@ let debugRegion() =
                 
 ////////////////////////////////////////////
 
-let putChestCore(x,y,z,chestBid,chestDmg,items,customName,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
-    map.SetBlockIDAndDamage(x,y,z,chestBid,chestDmg)
+let chestTE(x,y,z,items,customName,lootTable,lootTableSeed) =
     let te = [| yield Int("x",x); yield Int("y",y); yield Int("z",z)
                 yield String("id","Chest"); yield String("Lock",""); 
                 yield List("Items",items)
@@ -84,6 +83,11 @@ let putChestCore(x,y,z,chestBid,chestDmg,items,customName,lootTable,lootTableSee
                     yield String("LootTable",lootTable)
                     yield Long("LootTableSeed",lootTableSeed)
                 yield End |]
+    te
+
+let putChestCore(x,y,z,chestBid,chestDmg,items,customName,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
+    map.SetBlockIDAndDamage(x,y,z,chestBid,chestDmg)
+    let te = chestTE(x,y,z,items,customName,lootTable,lootTableSeed)
     if tileEntities <> null then
         tileEntities.Add( te )
     else
@@ -695,7 +699,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
                     map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
                     // put treasure at bottom end
-                    putTreasureBoxAt(map,sx,sy,sz,sprintf "%s:chests/tier3" LootTables.LOOT_NS_PREFIX,int64(rng.Next()))
+                    putTreasureBoxWithItemsAt(map,sx,sy,sz,LootTables.NEWsampleTier3Chest(rng))
                     if thisIsFinal then
                         thisIsFinal <- false
                         hasDoneFinal <- true
@@ -865,6 +869,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
     let HIY = 120
     let spawners1 = SpawnerAccumulator("rand spawners from granite")
     let spawners2 = SpawnerAccumulator("rand spawners from redstone")
+    let chestTEs = ResizeArray()
     printf "SUBST"
     for y = LOY to HIY do
         printf "."
@@ -895,10 +900,41 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
                         if rng.Next(15) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
+                    elif bid = 54uy then // chest // TODO assuming all chests are dungeon chests, no verification
+                        chestTEs.Add( chestTE(x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng)),"Spooky dungeon loot",null,0L) )
     log.LogSummary("added random spawners underground")
     spawners1.AddToMapAndLog(map,log)
     spawners2.AddToMapAndLog(map,log)
-    printfn ""
+    map.AddOrReplaceTileEntities(chestTEs)
+    printfn "substituting MinecartChest loot..."
+    for rx in [-2..1] do
+        for rz in [-2..1] do
+            let r = map.GetRegion(rx*512,rz*512)
+            printfn "%d %d" rx rz
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    let chunk = r.GetChunk(cx,cz)
+                    let a = match chunk with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
+                    let mutable found = false
+                    let mutable i = 0
+                    while not found && i < a.Count-1 do
+                        match a.[i] with
+                        | List("Entities",Compounds(existingEs)) ->
+                            found <- true
+                            for j = 0 to existingEs.Length-1 do
+                                let ent = existingEs.[j]
+                                if ent |> Array.exists (function String("id","MinecartChest") -> true | _ -> false) then
+                                    for k = 0 to ent.Length-1 do
+                                        match ent.[k] with
+                                        | String("LootTable",_) ->
+                                            ent.[k] <- List("Items", Compounds(LootTables.NEWsampleTier2Chest(rng)))
+                                        | Long("LootTableSeed",_) ->
+                                            ent.[k] <- String("DummyTag","unused")
+                                        | _ -> ()
+                                    //printfn "found MC near %d %d" (rx*512+cx*16) (rz*512+cz*16)
+                        | _ -> ()
+                        i <- i + 1
+    printfn "...done!"
 
 let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLog, biome:_[,], allTrees:ResizeArray<MCTree>) =
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -1181,12 +1217,8 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                             [| 
                                """{"text":"The secret treasure is buried at\nX : ","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":"\nZ : "},{"score":{"name":"Z","objective":"hidden"}}]}"""
                             |]) |> ResizeArray); End |]
-                [| Byte("Slot",14uy); Byte("Count",1uy); String("id","chest"); Compound("tag", [|
-                        Compound("display",[|String("Name","Mountain Peak Loot");End|] |> ResizeArray)
-                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier5" LootTables.LOOT_NS_PREFIX);Long("LootTableSeed",int64(rng.Next()));End|] |> ResizeArray)
-                        End
-                    |] |> ResizeArray); End |]
-            |]) // TODO heightmap, blocklight, skylight
+                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems("Mountain Peak Loot",LootTables.NEWsampleTier5Chest(rng)) |]
+            |])
         putThingRecomputeLight(x-2,y+4,z-2,map,"redstone_torch",5) 
         putThingRecomputeLight(x-2,y+4,z+2,map,"redstone_torch",5) 
         putThingRecomputeLight(x+2,y+4,z-2,map,"redstone_torch",5) 
@@ -1265,22 +1297,18 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                         Compound("display",[|String("Name","Monument Block: End Stone Brick");End|] |> ResizeArray)
                         End
                     |] |> ResizeArray); End |]
-                [| Byte("Slot",14uy); Byte("Count",1uy); String("id","chest"); Compound("tag", [|
-                        Compound("display",[|String("Name","Red Beacon Web Loot");End|] |> ResizeArray)
-                        Compound("BlockEntityTag",[|String("LootTable",sprintf "%s:chests/tier4" LootTables.LOOT_NS_PREFIX);Long("LootTableSeed",int64(rng.Next()));End|] |> ResizeArray)
-                        End
-                    |] |> ResizeArray); End |]
-            |]) // TODO heightmap, blocklight, skylight
+                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems("Red Beacon Web Loot",LootTables.NEWsampleTier4Chest(rng)) |]
+            |])
         map.SetBlockIDAndDamage(x,y+3,z,20uy,0uy) // glass (replace roof of box so beacon works)
         putBeaconAt(map,x,y,z,14uy,false) // 14 = red
         // add blazes atop
         for (dx,dz) in [-3,-3; -3,3; 3,-3; 3,3] do
             let x,y,z = x+dx, y+5, z+dz
-            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
             let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Blaze", Delay=1s)
             spawners.Add(ms)
         // add a spider jockey too
-        map.SetBlockIDAndDamage(x, y+5, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+        map.SetBlockIDAndDamage(x, y+5, z, 52uy, 0uy) // 52 = monster spawner
         let ms = MobSpawnerInfo(x=x, y=y+6, z=z, BasicMob="Spider", Delay=1s)
         ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
         spawners.Add(ms)
@@ -1399,9 +1427,12 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         map.GetBlockInfo(x-1,y,z).BlockID = plus &&
         map.GetBlockInfo(x,y,z+1).BlockID = plus &&
         map.GetBlockInfo(x,y,z-1).BlockID = plus
-    let putTrappedChestWithLoot(x,y,z,chestName) =
-        let lootTable = sprintf "%s:chests/%s" LootTables.LOOT_NS_PREFIX chestName
-        putTrappedChestWithLootTableAt(x,y,z,"Lootz!",lootTable,int64(rng.Next()),map,tileEntities)
+    let putTrappedChestWithLoot(x,y,z,tier) =
+        let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng)
+                    elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng)
+                    elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng)
+                    else failwith "bad aesthetic tier"
+        putTrappedChestWithItemsAt(x,y,z,"Lootz!",Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z)
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
@@ -1424,7 +1455,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             if noneWithin(50,points.[0],x,y,z) then
                                 let x = if rng.Next(2) = 0 then x-1 else x+1
                                 let z = if rng.Next(2) = 0 then z-1 else z+1
-                                putTrappedChestWithLoot(x,y,z,"aesthetic1")
+                                putTrappedChestWithLoot(x,y,z,1)
                                 points.[0].Add( (x,y,z) )
                     elif bid = 18uy && checkForPlus(x,y,z,0uy,18uy) 
                          || bid = 161uy && checkForPlus(x,y,z,0uy,161uy) then // 18=leaves, 161=leaves2
@@ -1434,7 +1465,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
                                 if noneWithin(120,points.[1],x,y,z) then
-                                    putTrappedChestWithLoot(x,y,z,"aesthetic1")
+                                    putTrappedChestWithLoot(x,y,z,1)
                                     points.[1].Add( (x,y,z) )
                     elif bid = 86uy then // 86 = pumpkin
                         let dmg = map.GetBlockInfo(x,y,z).BlockData
@@ -1444,7 +1475,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                 putThingRecomputeLight(x,y,z,map,"lit_pumpkin",int dmg) // replace with jack'o'lantern  // TODO found one, was not giving off light, hm
                                 // chest below
                                 let y = y - 1
-                                putTrappedChestWithLoot(x,y,z,"aesthetic2")
+                                putTrappedChestWithLoot(x,y,z,2)
                                 points.[2].Add( (x,y,z) )
                     elif bid = 9uy && bi.BlockData = 0uy then  // water falling straight down has different damage value, only want sources
                         if y >= hm.[x,z]-1 then // 9=water, at top of heightmap (-1 because lake surface is actually just below heightmap)
@@ -1462,7 +1493,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         // TODO where put? bottom? any light cue? ...
                                         // for now just under water
                                         let y = y - 1
-                                        putTrappedChestWithLoot(x,y,z,"aesthetic2")
+                                        putTrappedChestWithLoot(x,y,z,2)
                                         points.[3].Add( (x,y,z) )
                     elif bid = 12uy then // 12=sand
                         if y >= hm.[x,z]-1 then // at top of heightmap (-1 because surface is actually just below heightmap)
@@ -1479,7 +1510,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z-1,81uy,0uy)  // cactus
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z+1,81uy,0uy)  // cactus
                                             // put chest
-                                            putTrappedChestWithLoot(x,y,z,"aesthetic1")
+                                            putTrappedChestWithLoot(x,y,z,1)
                                             points.[4].Add( (x,y,z) )
                                             // TODO sometimes be a trap
                     elif bid = 9uy && bi.BlockData <> 0uy || bid = 8uy then  // flowing water
@@ -1503,12 +1534,12 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                 if hmIgnoringLeaves.[cx,cz] <= cy+1 then
                                                     printfn "found waterfall top at %d %d %d" nx ny nz
                                                     // chest below
-                                                    putTrappedChestWithLoot(nx,ny-1,nz,"aesthetic2")
+                                                    putTrappedChestWithLoot(nx,ny-1,nz,2)
                                                     points.[5].Add( (nx,ny-1,nz) )
                                                 else
                                                     printfn "ignoring waterfall top at %d %d %d because underground" nx ny nz // no harm in placing chests there, but probably no one will find them, prefer to have count of findable ones; in one map, 24 of 72 waterfall tops were on surface
                     elif bid = 100uy && bi.BlockData = 5uy then  // 100=red_mushroom_block, 5=red only on top-center
-                        putTrappedChestWithLoot(x,y,z,"aesthetic1")
+                        putTrappedChestWithLoot(x,y,z,1)
                         points.[6].Add( (x,y,z) )
                     else
                         () // TODO other stuff
@@ -1574,7 +1605,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     map.AddEntities(ents)
                                     // place hidden trapped chest
                                     let x,y,z = x+9,y-5,z+6  // below the 'X'
-                                    putTrappedChestWithLoot(x,y,z,"aesthetic3")
+                                    putTrappedChestWithLoot(x,y,z,3)
                                     points.[19].Add( (x,y,z) )
             // end if not near deco
         // end for z

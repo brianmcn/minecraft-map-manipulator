@@ -132,6 +132,7 @@ let OneOfAtNPercent(entryData, n, conds) =
     P11[yield (Empty, weight, 0, []); for ed in entryData do yield (ed, n, 0, conds)]
 
 
+(*
 // aesthetic item drops
 let LOOT_AESTHETIC_CHESTS =
     [|
@@ -202,6 +203,7 @@ let LOOT_AESTHETIC_CHESTS =
                OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_chestplate",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:diamond_leggings",[])],100,[])
                ]
     |] 
+*)
 
 // TODO was noting that RNG is not always kind; may get lots of armor and never get leggings.  I could flatten it out if I did something like:
 //        - instead of armor pieces, drop an 'armor token' item
@@ -415,6 +417,8 @@ let LOOT_FROM_DEFAULT_MOBS =
 let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
 let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
 
+// TODO remove sample tier chests
+(*
 let sampleTier2Chest = // dungeons and mineshafts
         Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
                Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
@@ -469,6 +473,7 @@ let sampleTier5Chest = // mountain peak loot
                Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
                Pool(Roll(1,1),[LootTable(LOOT_FORMAT"food"5),1,0, []])
              ]
+*)
 let noFishingForYou =
         Pools[ Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
                                             """{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to donate!"}""" // TODO donate link?
@@ -476,16 +481,8 @@ let noFishingForYou =
 
 let LOOT_FROM_DEFAULT_CHESTS =
     [|
-        "minecraft:chests/simple_dungeon", sampleTier2Chest
-        "minecraft:chests/abandoned_mineshaft", sampleTier2Chest
         "minecraft:gameplay/fishing", noFishingForYou
         // hack to get mine there
-        sprintf "%s:chests/tier3" LOOT_NS_PREFIX, sampleTier3Chest 
-        sprintf "%s:chests/tier4" LOOT_NS_PREFIX, sampleTier4Chest 
-        sprintf "%s:chests/tier5" LOOT_NS_PREFIX, sampleTier5Chest 
-        sprintf "%s:chests/aesthetic1" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[0]
-        sprintf "%s:chests/aesthetic2" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[1]
-        sprintf "%s:chests/aesthetic3" LOOT_NS_PREFIX, LOOT_AESTHETIC_CHESTS.[2]   // TODO refactor %s:%s/%s%d naming into constants/enums/etc
     |]
 
 let writeLootTables(tables, worldSaveFolder) =
@@ -546,16 +543,24 @@ let INF(lvls) = 51, Seq.toArray lvls
 open NBT_Manipulation
 
 let makeItem(rng:System.Random,name,min,max,dmg) =
-    [| String("id",name); Byte("Count", byte(min+rng.Next(max-min+1))); Short("Damage",dmg); End |]
-let makeChestItemWithNBTItems(name,lores,items) =
+    [| String("id","minecraft:"+name); Byte("Count", byte(min+rng.Next(max-min+1))); Short("Damage",dmg); End |]
+let INNER_CHEST_LORE = [|"Place this chest"; "and open it"; "for more loot"|]
+let makeChestItemWithNBTItems(name,items) =
     [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:chest"); Compound("tag", [
-                Compound("display",[String("Name",name);List("Lore",Strings lores);End]|>ResizeArray);
+                Compound("display",[String("Name",name);List("Lore",Strings INNER_CHEST_LORE);End]|>ResizeArray);
                 Compound("BlockEntityTag", [List("Items",Compounds items);End] |> ResizeArray); End] |> ResizeArray); End |]
 let makeBookWithIdLvl(id, lvl) =
     [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:enchanted_book"); Compound("tag", [|List("StoredEnchantments",Compounds[|[|Short("id",int16 id);Short("lvl",int16 lvl);End|]|]); End |] |> ResizeArray); End |]
 let chooseNbooks(rng:System.Random,n,a) =
     let r = Algorithms.pickNnonindependently(rng, n, a)
     r |> Array.map (fun (id,lvls:_[]) -> makeBookWithIdLvl(id, lvls.[rng.Next(lvls.Length)]))
+let addSlotTags(items) =
+    let slot = ref 0uy
+    [|
+        for item in items do
+            yield Seq.append [Byte("Slot",!slot)] item |> Seq.toArray 
+            slot := !slot + 1uy
+    |]
 
 let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
     let tier2ArmorBooks = [PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]]
@@ -579,16 +584,8 @@ let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
                                             """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
                                         |]) |> ResizeArray); End |]
         |]
-    let slot = ref 0uy
-    let finalItems = 
-        [|
-            for item in tier2Items do
-                yield Seq.append [Byte("Slot",!slot)] item |> Seq.toArray 
-                slot := !slot + 1uy
-        |]
-    finalItems
+    addSlotTags tier2Items 
 
-let INNER_CHEST_LORE = [|"Place this chest"; "and open it"; "for more loot"|]
 let NEWsampleTier3Chest(rng:System.Random) = // green beacon
     let tier3ArmorBooks = [PROT[1..3]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier3MeleeBooks = [SHARP[1..3]; SMITE[2..4]; BOA[2..4]; KNOCK[2]]
@@ -603,8 +600,8 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
             yield! chooseNbooks(rng,2,tier3UtilBooks)
             yield! chooseNbooks(rng,2,tier3BowBooks)
             yield makeItem(rng,"anvil",3,5,2s)
-            yield makeChestItemWithNBTItems("Dungeon Loot",INNER_CHEST_LORE,NEWsampleTier2Chest(rng))
-            yield makeChestItemWithNBTItems("Dungeon Loot",INNER_CHEST_LORE,NEWsampleTier2Chest(rng))
+            yield makeChestItemWithNBTItems("Dungeon Loot",NEWsampleTier2Chest(rng))
+            yield makeChestItemWithNBTItems("Dungeon Loot",NEWsampleTier2Chest(rng))
             yield makeItem(rng,"experience_bottle",64,64,0s)
             yield makeItem(rng,"diamond_pickaxe",1,1,0s)
             yield makeItem(rng,"diamond_sword",1,1,0s)
@@ -615,13 +612,119 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
                                             """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
                                         |]) |> ResizeArray); End |]
         |]
-    let slot = ref 0uy
-    let finalItems = 
+    addSlotTags tier3Items 
+
+let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
+    let tier4ArmorBooks = [PROT[3..4]; BP[3..4]; PROJ[3..4]]
+    let tier4MeleeBooks = [SHARP[4..5]; SMITE[5]; BOA[5]]
+    let tier4UtilBooks = [EFF[5]; UNBR[3]; MEND[1]]
+    let tier4BowBooks = [POW[4..5]; PUNCH[2]; INF[1]]
+    let tier4Items =
         [|
-            for item in tier3Items do
-                yield Seq.append [Byte("Slot",!slot)] item |> Seq.toArray 
-                slot := !slot + 1uy
+            yield! chooseNbooks(rng,2,tier4ArmorBooks)
+            yield! chooseNbooks(rng,2,tier4MeleeBooks)
+            yield! chooseNbooks(rng,3,tier4UtilBooks)
+            yield! chooseNbooks(rng,2,tier4BowBooks)
+            yield makeItem(rng,"anvil",3,5,2s)
+            yield makeChestItemWithNBTItems("Green Beacon Cave Loot",NEWsampleTier3Chest(rng))
+            yield makeItem(rng,"diamond",20,30,0s)
+            yield makeItem(rng,"golden_apple",9,14,0s)
+            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","3. After red beacon webs",[|
+                                            """{"text":"Once strong enough, attack dangerous-looking mountain peaks with glassed loot boxes to get a map to the best treasure!"}"""
+                                        |]) |> ResizeArray); End |]
         |]
-    finalItems
+    addSlotTags tier4Items 
 
+let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
+    let tier5Items =
+        [|
+            yield makeChestItemWithNBTItems("Red Beacon Web Loot",NEWsampleTier4Chest(rng))
+            yield makeChestItemWithNBTItems("Red Beacon Web Loot",NEWsampleTier4Chest(rng))
+            yield makeItem(rng,"experience_bottle",64,64,0s)
+            yield makeItem(rng,"experience_bottle",64,64,0s)
+        |]
+    addSlotTags tier5Items 
 
+let NEWaestheticTier1Chest(rng:System.Random) =
+    let items =
+        [|  // blocks
+            yield! Algorithms.pickNnonindependently(rng,3,[
+                makeItem(rng,"stone",64,64,1s) // granite
+                makeItem(rng,"stone",64,64,3s) // diorite
+                makeItem(rng,"brick_block",64,64,0s)
+                makeItem(rng,"hardened_clay",64,64,0s)
+                makeItem(rng,"netherrack",64,64,0s)
+                ])
+            // fun
+            yield makeItem(rng,"name_tag",3,10,0s)
+            // utility blocks
+            yield! Algorithms.pickNnonindependently(rng,3,[
+                makeItem(rng,"log",64,64,0s) // oak
+                makeItem(rng,"log",64,64,1s) // spruce
+                makeItem(rng,"log",64,64,2s) // birch
+                makeItem(rng,"log",64,64,3s) // jungle
+                makeItem(rng,"log2",64,64,0s) // acacia
+                makeItem(rng,"log2",64,64,1s) // dark oak
+                ])
+            // tradeable
+            yield makeItem(rng,"emerald",1,1,0s)
+            // useful (dungeon-chest book list)
+            yield! chooseNbooks(rng,2,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+        |]
+    addSlotTags items 
+
+let NEWaestheticTier2Chest(rng:System.Random) =
+    let items =
+        [|  // blocks
+            yield! Algorithms.pickNnonindependently(rng,4,[
+                makeItem(rng,"bookshelf",64,64,0s)
+                makeItem(rng,"glass",64,64,0s)
+                makeItem(rng,"glowstone",64,64,0s)
+                ])
+            // fun
+            yield makeItem(rng,"jukebox",1,1,0s)
+            yield! Algorithms.pickNnonindependently(rng,4,[
+                    makeItem(rng,"record_13",1,1,0s)
+                    makeItem(rng,"record_cat",1,1,0s)
+                    makeItem(rng,"record_blocks",1,1,0s)
+                    makeItem(rng,"record_chirp",1,1,0s)
+                    makeItem(rng,"record_far",1,1,0s)
+                    makeItem(rng,"record_mall",1,1,0s)
+                    makeItem(rng,"record_mellohi",1,1,0s)
+                    makeItem(rng,"record_stal",1,1,0s)
+                    makeItem(rng,"record_strad",1,1,0s)
+                    makeItem(rng,"record_ward",1,1,0s)
+                    makeItem(rng,"record_11",1,1,0s)
+                    makeItem(rng,"record_wait",1,1,0s)
+                    ])
+            // rail & redstone
+            yield makeItem(rng,"rail",64,64,0s)
+            yield makeItem(rng,"rail",64,64,0s)
+            yield makeItem(rng,"golden_rail",64,64,0s)
+            yield makeItem(rng,"redstone_block",64,64,0s)
+            yield! Algorithms.pickNnonindependently(rng,2,[
+                    makeItem(rng,"comparator",64,64,0s)
+                    makeItem(rng,"piston",64,64,0s)
+                    makeItem(rng,"slime_block",64,64,0s)
+                    ])
+            // tradeable
+            yield makeItem(rng,"emerald",1,1,0s)
+            // useful (dungeon-chest book list)
+            yield! chooseNbooks(rng,3,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+        |]
+    addSlotTags items 
+
+let NEWaestheticTier3Chest(rng:System.Random) =
+    let items =
+        [|  // blocks
+            yield! Algorithms.pickNnonindependently(rng,3,[
+                makeItem(rng,"quartz_block",64,64,0s)
+                makeItem(rng,"prismarine",64,64,0s)
+                makeItem(rng,"sea_lantern",64,64,0s)
+                makeItem(rng,"hay_block",64,64,0s)
+                ])
+            // other chests
+            yield makeChestItemWithNBTItems("Basic Blocks",NEWaestheticTier1Chest(rng))
+            yield makeChestItemWithNBTItems("Nicer blocks and fun",NEWaestheticTier2Chest(rng))
+        |]
+    addSlotTags items 

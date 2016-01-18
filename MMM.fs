@@ -2667,7 +2667,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2678,15 +2678,17 @@ do
     //musicStuff()
     //plotRegionalDifficulty()
     //chatToVoiceDemo()
+    (*
     let map = new MapFolder(worldSaveFolder+"""\region\""")
     let rng = new System.Random()
     map.EnsureSetBlockIDAndDamage(1,100,1,0uy,0uy)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,1,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,3,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,5,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,7,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,9,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,1,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,3,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,5,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,7,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,9,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
     map.WriteAll()
+    *)
 
     printfn "press a key to end"
     System.Console.Beep()
@@ -2704,6 +2706,7 @@ do
     // test if teleporters get discovered
     // test if peaks (hmDiffPerCC value) look ok
     // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
+    // test dungeon/aband chests have right loot
 
 
     // TODO: bugs & good ideas
