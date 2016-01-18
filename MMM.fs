@@ -2706,23 +2706,14 @@ do
     // test if teleporters get discovered
     // test if peaks (hmDiffPerCC value) look ok
     // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
-    // test dungeon/aband chests have right loot
+    // test SMP loot balance
 
 
     // TODO: bugs & good ideas
-    // even aesthetic chests should have e.g. one ench book in them, to make fun/worth finding for mechanical player (possibly better loot farther from spawn)
-    // lapis in map (places other than loot box?) for enchanters?
+    // SMP-loot for elytra (just give 3 and stack jump pots?)
     // remove bingo's spammable iron sword
     // still hard to get init bow
     // note to self: craft gapples next time
-    // start with enderchest at spawn
-    // SMP-loot? starting loot? mob drops probably work out ok, main thing is probably dungeon loot chests, which will bottleneck more in SMP... (elytra?!?)
-    // my books have 1 enchant, may be better to have 2 or 3, and manual book sets?
-    //  - actually just flatten the randomness, pick from array of choices, each pick increment counter, when picked, reroll if rng(counter)<>0
-    //  - rewrite all dungeon/mineshaft chests from LootTable to my loot
-    //  - rewrite all things that populate with tier3-5, aest1-3 as well as inner simple_dungeon to instead populate with item nbt (inner chests have huge nbt)
-    //  - probably multiply books/ingots/bottles/food
-    //  - quit writing old loot table chests to disk (but preserve fishing)
     // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?

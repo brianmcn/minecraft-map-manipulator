@@ -83,6 +83,19 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
                                             MinSpawnDelay=200s, MaxSpawnDelay=400s) // 10-20s, rather than 10-40s
 
 
+
+let SINGLEPLAYER = false //true
+let LOOT_FUNCTION(n) =
+    if SINGLEPLAYER then
+        n
+    else
+        match n with
+        | 0 -> 0
+        | 1 -> 2
+        | 2 -> 3
+        | 3 -> 5
+        | _ -> int (float n * 1.5)
+
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
 // TODO freq of random loot chests? (may interact with trades by having emeralds, may contain gapples or occasional OP weapon/armor? ...)

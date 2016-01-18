@@ -94,16 +94,16 @@ let putChestCore(x,y,z,chestBid,chestDmg,items,customName,lootTable,lootTableSee
         map.AddOrReplaceTileEntities[| te |]
 
 let putTrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,map,tileEntities) =
-    putChestCore(x,y,z,146uy,2uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 146=trapped chest
+    putChestCore(x,y,z,146uy,3uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 146=trapped chest
 
 let putUntrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,map,tileEntities) =
-    putChestCore(x,y,z,54uy,2uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 54=(non-trapped) chest
+    putChestCore(x,y,z,54uy,3uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 54=(non-trapped) chest
 
 let putTrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
-    putChestCore(x,y,z,146uy,2uy,items,customName,null,0L,map,tileEntities)  // 146=trapped chest
+    putChestCore(x,y,z,146uy,3uy,items,customName,null,0L,map,tileEntities)  // 146=trapped chest
 
 let putUntrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
-    putChestCore(x,y,z,54uy,2uy,items,customName,null,0L,map,tileEntities)  // 54=(non-trapped) chest
+    putChestCore(x,y,z,54uy,3uy,items,customName,null,0L,map,tileEntities)  // 54=(non-trapped) chest
 
 ///////////////////////////////////////////////
 
@@ -1692,6 +1692,11 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                 yield [| Byte("Count", 1uy); Byte("Slot", 1uy); Short("Damage",0s); String("id","minecraft:shield"); End |]
                 yield [| Byte("Count",10uy); Byte("Slot", 2uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
                 yield [| Byte("Count",64uy); Byte("Slot", 3uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
+                if not CustomizationKnobs.SINGLEPLAYER then
+                    yield [| Byte("Count", 1uy); Byte("Slot", 5uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 6uy); Short("Damage",0s); String("id","minecraft:shield"); End |]
+                    yield [| Byte("Count",10uy); Byte("Slot", 7uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
+                    yield [| Byte("Count",64uy); Byte("Slot", 8uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
                 yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Rules",
                             [|
@@ -1736,6 +1741,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                             |]) |> ResizeArray); End |]
             |]
     putUntrappedChestWithItemsAt(1,h+1,-2,"Welcome!",chestItems,map,null)
+    map.SetBlockIDAndDamage(1,h+2,-2,130uy,3uy) // enderchest
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(0,h-7,0,137uy,0uy)
     map.AddOrReplaceTileEntities([| [| Int("x",0); Int("y",h-7); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 h 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])

@@ -131,80 +131,6 @@ let OneOfAtNPercent(entryData, n, conds) =
     let weight = (entryData |> Seq.length)*(100-n)
     P11[yield (Empty, weight, 0, []); for ed in entryData do yield (ed, n, 0, conds)]
 
-
-(*
-// aesthetic item drops
-let LOOT_AESTHETIC_CHESTS =
-    [|
-        // tier 1
-        Pools [Pool(Roll(6,6), [
-                        // blocks
-                        Item("minecraft:stone",[SetCount(64,64);SetData(1)]), 1, 0, []  // granite
-                        Item("minecraft:stone",[SetCount(64,64);SetData(3)]), 1, 0, []  // diorite
-                        Item("minecraft:brick_block",[SetCount(64,64)]), 1, 0, []
-                        Item("minecraft:hardened_clay",[SetCount(64,64)]), 1, 0, []
-                        Item("minecraft:netherrack",[SetCount(64,64)]), 1, 0, []
-                        // fun
-                        Item("minecraft:name_tag",[SetCount(3,10)]), 1, 0, []
-                    ])
-               Pool(Roll(3,3), [
-                        // utility blocks (pretty, and useful)
-                        Item("minecraft:log",[SetCount(64,64);SetData(0)]), 1, 0, []  // oak
-                        Item("minecraft:log",[SetCount(64,64);SetData(1)]), 1, 0, []  // spruce
-                        Item("minecraft:log",[SetCount(64,64);SetData(2)]), 1, 0, []  // birch
-                        Item("minecraft:log",[SetCount(64,64);SetData(3)]), 1, 0, []  // jungle
-                        Item("minecraft:log2",[SetCount(64,64);SetData(0)]), 1, 0, []  // acacia
-                        Item("minecraft:log2",[SetCount(64,64);SetData(1)]), 1, 0, []  // dark oak
-                        // fun
-                        Item("minecraft:name_tag",[SetCount(3,10)]), 1, 0, []
-                    ])                        // tradeable
-               Pool(Roll(1,1), [Item("minecraft:emerald",[]), 1, 0, []])
-               ]
-        // tier 2
-        Pools [Pool(Roll(6,6), [
-                        // blocks
-                        Item("minecraft:bookshelf",[SetCount(64,64)]), 1, 0, []
-                        Item("minecraft:glass",[SetCount(64,64)]), 1, 0, []
-                        Item("minecraft:glowstone",[SetCount(64,64)]), 1, 0, []
-                        ])
-                        // fun
-               Pool(Roll(1,1), [Item("minecraft:jukebox",[]), 1, 0, []])
-               Pool(Roll(3,3), [
-                        Item("minecraft:record_13",[]), 1, 0, []
-                        Item("minecraft:record_cat",[]), 1, 0, []
-                        Item("minecraft:record_blocks",[]), 1, 0, []
-                        Item("minecraft:record_chirp",[]), 1, 0, []
-                        Item("minecraft:record_far",[]), 1, 0, []
-                        Item("minecraft:record_mall",[]), 1, 0, []
-                        Item("minecraft:record_mellohi",[]), 1, 0, []
-                        Item("minecraft:record_stal",[]), 1, 0, []
-                        Item("minecraft:record_strad",[]), 1, 0, []
-                        Item("minecraft:record_ward",[]), 1, 0, []
-                        Item("minecraft:record_11",[]), 1, 0, []
-                        Item("minecraft:record_wait",[]), 1, 0, []
-                        ])
-                        // rail
-               Pool(Roll(2,2), [Item("minecraft:rail",[SetCount(64,64)]), 1, 0, []])
-               Pool(Roll(2,2), [Item("minecraft:golden_rail",[SetCount(64,64)]), 1, 0, []])
-               Pool(Roll(2,2), [Item("minecraft:redstone_block",[SetCount(64,64)]), 1, 0, []]) // TODO comparators/quartz/pistons/slime blocks?
-                        // tradeable
-               Pool(Roll(1,1), [Item("minecraft:emerald",[]), 1, 0, []])
-               ]
-        // tier 3
-        Pools [Pool(Roll(6,6), [
-                        // blocks
-                        Item("minecraft:quartz_block",[SetCount(64,64)]), 1, 0, []
-                        Item("minecraft:prismarine",[SetCount(64,64)]), 1, 0, []
-                        Item("minecraft:sea_lantern",[SetCount(64,64)]), 1, 0, []
-                        Item("minecraft:hay_block",[SetCount(64,64)]), 1, 0, []
-                        ])
-               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Basic blocks\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic1\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Nicer blocks and fun\"},BlockEntityTag:{LootTable:\"%s:chests/aesthetic2\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
-               OneOfAtNPercent([Item("minecraft:diamond_pickaxe",[]);Item("minecraft:diamond_chestplate",[]);Item("minecraft:diamond_axe",[]);Item("minecraft:diamond_leggings",[])],100,[])
-               ]
-    |] 
-*)
-
 // TODO was noting that RNG is not always kind; may get lots of armor and never get leggings.  I could flatten it out if I did something like:
 //        - instead of armor pieces, drop an 'armor token' item
 //        - have a 20Hz cmd that adds a score/tag to the token
@@ -306,51 +232,6 @@ let LOOT_FOOD =
         Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0, []])]
     |]
 
-let enchantmentsInTiers =
-    [|
-        [
-            // tier 1 has none
-        ]
-        [
-            //"fire_protection"    // rarely wanted
-            "feather_falling"
-            "blast_protection"
-            "projectile_protection"
-            //"respiration"        // not very useful this map
-            //"aqua_affinity"      // not very useful this map
-            //"thorns"             // rarely wanted
-            "smite"
-            "bane_of_arthropods"
-            "knockback"
-            "fire_aspect"
-            "efficiency"
-            "silk_touch"
-            //"fortune"            // not very useful this map
-            "power"
-            "punch"
-            "flame"
-            //"depth_strider"      // not very useful this map
-            "frost_walker"
-        ]
-        [
-            "efficiency"
-            "protection"
-            "sharpness"
-//            "looting"  // TODO figure out if/what looting does
-            "unbreaking"
-            "infinity"
-        ]
-        [
-            "protection"
-            "sharpness"
-//            "looting"  // TODO figure out if/what looting does
-            "mending"
-        ]
-    |]
-// unused
-//            "luck_of_the_sea"
-//            "lure"
-
 let tierNLootData n kinds = 
     [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) | BOOKS -> yield LootTable(LOOT_FORMAT"books"n) ]
 let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
@@ -414,66 +295,6 @@ let LOOT_FROM_DEFAULT_MOBS =
         "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
     |]
 
-let tierNBookItem(n) = Item("minecraft:book", [EnchantRandomly enchantmentsInTiers.[n-1]])
-let veryDamagedAnvils(min,max) = Item("minecraft:anvil", [SetData 2; SetCount(min,max)])
-
-// TODO remove sample tier chests
-(*
-let sampleTier2Chest = // dungeons and mineshafts
-        Pools[ Pool(Roll(5,5),[tierNBookItem(2),1,0, []])
-               Pool(Roll(0,1),[tierNBookItem(3),1,0, []])
-               Pool(Roll(1,1),[veryDamagedAnvils(2,4),1,0, []])
-               Pool(Roll(1,3),[arrows,1,0, []])
-               tierxyLootPct [] 2 3 [FOOD] 99
-               OneOfAtNPercent([Item("minecraft:iron_pickaxe",[]);Item("minecraft:iron_sword",[]);Item("minecraft:iron_axe",[]);Item("minecraft:iron_ingot",[SetCount(2,9)])],50,[])
-               Pool(Roll(1,1),
-                    [LootTable("empty"), 20, 0, []
-                     Item("minecraft:saddle",[]), 20, 0, []
-                     Item("minecraft:iron_horse_armor",[]), 15, 0, []
-                     Item("minecraft:diamond_horse_armor",[]), 5, 0, []])
-               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","1. After gearing up",[|
-                                            """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
-                                        |]))]),1,0, []])
-             ]
-let sampleTier3Chest = // end of green beacon cave
-        Pools[ Pool(Roll(12,12),[tierNBookItem(3),1,0, []])
-               Pool(Roll(1,1),[veryDamagedAnvils(3,5),1,0, []])
-               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt("""{display:{Name:\"Dungeon Loot\"},BlockEntityTag:{LootTable:\"minecraft:chests/simple_dungeon\",LootTableSeed:0L}}""")]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:experience_bottle",[SetCount(64,64)]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:diamond_pickaxe",[]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:diamond_sword",[]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(20,30)]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(20,30)]),1,0, []])
-               Pool(Roll(1,1),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","2. After green beacon cave",[|
-                                            """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
-                                        |]))]),1,0, []])
-             ]
-let sampleTier4Chest = // end of flat dungeon
-        Pools[ Pool(Roll(5,5),[tierNBookItem(3),1,0, []])
-               Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:enchanted_book",[SetNbt("""{StoredEnchantments:[{id:0s,lvl:4s}]}""")]),1,0, []]) // protection IV book
-               Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
-               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Green Beacon Cave Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier3\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"food"4),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","3. After red beacon webs",[|
-                                            """{"text":"Once strong enough, attack dangerous-looking mountain peaks with glassed loot boxes to get a map to the best treasure!"}"""
-                                        |]))]),1,0, []])
-             ]
-let sampleTier5Chest = // mountain peak loot
-        Pools[ Pool(Roll(5,5),[tierNBookItem(4),1,0, []])
-               Pool(Roll(1,1),[veryDamagedAnvils(3,4),1,0, []])
-               Pool(Roll(2,2),[Item("minecraft:chest",[SetNbt(sprintf """{display:{Name:\"Red Beacon Web Loot\"},BlockEntityTag:{LootTable:\"%s:chests/tier4\",LootTableSeed:0L}}""" LOOT_NS_PREFIX)]),1,0, []])
-               Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(20,30)]),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"armor"4),1,0, []])
-               Pool(Roll(3,3),[LootTable(LOOT_FORMAT"tools"4),1,0, []])
-               Pool(Roll(1,1),[LootTable(LOOT_FORMAT"food"5),1,0, []])
-             ]
-*)
 let noFishingForYou =
         Pools[ Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
                                             """{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to donate!"}""" // TODO donate link?
@@ -558,26 +379,29 @@ let addSlotTags(items) =
     let slot = ref 0uy
     [|
         for item in items do
+            if !slot > 26uy then
+                failwith "too much loot for chest"
             yield Seq.append [Byte("Slot",!slot)] item |> Seq.toArray 
             slot := !slot + 1uy
     |]
 
 let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
+    let F = CustomizationKnobs.LOOT_FUNCTION
     let tier2ArmorBooks = [PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier2MeleeBooks = [SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]]
     let tier2UtilBooks = [EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]]
     let tier2BowBooks = [POW[1..2]; PUNCH[1]]
     let tier2Items =
         [|
-            yield! chooseNbooks(rng,2,tier2ArmorBooks)
-            yield! chooseNbooks(rng,1,tier2MeleeBooks)
-            yield! chooseNbooks(rng,2,tier2UtilBooks)
-            yield! chooseNbooks(rng,1,tier2BowBooks)
-            yield makeItem(rng,"anvil",2,4,2s)
-            yield makeItem(rng,"arrow",10,20,0s)
-            yield makeItem(rng,"apple",4,6,0s)
-            yield makeItem(rng,"bread",2,2,0s)
-            yield! Algorithms.pickNnonindependently(rng,1,[makeItem(rng,"iron_pickaxe",1,1,0s);makeItem(rng,"iron_sword",1,1,0s);makeItem(rng,"iron_axe",1,1,0s);makeItem(rng,"iron_ingot",2,9,0s)])
+            yield! chooseNbooks(rng,F 2,tier2ArmorBooks)
+            yield! chooseNbooks(rng,F 1,tier2MeleeBooks)
+            yield! chooseNbooks(rng,F 2,tier2UtilBooks)
+            yield! chooseNbooks(rng,F 1,tier2BowBooks)
+            yield makeItem(rng,"anvil",F 3,F 5,2s)
+            yield makeItem(rng,"arrow",F 10,F 20,0s)
+            yield makeItem(rng,"apple",F 4,F 6,0s)
+            yield makeItem(rng,"bread",F 2,F 2,0s)
+            yield! Algorithms.pickNnonindependently(rng,F 1,[makeItem(rng,"iron_pickaxe",1,1,0s);makeItem(rng,"iron_sword",1,1,0s);makeItem(rng,"iron_axe",1,1,0s);makeItem(rng,"iron_ingot",2,9,0s)])
             yield makeItem(rng,"saddle",1,1,0s)
             yield makeItem(rng,"iron_horse_armor",1,1,0s)
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
@@ -587,6 +411,7 @@ let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
     addSlotTags tier2Items 
 
 let NEWsampleTier3Chest(rng:System.Random) = // green beacon
+    let F = CustomizationKnobs.LOOT_FUNCTION
     let tier3ArmorBooks = [PROT[1..3]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier3MeleeBooks = [SHARP[1..3]; SMITE[2..4]; BOA[2..4]; KNOCK[2]]
     let tier3UtilBooks = [EFF[3..5]; UNBR[1..3]]
@@ -595,19 +420,18 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
         [|
             yield makeBookWithIdLvl(0,4)   // prot 4 book
             yield makeBookWithIdLvl(51,1)  // infinity book
-            yield! chooseNbooks(rng,3,tier3ArmorBooks)
-            yield! chooseNbooks(rng,3,tier3MeleeBooks)
-            yield! chooseNbooks(rng,2,tier3UtilBooks)
-            yield! chooseNbooks(rng,2,tier3BowBooks)
-            yield makeItem(rng,"anvil",3,5,2s)
+            yield! chooseNbooks(rng,F 3,tier3ArmorBooks)
+            yield! chooseNbooks(rng,F 3,tier3MeleeBooks)
+            yield! chooseNbooks(rng,F 2,tier3UtilBooks)
+            yield! chooseNbooks(rng,F 2,tier3BowBooks)
             yield makeChestItemWithNBTItems("Dungeon Loot",NEWsampleTier2Chest(rng))
             yield makeChestItemWithNBTItems("Dungeon Loot",NEWsampleTier2Chest(rng))
             yield makeItem(rng,"experience_bottle",64,64,0s)
             yield makeItem(rng,"diamond_pickaxe",1,1,0s)
             yield makeItem(rng,"diamond_sword",1,1,0s)
-            yield makeItem(rng,"iron_ingot",20,30,0s)
-            yield makeItem(rng,"gold_ingot",20,30,0s)
-            yield makeItem(rng,"cooked_beef",10,20,0s)
+            yield makeItem(rng,"iron_ingot",F 20,F 30,0s)
+            yield makeItem(rng,"gold_ingot",F 20,F 30,0s)
+            yield makeItem(rng,"cooked_beef",F 10,F 20,0s)
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","2. After green beacon cave",[|
                                             """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
                                         |]) |> ResizeArray); End |]
@@ -615,20 +439,21 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
     addSlotTags tier3Items 
 
 let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
+    let F = CustomizationKnobs.LOOT_FUNCTION
     let tier4ArmorBooks = [PROT[3..4]; BP[3..4]; PROJ[3..4]]
     let tier4MeleeBooks = [SHARP[4..5]; SMITE[5]; BOA[5]]
     let tier4UtilBooks = [EFF[5]; UNBR[3]; MEND[1]]
     let tier4BowBooks = [POW[4..5]; PUNCH[2]; INF[1]]
     let tier4Items =
         [|
-            yield! chooseNbooks(rng,2,tier4ArmorBooks)
-            yield! chooseNbooks(rng,2,tier4MeleeBooks)
-            yield! chooseNbooks(rng,3,tier4UtilBooks)
-            yield! chooseNbooks(rng,2,tier4BowBooks)
-            yield makeItem(rng,"anvil",3,5,2s)
+            yield! chooseNbooks(rng,F 2,tier4ArmorBooks)
+            yield! chooseNbooks(rng,F 2,tier4MeleeBooks)
+            yield! chooseNbooks(rng,F 3,tier4UtilBooks)
+            yield! chooseNbooks(rng,F 2,tier4BowBooks)
+            yield makeItem(rng,"anvil",F 3,F 5,2s)
             yield makeChestItemWithNBTItems("Green Beacon Cave Loot",NEWsampleTier3Chest(rng))
-            yield makeItem(rng,"diamond",20,30,0s)
-            yield makeItem(rng,"golden_apple",9,14,0s)
+            yield makeItem(rng,"diamond",F 20,F 30,0s)
+            yield makeItem(rng,"golden_apple",F 9,F 14,0s)
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","3. After red beacon webs",[|
                                             """{"text":"Once strong enough, attack dangerous-looking mountain peaks with glassed loot boxes to get a map to the best treasure!"}"""
                                         |]) |> ResizeArray); End |]
@@ -636,12 +461,13 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
     addSlotTags tier4Items 
 
 let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
+    let F = CustomizationKnobs.LOOT_FUNCTION
     let tier5Items =
         [|
             yield makeChestItemWithNBTItems("Red Beacon Web Loot",NEWsampleTier4Chest(rng))
             yield makeChestItemWithNBTItems("Red Beacon Web Loot",NEWsampleTier4Chest(rng))
-            yield makeItem(rng,"experience_bottle",64,64,0s)
-            yield makeItem(rng,"experience_bottle",64,64,0s)
+            for _i = 1 to F 2 do
+                yield makeItem(rng,"experience_bottle",64,64,0s)
         |]
     addSlotTags tier5Items 
 
@@ -714,6 +540,7 @@ let NEWaestheticTier2Chest(rng:System.Random) =
         |]
     addSlotTags items 
 
+// TODO 16 dyes? (would also be lapis)
 let NEWaestheticTier3Chest(rng:System.Random) =
     let items =
         [|  // blocks
