@@ -2,6 +2,23 @@
 
 ////////////////////////////
 
+// choose N items from array A, with replacement, but make it increasingly unlikely to re-choose an item the more it has already been chosen
+let pickNnonindependently(rng:System.Random,n,a) =
+    let a = a |> Seq.toArray 
+    let counts = Array.create a.Length 1
+    let r = ResizeArray()
+    while r.Count < n do
+        let i = rng.Next(a.Length)
+        if rng.Next(counts.[i]) <> 0 then
+            () // choose again
+        else
+            r.Add(a.[i])
+            counts.[i] <- counts.[i] + 1
+    r.ToArray()
+
+
+////////////////////////////
+
 // These data structures are used in connected-components algorithms in the code
 
 type Thingy(point:int, isLeft:bool, isRight:bool) =

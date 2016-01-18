@@ -513,5 +513,115 @@ let writeAllLootTables(worldSaveFolder) =
         |]
     writeLootTables(otherTables, worldSaveFolder)
 
+//////////////////////////////////////////////////////////
+
+// non-loot-table chests
+
+// ARMOR
+let PROT(lvls) = 0, Seq.toArray lvls
+let FF(lvls) = 2, Seq.toArray lvls
+let BP(lvls) = 3, Seq.toArray lvls
+let PROJ(lvls) = 4, Seq.toArray lvls
+// fire, resp, aqua, thorns, depth unused
+// MELEE
+let SHARP(lvls) = 16, Seq.toArray lvls
+let SMITE(lvls) = 17, Seq.toArray lvls
+let BOA(lvls) = 18, Seq.toArray lvls
+let KNOCK(lvls) = 19, Seq.toArray lvls
+// looting, fire aspect unused
+// UTILITY
+let EFF(lvls) = 32, Seq.toArray lvls
+let SILK(lvls) = 33, Seq.toArray lvls
+let UNBR(lvls) = 34, Seq.toArray lvls
+let FORT(lvls) = 35, Seq.toArray lvls
+let FW(lvls) = 9, Seq.toArray lvls
+let MEND(lvls) = 70, Seq.toArray lvls
+// lure, luck unused
+// BOW
+let POW(lvls) = 48, Seq.toArray lvls
+let PUNCH(lvls) = 49, Seq.toArray lvls
+let INF(lvls) = 51, Seq.toArray lvls
+// flame unused
+
+open NBT_Manipulation
+
+let makeItem(rng:System.Random,name,min,max,dmg) =
+    [| String("id",name); Byte("Count", byte(min+rng.Next(max-min+1))); Short("Damage",dmg); End |]
+let makeChestItemWithNBTItems(name,lores,items) =
+    [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:chest"); Compound("tag", [
+                Compound("display",[String("Name",name);List("Lore",Strings lores);End]|>ResizeArray);
+                Compound("BlockEntityTag", [List("Items",Compounds items);End] |> ResizeArray); End] |> ResizeArray); End |]
+let makeBookWithIdLvl(id, lvl) =
+    [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:enchanted_book"); Compound("tag", [|List("StoredEnchantments",Compounds[|[|Short("id",int16 id);Short("lvl",int16 lvl);End|]|]); End |] |> ResizeArray); End |]
+let chooseNbooks(rng:System.Random,n,a) =
+    let r = Algorithms.pickNnonindependently(rng, n, a)
+    r |> Array.map (fun (id,lvls:_[]) -> makeBookWithIdLvl(id, lvls.[rng.Next(lvls.Length)]))
+
+let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
+    let tier2ArmorBooks = [PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]]
+    let tier2MeleeBooks = [SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]]
+    let tier2UtilBooks = [EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]]
+    let tier2BowBooks = [POW[1..2]; PUNCH[1]]
+    let tier2Items =
+        [|
+            yield! chooseNbooks(rng,2,tier2ArmorBooks)
+            yield! chooseNbooks(rng,1,tier2MeleeBooks)
+            yield! chooseNbooks(rng,2,tier2UtilBooks)
+            yield! chooseNbooks(rng,1,tier2BowBooks)
+            yield makeItem(rng,"anvil",2,4,2s)
+            yield makeItem(rng,"arrow",10,20,0s)
+            yield makeItem(rng,"apple",4,6,0s)
+            yield makeItem(rng,"bread",2,2,0s)
+            yield! Algorithms.pickNnonindependently(rng,1,[makeItem(rng,"iron_pickaxe",1,1,0s);makeItem(rng,"iron_sword",1,1,0s);makeItem(rng,"iron_axe",1,1,0s);makeItem(rng,"iron_ingot",2,9,0s)])
+            yield makeItem(rng,"saddle",1,1,0s)
+            yield makeItem(rng,"iron_horse_armor",1,1,0s)
+            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
+                                            """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
+                                        |]) |> ResizeArray); End |]
+        |]
+    let slot = ref 0uy
+    let finalItems = 
+        [|
+            for item in tier2Items do
+                yield Seq.append [Byte("Slot",!slot)] item |> Seq.toArray 
+                slot := !slot + 1uy
+        |]
+    finalItems
+
+let INNER_CHEST_LORE = [|"Place this chest"; "and open it"; "for more loot"|]
+let NEWsampleTier3Chest(rng:System.Random) = // green beacon
+    let tier3ArmorBooks = [PROT[1..3]; FF[1..4]; BP[1..3]; PROJ[1..3]]
+    let tier3MeleeBooks = [SHARP[1..3]; SMITE[2..4]; BOA[2..4]; KNOCK[2]]
+    let tier3UtilBooks = [EFF[3..5]; UNBR[1..3]]
+    let tier3BowBooks = [POW[2..4]; PUNCH[1..2]; INF[1]]
+    let tier3Items =
+        [|
+            yield makeBookWithIdLvl(0,4)   // prot 4 book
+            yield makeBookWithIdLvl(51,1)  // infinity book
+            yield! chooseNbooks(rng,3,tier3ArmorBooks)
+            yield! chooseNbooks(rng,3,tier3MeleeBooks)
+            yield! chooseNbooks(rng,2,tier3UtilBooks)
+            yield! chooseNbooks(rng,2,tier3BowBooks)
+            yield makeItem(rng,"anvil",3,5,2s)
+            yield makeChestItemWithNBTItems("Dungeon Loot",INNER_CHEST_LORE,NEWsampleTier2Chest(rng))
+            yield makeChestItemWithNBTItems("Dungeon Loot",INNER_CHEST_LORE,NEWsampleTier2Chest(rng))
+            yield makeItem(rng,"experience_bottle",64,64,0s)
+            yield makeItem(rng,"diamond_pickaxe",1,1,0s)
+            yield makeItem(rng,"diamond_sword",1,1,0s)
+            yield makeItem(rng,"iron_ingot",20,30,0s)
+            yield makeItem(rng,"gold_ingot",20,30,0s)
+            yield makeItem(rng,"cooked_beef",10,20,0s)
+            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","2. After green beacon cave",[|
+                                            """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
+                                        |]) |> ResizeArray); End |]
+        |]
+    let slot = ref 0uy
+    let finalItems = 
+        [|
+            for item in tier3Items do
+                yield Seq.append [Byte("Slot",!slot)] item |> Seq.toArray 
+                slot := !slot + 1uy
+        |]
+    finalItems
 
 

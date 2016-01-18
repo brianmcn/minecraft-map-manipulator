@@ -2667,7 +2667,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2678,7 +2678,15 @@ do
     //musicStuff()
     //plotRegionalDifficulty()
     //chatToVoiceDemo()
-
+    let map = new MapFolder(worldSaveFolder+"""\region\""")
+    let rng = new System.Random()
+    map.EnsureSetBlockIDAndDamage(1,100,1,0uy,0uy)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,1,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,3,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,5,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,7,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,9,54uy,2uy,Compounds(LootTables.NEWsampleTier3Chest(rng)),"",null,0L,map,null)
+    map.WriteAll()
 
     printfn "press a key to end"
     System.Console.Beep()
@@ -2688,12 +2696,30 @@ do
 
     // to test
     // made some changes to cave-side-paths, see if ok
+    // test new food balance
+    // test new flat set piece
+    // test new iron/gold distr.
+    // test new dungeon chance
+    // test new distances to main dungeons
+    // test if teleporters get discovered
+    // test if peaks (hmDiffPerCC value) look ok
+    // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
+
 
     // TODO: bugs & good ideas
+    // even aesthetic chests should have e.g. one ench book in them, to make fun/worth finding for mechanical player (possibly better loot farther from spawn)
+    // lapis in map (places other than loot box?) for enchanters?
+    // remove bingo's spammable iron sword
     // still hard to get init bow
     // note to self: craft gapples next time
     // start with enderchest at spawn
-
+    // SMP-loot? starting loot? mob drops probably work out ok, main thing is probably dungeon loot chests, which will bottleneck more in SMP... (elytra?!?)
+    // my books have 1 enchant, may be better to have 2 or 3, and manual book sets?
+    //  - actually just flatten the randomness, pick from array of choices, each pick increment counter, when picked, reroll if rng(counter)<>0
+    //  - rewrite all dungeon/mineshaft chests from LootTable to my loot
+    //  - rewrite all things that populate with tier3-5, aest1-3 as well as inner simple_dungeon to instead populate with item nbt (inner chests have huge nbt)
+    //  - probably multiply books/ingots/bottles/food
+    //  - quit writing old loot table chests to disk (but preserve fishing)
     // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?
@@ -2710,19 +2736,11 @@ do
     // "retro"/"throwback"?
     // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
     // legendary: seeing x from afar leads to seeing y up close...
-    // test new food balance
-    // test new flat set piece
-    // test new iron/gold distr.
-    // test new dungeon chance
-    // test new distances to main dungeons
-    // test if teleporters get discovered
-    // test if peaks (hmDiffPerCC value) look ok
     // have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
     //    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
     // TODOs and refactorings...
-    // SMP-loot? mob drops probably work out ok, main thing is probably dungeon loot chests, which will bottleneck more in SMP...
     // return to spawn from teleporter, villagers don't immediately appear on client?
     // noisemaker noteblock troll underground?
 
