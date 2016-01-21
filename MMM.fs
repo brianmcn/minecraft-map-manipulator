@@ -2591,10 +2591,48 @@ let chatToVoiceDemo() =
             printfn "C: %s" data
 
 ////////////////////////////////////////
+let makeGetAllItemsGame() =    
+    // todo encase in barrier
+
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\flattest\region""")
+
+    let tes = ResizeArray()
+    let YMIN = 5
+    let L = (survivalObtainableItems.Length+4)/5
+    for z = 1 to L do
+        for y = YMIN to YMIN+4 do
+            map.EnsureSetBlockIDAndDamage(5,y,z,1uy,0uy)
+            let i = (y-YMIN)*L + z
+            if i < survivalObtainableItems.Length then
+                let x = 6
+                map.SetBlockIDAndDamage(x,y,z,211uy,3uy)
+                let bid,dmg,name = survivalObtainableItems.[i]
+                let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,y) -> x=bid) |> snd else sprintf "minecraft:%s" name
+                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:1b,Item:{id:"%s",Count:1b,Damage:%ds}}""" (x-2) y z itemName dmg
+                tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","Control"); 
+                            Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                            String("Command",cmd); End |]
+                // TODO filled_map is weird
+                // TODOs from the item list, e.g. potions, ench books, etc
+    for y = YMIN to YMIN+4 do
+        let x = 6
+        let z = 0
+        map.SetBlockIDAndDamage(x,y,z,137uy,3uy)
+        let cmd = ""
+        tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","Control"); 
+                    Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                    String("Command",cmd); End |]
+    map.AddOrReplaceTileEntities(tes)
+    // blockIdToMinecraftName
+    printfn "%d" survivalObtainableItems.Length 
+    map.WriteAll()
+
+////////////////////////////////////////
 
 
 [<System.STAThread()>]  
 do   
+    //makeGetAllItemsGame()
     //let user = "brianmcn"
     let user = "Admin1"
     //killAllEntities()
@@ -2674,7 +2712,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
