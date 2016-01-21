@@ -60,7 +60,7 @@ type SpawnerData(distributionInfo, densityMultiplier) =
 let GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
     SpawnerData([|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|],                                1.0)
 let PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(3,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (1,"Skeleton"); (1,"Creeper")|], 2.0, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
+    SpawnerData([|(6,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (2,"Skeleton"); (2,"Creeper")|], 1.6, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
 let MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA = 
     SpawnerData([|(4,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|],     1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 1.0)
 let FLAT_COBWEB_OUTER_SPAWNER_DATA = 
@@ -84,7 +84,7 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
 
 
 
-let SINGLEPLAYER = false //true
+let SINGLEPLAYER = false
 let LOOT_FUNCTION(n) =
     if SINGLEPLAYER then
         n
@@ -103,7 +103,7 @@ let LOOT_FUNCTION(n) =
 
 // TODO initial terrain biome/etc stuff (is a kind of aesthetic customization)
 
-let BIOME_HELL_PERCENTAGE = 0.1
+let BIOME_HELL_PERCENTAGE = 0.15
 let BIOME_SKY_PERCENTAGE = 0.2
 
 let SPAWN_PROTECTION_DISTANCE_GREEN = 200

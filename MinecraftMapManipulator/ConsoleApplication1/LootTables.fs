@@ -225,7 +225,7 @@ let LOOT_FOOD =
         // tier 2
         Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(4,6)]), 1, 0, []])]
         // tier 3
-        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,8)]), 1, 0, []])]
+        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,5)]), 1, 0, []])]
         // tier 4
         Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
         // tier 5
@@ -273,7 +273,7 @@ let LOOT_FROM_DEFAULT_MOBS =
         "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 4 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB)]
         "minecraft:entities/creeper", Pools [defaultMobDrop("gunpowder",0,1,0,1)
-                                             tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
+                                             tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
 //        "minecraft:entities/elder_guardian
         "minecraft:entities/enderman", Pools [defaultMobDrop("ender_pearl",0,1,0,1)
                                               tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)  // extra loot
@@ -284,13 +284,13 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/shulker
         "minecraft:entities/silverfish", Pools [tierxyLootPct MOB 2 3 [FOOD] 20] // TODO what ought silverfish drop?
         "minecraft:entities/skeleton", Pools [defaultMobDrop("bone",0,2,0,1)
-                                              tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 12; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
+                                              tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
         "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
         "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
         "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
-        "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
+        "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
 //        "minecraft:entities/zombie_horse
         "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
     |]
@@ -419,7 +419,7 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
     let tier3Items =
         [|
             yield makeBookWithIdLvl(0,4)   // prot 4 book
-            yield makeBookWithIdLvl(51,1)  // infinity book
+            yield makeItem(rng,"anvil",F 3,F 5,2s)
             yield! chooseNbooks(rng,F 3,tier3ArmorBooks)
             yield! chooseNbooks(rng,F 3,tier3MeleeBooks)
             yield! chooseNbooks(rng,F 2,tier3UtilBooks)
@@ -472,6 +472,7 @@ let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
     addSlotTags tier5Items 
 
 let NEWaestheticTier1Chest(rng:System.Random) =
+    let F = CustomizationKnobs.LOOT_FUNCTION
     let items =
         [|  // blocks
             yield! Algorithms.pickNnonindependently(rng,3,[
@@ -493,13 +494,15 @@ let NEWaestheticTier1Chest(rng:System.Random) =
                 makeItem(rng,"log2",64,64,1s) // dark oak
                 ])
             // tradeable
-            yield makeItem(rng,"emerald",1,1,0s)
+            yield makeItem(rng,"emerald",1,F 1,0s)
             // useful (dungeon-chest book list)
-            yield! chooseNbooks(rng,2,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+            yield! chooseNbooks(rng,F 2,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+            yield makeItem(rng,"anvil",F 2,F 2,2s)
         |]
     addSlotTags items 
 
 let NEWaestheticTier2Chest(rng:System.Random) =
+    let F = CustomizationKnobs.LOOT_FUNCTION
     let items =
         [|  // blocks
             yield! Algorithms.pickNnonindependently(rng,4,[
@@ -534,9 +537,10 @@ let NEWaestheticTier2Chest(rng:System.Random) =
                     makeItem(rng,"slime_block",64,64,0s)
                     ])
             // tradeable
-            yield makeItem(rng,"emerald",1,1,0s)
+            yield makeItem(rng,"emerald",1,F 1,0s)
             // useful (dungeon-chest book list)
-            yield! chooseNbooks(rng,3,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+            yield! chooseNbooks(rng,F 3,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+            yield makeItem(rng,"anvil",F 2,F 2,2s)
         |]
     addSlotTags items 
 

@@ -2658,8 +2658,15 @@ do
     //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo45a\igloo_bottom.nbt""")
     
 
-    //compareMinecraftAssets("""C:\Users\Admin1\Desktop\15w51b.zip""","""C:\Users\Admin1\Desktop\16w02a.zip""")
-    
+    (*
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w02a.zip""","""C:\Users\Admin1\Desktop\16w03a.zip""")
+    // compare sounds.json
+    let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\30\30b0989b97f6c10183de1ddf47f428b5d4edc895""")
+    let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\30b0989b97f6c10183de1ddf47f428b5d4edc895""")
+    if not(diffStringArrays(oldSoundsJson, currentSoundsJson)) then
+        printfn "no sound json diff"
+    *)
+
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,35,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
@@ -2694,26 +2701,40 @@ do
     System.Console.Beep()
     System.Console.ReadKey() |> ignore
 
+    let worldSeed = 14 
+    System.Windows.Clipboard.SetText(custom)
+    //genTerrainWithMCServer(worldSeed,custom)
+
 
 
     // to test
-    // made some changes to cave-side-paths, see if ok
+    // made some changes to cave-side-paths, see if ok...
     // test new food balance
-    // test new flat set piece
+    // test new flat set piece...
     // test new iron/gold distr.
-    // test new dungeon chance
-    // test new distances to main dungeons
-    // test if teleporters get discovered
+    // test new dungeon chance (seems ok)
+    // test new distances to main dungeons...
+    // test if teleporters get discovered (barely so far, now tried making farther and less spread out marks)
     // test if peaks (hmDiffPerCC value) look ok
     // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
     // test SMP loot balance
+    // (changed logAdmindCmds) a little a4ter set piece, huge game lag (and some 'block placed' notes), hm... logAdminCmds is true, should turn o44 to get rid o4 all set time? lighting updates?
 
 
     // TODO: bugs & good ideas
-    // SMP-loot for elytra (just give 3 and stack jump pots?)
+    // speed bu44 is quite nice (emeralds in short supply - buff? did now, see how works out); strength seemed ok
+    // 4inal book TODOs, some kind o4 better acknowledgement when complete map
+    // getting chest in glass set piece spawns 4 ghasts - good or bad?
+    // consider directly give some fw2 boots with other good something, to make more likely to use?
+    // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
+    // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
+    // summary and maybe starting book need summary customization info (seed, # player loot, difficulty, ...)
     // remove bingo's spammable iron sword
+    // ice near spawners in cave, to knock out torches?
+    // snow golems and creepers something something
     // still hard to get init bow
     // note to self: craft gapples next time
+    // still some skeleton bugs (screenshots from jan 20)
     // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?
@@ -2736,7 +2757,7 @@ do
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
     // TODOs and refactorings...
     // return to spawn from teleporter, villagers don't immediately appear on client?
-    // noisemaker noteblock troll underground?
+    // noisemaker noteblock troll underground? fireworks spawner
 
 
     // other ideas
@@ -2759,9 +2780,6 @@ do
     //   - something to protect a good bow? close to spawn? kinda hard to get good bow early
     // rand cave wall spawners guarding iron/gold blocks?
     
-    let worldSeed = 14 
-    //System.Windows.Clipboard.SetText(custom)
-    //genTerrainWithMCServer(worldSeed,custom)
 
 
 
