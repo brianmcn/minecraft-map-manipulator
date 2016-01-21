@@ -2592,30 +2592,38 @@ let chatToVoiceDemo() =
 
 ////////////////////////////////////////
 let makeGetAllItemsGame() =    
-    // todo encase in barrier
-
+    // TODO encase in barrier
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\flattest\region""")
-
     let tes = ResizeArray()
     let YMIN = 5
     let L = (survivalObtainableItems.Length+4)/5
-    for z = 1 to L do
+    let Q = (L+3)/4
+    let ox = 1
+    for oz = 1 to 4*Q do
         for y = YMIN to YMIN+4 do
-            map.EnsureSetBlockIDAndDamage(5,y,z,1uy,0uy)
-            let i = (y-YMIN)*L + z
+            let i = (y-YMIN)*L + oz
+            let x,z,dx,dz,facing =
+                if oz <= Q then
+                    ox,oz+1,1,0,3
+                elif oz <= 2*Q then
+                    oz-Q+3,Q+2,0,1,2
+                elif oz <= 3*Q then
+                    Q+6,3*Q+2-oz,-1,0,1
+                else
+                    oz-3*Q+3,1,0,-1,0
+            map.EnsureSetBlockIDAndDamage(x+dx,y,z+dz,1uy,0uy)
             if i < survivalObtainableItems.Length then
-                let x = 6
-                map.SetBlockIDAndDamage(x,y,z,211uy,3uy)
+                map.EnsureSetBlockIDAndDamage(ox,y,oz,211uy,3uy)
                 let bid,dmg,name = survivalObtainableItems.[i]
-                let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,y) -> x=bid) |> snd else sprintf "minecraft:%s" name
-                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:1b,Item:{id:"%s",Count:1b,Damage:%ds}}""" (x-2) y z itemName dmg
-                tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","Control"); 
+                let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,_y) -> x=bid) |> snd else sprintf "minecraft:%s" name
+                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds}}""" (x+2*dx) y (z+0*dz) facing itemName dmg
+                tes.Add [|Int("x",ox); Int("y",y); Int("z",oz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",cmd); End |]
                 // TODO filled_map is weird
                 // TODOs from the item list, e.g. potions, ench books, etc
     for y = YMIN to YMIN+4 do
-        let x = 6
+        let x = 1
         let z = 0
         map.SetBlockIDAndDamage(x,y,z,137uy,3uy)
         let cmd = ""
@@ -2632,7 +2640,7 @@ let makeGetAllItemsGame() =
 
 [<System.STAThread()>]  
 do   
-    //makeGetAllItemsGame()
+    makeGetAllItemsGame()
     //let user = "brianmcn"
     let user = "Admin1"
     //killAllEntities()
