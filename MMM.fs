@@ -2640,7 +2640,7 @@ let makeGetAllItemsGame() =
 
 [<System.STAThread()>]  
 do   
-    makeGetAllItemsGame()
+    //makeGetAllItemsGame()
     //let user = "brianmcn"
     let user = "Admin1"
     //killAllEntities()
@@ -2702,7 +2702,21 @@ do
     //placeVideoFramesInTheWorld()
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
     //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo45a\igloo_bottom.nbt""")
-    
+
+    //musicStuff()
+    //plotRegionalDifficulty()
+    //chatToVoiceDemo()
+    (*
+    let map = new MapFolder(worldSaveFolder+"""\region\""")
+    let rng = new System.Random()
+    map.EnsureSetBlockIDAndDamage(1,100,1,0uy,0uy)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,1,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,3,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,5,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,7,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    TerrainAnalysisAndManipulation.putChestCore(1,100,9,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
+    map.WriteAll()
+    *)
 
     (*
     compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w02a.zip""","""C:\Users\Admin1\Desktop\16w03a.zip""")
@@ -2720,7 +2734,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2728,33 +2742,18 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
 
-    //musicStuff()
-    //plotRegionalDifficulty()
-    //chatToVoiceDemo()
-    (*
-    let map = new MapFolder(worldSaveFolder+"""\region\""")
-    let rng = new System.Random()
-    map.EnsureSetBlockIDAndDamage(1,100,1,0uy,0uy)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,1,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,3,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,5,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,7,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,9,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    map.WriteAll()
-    *)
-
     printfn "press a key to end"
     System.Console.Beep()
     System.Console.ReadKey() |> ignore
 
     let worldSeed = 14 
-    System.Windows.Clipboard.SetText(custom)
+    //System.Windows.Clipboard.SetText(custom)
     //genTerrainWithMCServer(worldSeed,custom)
 
 
 
     // to test
-    // made some changes to cave-side-paths, see if ok...
+    // made some changes to cave-side-paths, see if ok... they are decent, main issue is still that not always at dead ends, due to imperfect skeleton
     // test new food balance
     // test new flat set piece...
     // test new iron/gold distr.
@@ -2765,13 +2764,24 @@ do
     // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
     // test SMP loot balance
     // (changed logAdmindCmds) a little a4ter set piece, huge game lag (and some 'block placed' notes), hm... logAdminCmds is true, should turn o44 to get rid o4 all set time? lighting updates?
+    // playtest note: Fixxxer didn't use silk touch for feesh->cobble, nor think of picking up enderchest with it
+    // playtest note: Fixxxer didn't think to mine cobble walls of dungeon
+    // playtest note: Fixxxer went for red before green (forgot book info), got close
+    // playtest note: can cheat the day/night boundary in SMP (but no known fix)
+    // playtest note: Fix and I completed red after 3.2 hours
 
 
     // TODO: bugs & good ideas
+    // vary food per starting biome? also give more cookies at start, as 'sprint food' but not 'combat food' (book to give hints about food?)
+    // why Fix and I get no food drops? (any tool drops?)
+    // lag again at flat cobwebs, think skylight calc is an issue
     // speed bu44 is quite nice (emeralds in short supply - buff? did now, see how works out); strength seemed ok
     // 4inal book TODOs, some kind o4 better acknowledgement when complete map
+    // diorite pillars at day/night go down into some caves, was kind a cool effect, other ways to use?
     // getting chest in glass set piece spawns 4 ghasts - good or bad?
-    // consider directly give some fw2 boots with other good something, to make more likely to use?
+    // spawners inside tree leaves are nice simple 'traps', maybe by the tree chests? (how look on fast graphics if inside?)
+    // villager at end of green beacon who has no trades but suggests you look for his friends?
+    // consider directly give some fw2 boots with other good something, to make more likely to use? no, has downsides too (waterfalls, farms, ...), hm
     // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
     // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
     // summary and maybe starting book need summary customization info (seed, # player loot, difficulty, ...)

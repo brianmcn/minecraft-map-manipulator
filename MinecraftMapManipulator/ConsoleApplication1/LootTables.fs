@@ -244,7 +244,7 @@ let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/1
             yield (ed, n, 0, conds)
        ]
 let defaultMobDrop(itemName, countMin, countMax, lootingMin, lootingMax) = 
-    Pool(Roll(1,1),[Item(sprintf "minecraft:%s" itemName,[SetCount(countMin,countMax);LootingEnchant(lootingMin,lootingMax)]),0,1, []])
+    Pool(Roll(1,1),[Item(sprintf "minecraft:%s" itemName,[SetCount(countMin,countMax);LootingEnchant(lootingMin,lootingMax)]),1,0, []])
 let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])  // TODO gold pile?
 let arrows = Item("minecraft:arrow", [SetCount(6,9)])
@@ -280,7 +280,8 @@ let LOOT_FROM_DEFAULT_MOBS =
                                              ]
         "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 3 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
 //        "minecraft:entities/guardian
-//        "minecraft:entities/magma_cube"
+        "minecraft:entities/magma_cube", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
+
 //        "minecraft:entities/shulker
         "minecraft:entities/silverfish", Pools [tierxyLootPct MOB 2 3 [FOOD] 20] // TODO what ought silverfish drop?
         "minecraft:entities/skeleton", Pools [defaultMobDrop("bone",0,2,0,1)
@@ -415,7 +416,7 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
     let tier3ArmorBooks = [PROT[1..3]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier3MeleeBooks = [SHARP[1..3]; SMITE[2..4]; BOA[2..4]; KNOCK[2]]
     let tier3UtilBooks = [EFF[3..5]; UNBR[1..3]]
-    let tier3BowBooks = [POW[2..4]; PUNCH[1..2]; INF[1]]
+    let tier3BowBooks = [POW[2..4]; PUNCH[1..2]] // ; INF[1]]    Fix suggested no infinity this early is good, makes arrow management needed   
     let tier3Items =
         [|
             yield makeBookWithIdLvl(0,4)   // prot 4 book
@@ -449,7 +450,7 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
             yield! chooseNbooks(rng,F 2,tier4ArmorBooks)
             yield! chooseNbooks(rng,F 2,tier4MeleeBooks)
             yield! chooseNbooks(rng,F 3,tier4UtilBooks)
-            yield! chooseNbooks(rng,F 2,tier4BowBooks)
+            yield! chooseNbooks(rng,F 3,tier4BowBooks)
             yield makeItem(rng,"anvil",F 3,F 5,2s)
             yield makeChestItemWithNBTItems("Green Beacon Cave Loot",NEWsampleTier3Chest(rng))
             yield makeItem(rng,"diamond",F 20,F 30,0s)

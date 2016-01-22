@@ -1663,8 +1663,6 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
             for y = 60 to h do
                 map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
             putGlowstoneRecomputeLight(x,h+1,z,map)
-    R(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DAYLIGHT_RADIUS)
-    R(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
     I("gamerule logAdminCommands false")
@@ -1674,6 +1672,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
     I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 hollow" (h-6) h)  // teleport room, surface is monument floor
+    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 outline" (h-12) (h-10))  // command room, cmds at h-11
     I("scoreboard objectives add hidden dummy")
     I("scoreboard objectives add Deaths stat.deaths")
     I("scoreboard objectives setdisplay sidebar Deaths")
@@ -1683,10 +1682,10 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I(sprintf "scoreboard players set fZ hidden %d" finalEZ)
     I("scoreboard players set CTM hidden 0")
     // repeat blocks to check for CTM completion
-    I(sprintf "blockdata 0 %d 5 {auto:1b}" (h))
-    I(sprintf "blockdata 1 %d 5 {auto:1b}" (h))
-    I(sprintf "blockdata 2 %d 5 {auto:1b}" (h))
-    I(sprintf "fill 0 %d 0 0 253 0 air" !y) // remove all the ICBs, just leave the RCBs
+    I(sprintf "blockdata 0 %d 0 {auto:1b}" (h-11))
+    I(sprintf "blockdata 1 %d 0 {auto:1b}" (h-11))
+    I(sprintf "blockdata 2 %d 0 {auto:1b}" (h-11))
+    I(sprintf "fill 0 %d 0 0 255 0 air" !y) // remove all the ICBs, just leave the RCBs
     
 
 
@@ -1728,7 +1727,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                             [|
                                 Utilities.wrapInJSONTextContinued "RULES\n\nMy personal belief is that in Minecraft there are no rules; you should play whatever way you find most fun."
                                 Utilities.wrapInJSONTextContinued "That said, I have created a map designed to help you have fun, and the next pages have some suggestions that I think will make it the most fun for most players."
-                                Utilities.wrapInJSONTextContinued "Suggestions\n\nThis map has only been tested in single-player.\n\nSurvive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn."
+                                Utilities.wrapInJSONTextContinued (sprintf "Suggestions\n\n%s\n\nSurvive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn." (if CustomizationKnobs.SINGLEPLAYER then "This map's loot is suitable for single-player." else "This map's loot is suitable for multi-player."))
                                 Utilities.wrapInJSONText "Use normal difficulty.\n\nYou CAN use/move/craft enderchests.\n\nDon't go to Nether or leave the worldborder.\n\nYou can use beds to set spawn, but they don't affect the daylight cycle."
                             |]) |> ResizeArray); End |]
                 yield [| Byte("Count", 1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
@@ -1769,8 +1768,8 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     putUntrappedChestWithItemsAt(1,h+1,-2,"Welcome!",chestItems,map,null)
     map.SetBlockIDAndDamage(1,h+2,-2,130uy,3uy) // enderchest
     // 'expose teleport area' cmd
-    map.SetBlockIDAndDamage(0,h-7,0,137uy,0uy)
-    map.AddOrReplaceTileEntities([| [| Int("x",0); Int("y",h-7); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 h 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
+    map.SetBlockIDAndDamage(3,h-11,0,137uy,0uy)
+    map.AddOrReplaceTileEntities([| [| Int("x",3); Int("y",h-11); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 h 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
     let r = map.GetRegion(1,1)
     let cmds(x,tilename) = 
         [|
@@ -1780,7 +1779,9 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
             C "fill ~ ~ ~ ~ ~ ~-3 air"
         |]
     for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
-        r.PlaceCommandBlocksStartingAt(x,h,5,cmds(x,tilename),"check ctm block")
+        r.PlaceCommandBlocksStartingAt(x,h-11,0,cmds(x,tilename),"check ctm block")
+    placeRepeating(3,h-11,1,(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DAYLIGHT_RADIUS))
+    placeRepeating(3,h-11,2,(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS))  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
 (*  TODO
     let finalCmds = 
         [|
@@ -1852,7 +1853,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             putBeaconAt(map,x+2,h+12,z+2,0uy,false)
                             placeRepeating(x+2,h+22,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+21) (z+2)) // absolute coords since execute-at
                             map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+22,z+2)
-                            placeImpulse(x+2,h+21,z+2,sprintf "blockdata %d %d %d {auto:1b}" 0 (hm.[1,1]-7) 0) // expose teleporters at spawn //note brittle coords of block
+                            placeImpulse(x+2,h+21,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (hm.[1,1]-11) 0) // expose teleporters at spawn //note brittle coords of block
                             placeChain(x+2,h+20,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
                             placeImpulse(x+2,h+19,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-5) spz (x+2) (h+6) (z+2))
                             placeChain(x+2,h+18,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"Teleporter to %s\",%s}" spx (hm.[1,1]-3) spz dirName vd)
@@ -2038,17 +2039,17 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
+    xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
@@ -2056,7 +2057,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
