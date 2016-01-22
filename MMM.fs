@@ -2772,9 +2772,8 @@ do
 
 
     // TODO: bugs & good ideas
-    // vary food per starting biome? also give more cookies at start, as 'sprint food' but not 'combat food' (book to give hints about food?)
-    // why Fix and I get no food drops? (any tool drops?)
-    // lag again at flat cobwebs, think skylight calc is an issue
+    // vary food per starting biome?
+    // lag again at flat cobwebs, think skylight calc is an issue (unrepresented sections?) can probably hack something to ensure sections represented... maybe also LightPopulated=0 and ceiling is the issue? could try LP=1, though then other bits may break? hm...
     // speed bu44 is quite nice (emeralds in short supply - buff? did now, see how works out); strength seemed ok
     // 4inal book TODOs, some kind o4 better acknowledgement when complete map
     // diorite pillars at day/night go down into some caves, was kind a cool effect, other ways to use?

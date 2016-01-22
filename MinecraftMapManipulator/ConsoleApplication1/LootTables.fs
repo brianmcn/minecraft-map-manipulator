@@ -122,7 +122,7 @@ let simple_dungeon =
 
 // mobs: drop stuff at their tier and rarely a next tier thing
 
-let LOOT_NS_PREFIX = "BrianLoot"
+let LOOT_NS_PREFIX = "brianloot"  // NOTE: must be all lowercase, to work on both Windows and Linux! 
 let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
 type LOOT_KIND = | ARMOR | TOOLS | FOOD | BOOKS //| TODO 
 let P11 x = Pool(Roll(1,1),x)
@@ -233,7 +233,7 @@ let LOOT_FOOD =
     |]
 
 let tierNLootData n kinds = 
-    [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) | BOOKS -> yield LootTable(LOOT_FORMAT"books"n) ]
+    [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) | BOOKS -> yield LootTable(LOOT_FORMAT"books"n) ] // NOTE: names must be all lowercase, to work on both Windows and Linux! 
 let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
     assert(n>=0 && n <=100)
     let weight = (kinds|>Seq.length) * (1000-10*n-n)

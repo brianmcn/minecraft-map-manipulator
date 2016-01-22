@@ -1713,15 +1713,13 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
 
     let chestItems = 
         Compounds[| 
-                yield [| Byte("Count", 1uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
-                yield [| Byte("Count", 1uy); Byte("Slot", 1uy); Short("Damage",0s); String("id","minecraft:shield"); End |]
-                yield [| Byte("Count",10uy); Byte("Slot", 2uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
-                yield [| Byte("Count",64uy); Byte("Slot", 3uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
-                if not CustomizationKnobs.SINGLEPLAYER then
-                    yield [| Byte("Count", 1uy); Byte("Slot", 5uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 6uy); Short("Damage",0s); String("id","minecraft:shield"); End |]
-                    yield [| Byte("Count",10uy); Byte("Slot", 7uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
-                    yield [| Byte("Count",64uy); Byte("Slot", 8uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
+                let times = if CustomizationKnobs.SINGLEPLAYER then 1 else 2
+                for i = 0 to times-1 do
+                    yield [| Byte("Count", 1uy); Byte("Slot", byte(18*i)+0uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", byte(18*i)+1uy); Short("Damage",0s); String("id","minecraft:shield"); End |]
+                    yield [| Byte("Count", 8uy); Byte("Slot", byte(18*i)+2uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
+                    yield [| Byte("Count",32uy); Byte("Slot", byte(18*i)+3uy); Short("Damage",0s); String("id","minecraft:cookie"); End |]
+                    yield [| Byte("Count",64uy); Byte("Slot", byte(18*i)+4uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
                 yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Rules",
                             [|
@@ -1752,6 +1750,15 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                                 Utilities.wrapInJSONText "Explore! If you travel too far from spawn, things will get scarier, so I recommend caving near spawn to improve your gear until you are strong enough to venture further and you discover suggestions of what to try next."
                             |]) |> ResizeArray); End |]
                 yield [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","1.9 Food and Combat",
+                            [|
+                                Utilities.wrapInJSONTextContinued "Minecraft 1.9 changed the food and combat systems a lot. Here are some quick tips."
+                                Utilities.wrapInJSONTextContinued "FOOD\n\nFood is no longer merely a survival mechanism. It's now also a combat mechanic, as over-feeding with high-saturation food will replenish life very quickly."
+                                Utilities.wrapInJSONTextContinued "It helps to manage food carefully, preferring lower saturation foods (cookies, apples, ...) when you're 'safe', and save higher saturation foods (bread, steak, ...) for combat where rapid healing is valuable."
+                                Utilities.wrapInJSONTextContinued "COMBAT\n\nClicking your weapons too quickly (to use them repeatedly) will cause them to deal less damage. Weapons now have cooldowns, which means you need to wait a half-second or more between attacks for maximal damage."
+                                Utilities.wrapInJSONText "Stone, iron, and diamond axes are strong weapons, but they have long cooldowns. Swords deal less damage, but have shorter cooldowns, so you can swing them more often with no damage decrease."
+                            |]) |> ResizeArray); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Hints and Spoilers",
                             [|
                                 Utilities.wrapInJSONTextContinued "The following pages outline the simplest 'progression order' of the map. You can refer to this if you get stuck, but DON'T READ THIS UNLESS YOU NEED TO BECAUSE YOU'RE STUCK."
