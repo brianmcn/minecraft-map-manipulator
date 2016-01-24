@@ -2780,9 +2780,8 @@ do
     // Fixxer died, daylight went even under bedrock ceiling, also lag, so really need to fix lighting, and SMP is good way to test
     // glass set piece had cave below it, fixer went into it.  set piece was kinda blah
     // vary food per starting biome?
-    // Fixxxer likes flame bows (but not fire aspect), consider adding flame back
     // purple beacon dungeon - witches infighting caused a feesh-pocalypse, I nearly died... not sure how to deal with, but un-ideal
-    // since dungeons can be done out of order, last book cannot be written to assume it is the last book.  (also has typo on 2nd page, unfinished)
+    // since dungeons can be done out of order, last book cannot be written to assume it is the last book.  (also has typo on 2nd page, and is unfinished)
     // consider not turning on purple beacon until the book describing it has been found? (how to implement, and be sure book says it's been unlocked, so if people mapped they don't assume not there b/c didn't see before)
     // elytra and jump pots need to be completely reworked/rethought:
     //  - fixxer died crashing from elytra, would have lost all stuff in unknown area, including a monument block (keepInventory with elytra?)

@@ -1275,9 +1275,16 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
         for x = xmin to xmin+xlen-1 do
             for y = zmin to zmin+zlen-1 do
                 let biome = biome.[x,y]
+                let topIsWater = map.GetBlockInfo(x,hmIgnoringLeaves.[x,y],y).BlockID = 9uy
+                let topIsWaterAndNotOceanOrRiver = topIsWater && not(biome = 0uy || biome = 10uy || biome = 24uy || biome=7uy || biome=11uy) // 0,10,24 are oceans; 7,11 are rivers
                 let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=int biome) |> (fun (_,_,color) -> color)
                 let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
                 assert(mci = mapColorIndex)
+                let r,g,b = 
+                    if topIsWaterAndNotOceanOrRiver then
+                        r/2,g/2,(255+b)/2
+                    else
+                        r,g,b
                 let r,g,b = 
                     if (x%512=0) || (y%512=0) then
                         r/2,g/2,b/2  // dark lines on region bounds

@@ -1910,7 +1910,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     2uy,208uy    // grass                  -> grass_path
                                     3uy,110uy    // dirt (and variants)    -> mycelium
                                     7uy, 7uy     // bedrock (to keep algorithm from falling off a cliff)
-                                    12uy,24uy    // sand                   -> sandstone
+                                    12uy,24uy    // sand                   -> sandstone   // TODO birch planks may be better, also, with red sand, acacia planks
                                     13uy,82uy    // gravel                 -> clay
                                     24uy,159uy   // sandstone              -> stained_hardned_clay
                                     78uy,171uy   // snow_layer             -> carpet
@@ -1943,6 +1943,12 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     let w = rng.Next(WIDE.Length)
                                     if dist<A.[0] && dist%2=0 || dist<A.[1] && dist%3=0 || dist<A.[2] && dist%4=0 || dist<A.[3] && dist%5=0 || dist<A.[4] && dist%6=0 then
                                         subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az)
+                                    if dist > 0 && dist % A.[1] = 0 then
+                                        let y = hmIgnoringLeaves.[ix,iz]
+                                        let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
+                                        putTrappedChestWithItemsAt(ix,y,iz,"Keep your eyes open",chestItems,map,null)
+                                        putThingRecomputeLight(ix,y-1,iz,map,"redstone_torch",0) // TODO not always putting light
+                                        decorations.Add('*',ix,iz) // TODO will this interfere with dungeon placement?
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
             failwith "no teleporters"
@@ -2078,24 +2084,24 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         )
     let allTrees = ref null
     xtime (fun () -> allTrees := treeify(map))
-    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
     xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    time (fun() ->
+    xtime (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

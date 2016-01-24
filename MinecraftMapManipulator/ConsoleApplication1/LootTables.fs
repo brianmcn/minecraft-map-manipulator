@@ -359,8 +359,9 @@ let MEND(lvls) = 70, Seq.toArray lvls
 // BOW
 let POW(lvls) = 48, Seq.toArray lvls
 let PUNCH(lvls) = 49, Seq.toArray lvls
+let FLAME(lvls) = 50, Seq.toArray lvls
 let INF(lvls) = 51, Seq.toArray lvls
-// flame unused
+// none unused
 
 open NBT_Manipulation
 
@@ -391,7 +392,7 @@ let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
     let tier2ArmorBooks = [PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier2MeleeBooks = [SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]]
     let tier2UtilBooks = [EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]]
-    let tier2BowBooks = [POW[1..2]; PUNCH[1]]
+    let tier2BowBooks = [POW[1..2]; PUNCH[1]; FLAME[1..2]]
     let tier2Items =
         [|
             yield! chooseNbooks(rng,F 2,tier2ArmorBooks)
