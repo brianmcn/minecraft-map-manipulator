@@ -1561,7 +1561,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                             else 99,99
                                                         if dx <> 99 then
                                                             let mutable ok = true
-                                                            let isOkBlock(bi:BlockInfo) = bi.BlockID = 1uy || bi.BlockID = 3uy // stone or dirt
+                                                            let isOkBlock(bi:BlockInfo) = 
+                                                                bi.BlockID = 1uy || bi.BlockID = 3uy || bi.BlockID = 97uy // stone or dirt or monster_egg
                                                             for i = 1 to 5 do
                                                                 if not(isOkBlock(map.GetBlockInfo(nx+i*dx,ny,nz+i*dz))) ||
                                                                     not(isOkBlock(map.GetBlockInfo(nx+i*dx,ny+1,nz+i*dz))) ||
@@ -2080,7 +2081,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
