@@ -2784,19 +2784,18 @@ do
     // purple beacon dungeon - witches infighting caused a feesh-pocalypse, I nearly died... not sure how to deal with, but un-ideal
     // since dungeons can be done out of order, last book cannot be written to assume it is the last book.  (also has typo on 2nd page, unfinished)
     // consider not turning on purple beacon until the book describing it has been found? (how to implement, and be sure book says it's been unlocked, so if people mapped they don't assume not there b/c didn't see before)
-    // report Mojang bug - shield get stuck permanently blocking (not visually, but all mobs bounce off, can still swing sword)
     // elytra and jump pots need to be completely reworked/rethought:
     //  - fixxer died crashing from elytra, would have lost all stuff in unknown area, including a monument block (keepInventory with elytra?)
-    //  - had never used elytra before, didn't know how to fly
+    //  - had never used elytra before, didn't know how to fly, looked straight down, died of fall damage (FF X boots? but maybe can still die of velocity...)
     //  - jump pots unstack when dropped, inventory nightmare (other takeoff mechanic?)
+    //  - maybe move monument block to mountain peak, make secret treasure book part of mountain peak loot, elytra becomes optional? but then need to figure out where purple beacon book goes
+    //  - also could have a 'how to fly with elytra' book
     // teleporter command blocks look like a bug, consider moving cmds
     // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
-    // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower?)
+    // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower? coarse dirt is great (no snow atop)) can also say 'unmarked treasure' in the book
     // to make teleporters more discoverable, have any out-of-place light source (red lamp? torch? glow?) along the path.  'light' = 'come look', and then will see path, etc.
-    // "infinite strength" is wrong name for pot, implied one-hit-kill, not long duration, fix names/lore
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla)
-    // Fix would never look at top of vanilla waterfall.  An out-of-place block (polished diorite) or light source would maybe be enough to look.
     // there may be too many red dungeons (we saw like 5); ok if folks have to look a little, as I need more exploration anyway
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
     // lag again at flat cobwebs, think skylight calc is an issue (unrepresented sections?) can probably hack something to ensure sections represented... maybe also LightPopulated=0 and ceiling is the issue? could try LP=1, though then other bits may break? hm...

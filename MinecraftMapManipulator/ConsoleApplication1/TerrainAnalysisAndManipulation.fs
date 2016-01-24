@@ -1440,6 +1440,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         map.GetBlockInfo(x-1,y,z).BlockID = plus &&
         map.GetBlockInfo(x,y,z+1).BlockID = plus &&
         map.GetBlockInfo(x,y,z-1).BlockID = plus
+    let isFlowingWater(nbi:BlockInfo) = 
+        nbi.BlockID = 9uy && nbi.BlockData <> 0uy || nbi.BlockID = 8uy // flowing water
     let putTrappedChestWithLoot(x,y,z,tier) =
         let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng)
                     elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng)
@@ -1483,7 +1485,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     points.[1].Add( (x,y,z) )
                                     names.[1] <- "tree top leaves"
                     elif bid = 86uy then // 86 = pumpkin
-                        let dmg = map.GetBlockInfo(x,y,z).BlockData
+                        let dmg = bi.BlockData
                         if rng.Next(4) = 0 then // TODO probability, so don't place on all
                             // TODO could be on hillside, and so chest under maybe exposed
                             if noneWithin(50,points.[2],x,y,z) then
@@ -1531,30 +1533,58 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                             points.[4].Add( (x,y,z) )
                                             names.[4] <- "desert cactus"
                                             // TODO sometimes be a trap
-                    elif bid = 9uy && bi.BlockData <> 0uy || bid = 8uy then  // flowing water
+                    elif isFlowingWater(bi) then
                         if not(flowingWaterVisited.Contains(x,y,z)) then
                             flowingWaterVisited.Add(x,y,z) |> ignore
                             let q = new System.Collections.Generic.Queue<_>()
                             q.Enqueue(x,y,z)
                             while not(q.Count=0) do
                                 let cx,cy,cz = q.Dequeue()
-                                let isValid(coord) = coord >= MINIMUM && coord <= MINIMUM+LENGTH-1
+                                let isValid(coord) = coord >= MINIMUM+6 && coord <= MINIMUM+LENGTH-1-6 // the 6s are because once found we'll try to recess a torch a few blocks away, don't want to out-of-bounds with waterfall right near world edge
                                 for dx,dy,dz in [1,0,0; -1,0,0; 0,0,1; 0,0,-1; 0,1,0] do
                                     let nx,ny,nz = cx+dx, cy+dy, cz+dz
                                     if isValid(nx) && isValid(nz) then
                                         if not(flowingWaterVisited.Contains(nx,ny,nz)) && not(waterfallTopVisited.Contains(nx,ny,nz)) then
                                             let nbi = map.GetBlockInfo(nx,ny,nz)
-                                            if nbi.BlockID = 9uy && nbi.BlockData <> 0uy || nbi.BlockID = 8uy then  // flowing water
+                                            if isFlowingWater(nbi) then
                                                 flowingWaterVisited.Add(nx,ny,nz) |> ignore
                                                 q.Enqueue(nx,ny,nz)
                                             elif nbi.BlockID = 9uy && nbi.BlockData = 0uy then  // stationary water
                                                 waterfallTopVisited.Add(nx,ny,nz) |> ignore
                                                 if hmIgnoringLeaves.[cx,cz] <= cy+1 then
-                                                    printfn "found waterfall top at %d %d %d" nx ny nz
-                                                    // chest below
-                                                    putTrappedChestWithLoot(nx,ny-1,nz,2)
-                                                    points.[5].Add( (nx,ny-1,nz) )
-                                                    names.[5] <- "waterfall top"
+                                                    if map.GetBlockInfo(nx,ny+1,nz).BlockID <> 0uy then
+                                                        let dx,dz = 
+                                                            if isFlowingWater(map.GetBlockInfo(nx+1,ny,nz)) then -1,0
+                                                            elif isFlowingWater(map.GetBlockInfo(nx-1,ny,nz)) then 1,0
+                                                            elif isFlowingWater(map.GetBlockInfo(nx,ny,nz+1)) then 0,-1
+                                                            elif isFlowingWater(map.GetBlockInfo(nx,ny,nz-1)) then 0,1
+                                                            else 99,99
+                                                        if dx <> 99 then
+                                                            let mutable ok = true
+                                                            let isOkBlock(bi:BlockInfo) = bi.BlockID = 1uy || bi.BlockID = 3uy // stone or dirt
+                                                            for i = 1 to 5 do
+                                                                if not(isOkBlock(map.GetBlockInfo(nx+i*dx,ny,nz+i*dz))) ||
+                                                                    not(isOkBlock(map.GetBlockInfo(nx+i*dx,ny+1,nz+i*dz))) ||
+                                                                    not(isOkBlock(map.GetBlockInfo(nx+i*dx,ny-1,nz+i*dz))) ||
+                                                                    not(isOkBlock(map.GetBlockInfo(nx+i*dx+abs dz,ny,nz+i*dz+abs dx))) ||
+                                                                    not(isOkBlock(map.GetBlockInfo(nx+i*dx-abs dz,ny,nz+i*dz-abs dx))) then
+                                                                        ok <- false
+                                                            if ok then
+                                                                printfn "found waterfall top at %d %d %d" nx ny nz
+                                                                map.SetBlockIDAndDamage(nx,ny+1,nz,1uy,4uy) // 1,4 is polished diorite
+                                                                for i = 1 to 3 do
+                                                                    map.SetBlockIDAndDamage(nx+i*dx,ny-1,nz+i*dz,0uy,0uy) // air
+                                                                putThingRecomputeLight(nx+4*dx,ny-1,nz+4*dz,map,"torch",0)
+                                                                // chest below
+                                                                putTrappedChestWithLoot(nx,ny-1,nz,2)
+                                                                points.[5].Add( (nx,ny-1,nz) )
+                                                                names.[5] <- "waterfall top"
+                                                            else
+                                                                printfn "ignoring waterfall top at %d %d %d because couldn't recess torch" nx ny nz
+                                                        else
+                                                            printfn "ignoring waterfall top at %d %d %d because water is weird" nx ny nz
+                                                    else
+                                                        printfn "ignoring waterfall top at %d %d %d because air above source" nx ny nz
                                                 else
                                                     printfn "ignoring waterfall top at %d %d %d because underground" nx ny nz // no harm in placing chests there, but probably no one will find them, prefer to have count of findable ones; in one map, 24 of 72 waterfall tops were on surface
                     elif bid = 100uy && bi.BlockData = 5uy then  // 100=red_mushroom_block, 5=red only on top-center
@@ -1813,10 +1843,10 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
     let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,1uy,"minecraft:chain_command_block")
     let villagerData(i) =
         match i with
-        | 0 -> """Profession:1,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:3b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:1b,Amplifier:0b,Duration:99999999}],display:{Name:"Infinite speed",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 1=speed
-        | 1 -> """Profession:2,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:2b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:3b,Amplifier:0b,Duration:99999999}],display:{Name:"Infinite haste",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 3=haste
-        | 2 -> """Profession:3,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:4b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:5b,Amplifier:0b,Duration:99999999}],display:{Name:"Infinite strength",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 5=strength
-        | 3 -> """Profession:4,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:5b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:21b,Amplifier:1b,Duration:99999999}],display:{Name:"Infinite health boost",Lore:["Lasts until you die or drink milk"]}}}}]}"""// 21=health boost
+        | 0 -> """Profession:1,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:3b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:1b,Amplifier:0b,Duration:119980}],display:{Name:"Enduring Speed",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 1=speed
+        | 1 -> """Profession:2,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:2b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:3b,Amplifier:0b,Duration:119980}],display:{Name:"Enduring Haste",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 3=haste
+        | 2 -> """Profession:3,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:4b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:5b,Amplifier:1b,Duration:119980}],display:{Name:"Enduring Strength",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 5=strength
+        | 3 -> """Profession:4,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:5b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:21b,Amplifier:1b,Duration:119980}],display:{Name:"Enduring Health Boost",Lore:["Lasts until you die or drink milk"]}}}}]}"""// 21=health boost
         | _ -> failwith "bad villager #"
     let unusedVillagers = ResizeArray [| 0; 1; 2; 3 |]
     let villagers = ResizeArray()
@@ -2048,16 +2078,16 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let allTrees = ref null
     xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
-    time (fun() ->   // after hiding spots figured
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
     time (fun() ->
