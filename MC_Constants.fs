@@ -358,6 +358,46 @@ let BLOCKIDS_THAT_EMIT_LIGHT =
         120, 1  // end portal frame
     |]
 
+let BLOCKIDS_THAT_FILTER_SKYLIGHT = [|18;30;161|]  // cobweb and leaves
+let BLOCKIDS_THAT_LOWER_LIGHT_BY_TWO = [|8;9;79;212|]  // water and ice
+let BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT = 
+    [|0;6;10;11;20;26;27;28;29;31;32;33;34;36;37;38;39;40;50;51;52;54;55;59;63;64;65;66;68;69;70;71;72;75;76;77;78;81;83;85;90;92;93;94;95;96;
+      101;102;104;105;106;107;111;113;115;116;117;118;119;120;122;127;130;131;132;138;139;140;141;142;143;144;145;146;147;148;149;150;
+      151;154;157;160;165;166;167;171;175;176;177;178;183;184;185;186;187;188;189;190;191;192;193;194;195;196;197;
+      198;199;200;207;
+      |]
+(*  // above was computed using some code from mcedit raw data repository:
+
+    let mcdata = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\minecraft_raw.txt""")
+    let jss = new System.Web.Script.Serialization.JavaScriptSerializer()
+    let o = jss.DeserializeObject(mcdata)
+    let bso = new System.Collections.Generic.Dictionary<string,int>()
+    for d in (o:?>obj[]) do
+        let dict = d :?> System.Collections.Generic.Dictionary<string,obj>
+        let s = dict.["blockState"] :?> string
+        let d = dict.["opacity"] :?> int
+        bso.Add(s,d)
+    let o = jss.DeserializeObject(System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\idmapping_raw.txt"""))
+    let bsi = new System.Collections.Generic.Dictionary<string,int>()
+    for d in (o:?>obj[]) do
+        let a = d :?> obj[]
+        let bid = a.[0] :?> int
+        let bs = a.[2] :?> string
+        bsi.Add(bs, bid)
+    let opacity = Array.create 256 -1
+    for KeyValue(bs,bid) in bsi do
+        let op = bso.[bs]
+        if opacity.[bid] <> -1 && opacity.[bid] <> op then
+            failwith "two values"
+        else
+            opacity.[bid] <- op
+    printf "[|"
+    for i = 0 to 255 do
+        if opacity.[i] = 0 then
+            printf "%d;" i
+    printfn "|]"
+*)
+
 let MAP_COLOR_TABLE =
     [|
         0,(0,0,0)  // Transparent Not explored 

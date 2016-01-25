@@ -1030,9 +1030,9 @@ let findStrongholds() =
                         let z = rz * 512 + cz * 16
                         for sy = 0 to 15 do
                             let y = 16 * sy
-                            match region.TryGetSection(x,y,z) with
-                            | None -> ()
-                            | Some (_s,blocks,_bd,_bl,_sl) ->
+                            match region.GetSection(x,y,z) with
+                            | null,null,null,null,null -> ()
+                            | _s,blocks,_bd,_bl,_sl ->
                                 if blocks |> Array.exists (fun b -> b = 120uy) then // 120 = end portal frame
                                     if y < 64 then // below ground
                                         printfn "end portal at (%6d, %3d, %6d)" x y z

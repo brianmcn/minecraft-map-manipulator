@@ -250,19 +250,9 @@ type RegionFile(filename) =
         let zz = ((z+51200)%512)/16
         let theChunk = getOrCreateChunk(xx,zz)
         theChunk
-    member this.TryGetSection(x,y,z) =  // x,y,z are world coordinates
-        let xx = ((x+51200)%512)/16
-        let zz = ((z+51200)%512)/16
-        let sy = y/16
-        match chunkSectionsCache.[xx,zz].[sy] with
-        | null,null,null,null,null -> None
-        | x -> Some x
     member this.GetSection(x,y,z) =  // x,y,z are world coordinates - will return (null,null,null) for unrepresented sections
-        let xx = ((x+51200)%512)/16
-        let zz = ((z+51200)%512)/16
-        let sy = y/16
-        chunkSectionsCache.[xx,zz].[sy]
-    member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
+        this.GetOrCreateSectionCore(x,y,z,false)
+    member private this.GetOrCreateSectionCore(x,y,z,createIfUnrepresented) =  // x,y,z are world coordinates
         let xx = ((x+51200)%512)/16
         let zz = ((z+51200)%512)/16
         let theChunk = getOrCreateChunk(xx,zz) // do this even though we don't "need" it, to avoid having sections without parent chunks
@@ -280,21 +270,26 @@ type RegionFile(filename) =
                     let skyLight = x |> Array.pick (function ByteArray("SkyLight",a) -> Some a | _ -> None)
                     x, blocks, blockData, blockLight, skyLight
                 | None ->
-                    let blocks = Array.zeroCreate 4096
-                    let blockData = Array.zeroCreate 2048
-                    let blockLight = Array.create 2048 0uy
-                    let skyLight = Array.create 2048 0uy
-                    let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", blocks); NBT.ByteArray("Data", blockData); 
-                                        NBT.ByteArray("BlockLight", blockLight); NBT.ByteArray("SkyLight", skyLight); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
-                    match theChunkLevel with
-                    | Compound(_,a) ->
-                        let i = a.FindIndex (fun x -> x.Name="Sections")
-                        a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
-                        isChunkDirty.[xx,zz] <- true
-                        newSection, blocks, blockData, blockLight, skyLight
+                    if createIfUnrepresented then
+                        let blocks = Array.zeroCreate 4096
+                        let blockData = Array.zeroCreate 2048
+                        let blockLight = Array.create 2048 0uy
+                        let skyLight = Array.create 2048 0uy
+                        let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", blocks); NBT.ByteArray("Data", blockData); 
+                                            NBT.ByteArray("BlockLight", blockLight); NBT.ByteArray("SkyLight", skyLight); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
+                        match theChunkLevel with
+                        | Compound(_,a) ->
+                            let i = a.FindIndex (fun x -> x.Name="Sections")
+                            a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
+                            isChunkDirty.[xx,zz] <- true
+                            newSection, blocks, blockData, blockLight, skyLight
+                    else
+                        null,null,null,null,null
             chunkSectionsCache.[xx,zz].[sy] <- theSection
             theSection
         | x -> x
+    member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
+        this.GetOrCreateSectionCore(x,y,z,true)
     member this.GetChunk(cx, cz) =
         match chunks.[cx,cz] with
         | End -> failwith "chunk not represented, NYI"
