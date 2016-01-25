@@ -2743,7 +2743,7 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     let sampleRegionFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RCTM109\region\"""
-    RecomputeLighting.testByComparingToMinecraft(sampleRegionFolder,0,0,127,127)
+    RecomputeLighting.testSkyLightByComparingToMinecraft(sampleRegionFolder,0,0,511,511)
 
     printfn "press a key to end"
     System.Console.Beep()
