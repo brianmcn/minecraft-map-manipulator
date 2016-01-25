@@ -75,6 +75,7 @@
     <Compile Include="..\..\RegionFiles.fs">
       <Link>RegionFiles.fs</Link>
     </Compile>
+    <Compile Include="RecomputeLighting.fs" />
     <Compile Include="..\..\ArtAssets.fs">
       <Link>ArtAssets.fs</Link>
     </Compile>

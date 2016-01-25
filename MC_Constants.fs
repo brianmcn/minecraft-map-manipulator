@@ -334,6 +334,30 @@ let blockIdToMinecraftName =
         255,"minecraft:structure_block"
     |]
 
+let BLOCKIDS_THAT_EMIT_LIGHT =
+    [|  // block id, light level
+        138,15 // beacon
+        119,15 // end portal block
+        51, 15 // fire
+        89, 15 // glowstone
+        91, 15 // jack o' lantern
+        10, 15 // flowing lava
+        11, 15 // lava source
+        124,15 // powered redstone lamp
+        169,15 // sea lantern
+        198,14 // end rod 
+        50, 14 // torch
+        62, 13 // lit furnace
+        90, 11 // nether portal block
+        74,  9  // lit redstone ore
+        130, 7  // ender chest
+        76,  7  // restone torch (on)
+        117, 1  // brewing stand
+        39,  1  // brown mushroom
+        122, 1  // dragon egg
+        120, 1  // end portal frame
+    |]
+
 let MAP_COLOR_TABLE =
     [|
         0,(0,0,0)  // Transparent Not explored 

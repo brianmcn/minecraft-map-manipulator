@@ -2777,6 +2777,7 @@ do
 
 
     // TODO: bugs & good ideas
+    // to make teleporters more discoverable, have any out-of-place light source (red lamp? torch? glow?) along the path.  'light' = 'come look', and then will see path, etc. ...
     // Fixxer died, daylight went even under bedrock ceiling, also lag, so really need to fix lighting, and SMP is good way to test
     // glass set piece had cave below it, fixer went into it.  set piece was kinda blah
     // vary food per starting biome?
@@ -2793,7 +2794,6 @@ do
     // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower? coarse dirt is great (no snow atop)) can also say 'unmarked treasure' in the book
-    // to make teleporters more discoverable, have any out-of-place light source (red lamp? torch? glow?) along the path.  'light' = 'come look', and then will see path, etc.
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla)
     // there may be too many red dungeons (we saw like 5); ok if folks have to look a little, as I need more exploration anyway
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it

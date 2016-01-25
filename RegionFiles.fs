@@ -27,6 +27,24 @@ type TwoDArrayFacadeOverOneDArray<'T>(flatArray:'T[]) =
         with get(x,z) = flatArray.[z*K+x]
         and set(x,z) v = flatArray.[z*K+x] <- v
 
+module NibbleArray = // deal with various 2048-length arrays of 4-bit entries (blockdata, blocklight, skylight)
+    let get(a:_[], x, y, z) =
+        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+        let i = dy*256 + dz*16 + dx
+        let r = if i%2=1 then a.[i/2] >>> 4 else a.[i/2] &&& 0xFuy
+        r
+    let set(a:_[], x, y, z, v) =
+        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
+        let i = dy*256 + dz*16 + dx
+        let mutable tmp = a.[i/2]
+        if i%2 = 0 then
+            tmp <- tmp &&& 0xF0uy
+            tmp <- tmp + v
+        else
+            tmp <- tmp &&& 0x0Fuy
+            tmp <- tmp + (v <<< 4)
+        a.[i/2] <- tmp
+
 [<Literal>]
 let DUMMY = "say dummy"
 
@@ -42,7 +60,8 @@ type RegionFile(filename) =
     let chunkHeightMapCache : TwoDArrayFacadeOverOneDArray<int>[,] = Array2D.create 32 32 null   // chunkHeightMapCache.[cx,cz].[x,z]
     let chunkBiomeCache : TwoDArrayFacadeOverOneDArray<byte>[,] = Array2D.create 32 32 null   // chunkBiomeCache.[cx,cz].[x,z]
     let chunkInhabitedTimeCache = Array2D.create 32 32 -1L // -1 means unrepesented/unknown
-    let chunkSectionsCache : (NBT[]*byte[]*byte[])[][,] = Array2D.init 32 32 (fun _ _ -> Array.create 16 (null,null,null))   // chunkSectionsCache.[cx,cz].[sy]
+    let chunkSectionsCache : (NBT[]*byte[]*byte[]*byte[]*byte[])[][,] = // chunkSectionsCache.[cx,cz].[sy] -> nbt, bid, blockdata, blocklight, skylight
+        Array2D.init 32 32 (fun _ _ -> Array.create 16 (null,null,null,null,null))
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
     let mutable firstSeenDataVersion = -1
@@ -236,7 +255,7 @@ type RegionFile(filename) =
         let zz = ((z+51200)%512)/16
         let sy = y/16
         match chunkSectionsCache.[xx,zz].[sy] with
-        | null,null,null -> None
+        | null,null,null,null,null -> None
         | x -> Some x
     member this.GetSection(x,y,z) =  // x,y,z are world coordinates - will return (null,null,null) for unrepresented sections
         let xx = ((x+51200)%512)/16
@@ -249,7 +268,7 @@ type RegionFile(filename) =
         let theChunk = getOrCreateChunk(xx,zz) // do this even though we don't "need" it, to avoid having sections without parent chunks
         let sy = y/16
         match chunkSectionsCache.[xx,zz].[sy] with
-        | null, null, null -> 
+        | null, null, null,null,null -> 
             let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
             let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
             let theSection = 
@@ -257,18 +276,22 @@ type RegionFile(filename) =
                 | Some x -> 
                     let blocks = x |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
                     let blockData = x |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
-                    x, blocks, blockData
+                    let blockLight = x |> Array.pick (function ByteArray("BlockLight",a) -> Some a | _ -> None)
+                    let skyLight = x |> Array.pick (function ByteArray("SkyLight",a) -> Some a | _ -> None)
+                    x, blocks, blockData, blockLight, skyLight
                 | None ->
                     let blocks = Array.zeroCreate 4096
                     let blockData = Array.zeroCreate 2048
+                    let blockLight = Array.create 2048 0uy
+                    let skyLight = Array.create 2048 0uy
                     let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", blocks); NBT.ByteArray("Data", blockData); 
-                                        NBT.ByteArray("BlockLight",Array.create 2048 0uy); NBT.ByteArray("SkyLight",Array.create 2048 0uy); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
+                                        NBT.ByteArray("BlockLight", blockLight); NBT.ByteArray("SkyLight", skyLight); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
                     match theChunkLevel with
                     | Compound(_,a) ->
                         let i = a.FindIndex (fun x -> x.Name="Sections")
                         a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
                         isChunkDirty.[xx,zz] <- true
-                        newSection, blocks, blockData
+                        newSection, blocks, blockData, blockLight, skyLight
             chunkSectionsCache.[xx,zz].[sy] <- theSection
             theSection
         | x -> x
@@ -282,28 +305,27 @@ type RegionFile(filename) =
         | c -> Some c
     member this.SetChunk(cx, cz, newChunk) =
         chunks.[cx,cz] <- newChunk
-    member this.MaybeGetBlockInfo(x, y, z) = // will return null if unrepresented
-        ensureCorrectRegion(x,z)
-        let _theSection, blocks, blockData = this.GetSection(x,y,z)
-        if blocks = null then
-            null
-        else
-            let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
-            let i = dy*256 + dz*16 + dx
-            let blockDataAtI = if i%2=1 then blockData.[i/2] >>> 4 else blockData.[i/2] &&& 0xFuy
-            new BlockInfo(blocks.[i], blockDataAtI)
-    member this.GetBlockInfo(x, y, z) = // will create unrepresented chunk/section
-        ensureCorrectRegion(x,z)
-        let _theSection, blocks, blockData = this.GetOrCreateSection(x,y,z)
+    member private this.GetBlockInfoCore(x,y,z,blocks:_[],blockData:_[]) =
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
         let i = dy*256 + dz*16 + dx
         let blockDataAtI = if i%2=1 then blockData.[i/2] >>> 4 else blockData.[i/2] &&& 0xFuy
+#if DEBUG
+        let bdai = NibbleArray.get(blockData, x, y, z)
+        assert(bdai = blockDataAtI)
+#endif
         new BlockInfo(blocks.[i], blockDataAtI)
+    member this.MaybeGetBlockInfo(x, y, z) = // will return null if unrepresented
+        ensureCorrectRegion(x,z)
+        let _theSection, blocks, blockData, _bl, _sl = this.GetSection(x,y,z)
+        if blocks = null then null
+        else this.GetBlockInfoCore(x,y,z,blocks,blockData)
+    member this.GetBlockInfo(x, y, z) = // will create unrepresented chunk/section
+        ensureCorrectRegion(x,z)
+        let _theSection, blocks, blockData, _bl, _sl = this.GetOrCreateSection(x,y,z)
+        this.GetBlockInfoCore(x,y,z,blocks,blockData)
     member this.GetTileEntity(x, y, z) = // will create unrepresented chunk/section
         ensureCorrectRegion(x,z)
-        let _theSection, blocks, blockData = this.GetOrCreateSection(x,y,z)
-        let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
-        let i = dy*256 + dz*16 + dx
+        this.GetOrCreateSection(x,y,z) |> ignore
         // TileEntities
         let tileEntity =
             let theChunk = this.GetOrCreateChunk(x,z)
@@ -324,7 +346,7 @@ type RegionFile(filename) =
     member this.SetBlockIDAndDamage(x, y, z, blockID, damage) =
         if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
         if damage > 15uy then failwith "invalid blockData"
-        let _theSection, blocks, blockData = this.GetSection(x,y,z)
+        let _theSection, blocks, blockData, _bl, _sl = this.GetSection(x,y,z)
         if blocks = null then 
             failwith "unrepresented section"
         let dx, dy, dz = (x+51200) % 16, y % 16, (z+51200) % 16
@@ -529,7 +551,7 @@ type RegionFile(filename) =
             for cz = 0 to 31 do
                 if chunks.[cx,cz] <> End then
                     for sy = 0 to 15 do
-                        let s,blocks,data = chunkSectionsCache.[cx,cz].[sy]
+                        let s,blocks,data, _bl, _sl = chunkSectionsCache.[cx,cz].[sy]
                         if s <> null then
                             f blocks data
     member this.AddTileTick(id,t,p,x,y,z) =
