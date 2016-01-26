@@ -2048,11 +2048,9 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM
         let HIY = 255
         printf "CACHE SECT"
-        for y in [LOY .. 16 .. HIY] do
-            printf "."
-            for x in [LOX .. 16 .. LOX+LENGTH-1] do
-                for z in [LOZ .. 16 .. LOZ+LENGTH-1] do
-                    ignore <| map.GetOrCreateSection(x,y,z)  // cache each section
+        // TODO this is creating every empty sky section, making chunks heavier...
+        // TODO consider altering API so unrepresented sections can still return implicit block info when read (but not when written)
+        map.GetOrCreateAllSections(LOX,LOX+LENGTH-1,LOY,HIY,LOZ,LOZ+LENGTH-1)
         printfn ""
         )
     time (fun () ->

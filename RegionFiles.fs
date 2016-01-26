@@ -752,4 +752,9 @@ type MapFolder(folderName) =
                     r.Write(fil+".new")
                     System.IO.File.Delete(fil)
                     System.IO.File.Move(fil+".new",fil)
-
+    member this.GetOrCreateAllSections(minx,maxx,miny,maxy,minz,maxz) =  // to force-load everything into memory cache up front
+        for y in [miny .. 16 .. maxy] do
+            printf "."
+            for x in [minx .. 16 .. maxx] do
+                for z in [minz .. 16 .. maxz] do
+                    ignore <| this.GetOrCreateSection(x,y,z)  // cache each section

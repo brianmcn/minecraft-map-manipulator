@@ -2,7 +2,13 @@
 
 // recompute the BlockLight/SkyLight/HeightMap/LightPopulated values after making changes
 
-// need to be careful with leaves/webs & skylight
+// TODO how to do large sections that don't all fit in memory at once?
+//  - compute e.g. chunk 0,0 alone, then compute chunk 0,1 using the boundary values from 0,0 as sources
+//      - but this won't find light that 'goes around the corner from 0,1 into 0,0 and then back into 0,1', will it? could repeat entire chunk (16 blocks far enough can't propagate)
+//      - had a discussion with codewarrior; for now i think i will just redo one chunk at the boundary. this lends towards large scale work (more volume/less surface means less re-work at boundaries), but beware of tension that cache/locality get poorer at large scale (e.g. my hashset of 15-sources is walking all over memory)
+//  - then can test how long it takes to compute light of whole region at different 'chunking' sizes
+//  - and can test for correctness against a saved 'good' copy
+
 // need to be careful that slabs/stairs/farmland/?path? are opaque but have self light-level of neighbor
 
 let INTRINSIC_BRIGHTNESS =
@@ -77,6 +83,9 @@ let testBlockLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
     for x in [minx .. 512 .. maxx] do
         for z in [minz .. 512 .. maxz] do
             testMap.GetBlockInfo(x,0,z) |> ignore
+    // performance benchmark
+    testMap.GetOrCreateAllSections(minx,maxx,0,255,minz,maxz)
+    let sw = System.Diagnostics.Stopwatch.StartNew()
     // now do computations on testMap, and compare results to origMap
     let LIGHTBIDS = new System.Collections.Generic.Dictionary<_,_>()
     for bid, lvl in MC_Constants.BLOCKIDS_THAT_EMIT_LIGHT do
@@ -103,6 +112,9 @@ let testBlockLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
     let canChange(x,y,z) = x >= minx && x <= maxx && y >= 0 && y <= 255 && z >= minz && z <= maxz
     // recompute block light
     recomputeBlockLight(testMap, canChange, lightSources)
+    let elapsed = sw.ElapsedMilliseconds 
+    printfn "Took %d ms" elapsed
+    (*
     printfn "comparing results..."
     // compare
     let mutable numDiff = 0
@@ -115,9 +127,11 @@ let testBlockLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
                     let origValue = NibbleArray.get(origBlockLight,x,y,z)
                     let testValue = NibbleArray.get(testBlockLight,x,y,z)
                     if origValue <> testValue then
-                        printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                        //printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
                         numDiff <- numDiff + 1
     printfn "There were %d differences" numDiff
+    *)
+    elapsed
 
 
 let testSkyLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
@@ -132,6 +146,9 @@ let testSkyLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
     for x in [minx .. 512 .. maxx] do
         for z in [minz .. 512 .. maxz] do
             testMap.GetBlockInfo(x,0,z) |> ignore
+    // performance benchmark
+    testMap.GetOrCreateAllSections(minx,maxx,0,255,minz,maxz)
+    let sw = System.Diagnostics.Stopwatch.StartNew()
     // now do computations on testMap, and compare results to origMap
     let lightSources = ResizeArray()
     printf "finding light sources and initting light to 0..."
@@ -146,11 +163,22 @@ let testSkyLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
             while y >= hm && y >= 0 do
                 let bi = 
                     if y = hm then testMap.GetBlockInfo(x,y,z)  // if y=hm, need to force-create the section above topmost block (might be unrepresented), so that we can put the lowest source there
+                    // TODO line above will create some sky with light 0 we've already gone past the coords of, bug
+                    // not sure how to deal with; one way is to create all sections, then cull any 'all sky' ones before writing to disk
                     else testMap.MaybeGetBlockInfo(x,y,z)
                 if bi <> null then
                     let _,_,_,_,skyLight = testMap.GetSection(x,y,z)
-                    lightSources.Add(x,y,z)
                     NibbleArray.set(skyLight,x,y,z,15uy)
+                    // we don't need to set _every_ block in the sky as a light source; there's tons of sky that's all sources
+                    // as a result, only start setting sources as we reach terrain, e.g. if there's a nearby block above the heightmap
+                    let mutable terrainNearby = false
+                    for dx,dz in [| -1,-1; -1,0; -1,1; 0,-1; 0,0; 0,1; 1,-1; 1,0; 1,1 |] do
+                        let x,z = x+dx, z+dz
+                        if x >= minx && x <= maxx && z >= minz && z <= maxz then
+                            if y <= testMap.GetHeightMap(x,z)+1 then
+                                terrainNearby <- true
+                    if terrainNearby then
+                        lightSources.Add(x,y,z)
                 y <- y - 1
             // from there down, everything _fully_ transparent is still a source
             let fullyTrans = new System.Collections.Generic.HashSet<_>(MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Seq.map byte)
@@ -170,6 +198,9 @@ let testSkyLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
     let canChange(x,y,z) = x >= minx && x <= maxx && y >= 0 && y <= 255 && z >= minz && z <= maxz
     // recompute block light
     recomputeSkyLight(testMap, canChange, lightSources)
+    let elapsed = sw.ElapsedMilliseconds 
+    printfn "Took %d ms" elapsed
+    (*
     printfn "comparing results..."
     // compare
     let mutable numDiff = 0
@@ -182,9 +213,13 @@ let testSkyLightByComparingToMinecraft(mapFolderPath,minx,minz,maxx,maxz) =
                     let origValue = NibbleArray.get(origSkyLight,x,y,z)
                     let testValue = NibbleArray.get(testSkyLight,x,y,z)
                     if origValue <> testValue then
-                        printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
-                        numDiff <- numDiff + 1
+                        // on the edge, lighting may differ because MC sees stuff outside the region we're looking at
+                        if x > minx+16 && x < maxx-16 && z > minz+16 && z < maxz-16 then
+                            printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                            numDiff <- numDiff + 1
     printfn "There were %d differences" numDiff
+    *)
+    elapsed
 
 
 (*

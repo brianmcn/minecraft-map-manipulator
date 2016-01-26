@@ -2743,11 +2743,30 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     let sampleRegionFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RCTM109\region\"""
-    RecomputeLighting.testSkyLightByComparingToMinecraft(sampleRegionFolder,0,0,511,511)
+    let elapsedAtOnce = RecomputeLighting.testBlockLightByComparingToMinecraft(sampleRegionFolder,0,0,511,511)
+    let mutable elapsedInPieces3 = 0L
+    let mutable elapsedInPieces7 = 0L
+    for x = 0 to 7 do
+        for z = 0 to 7 do
+            // TODO more boundaries -> more incorrect
+            let r = RecomputeLighting.testBlockLightByComparingToMinecraft(sampleRegionFolder,x*64,z*64,x*64+63,z*64+63)
+            elapsedInPieces7 <- elapsedInPieces7 + r
+    for x = 0 to 3 do
+        for z = 0 to 3 do
+            // TODO more boundaries -> more incorrect
+            let r = RecomputeLighting.testBlockLightByComparingToMinecraft(sampleRegionFolder,x*128,z*128,x*128+127,z*128+127)
+            elapsedInPieces3 <- elapsedInPieces3 + r
+    printfn "Time when one: %d" elapsedAtOnce 
+    printfn "Time when 0-7: %d" elapsedInPieces7 
+    printfn "Time when 0-3: %d" elapsedInPieces3
+    // skylight: very similar times at different chunking sizes (25-27s)
+    // blocklight: slightly favors larger chunking sizes (8-10s)
+
 
     printfn "press a key to end"
     System.Console.Beep()
     System.Console.ReadKey() |> ignore
+
 
     let worldSeed = 14 
     //System.Windows.Clipboard.SetText(custom)
@@ -2777,9 +2796,12 @@ do
     // playtest note: Fix missed 2 desert chests before seeing one, missed a tree chest before seeing one
     // playtest note: Fix rarely read the name of chests the first time
     // playtest note: Fix found teleporter only after all monument blocks and flying elytra
-
+    // playtest note: Obe used elytra to zoom in & out of 2nd mountain peak for extra loot.  i don't mind.
 
     // TODO: bugs & good ideas
+    // obe notes that random-drop axes never have weapon enchants
+    // need to have thank yous to obe/fix, and others who help (codewarrior?)
+    // obe did not know he could walk into black cube of teleporter, thought he needed enderpearl
     // to make teleporters more discoverable, have any out-of-place light source (red lamp? torch? glow?) along the path.  'light' = 'come look', and then will see path, etc. ...
     // Fixxer died, daylight went even under bedrock ceiling, also lag, so really need to fix lighting, and SMP is good way to test
     // glass set piece had cave below it, fixer went into it.  set piece was kinda blah
@@ -2796,6 +2818,7 @@ do
     // teleporter command blocks look like a bug, consider moving cmds
     // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
+    // fix and I blitzed the green dungeon easy by moving fast, maybe have each spawner have a 1/20 chance of insta-spawning?
     // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower? coarse dirt is great (no snow atop)) can also say 'unmarked treasure' in the book
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla)
     // there may be too many red dungeons (we saw like 5); ok if folks have to look a little, as I need more exploration anyway
