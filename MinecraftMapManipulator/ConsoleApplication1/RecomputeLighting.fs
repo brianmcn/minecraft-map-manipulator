@@ -60,7 +60,6 @@ let recomputeBlockLightHelper(map:MapFolder, canChange, blockLightSources) = // 
     // TODO assert all blockLightSources have correct non-zero value
     recomputeLightCore(map, canChange, blockLightSources, false)
 let recomputeSkyLightHelper(map:MapFolder, canChange, skyLightSources) = // skyLightSources is coords of all blocks from ceiling down to last _fully_ transparent block
-    // TODO assert all skyLightSources have value 15
     // TODO wiki suggests leaves/cobweb/ice are different, but I cannot find anything that suggests I need to handle them differently
     recomputeLightCore(map, canChange, skyLightSources, true)
 
@@ -68,8 +67,7 @@ let LIGHTBIDS = new System.Collections.Generic.Dictionary<_,_>()
 for bid, lvl in MC_Constants.BLOCKIDS_THAT_EMIT_LIGHT do
     LIGHTBIDS.Add(byte bid, byte lvl)
 
-let recomputeBlockLight(map:MapFolder,minx,minz,maxx,maxz) =
-    let sourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+let recomputeBlockLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.HashSet<_>[],minx,minz,maxx,maxz) =
     printf "finding light sources and initting light to 0..."
     // for every represented block
     for x = minx to maxx do
@@ -93,8 +91,7 @@ let recomputeBlockLight(map:MapFolder,minx,minz,maxx,maxz) =
     // recompute block light
     recomputeBlockLightHelper(map, canChange, sourcesByLevel)
 
-let recomputeSkyLight(map:MapFolder,cachedHeightMap:_[,],minx,minz,maxx,maxz) =
-    let sourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+let recomputeSkyLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.HashSet<_>[],cachedHeightMap:_[,],minx,minz,maxx,maxz) =
     printf "finding light sources and initting light to 0..."
     // for every represented block
     for x = minx to maxx do
@@ -191,11 +188,14 @@ let compareLighting(map1:MapFolder, map2:MapFolder, minx, minz, maxx, maxz) =
     printfn "done!"
     printfn "There were %d block and %d sky differences" numBlockDiff numSkyDiff
 
-let fixLighting(mapToChange:MapFolder, minx, minz, maxx, maxz) =
+let fixLighting(mapToChange:MapFolder, 
+                blockLightSourcesByLevel:System.Collections.Generic.HashSet<_>[], 
+                skyLightSourcesByLevel:System.Collections.Generic.HashSet<_>[], 
+                minx, minz, maxx, maxz) =
     printfn "loading map..."
     mapToChange.GetOrCreateAllSections(minx,maxx,0,255,minz,maxz)
     printfn "recomputing block light..."
-    recomputeBlockLight(mapToChange, minx, minz, maxx, maxz)
+    recomputeBlockLight(mapToChange, blockLightSourcesByLevel, minx, minz, maxx, maxz)
     // cache height map
     let hm = Array2D.zeroCreateBased minx minz (maxx-minx+1) (maxz-minz+1)
     for x = minx to maxx do
@@ -203,7 +203,7 @@ let fixLighting(mapToChange:MapFolder, minx, minz, maxx, maxz) =
             mapToChange.GetBlockInfo(x,0,z) |> ignore // originally caches HeightMap
             hm.[x,z] <- mapToChange.GetHeightMap(x,z)
     printfn "recomputing sky light..."
-    recomputeSkyLight(mapToChange, hm, minx, minz, maxx, maxz)
+    recomputeSkyLight(mapToChange, skyLightSourcesByLevel, hm, minx, minz, maxx, maxz)
 
 let lightingTestSetup() =
     let sampleRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109\region\"""
@@ -217,7 +217,9 @@ let lightingTestSetup() =
     let minx, minz, maxx, maxz = 0, 0, 511, 511
 
     let mapToChange = new MapFolder(fixedRegionFolder)
-    fixLighting(mapToChange, minx, minz, maxx, maxz)
+    let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+    let skyLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+    fixLighting(mapToChange, blockLightSourcesByLevel, skyLightSourcesByLevel, minx, minz, maxx, maxz)
     printfn "saving results..."
     mapToChange.WriteAll()
     // compare
@@ -238,7 +240,37 @@ let demoBrokenBoundaries() =
 
     for x = 0 to 7 do
         for z = 0 to 7 do
-            fixLighting(mapToChange,x*64,z*64,x*64+63,z*64+63)
+            let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+            let skyLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+            // TODO this does not handle 'loopback', but shows can artificially spread outside-boundary light in to improve results
+            // find any 'known light' edges of the current chunking-area
+            if x > 0 then
+                // there's known light in the smaller-X direction, grab it
+                let x = x*64 - 1
+                for y = 0 to 255 do
+                    for z = z*64 to z*64+63 do
+                        // TODO would be much more efficient to iterate over sections, rather than cells, to avoid repeated GetSection calls
+                        let _,_,_,blockLight,skyLight = mapToChange.GetSection(x,y,z)
+                        let bl = NibbleArray.get(blockLight,x,y,z)
+                        if bl <> 0uy then
+                            blockLightSourcesByLevel.[int bl].Add(x,y,z) |> ignore
+                        let sl = NibbleArray.get(skyLight,x,y,z)
+                        if sl <> 0uy then
+                            skyLightSourcesByLevel.[int sl].Add(x,y,z) |> ignore
+            if z > 0 then
+                // there's known light in the smaller-Z direction, grab it
+                let z = z*64 - 1
+                for y = 0 to 255 do
+                    for x = x*64 to x*64+63 do
+                        // TODO would be much more efficient to iterate over sections, rather than cells, to avoid repeated GetSection calls
+                        let _,_,_,blockLight,skyLight = mapToChange.GetSection(x,y,z)
+                        let bl = NibbleArray.get(blockLight,x,y,z)
+                        if bl <> 0uy then
+                            blockLightSourcesByLevel.[int bl].Add(x,y,z) |> ignore
+                        let sl = NibbleArray.get(skyLight,x,y,z)
+                        if sl <> 0uy then
+                            skyLightSourcesByLevel.[int sl].Add(x,y,z) |> ignore
+            fixLighting(mapToChange,blockLightSourcesByLevel,skyLightSourcesByLevel,x*64,z*64,x*64+63,z*64+63)
 
     // compare
     let fixedMap = new MapFolder(fixedRegionFolder)
