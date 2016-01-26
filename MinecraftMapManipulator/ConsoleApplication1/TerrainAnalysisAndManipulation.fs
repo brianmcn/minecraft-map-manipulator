@@ -550,7 +550,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 let dy = y % 16
                 let dz = (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
-                if currentSectionBlocks.[bix] = 0uy || currentSectionBlocks.[bix] = 30uy then // air or cobweb
+                if currentSectionBlocks.[bix] = 0uy || currentSectionBlocks.[bix] = 30uy then // air or cobweb // TODO or rail?
                     a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hm.[x,z])))
     printfn ""
     printf "CONNECT"
@@ -586,7 +586,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
         while a.[pi,pj,pk]<>null do
             pj <- pj - 1
         let skippableDown(bid) = 
-            (bid = 8uy || bid = 10uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy) // flowing_water/flowing_lava/web/tallgrass/2flowers/2mushrooms
+            (bid = 8uy || bid = 10uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy) // flowing_water/flowing_lava/web/tallgrass/2flowers/2mushrooms // TODO or rail?
         while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) do
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)

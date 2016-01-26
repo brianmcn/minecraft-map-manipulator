@@ -2744,7 +2744,7 @@ do
 
     
 
-    RecomputeLighting.fixLighting(0,0,511,511)
+    RecomputeLighting.demoBrokenBoundaries()
 
     printfn "press a key to end"
     System.Console.Beep()
