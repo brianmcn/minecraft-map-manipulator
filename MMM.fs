@@ -2742,26 +2742,9 @@ do
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
-    let sampleRegionFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RCTM109\region\"""
-    let elapsedAtOnce = RecomputeLighting.testBlockLightByComparingToMinecraft(sampleRegionFolder,0,0,511,511)
-    let mutable elapsedInPieces3 = 0L
-    let mutable elapsedInPieces7 = 0L
-    for x = 0 to 7 do
-        for z = 0 to 7 do
-            // TODO more boundaries -> more incorrect
-            let r = RecomputeLighting.testBlockLightByComparingToMinecraft(sampleRegionFolder,x*64,z*64,x*64+63,z*64+63)
-            elapsedInPieces7 <- elapsedInPieces7 + r
-    for x = 0 to 3 do
-        for z = 0 to 3 do
-            // TODO more boundaries -> more incorrect
-            let r = RecomputeLighting.testBlockLightByComparingToMinecraft(sampleRegionFolder,x*128,z*128,x*128+127,z*128+127)
-            elapsedInPieces3 <- elapsedInPieces3 + r
-    printfn "Time when one: %d" elapsedAtOnce 
-    printfn "Time when 0-7: %d" elapsedInPieces7 
-    printfn "Time when 0-3: %d" elapsedInPieces3
-    // skylight: very similar times at different chunking sizes (25-27s)
-    // blocklight: slightly favors larger chunking sizes (8-10s)
+    
 
+    RecomputeLighting.fixLighting(0,0,511,511)
 
     printfn "press a key to end"
     System.Console.Beep()

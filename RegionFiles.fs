@@ -48,8 +48,8 @@ module NibbleArray = // deal with various 2048-length arrays of 4-bit entries (b
 [<Literal>]
 let DUMMY = "say dummy"
 
-let DIV(x,m) = (x+10000*m)/m - 10000
-let MOD(x,m) = (x+10000*m)%m
+let DIV(x:int,m:int) = (x+10000*m)/m - 10000
+let MOD(x:int,m:int) = (x+10000*m)%m
 
 [<AllowNullLiteral>]
 type RegionFile(filename) =
@@ -65,6 +65,7 @@ type RegionFile(filename) =
     let chunks : NBT[,] = Array2D.create 32 32 End  // End represents a blank (unrepresented) chunk
     let chunkTimestampInfos : int[,] = Array2D.zeroCreate 32 32
     let mutable firstSeenDataVersion = -1
+#if DEBUG
     let ensureCorrectRegion(x,z) =
         let xxxx = if x < 0 then x - 512 else x
         let zzzz = if z < 0 then z - 512 else z
@@ -72,6 +73,9 @@ type RegionFile(filename) =
         let zzzz = if zzzz < 0 then zzzz+1 else zzzz
         if xxxx/512 <> rx || zzzz/512 <> rz then 
             failwith "coords outside this region"
+#else
+    let ensureCorrectRegion(_x,_z) = ()
+#endif
     let getOrCreateChunk(cx,cz) =
         let chunk = 
             match chunks.[cx,cz] with
@@ -356,8 +360,8 @@ type RegionFile(filename) =
             tmp <- tmp + (damage <<< 4)
         blockData.[i/2] <- tmp
         this.SetChunkDirty(x,z)
-    member this.GetHeightMap(x, z) =
-        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+    member this.GetHeightMap(x, z) = // This method can be very slow if called repeatedly, clients may want to track an outside cache
+        ensureCorrectRegion(x,z)
         let cx = ((x+51200)%512)/16
         let cz = ((z+51200)%512)/16
         let heightMap = chunkHeightMapCache.[cx,cz]
@@ -365,15 +369,15 @@ type RegionFile(filename) =
             failwith "no HeightMap cached"
         heightMap.[MOD(x,16),MOD(z,16)]
     member this.SetHeightMap(x, z, h) =
-        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        ensureCorrectRegion(x,z)
         let cx = ((x+51200)%512)/16
         let cz = ((z+51200)%512)/16
         let heightMap = chunkHeightMapCache.[cx,cz]
         if heightMap = null then
             failwith "no HeightMap cached"
         heightMap.[MOD(x,16),MOD(z,16)] <- h
-    member this.GetBiome(x, z) =
-        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+    member this.GetBiome(x, z) = // This method can be very slow if called repeatedly, clients may want to track an outside cache
+        ensureCorrectRegion(x,z)
         let cx = ((x+51200)%512)/16
         let cz = ((z+51200)%512)/16
         let biome = chunkBiomeCache.[cx,cz]
@@ -381,7 +385,7 @@ type RegionFile(filename) =
             failwith "no Biome cached"
         biome.[MOD(x,16),MOD(z,16)]
     member this.SetBiome(x, z, bio) =
-        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        ensureCorrectRegion(x,z)
         let cx = ((x+51200)%512)/16
         let cz = ((z+51200)%512)/16
         let biome = chunkBiomeCache.[cx,cz]
@@ -389,7 +393,7 @@ type RegionFile(filename) =
             failwith "no Biome cached"
         biome.[MOD(x,16),MOD(z,16)] <- bio
     member this.GetInhabitedTime(x, z) =      // note, reads value from entire chunk
-        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        ensureCorrectRegion(x,z)
         let cx = ((x+51200)%512)/16
         let cz = ((z+51200)%512)/16
         let inhabitedTime = chunkInhabitedTimeCache.[cx,cz]
@@ -397,7 +401,7 @@ type RegionFile(filename) =
             failwith "no InhabitedTime cached"
         inhabitedTime
     member this.SetInhabitedTime(x, z, it) =  // note, sets value for whole chunk
-        if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
+        ensureCorrectRegion(x,z)
         let cx = ((x+51200)%512)/16
         let cz = ((z+51200)%512)/16
         chunkInhabitedTimeCache.[cx,cz] <- it
