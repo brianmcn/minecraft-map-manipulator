@@ -281,6 +281,7 @@ type RegionFile(filename) =
                         let skyLight = Array.create 2048 0uy
                         let newSection = [| NBT.Byte("Y",byte(y/16)); NBT.ByteArray("Blocks", blocks); NBT.ByteArray("Data", blockData); 
                                             NBT.ByteArray("BlockLight", blockLight); NBT.ByteArray("SkyLight", skyLight); NBT.End |]  // TODO relight chunk instead of fill with dummy light values?
+                                            // TODO at very least, should populate skylight based on heightmap
                         match theChunkLevel with
                         | Compound(_,a) ->
                             let i = a.FindIndex (fun x -> x.Name="Sections")

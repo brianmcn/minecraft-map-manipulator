@@ -34,6 +34,7 @@ let opacity(bid) = OPACITY.[bid]
 
 open RegionFiles
 
+// this is an additive, batch-repainting-of-sources
 let recomputeLightCore(map:MapFolder, canChange, sourcesByLevel:System.Collections.Generic.HashSet<_>[], isSky) =
     // propogate light at each level
     for level = 15 downto 1 do
@@ -68,32 +69,41 @@ for bid, lvl in MC_Constants.BLOCKIDS_THAT_EMIT_LIGHT do
     LIGHTBIDS.Add(byte bid, byte lvl)
 
 let recomputeBlockLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.HashSet<_>[],minx,minz,maxx,maxz) =
+    if MOD(minx,16) <> 0 || MOD(maxx,16) <> 15 || MOD(minz,16) <> 0 || MOD(maxz,16) <> 15 then
+        failwith "this algorithm only works on full chunks"
     printf "finding light sources and initting light to 0..."
-    // for every represented block
-    for x = minx to maxx do
-        printf "."
-        for z = minz to maxz do
-            for y = 0 to 255 do
-                let bi = map.MaybeGetBlockInfo(x,y,z)
+    // loop over every respesented block, section-wise (section-wise was more than 3x faster when I benchmarked it)
+    for xs in [ minx .. 16 .. maxx ] do
+        for zs in [ minz .. 16 .. maxz ] do
+            for ys in [ 0 .. 16 .. 255 ] do
+                printf "."
+                let bi = map.MaybeGetBlockInfo(xs,ys,zs)
                 if bi <> null then
-                    let _,_,_,blockLight,_ = map.GetSection(x,y,z)
-                    // if it emits light, add it to light sources
-                    if LIGHTBIDS.ContainsKey(bi.BlockID) then
-                        let level = LIGHTBIDS.[bi.BlockID]
-                        sourcesByLevel.[int level].Add(x,y,z) |> ignore
-                        NibbleArray.set(blockLight,x,y,z,level)
-                    else
-                        // set its blockLight to 0   // TODO would be faster memory-wise to just do this in bulk to every section, and process x/y/z by sections
-                        NibbleArray.set(blockLight,x,y,z,0uy)
+                    let _,blocks,_,blockLight,_ = map.GetSection(xs,ys,zs)
+                    // zero out the light values to begin
+                    System.Array.Clear(blockLight, 0, 2048)
+                    for dx = 0 to 15 do
+                        for dy = 0 to 15 do
+                            for dz = 0 to 15 do
+                                //let bid = map.GetBlockInfo(xs+dx,ys+dy,zs+dz).BlockID   // could use this API, but below is faster since we already have section
+                                let i = dy*256 + dz*16 + dx
+                                let bid = blocks.[i]
+                                // if it emits light, add it to light sources
+                                if LIGHTBIDS.ContainsKey(bid) then
+                                    let level = LIGHTBIDS.[bid]
+                                    sourcesByLevel.[int level].Add(xs+dx,ys+dy,zs+dz) |> ignore
+                                    NibbleArray.set(blockLight,xs+dx,ys+dy,zs+dz,level)
     printfn "done!"
     printfn "recomputing light..."
     let canChange(x,y,z) = x >= minx && x <= maxx && y >= 0 && y <= 255 && z >= minz && z <= maxz
     // recompute block light
     recomputeBlockLightHelper(map, canChange, sourcesByLevel)
+// TODO factor out the zeroing-out elsewhere
 
 let recomputeSkyLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.HashSet<_>[],cachedHeightMap:_[,],minx,minz,maxx,maxz) =
     printf "finding light sources and initting light to 0..."
     // for every represented block
+    // TODO rewrite loop section-wise
     for x = minx to maxx do
         printf "."
         for z = minz to maxz do
@@ -105,6 +115,8 @@ let recomputeSkyLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.Ha
                     if y = hm then map.GetBlockInfo(x,y,z)  // if y=hm, need to force-create the section above topmost block (might be unrepresented), so that we can put the lowest source there
                     // TODO line above will create some sky with light 0 we've already gone past the coords of, bug...
                     // ...not sure how to deal with; one way is to create all sections, then cull any 'all sky' ones before writing to disk
+                    // ...another is to have an API which returns 'fake but correct' results for unrepresented sections (using just the heightmap)
+                    // ...another is to have CreateSection populate new sections with correct skylight values based on heightmap (probably best option) TODO
                     else map.MaybeGetBlockInfo(x,y,z)
                 if bi <> null then
                     let _,_,_,_,skyLight = map.GetSection(x,y,z)
@@ -114,13 +126,14 @@ let recomputeSkyLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.Ha
                     let mutable terrainNearby = false
                     for dx,dz in [| -1,-1; -1,0; -1,1; 0,-1; 0,0; 0,1; 1,-1; 1,0; 1,1 |] do
                         let x,z = x+dx, z+dz
-                        if x >= minx && x <= maxx && z >= minz && z <= maxz then
+                        if x >= minx && x <= maxx && z >= minz && z <= maxz then    // TODO can this introduce incorrect results when there's skylight at the edge of an area next to unseen/unloaded terrain?
                             if y <= cachedHeightMap.[x,z]+1 then
                                 terrainNearby <- true
                     if terrainNearby then
                         sourcesByLevel.[15].Add(x,y,z) |> ignore
                 y <- y - 1
             // from there down, everything _fully_ transparent is still a source
+            // TODO see what Minecraft stores as HM when e.g. glass on surface
             let fullyTrans = new System.Collections.Generic.HashSet<_>(MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Seq.map byte)
             while y >= 0 && fullyTrans.Contains(map.GetBlockInfo(x,y,z).BlockID) do
                 let _,_,_,_,skyLight = map.GetSection(x,y,z)
@@ -139,52 +152,35 @@ let recomputeSkyLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.Ha
     // recompute sky light
     recomputeSkyLightHelper(map, canChange, sourcesByLevel)
 
-(*
-let comparePerformanceAtDifferentChunkingSizes() =
-    let sampleRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109\region\"""
-    //let F = testBlockLightByComparingToMinecraft
-    let F = testSkyLightByComparingToMinecraft
-    let elapsedAtOnce = F(sampleRegionFolder,0,0,511,511)
-    let mutable elapsedInPieces3 = 0L
-    let mutable elapsedInPieces7 = 0L
-    for x = 0 to 7 do
-        for z = 0 to 7 do
-            // TODO more boundaries -> more incorrect
-            let r = F(sampleRegionFolder,x*64,z*64,x*64+63,z*64+63)
-            elapsedInPieces7 <- elapsedInPieces7 + r
-    for x = 0 to 3 do
-        for z = 0 to 3 do
-            // TODO more boundaries -> more incorrect
-            let r = F(sampleRegionFolder,x*128,z*128,x*128+127,z*128+127)
-            elapsedInPieces3 <- elapsedInPieces3 + r
-    printfn "Time when one: %d" elapsedAtOnce 
-    printfn "Time when 0-7: %d" elapsedInPieces7 
-    printfn "Time when 0-3: %d" elapsedInPieces3
-    // skylight: very similar times at different chunking sizes (25-27s)
-    // blocklight: slightly favors larger chunking sizes (8-10s)
-*)
-
 let compareLighting(map1:MapFolder, map2:MapFolder, minx, minz, maxx, maxz) =
+    if MOD(minx,16) <> 0 || MOD(maxx,16) <> 15 || MOD(minz,16) <> 0 || MOD(maxz,16) <> 15 then
+        failwith "this algorithm only works on full chunks"
     printfn "comparing results..."
     // compare
     let mutable numBlockDiff,numSkyDiff = 0,0
-    for x = minx to maxx do
-        printf "."
-        for z = minz to maxz do
-            for y = 0 to 255 do
-                let _,_,_,origBlockLight,origSkyLight = map1.GetSection(x,y,z)
+    for xs in [ minx .. 16 .. maxx ] do
+        for zs in [ minz .. 16 .. maxz ] do
+            for ys in [ 0 .. 16 .. 255 ] do
+                printf "."
+                let _,_,_,origBlockLight,origSkyLight = map1.GetSection(xs,ys,zs)
                 if origBlockLight <> null then
-                    let _,_,_,newBlockLight,newSkyLight = map2.GetSection(x,y,z)
-                    let origValue = NibbleArray.get(origBlockLight,x,y,z)
-                    let testValue = NibbleArray.get(newBlockLight,x,y,z)
-                    if origValue <> testValue then
-                        //printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
-                        numBlockDiff <- numBlockDiff + 1
-                    let origValue = NibbleArray.get(origSkyLight,x,y,z)
-                    let testValue = NibbleArray.get(newSkyLight,x,y,z)
-                    if origValue <> testValue then
-                        //printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
-                        numSkyDiff <- numSkyDiff + 1
+                    let _,_,_,newBlockLight,newSkyLight = map2.GetSection(xs,ys,zs)
+                    for dx = 0 to 15 do
+                        for dy = 0 to 15 do
+                            for dz = 0 to 15 do
+                                let x = xs+dx
+                                let y = ys+dy
+                                let z = zs+dz
+                                let origValue = NibbleArray.get(origBlockLight,x,y,z)
+                                let testValue = NibbleArray.get(newBlockLight,x,y,z)
+                                if origValue <> testValue then
+                                    //printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                                    numBlockDiff <- numBlockDiff + 1
+                                let origValue = NibbleArray.get(origSkyLight,x,y,z)
+                                let testValue = NibbleArray.get(newSkyLight,x,y,z)
+                                if origValue <> testValue then
+                                    //printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                                    numSkyDiff <- numSkyDiff + 1
     printfn "done!"
     printfn "There were %d block and %d sky differences" numBlockDiff numSkyDiff
 
@@ -258,6 +254,7 @@ let demoBrokenBoundaries() =
             // - I think maybe that's ideal
             // - oh, still weird pathological cases when changes made at edge of loaded chunks, I think...
 
+            (*
             // find any 'known light' edges of the current chunking-area
             if x > 0 then
                 // there's known light in the smaller-X direction, grab it
@@ -285,11 +282,13 @@ let demoBrokenBoundaries() =
                         let sl = NibbleArray.get(skyLight,x,y,z)
                         if sl <> 0uy then
                             skyLightSourcesByLevel.[int sl].Add(x,y,z) |> ignore
+            *)
             fixLighting(mapToChange,blockLightSourcesByLevel,skyLightSourcesByLevel,x*64,z*64,x*64+63,z*64+63)
-
     // compare
     let fixedMap = new MapFolder(fixedRegionFolder)
+    //let sw = System.Diagnostics.Stopwatch.StartNew()
     compareLighting(fixedMap, mapToChange, minx, minz, maxx, maxz)
+    //printfn "took %dms" sw.ElapsedMilliseconds 
 
 
 
