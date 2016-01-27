@@ -72,7 +72,7 @@ let recomputeBlockLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.
     if MOD(minx,16) <> 0 || MOD(maxx,16) <> 15 || MOD(minz,16) <> 0 || MOD(maxz,16) <> 15 then
         failwith "this algorithm only works on full chunks"
     printf "finding light sources and initting light to 0..."
-    // loop over every respesented block, section-wise (section-wise was more than 3x faster when I benchmarked it)
+    // loop over every represented block, section-wise (section-wise was more than 3x faster when I benchmarked it)
     for xs in [ minx .. 16 .. maxx ] do
         for zs in [ minz .. 16 .. maxz ] do
             for ys in [ 0 .. 16 .. 255 ] do
@@ -102,50 +102,56 @@ let recomputeBlockLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.
 
 let recomputeSkyLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.HashSet<_>[],cachedHeightMap:_[,],minx,minz,maxx,maxz) =
     printf "finding light sources and initting light to 0..."
+    let NINE_NEIGHBORS = [| -1,-1; -1,0; -1,1; 0,-1; 0,0; 0,1; 1,-1; 1,0; 1,1 |]
     // for every represented block
-    // TODO rewrite loop section-wise
-    for x = minx to maxx do
-        printf "."
-        for z = minz to maxz do
-            let mutable y = 255
-            let hm = cachedHeightMap.[x,z]
-            // everything above heightmap is a source
-            while y >= hm && y >= 0 do
-                let bi = 
-                    if y = hm then map.GetBlockInfo(x,y,z)  // if y=hm, need to force-create the section above topmost block (might be unrepresented), so that we can put the lowest source there
-                    // TODO line above will create some sky with light 0 we've already gone past the coords of, bug...
-                    // ...not sure how to deal with; one way is to create all sections, then cull any 'all sky' ones before writing to disk
-                    // ...another is to have an API which returns 'fake but correct' results for unrepresented sections (using just the heightmap)
-                    // ...another is to have CreateSection populate new sections with correct skylight values based on heightmap (probably best option) TODO
-                    else map.MaybeGetBlockInfo(x,y,z)
-                if bi <> null then
-                    let _,_,_,_,skyLight = map.GetSection(x,y,z)
-                    NibbleArray.set(skyLight,x,y,z,15uy)
-                    // we don't need to set _every_ block in the sky as a light source; there's tons of sky that's all sources
-                    // as a result, only start setting sources as we reach terrain, e.g. if there's a nearby block above the heightmap
-                    let mutable terrainNearby = false
-                    for dx,dz in [| -1,-1; -1,0; -1,1; 0,-1; 0,0; 0,1; 1,-1; 1,0; 1,1 |] do
-                        let x,z = x+dx, z+dz
-                        if x >= minx && x <= maxx && z >= minz && z <= maxz then    // TODO can this introduce incorrect results when there's skylight at the edge of an area next to unseen/unloaded terrain?
-                            if y <= cachedHeightMap.[x,z]+1 then
-                                terrainNearby <- true
-                    if terrainNearby then
-                        sourcesByLevel.[15].Add(x,y,z) |> ignore
-                y <- y - 1
-            // from there down, everything _fully_ transparent is still a source
-            // TODO see what Minecraft stores as HM when e.g. glass on surface
-            let fullyTrans = new System.Collections.Generic.HashSet<_>(MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Seq.map byte)
-            while y >= 0 && fullyTrans.Contains(map.GetBlockInfo(x,y,z).BlockID) do
-                let _,_,_,_,skyLight = map.GetSection(x,y,z)
-                sourcesByLevel.[15].Add(x,y,z)
-                NibbleArray.set(skyLight,x,y,z,15uy)
-                y <- y - 1
-            // done with sources, now init the rest
-            while y >= 0 do
-                let _,_,_,_,skyLight = map.GetSection(x,y,z)
-                // set its skyLight to 0
-                NibbleArray.set(skyLight,x,y,z,0uy)
-                y <- y - 1
+    for xs in [ minx .. 16 .. maxx ] do
+        for zs in [ minz .. 16 .. maxz ] do
+            printf "."
+            let mutable highestHMInThisChunk,lowestHMInThisChunk = 0,255
+            for dx = 0 to 15 do
+                for dz = 0 to 15 do
+                    let x,z = xs+dx,zs+dz
+                    if cachedHeightMap.[x,z] > highestHMInThisChunk then
+                        highestHMInThisChunk <- cachedHeightMap.[x,z]
+                    if cachedHeightMap.[x,z] < lowestHMInThisChunk then
+                        lowestHMInThisChunk <- cachedHeightMap.[x,z]
+            let mutable ys = 240
+            while highestHMInThisChunk < ys-1 do  // -1 because I need to represent skylight source above the highest block
+                // this section is entirely above the heightmap; it could be unrepresented, or if represented, its skyLight is just all 15s
+                let _,_,_,_,skyLight = map.GetSection(xs,ys,zs)
+                if skyLight <> null then
+                    for i = 0 to skyLight.Length-1 do
+                        skyLight.[i] <- 255uy  // 255 is (15 <<< 4) + 15
+                ys <- ys - 16
+            if ys = highestHMInThisChunk then // special-case this for efficiency - all sky, but with terrain adjacent below; just want to ensure is represented
+                let _,_,_,_,skyLight = map.GetOrCreateSection(xs,ys,zs)
+                for i = 0 to skyLight.Length-1 do
+                    skyLight.[i] <- 255uy  // 255 is (15 <<< 4) + 15
+                ys <- ys - 16
+            // now the meat, we're into sections with some bits below the heightmap
+            while ys >=0 do
+                let _,_,_,_,skyLight = map.GetOrCreateSection(xs,ys,zs) // represent all sections below heightmap
+                for dx = 0 to 15 do
+                    for dz = 0 to 15 do
+                        let x,z = xs+dx,zs+dz
+                        let curHM = cachedHeightMap.[x,z]
+                        for dy = 0 to 15 do
+                            let y = ys+dy
+                            if y >= curHM then
+                                NibbleArray.set(skyLight,x,y,z,15uy)
+                                // we don't need to set _every_ block in the sky as a light source; there's tons of sky that's all sources
+                                // as a result, only start setting sources as we reach terrain
+                                let mutable terrainNearby = false
+                                for dx,dz in NINE_NEIGHBORS do
+                                    let x,z = x+dx, z+dz
+                                    if x >= minx && x <= maxx && z >= minz && z <= maxz then // TODO the min/max is 'canWrite', but here would like to see what 'canRead'. if we can't read at the edge, then some overlapped processing will be needed for correctness when skylight is here and overhang is just outside readable data.
+                                        if y <= cachedHeightMap.[x,z]+1 then
+                                            terrainNearby <- true
+                                if terrainNearby then
+                                    sourcesByLevel.[15].Add(x,y,z) |> ignore
+                            else
+                                NibbleArray.set(skyLight,x,y,z,0uy) // init all non-sources to 0
+                ys <- ys - 16
     printfn "done!"
     printfn "recomputing light..."
     let canChange(x,y,z) = x >= minx && x <= maxx && y >= 0 && y <= 255 && z >= minz && z <= maxz
@@ -188,6 +194,8 @@ let fixLighting(mapToChange:MapFolder,
                 blockLightSourcesByLevel:System.Collections.Generic.HashSet<_>[], 
                 skyLightSourcesByLevel:System.Collections.Generic.HashSet<_>[], 
                 minx, minz, maxx, maxz) =
+    if MOD(minx,16) <> 0 || MOD(maxx,16) <> 15 || MOD(minz,16) <> 0 || MOD(maxz,16) <> 15 then
+        failwith "this algorithm only works on full chunks"
     printfn "loading map..."
     mapToChange.GetOrCreateAllSections(minx,maxx,0,255,minz,maxz)
     printfn "recomputing block light..."
@@ -196,7 +204,8 @@ let fixLighting(mapToChange:MapFolder,
     let hm = Array2D.zeroCreateBased minx minz (maxx-minx+1) (maxz-minz+1)
     for x = minx to maxx do
         for z = minz to maxz do
-            mapToChange.GetBlockInfo(x,0,z) |> ignore // originally caches HeightMap
+            if MOD(x,16)=0 && MOD(z,16)=0 then
+                mapToChange.GetBlockInfo(x,0,z) |> ignore // originally caches HeightMap, which is stored as arrays per-chunk
             hm.[x,z] <- mapToChange.GetHeightMap(x,z)
     printfn "recomputing sky light..."
     recomputeSkyLight(mapToChange, skyLightSourcesByLevel, hm, minx, minz, maxx, maxz)
@@ -232,8 +241,14 @@ let demoBrokenBoundaries() =
     let minx, minz, maxx, maxz = 0, 0, 511, 511
 
     let mapToChange = new MapFolder(originalRegionFolder)
-    //fixLighting(mapToChange, minx, minz, maxx, maxz)
 
+    (*
+    let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+    let skyLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+    fixLighting(mapToChange, blockLightSourcesByLevel, skyLightSourcesByLevel, minx, minz, maxx, maxz)
+    *)
+
+    let sw = System.Diagnostics.Stopwatch.StartNew()
     for x = 0 to 7 do
         for z = 0 to 7 do
             let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
@@ -284,11 +299,10 @@ let demoBrokenBoundaries() =
                             skyLightSourcesByLevel.[int sl].Add(x,y,z) |> ignore
             *)
             fixLighting(mapToChange,blockLightSourcesByLevel,skyLightSourcesByLevel,x*64,z*64,x*64+63,z*64+63)
+    printfn "took %dms" sw.ElapsedMilliseconds 
     // compare
     let fixedMap = new MapFolder(fixedRegionFolder)
-    //let sw = System.Diagnostics.Stopwatch.StartNew()
     compareLighting(fixedMap, mapToChange, minx, minz, maxx, maxz)
-    //printfn "took %dms" sw.ElapsedMilliseconds 
 
 
 
