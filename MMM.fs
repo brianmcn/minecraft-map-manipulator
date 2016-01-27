@@ -2745,7 +2745,7 @@ do
     
 
     //RecomputeLighting.lightingTestSetup()
-    RecomputeLighting.demoBrokenBoundaries()
+    RecomputeLighting.demoCorrectBoundaries()
     // There were 3469 block and 4961 sky differences
 
     printfn "press a key to end"
