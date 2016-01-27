@@ -2770,6 +2770,7 @@ do
     // test SMP loot balance
     // (changed logAdmindCmds) a little a4ter set piece, huge game lag (and some 'block placed' notes), hm... logAdminCmds is true, should turn o44 to get rid o4 all set time? lighting updates?
     // SMP testing is super-useful!
+    // cobweb flat would make good screenshot, half slice of hollowed-out mountain (if I ever make that)
     // playtest note: Fixxxer didn't use silk touch for feesh->cobble, nor think of picking up enderchest with it
     // playtest note: Fixxxer didn't think to mine cobble walls of dungeon
     // playtest note: Fixxxer went for red before green (forgot book info), got close
@@ -2780,9 +2781,19 @@ do
     // playtest note: Fix rarely read the name of chests the first time
     // playtest note: Fix found teleporter only after all monument blocks and flying elytra
     // playtest note: Obe used elytra to zoom in & out of 2nd mountain peak for extra loot.  i don't mind.
+    // playtest note: Obe finished in 14 hours (6 hours on camera, 8 farming, exploring, etc) with 13 deaths
+    // playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
+    // playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
 
     // TODO: bugs & good ideas
     // obe notes that random-drop axes never have weapon enchants
+    // obe would like option to get fire prot armor
+    // obe loves 'utility' custom items (e.g. digging feesh, glass harvester), consider those
+    // give stack of zoomed-out, unfilled maps centered at 0,0 at start?
+    // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
+    // obe would like to 'continue with normal survival' after done
+    // obe though redstone path should be 'breadcrumbs' ... i could maybe make start full, then switch to every 2 or every 3 blocks? or would that make feel like going wrong way?
+    // both fix and obe prefer world dark if a single player leaves spawn in SMP - light the monument/start area? (if so, change starting book text)
     // need to have thank yous to obe/fix, and others who help (codewarrior?)
     // obe did not know he could walk into black cube of teleporter, thought he needed enderpearl
     // to make teleporters more discoverable, have any out-of-place light source (red lamp? torch? glow?) along the path.  'light' = 'come look', and then will see path, etc. ...
@@ -2801,6 +2812,7 @@ do
     // teleporter command blocks look like a bug, consider moving cmds
     // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
+    // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket?
     // fix and I blitzed the green dungeon easy by moving fast, maybe have each spawner have a 1/20 chance of insta-spawning?
     // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower? coarse dirt is great (no snow atop)) can also say 'unmarked treasure' in the book
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla)

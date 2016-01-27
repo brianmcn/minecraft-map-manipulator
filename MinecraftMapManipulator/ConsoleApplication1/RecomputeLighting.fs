@@ -243,6 +243,21 @@ let demoBrokenBoundaries() =
             let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
             let skyLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
             // TODO this does not handle 'loopback', but shows can artificially spread outside-boundary light in to improve results
+            // idea for how to handle loopback (and beware corner loopback, around 4 chunk corners back into first):
+            //  - separate the 'init to 0 and run alg' from the 'canWriteTo while propagating' sections
+            //  - that is, do increasing X and Z as before, but in order to let light propgate backwards, extend the canWrite range to the X/Z we've already visited
+            //  - that can increase the light in those already-visited areas (and even let it loop back to us)
+            //       (this is the source-by-source 'repainting' algorithm codewarrior mentioned; correct, but can do extra work.
+            //        and there's no metadata to track the 'partially paintedness' in the chunk format save file,
+            //        so the only way I see to be fully correct, is track 'dirty from partial painting' in memory, and if you need to unload/save such a chunk, 
+            //        you must first load all its neighbors, recompute lighting fully, then write it out. yikes! a 'dirty' bit might be better to write out.)
+            //  - as for 'forward' X/Z, could either do what I'm doing now (turn entire boundary wall into source), or
+            //        instead could init to 0 the sections once chunk away in +X/+Z first, make them canWrite, but again only 'source' the light coming from me
+            //        note: be sure not to re-blacken/darken the one chunk when i visit it later for light sources
+            //        (in general, only 'zero out' light when starting from scratch or when dealing with dimming/removing sources; my incremental chunking is all 'additive' tho)
+            // - I think maybe that's ideal
+            // - oh, still weird pathological cases when changes made at edge of loaded chunks, I think...
+
             // find any 'known light' edges of the current chunking-area
             if x > 0 then
                 // there's known light in the smaller-X direction, grab it
