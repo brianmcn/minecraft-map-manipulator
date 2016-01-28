@@ -2745,7 +2745,8 @@ do
     
 
     //RecomputeLighting.lightingTestSetup()
-    RecomputeLighting.demoCorrectBoundaries()
+    //RecomputeLighting.demoCorrectBoundaries()
+    RecomputeLighting.fixMyMap()
     // There were 3469 block and 4961 sky differences
 
     printfn "press a key to end"
@@ -2788,10 +2789,15 @@ do
     // playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
 
     // TODO: bugs & good ideas
+    // fix lighting (call my stuff, get rid of putXrecomputeLight) - Fixxer died, daylight went even under bedrock ceiling, also lag, so really need to fix lighting, and SMP is good way to test
+    // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower? coarse dirt is great (no snow atop)) can also say 'unmarked treasure' in the book
+    // there may be too many red dungeons (we saw like 5); put more min distance between same (tend to cluster)? ok if folks have to look a little, as I need more exploration anyway
+    // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // obe notes that random-drop axes never have weapon enchants
     // obe would like option to get fire prot armor
-    // obe loves 'utility' custom items (e.g. digging feesh, glass harvester), consider those
+    // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), consider those
     // give stack of zoomed-out, unfilled maps centered at 0,0 at start?
+    // see about red torch ambient lighting on mountain/flat now that can properly light
     // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
     // obe would like to 'continue with normal survival' after done
     // obe though redstone path should be 'breadcrumbs' ... i could maybe make start full, then switch to every 2 or every 3 blocks? or would that make feel like going wrong way?
@@ -2799,7 +2805,6 @@ do
     // need to have thank yous to obe/fix, and others who help (codewarrior?)
     // obe did not know he could walk into black cube of teleporter, thought he needed enderpearl
     // to make teleporters more discoverable, have any out-of-place light source (red lamp? torch? glow?) along the path.  'light' = 'come look', and then will see path, etc. ...
-    // Fixxer died, daylight went even under bedrock ceiling, also lag, so really need to fix lighting, and SMP is good way to test
     // glass set piece had cave below it, fixer went into it.  set piece was kinda blah
     // vary food per starting biome?
     // purple beacon dungeon - witches infighting caused a feesh-pocalypse, I nearly died... not sure how to deal with, but un-ideal
@@ -2813,12 +2818,9 @@ do
     //  - also could have a 'how to fly with elytra' book
     // teleporter command blocks look like a bug, consider moving cmds
     // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
-    // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket?
     // fix and I blitzed the green dungeon easy by moving fast, maybe have each spawner have a 1/20 chance of insta-spawning?
-    // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower? coarse dirt is great (no snow atop)) can also say 'unmarked treasure' in the book
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla)
-    // there may be too many red dungeons (we saw like 5); ok if folks have to look a little, as I need more exploration anyway
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
     // lag again at flat cobwebs, think skylight calc is an issue (unrepresented sections?) can probably hack something to ensure sections represented... maybe also LightPopulated=0 and ceiling is the issue? could try LP=1, though then other bits may break? hm...
     // speed bu44 is quite nice (emeralds in short supply - buff? did now, see how works out); strength seemed ok
