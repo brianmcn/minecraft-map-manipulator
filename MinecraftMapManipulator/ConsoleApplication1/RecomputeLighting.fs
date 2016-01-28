@@ -348,6 +348,7 @@ let fixMyMap() =
     // TODO what if not canChange? should canChange be per-section? if so, how best to author that (do i want section objects? what data structure is best?)
     // basically I want to source block/light sources just outside my map to get the 'edges' right, but I don't want to modify anything outside my 16 regions
 
+
     let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
     let skyLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
     fixLighting(map, blockLightSourcesByLevel, skyLightSourcesByLevel, minx, minz, maxx, maxz, hm, canChange, true)
