@@ -338,16 +338,18 @@ let writeAllLootTables(worldSaveFolder) =
 
 // ARMOR
 let PROT(lvls) = 0, Seq.toArray lvls
+let FP(lvls) = 1, Seq.toArray lvls
 let FF(lvls) = 2, Seq.toArray lvls
 let BP(lvls) = 3, Seq.toArray lvls
 let PROJ(lvls) = 4, Seq.toArray lvls
-// fire, resp, aqua, thorns, depth unused
+// resp, aqua, thorns, depth unused
 // MELEE
 let SHARP(lvls) = 16, Seq.toArray lvls
 let SMITE(lvls) = 17, Seq.toArray lvls
 let BOA(lvls) = 18, Seq.toArray lvls
 let KNOCK(lvls) = 19, Seq.toArray lvls
-// looting, fire aspect unused
+let FA(lvls) = 20, Seq.toArray lvls
+// looting unused
 // UTILITY
 let EFF(lvls) = 32, Seq.toArray lvls
 let SILK(lvls) = 33, Seq.toArray lvls
@@ -377,6 +379,24 @@ let makeBookWithIdLvl(id, lvl) =
 let chooseNbooks(rng:System.Random,n,a) =
     let r = Algorithms.pickNnonindependently(rng, n, a)
     r |> Array.map (fun (id,lvls:_[]) -> makeBookWithIdLvl(id, lvls.[rng.Next(lvls.Length)]))
+let makeMultiBook(rng:System.Random) =  // makes a low-level multi-book suitable for aesthetic chests
+    // deal with incompatible enchants
+    let oneProt = [| PROT,[1]; FP,[1..3]; BP,[1..3]; PROJ,[1..3] |] |> (fun a -> a.[rng.Next(a.Length)]) |> (fun (f,x) -> f x)
+    let oneMelee = [| SHARP,[1]; SMITE,[1..3]; BOA,[1..3] |] |> (fun a -> a.[rng.Next(a.Length)]) |> (fun (f,x) -> f x)
+    let onePick = [| SILK,[1]; FORT,[1..3] |] |> (fun a -> a.[rng.Next(a.Length)]) |> (fun (f,x) -> f x)
+    let possibles = ResizeArray [oneProt; FF[1..4]; oneMelee; FA[1..2]; KNOCK[2]; onePick; EFF[1..3]; FW[2]; POW[1..2]; PUNCH[1]]
+    let chosen = ResizeArray()
+    let F = CustomizationKnobs.LOOT_FUNCTION
+    for i = 1 to F 2 do
+        // choose without replacement
+        let x = rng.Next(possibles.Count)
+        chosen.Add(possibles.[x])
+        possibles.RemoveAt(x)
+    [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:enchanted_book"); Compound("tag", [|List("StoredEnchantments",Compounds[|
+            for id,levels in chosen do
+                  let lvl = levels.[rng.Next(levels.Length)]
+                  yield [|Short("id",int16 id);Short("lvl",int16 lvl);End|]
+            |]); End |] |> ResizeArray); End |]
 let addSlotTags(items) =
     let slot = ref 0uy
     [|
@@ -497,8 +517,8 @@ let NEWaestheticTier1Chest(rng:System.Random) =
                 ])
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
-            // useful (dungeon-chest book list)
-            yield! chooseNbooks(rng,F 2,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+            // useful
+            yield makeMultiBook(rng)
             yield makeItem(rng,"anvil",F 2,F 2,2s)
         |]
     addSlotTags items 
@@ -540,8 +560,8 @@ let NEWaestheticTier2Chest(rng:System.Random) =
                     ])
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
-            // useful (dungeon-chest book list)
-            yield! chooseNbooks(rng,F 3,[PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]; EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]; POW[1..2]; PUNCH[1]])
+            // useful
+            yield makeMultiBook(rng)
             yield makeItem(rng,"anvil",F 2,F 2,2s)
         |]
     addSlotTags items 

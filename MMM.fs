@@ -2735,7 +2735,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2743,12 +2743,6 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     
-
-    //RecomputeLighting.lightingTestSetup()
-    //RecomputeLighting.demoCorrectBoundaries()
-    RecomputeLighting.fixMyMap()
-    // There were 3469 block and 4961 sky differences
-
     printfn "press a key to end"
     System.Console.Beep()
     System.Console.ReadKey() |> ignore
@@ -2769,6 +2763,7 @@ do
     // test new distances to main dungeons...
     // test if teleporters get discovered (barely so far, now tried making farther and less spread out marks)
     // test if peaks (hmDiffPerCC value) look ok
+    // test new STRUCTURE_SPACING to spread out peaks/flats
     // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
     // test SMP loot balance
     // (changed logAdmindCmds) a little a4ter set piece, huge game lag (and some 'block placed' notes), hm... logAdminCmds is true, should turn o44 to get rid o4 all set time? lighting updates?
@@ -2790,11 +2785,8 @@ do
 
     // TODO: bugs & good ideas
     // fix lighting (call my stuff, get rid of putXrecomputeLight) - Fixxer died, daylight went even under bedrock ceiling, also lag, so really need to fix lighting, and SMP is good way to test
-    // both Fix and Obe doubted secret treasure coords because there was no 'mark'; neither initially dug.  So consider something (one small out of place flower? coarse dirt is great (no snow atop)) can also say 'unmarked treasure' in the book
-    // there may be too many red dungeons (we saw like 5); put more min distance between same (tend to cluster)? ok if folks have to look a little, as I need more exploration anyway
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // obe notes that random-drop axes never have weapon enchants
-    // obe would like option to get fire prot armor
     // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), consider those
     // give stack of zoomed-out, unfilled maps centered at 0,0 at start?
     // see about red torch ambient lighting on mountain/flat now that can properly light
@@ -2818,7 +2810,7 @@ do
     //  - also could have a 'how to fly with elytra' book
     // teleporter command blocks look like a bug, consider moving cmds
     // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
-    // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket?
+    // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket? or just have ice in ceiling or water sources behind spawners, etc
     // fix and I blitzed the green dungeon easy by moving fast, maybe have each spawner have a 1/20 chance of insta-spawning?
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla)
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
