@@ -2155,6 +2155,141 @@ Jan 12 playthrough (seed 106)
 
 (*
 
+Jan29 (recompute my own lighting)
+
+Debugging output for automated map generation
+DON'T READ THIS UNLESS YOU WANT SPOILERS
+-------------------
+Terrain generation options:
+{"coordinateScale":684.412,"heightScale":684.412,"lowerLimitScale":512.0,"upperLimitScale":512.0,"depthNoiseScaleX":200.0,"depthNoiseScaleZ":200.0,"depthNoiseScaleExponent":0.5,"mainNoiseScaleX":80.0,"mainNoiseScaleY":160.0,"mainNoiseScaleZ":80.0,"baseSize":8.5,"stretchY":12.0,"biomeDepthWeight":1.0,"biomeDepthOffset":0.0,"biomeScaleWeight":1.0,"biomeScaleOffset":0.0,"seaLevel":63,"useCaves":true,"useDungeons":true,"dungeonChance":35,"useStrongholds":false,"useVillages":false,"useMineShafts":true,"useTemples":false,"useMonuments":false,"useRavines":true,"useWaterLakes":true,"waterLakeChance":25,"useLavaLakes":true,"lavaLakeChance":80,"useLavaOceans":false,"fixedBiome":-1,"biomeSize":3,"riverSize":4,"dirtSize":33,"dirtCount":90,"dirtMinHeight":0,"dirtMaxHeight":256,"gravelSize":33,"gravelCount":8,"gravelMinHeight":0,"gravelMaxHeight":256,"graniteSize":3,"graniteCount":12,"graniteMinHeight":0,"graniteMaxHeight":80,"dioriteSize":12,"dioriteCount":120,"dioriteMinHeight":0,"dioriteMaxHeight":80,"andesiteSize":33,"andesiteCount":0,"andesiteMinHeight":0,"andesiteMaxHeight":80,"coalSize":17,"coalCount":20,"coalMinHeight":0,"coalMaxHeight":128,"ironSize":9,"ironCount":5,"ironMinHeight":0,"ironMaxHeight":58,"goldSize":9,"goldCount":5,"goldMinHeight":0,"goldMaxHeight":62,"redstoneSize":3,"redstoneCount":4,"redstoneMinHeight":0,"redstoneMaxHeight":32,"diamondSize":4,"diamondCount":1,"diamondMinHeight":0,"diamondMaxHeight":16,"lapisSize":7,"lapisCount":1,"lapisCenterHeight":16,"lapisSpread":16}
+-------------------
+(this section took 0.158097 minutes)
+-----
+CACHE HM AND BIOME...
+(this section took 0.022957 minutes)
+-----
+(this section took 1.165817 minutes)
+-----
+SKIPPED SOMETHING
+TP at -542 -500
+TP at -542 482
+TP at 482 492
+TP at 492 -528
+(this section took 0.000897 minutes)
+-----
+added 717 extra dungeon spawners underground
+(this section took 0.292352 minutes)
+-----
+added random spawners underground
+   rand spawners from granite:   Total:1793   Blaze: 99   Creeper: 95   Skeleton:499   Spider:558   Zombie:542
+   rand spawners from redstone:   Total:740   Blaze:120   CaveSpider:128   Creeper:113   Skeleton:134   Spider:117   Zombie:128
+(this section took 0.831089 minutes)
+-----
+added FINAL beacon at -556 59 -480 which travels 438
+   spawners along path:   Total:103   CaveSpider: 10   Creeper: 21   Skeleton: 13   Witch: 10   Zombie: 49
+added beacon at -596 59 314 which travels 454
+   spawners along path:   Total: 74   Creeper:  8   Skeleton: 13   Zombie: 53
+added beacon at -399 53 554 which travels 173
+   spawners along path:   Total: 24   Skeleton:  4   Zombie: 20
+added beacon at -180 59 -361 which travels 217
+   spawners along path:   Total: 26   Creeper:  4   Skeleton:  3   Zombie: 19
+added beacon at -152 39 512 which travels 382
+   spawners along path:   Total: 63   Creeper: 10   Skeleton:  7   Zombie: 46
+added beacon at 426 59 -17 which travels 147
+   spawners along path:   Total: 19   Creeper:  3   Skeleton:  3   Zombie: 13
+added beacon at 145 56 580 which travels 190
+   spawners along path:   Total: 25   Creeper:  3   Skeleton:  7   Zombie: 15
+added beacon at 294 59 -417 which travels 258
+   spawners along path:   Total: 42   Creeper:  3   Skeleton:  2   Zombie: 37
+added beacon at 475 58 170 which travels 198
+   spawners along path:   Total: 37   Creeper:  4   Skeleton:  9   Zombie: 24
+(this section took 1.352665 minutes)
+-----
+best hiding spot:  -32  120 -757
+('find best hiding spot' sub-section took 0.152650 minutes)
+added mountain peak (score 9151) at 965 123 816
+   spawners around mountain peak:   Total: 64   Blaze:  2   CaveSpider: 24   Ghast:  3   Spiderextra: 13   Zombie: 22
+added mountain peak (score 8366) at 73 109 834
+   spawners around mountain peak:   Total: 60   Blaze:  2   CaveSpider: 24   Ghast:  3   Spiderextra: 15   Zombie: 16
+added mountain peak (score 8167) at -51 116 543
+   spawners around mountain peak:   Total: 47   Blaze:  2   CaveSpider: 13   Ghast:  2   Spiderextra: 17   Zombie: 13
+added mountain peak (score 7620) at 849 108 117
+   spawners around mountain peak:   Total: 49   Blaze:  1   CaveSpider: 20   Ghast:  3   Spiderextra:  8   Zombie: 17
+added mountain peak (score 6353) at 153 116 -986
+   spawners around mountain peak:   Total: 48   Blaze:  5   CaveSpider: 15   Ghast:  1   Spiderextra: 12   Zombie: 15
+added mountain peak (score 5610) at 352 125 -709
+   spawners around mountain peak:   Total: 56   Blaze:  6   CaveSpider: 22   Ghast:  7   Spiderextra:  6   Zombie: 15
+added mountain peak (score 5338) at 737 121 620
+   spawners around mountain peak:   Total: 56   Blaze:  4   CaveSpider: 16   Ghast:  3   Spiderextra: 15   Zombie: 18
+added mountain peak (score 972) at 976 110 -547
+   spawners around mountain peak:   Total: 55   Blaze:  5   CaveSpider: 18   Ghast:  5   Spiderextra: 12   Zombie: 15
+(this section took 0.165676 minutes)
+-----
+added flat set piece (score 11237353) at -74 -806
+   spawners around cobweb flat:   Total: 87   Blaze:  4   CaveSpider: 30   Spider: 35   Spiderextra:  3   Witch: 15
+added flat set piece (score 4975962) at -698 233
+   spawners around cobweb flat:   Total: 94   Blaze:  4   CaveSpider: 31   Spider: 36   Spiderextra:  7   Witch: 16
+added flat set piece (score 3293543) at -449 -791
+   spawners around cobweb flat:   Total: 94   Blaze:  4   CaveSpider: 39   Spider: 27   Spiderextra:  5   Witch: 19
+added flat set piece (score 1743719) at -857 912
+   spawners around cobweb flat:   Total: 81   Blaze:  4   CaveSpider: 35   Spider: 28   Spiderextra:  4   Witch: 10
+added flat set piece (score 891410) at -762 -358
+   spawners around cobweb flat:   Total: 90   Blaze:  4   CaveSpider: 27   Spider: 39   Spiderextra:  5   Witch: 15
+added flat set piece (score -99441) at 626 147
+   spawners around cobweb flat:   Total: 90   Blaze:  4   CaveSpider: 37   Spider: 30   Spiderextra:  3   Witch: 16
+added flat set piece (score -121885) at 350 -165
+   spawners around cobweb flat:   Total: 88   Blaze:  4   CaveSpider: 35   Spider: 29   Spiderextra:  5   Witch: 15
+added flat set piece (score -593090) at 14 375
+   spawners around cobweb flat:   Total: 84   Blaze:  4   CaveSpider: 34   Spider: 27   Spiderextra:  5   Witch: 14
+added flat set piece (score -880025) at 784 581
+   spawners around cobweb flat:   Total: 84   Blaze:  4   CaveSpider: 33   Spider: 32   Spiderextra:  2   Witch: 13
+added flat set piece (score -894701) at 73 741
+   spawners around cobweb flat:   Total: 87   Blaze:  4   CaveSpider: 30   Spider: 33   Spiderextra:  4   Witch: 16
+added set piece (score -941403) at 419 870
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  1   Zombie:  3
+added set piece (score -1254021) at -920 -59
+   spawners around set piece:   Total:  8   Ghast:  4   Zombie:  4
+added set piece (score -2532655) at 958 92
+   spawners around set piece:   Total:  8   Ghast:  4   Zombie:  4
+added set piece (score -2923044) at 339 -915
+   spawners around set piece:   Total:  8   Ghast:  4   Skeleton:  1   Zombie:  3
+added set piece (score -3026605) at -462 19
+   spawners around set piece:   Total:  8   Ghast:  4   Zombie:  4
+(this section took 0.210884 minutes)
+-----
+highlighted 8 cave entrances near spawn
+(this section took 0.012609 minutes)
+-----
+added 304 extra loot chests
+(this section took 0.168927 minutes)
+-----
+Added 4 Hell biomes (10 trees) and 40 Sky biomes (155 trees) replacing some Plains
+(this section took 0.011873 minutes)
+-----
+START CMDS
+(this section took 0.000756 minutes)
+-----
+RELIGHTING THE WORLD
+(this section took 0.817642 minutes)
+-----
+SAVING FILES
+(this section took 0.989743 minutes)
+-----
+WRITING MAP PNG IMAGES
+(this section took 0.531277 minutes)
+-----
+Took 6.734359 total minutes
+NW quadrant has 1 green beacons, 3 flat dungeons, and 0 mountain peaks
+SW quadrant has 3 green beacons, 2 flat dungeons, and 1 mountain peaks
+NE quadrant has 2 green beacons, 1 flat dungeons, and 3 mountain peaks
+SE quadrant has 2 green beacons, 4 flat dungeons, and 4 mountain peaks
+
+
+
+
+
+
+
 Jan 11 (have learned release/optimize)
 
 Debugging output for automated map generation

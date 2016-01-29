@@ -2735,7 +2735,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -2801,7 +2801,6 @@ do
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // since dungeons can be done out of order, last book cannot be written to assume it is the last book.  (also has typo on 2nd page, and is unfinished)
     // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
-    // fix and I blitzed the green dungeon easy by moving fast, maybe have each spawner have a 1/20 chance of insta-spawning?
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
     // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
     // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
