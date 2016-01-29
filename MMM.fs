@@ -2719,9 +2719,9 @@ do
     *)
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w02a.zip""","""C:\Users\Admin1\Desktop\16w03a.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w03a.zip""","""C:\Users\Admin1\Desktop\16w04a.zip""")
     // compare sounds.json
-    let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\30\30b0989b97f6c10183de1ddf47f428b5d4edc895""")
+    let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\d1\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\30b0989b97f6c10183de1ddf47f428b5d4edc895""")
     if not(diffStringArrays(oldSoundsJson, currentSoundsJson)) then
         printfn "no sound json diff"
@@ -2735,13 +2735,21 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
+    //RecomputeLighting.demoCorrectBoundaries()
+(*
+*)
+    let myMap = new MapFolder(worldSaveFolder+"""\region\""")
+    for x in [-2..1] do for z in [-2..1] do myMap.GetRegion(512*x,512*z) |> ignore
+    RecomputeLighting.relightTheWorld(myMap)
+    //myMap.WriteAll()
+    //RecomputeLighting.demoFixTheWorld()
     
     printfn "press a key to end"
     System.Console.Beep()
@@ -2788,7 +2796,6 @@ do
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // obe notes that random-drop axes never have weapon enchants
     // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), consider those
-    // give stack of zoomed-out, unfilled maps centered at 0,0 at start?
     // see about red torch ambient lighting on mountain/flat now that can properly light
     // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
     // obe would like to 'continue with normal survival' after done
@@ -2876,6 +2883,7 @@ do
     //   - land guardians may make a good set piece (protection books?)
     //   - something to protect a good bow? close to spawn? kinda hard to get good bow early
     // rand cave wall spawners guarding iron/gold blocks?
+    // give stack of zoomed-out, unfilled maps centered at 0,0 at start? zoom level 4 makes even giant bedrock ceiling indistinguishable; level 3 is better but still not great, have to juggle 4 maps, sigh
     
 
 

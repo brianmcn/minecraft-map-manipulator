@@ -2,14 +2,6 @@
 
 // recompute the BlockLight/SkyLight/HeightMap/LightPopulated values after making changes
 
-// TODO how to do large sections that don't all fit in memory at once?
-//  - compute e.g. chunk 0,0 alone, then compute chunk 0,1 using the boundary values from 0,0 as sources
-//      - but this won't find light that 'goes around the corner from 0,1 into 0,0 and then back into 0,1', will it? could repeat entire chunk (16 blocks far enough can't propagate)
-//      - had a discussion with codewarrior; for now i think i will just redo one chunk at the boundary. this lends towards large scale work (more volume/less surface means less re-work at boundaries), but beware of tension that cache/locality get poorer at large scale (e.g. my hashset of 15-sources is walking all over memory)
-//      - can't just 'redo from scratch' tho, or will miss light coming in from completed side.  need to use known-correct wall as outside sources too...
-//  - then can test how long it takes to compute light of whole region at different 'chunking' sizes
-//  - and can test for correctness against a saved 'good' copy
-
 // need to be careful that slabs/stairs/farmland/?path? are opaque but have self light-level of neighbor
 
 let INTRINSIC_BRIGHTNESS =
@@ -57,8 +49,8 @@ let recomputeLightCore(map:MapFolder, canChange, sourcesByLevel:System.Collectio
                 // in my benchmark, I could light an entire region (16k sections) in 4s. this suggests I can relight a section (process a 27-neighborhood) in 7ms.
                 // (actually typically  1-block change can touch 2x2x2 sections, so I'd need a 64-section-neighborhood, but that's still under 20ms, that's fine with me.)
                 // that seems plenty 'good enough' to not feel bad about section-sized granularity for containing small block-change-transaction-sets we want to relight.
-                if canChange(x+dx,y+dy,z+dz) then
-                    let neighborBID = map.GetBlockInfo(x+dx,y+dy,z+dz).BlockID 
+                if canChange(x+dx,y+dy,z+dz) then // TODO if level=1 can stop now
+                    let neighborBID = map.GetBlockInfo(x+dx,y+dy,z+dz).BlockID // TODO surely an out-of-bounds bug here in y? oh, canChange was guarding it...
                     let neighborLevelBasedOnMySpread = max 0 (level - OPACITY.[int neighborBID])
                     assert(neighborLevelBasedOnMySpread < level)
                     if neighborLevelBasedOnMySpread > 0 then
@@ -106,16 +98,12 @@ let recomputeBlockLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.
                                 // if it emits light, add it to light sources
                                 if LIGHTBIDS.ContainsKey(bid) then
                                     let level = LIGHTBIDS.[bid]
-                                    if shouldZero then // it's definitely a source we need to track
+                                    // we may have already painted a higher level over this source (from a source outside this chunk/section), in which case this source can be ignored, so check it
+                                    let existingLevel = NibbleArray.get(blockLight,xs+dx,ys+dy,zs+dz)
+                                    if existingLevel < level then
                                         sourcesByLevel.[int level].Add(xs+dx,ys+dy,zs+dz) |> ignore
                                         // TODO what if not canChange?
                                         NibbleArray.set(blockLight,xs+dx,ys+dy,zs+dz,level)
-                                    else // we may have already painted a higher level over this source (from a source outside this chunk/section), in which case this source can be ignored, so check it
-                                        let existingLevel = NibbleArray.get(blockLight,xs+dx,ys+dy,zs+dz)
-                                        if existingLevel < level then
-                                            sourcesByLevel.[int level].Add(xs+dx,ys+dy,zs+dz) |> ignore
-                                            // TODO what if not canChange?
-                                            NibbleArray.set(blockLight,xs+dx,ys+dy,zs+dz,level)
     printfn "done!"
     printfn "recomputing light..."
     // recompute block light
@@ -191,7 +179,7 @@ let compareLighting(map1:MapFolder, map2:MapFolder, minx, minz, maxx, maxz) =
         failwith "this algorithm only works on full chunks"
     printfn "comparing results..."
     // compare
-    let mutable numBlockDiff,numSkyDiff = 0,0
+    let mutable numBlockDiff,numSkyDiff,numSectDiff = 0,0,0
     for xs in [ minx .. 16 .. maxx ] do
         for zs in [ minz .. 16 .. maxz ] do
             for ys in [ 0 .. 16 .. 255 ] do
@@ -199,24 +187,28 @@ let compareLighting(map1:MapFolder, map2:MapFolder, minx, minz, maxx, maxz) =
                 let _,_,_,origBlockLight,origSkyLight = map1.GetSection(xs,ys,zs)
                 if origBlockLight <> null then
                     let _,_,_,newBlockLight,newSkyLight = map2.GetSection(xs,ys,zs)
-                    for dx = 0 to 15 do
-                        for dy = 0 to 15 do
-                            for dz = 0 to 15 do
-                                let x = xs+dx
-                                let y = ys+dy
-                                let z = zs+dz
-                                let origValue = NibbleArray.get(origBlockLight,x,y,z)
-                                let testValue = NibbleArray.get(newBlockLight,x,y,z)
-                                if origValue <> testValue then
-                                    printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
-                                    numBlockDiff <- numBlockDiff + 1
-                                let origValue = NibbleArray.get(origSkyLight,x,y,z)
-                                let testValue = NibbleArray.get(newSkyLight,x,y,z)
-                                if origValue <> testValue then
-                                    printfn "%3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
-                                    numSkyDiff <- numSkyDiff + 1
+                    if newBlockLight = null then
+                        //printfn "%3d %3d %3d differ, orig populated section, test no section" xs ys zs
+                        numSectDiff <- numSectDiff + 1
+                    else
+                        for dx = 0 to 15 do
+                            for dy = 0 to 15 do
+                                for dz = 0 to 15 do
+                                    let x = xs+dx
+                                    let y = ys+dy
+                                    let z = zs+dz
+                                    let origValue = NibbleArray.get(origBlockLight,x,y,z)
+                                    let testValue = NibbleArray.get(newBlockLight,x,y,z)
+                                    if origValue <> testValue then
+                                        printfn "BLOCK %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                                        numBlockDiff <- numBlockDiff + 1
+                                    let origValue = NibbleArray.get(origSkyLight,x,y,z)
+                                    let testValue = NibbleArray.get(newSkyLight,x,y,z)
+                                    if origValue <> testValue then
+                                        //printfn "SKY %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                                        numSkyDiff <- numSkyDiff + 1
     printfn "done!"
-    printfn "There were %d block and %d sky differences" numBlockDiff numSkyDiff
+    printfn "There were %d block, %d sky, and %d section differences" numBlockDiff numSkyDiff numSectDiff
 
 // TODO do I need the incoming xxxSourcesByLevel arguments any more? not being used... rather I'd just run the alg on a big enough min/max to encompass them, but not make them writable
 let fixLighting(mapToChange:MapFolder, 
@@ -345,50 +337,212 @@ let fixMyMap() =
 
     let canChange(x,y,z) = x >= minx && x <= maxx && y >= 0 && y <= 255 && z >= minz && z <= maxz
     
-    // TODO what if not canChange? should canChange be per-section? if so, how best to author that (do i want section objects? what data structure is best?)
-    // basically I want to source block/light sources just outside my map to get the 'edges' right, but I don't want to modify anything outside my 16 regions
-
-
     let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
     let skyLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
     fixLighting(map, blockLightSourcesByLevel, skyLightSourcesByLevel, minx, minz, maxx, maxz, hm, canChange, true)
     map.WriteAll()
 
 
+    // TODO what if not canChange? should canChange be per-section? if so, how best to author that (do i want section objects? what data structure is best?)
+    // basically I want to source block/light sources just outside my map to get the 'edges' right, but I don't want to modify anything outside my 16 regions
 
-(*
+    (*
+    so i want sections that know
+     - most of their data (block, blockLight, skyLight)
+     - can they be read
+     - can they be written
+     - are they currently represented (?)
+     - HM info
+    If I assume main goal is 'relight entire map, a region at a time' then the real data structure I need is a RegionAndALittle:
+     - has cx and cz range from [-1..33], canRead(cx,cz) says if chunk exists
+     - the canWrite would be cx/cz in the [0..32] range
+     - the HM would be populated up front in all the readable chunks
+     - the sections can be accessed directly out of the map?
+    My overall algorithm still seems to not be factored right.  There's
+     - locating sources
+     - zeroing stuff out
+     - painting light
+    and they're currently all intertwined.  can I tease them apart without losing loop-fusion benefits? 
+    once we have a section
+     - finding all BL sources is easy (iter over all cells)
+     - zeroing BL is of course easy
+     - 'zeroing' SL is also easy (above/below HM are 15/0)
+     - finding all SL sources is non-trivial... even with the HM, I have two issues, 
+                one is peeking nearby cells outside sect for neighbors (but it just HM!), 
+                other is when terrain abuts top of sect and need to represent empty sect above for sources
+            I think I could pre-process HM to speed neighbor computation perhaps, e.g. windowed computation of lo and hi, 3 across, then 3 down kinda thing...
+     - painting light walks all over memory per-region
+    If I could really make those all independent per-section, then I think I get good factoring and can retain loop fusion benefits...
 
-blocklight:
-
-have set of 'could be changed by update' (easy to compute at start).  
-all blocks with intrinsic light values there are noted, as well as all points on the surface boundary, as light 'sources' with strength N
-
-then for N = 15 downto 0 do
-
-forall sources with strength N, set block light to N (unless already higher, in which case stop), 
-then add all neighbors to lists of N-minus-their-opacity sources (unless they were already brighter)
-
-thus we have the 15 wavefront, then the 14 wavefront, ... no work is done for e.g. red torches until we reach iter 7
-
-each block is only ever set once
-
------------------------
-
-the 'could be changed by update' set is useful for a single change or a set of changes
-to recompute entire chunk/region at once, probably best to just do everything, e.g. the 'could be changed' is 'everything'
-hm, do we need the 'could be changed' set? does the wavefront implicitly do this?
-aha, yes, we need if for dimming - when light is dimmed or removed (includes e.g. putting stone to replace air), we need to
- - compute the changed set (the N-radius around the N-light-removed block)
- - note its frontier (set on the boundary/edge of the region)
- - after unioning all the changed sets from all the changes, union the frontiers and then for each guy on the frontier,
-     check all his neighbors for blocks outside the change scope, these become the new 'sources' that will bleed in
-
------------------------
-
-skylight is similar to blocklight
-any time a block is placed above HM, need to fix HM, and also ensure sections exist from bottom up to that block, recompute
-any time a block is removed at HM, need to fix HM, recompute
-
-*)
+    // unrepresented:
+    MaybeGetRegion // may return null
+    TryGetChunk // may return None
+    GetSection // may return null
 
 
+    so we need a per-section
+    accumulateBlockLightSourcesAndMaybeInitialize()
+    accumulateSkyLightSourcesAndMaybeInitialize()
+
+    let hasBeenZeroed = new System.Collections.Generic.HashSet<_>()  // cx and cz
+    for rx/rz in -99 to +99 do
+        if MaybeGetRegion then
+            make a heightmapcache (that is one chunk and one cell greater around), init to all 255s
+            for cx/cz in -2..33 do
+                if tryGetChunk then
+                    update heightmapcache
+            for cx/cz in 0..31 do
+                if tryGetChunk then
+                    for ys = 0 to 15 do
+                        findSources, and initialize if not not HasBeenZeroed
+                        (if HasBeenZeroed, can remove from set, won't ask again)
+            for all the chunks just outside the region, attempt to get them with MaybeGetRegion/TryGetChunk, and
+                findSources them too, and if they are in +X or +Z direction initialize (and add to set)
+            now we have all sources for our RegionAndALittle, so run the repaint light core, saying to only write to our region
+    *)
+
+let accumulateBlockLightSourcesAndMaybeInitialize(sourcesByLevel:System.Collections.Generic.HashSet<_>[],shouldInitialize,xs,ys,zs,blocks:_[],blockLight:_[]) =
+    if shouldInitialize then
+        System.Array.Clear(blockLight, 0, 2048)
+    for dx = 0 to 15 do
+        for dy = 0 to 15 do
+            for dz = 0 to 15 do
+                let i = dy*256 + dz*16 + dx
+                let bid = blocks.[i]
+                // if it emits light, add it to light sources
+                if LIGHTBIDS.ContainsKey(bid) then
+                    let level = LIGHTBIDS.[bid]
+                    // we may have already painted a higher level over this source (from a source outside this chunk/section), in which case this source can be ignored, so check it
+                    let existingLevel = NibbleArray.get(blockLight,dx,dy,dz)
+                    if existingLevel < level then
+                        sourcesByLevel.[int level].Add(xs+dx,ys+dy,zs+dz) |> ignore
+                        if shouldInitialize then
+                            NibbleArray.set(blockLight,dx,dy,dz,level)
+
+let FIVE_NEIGHBORS = [| 0,0,1; 1,0,0; 0,0,-1; 0,1,0; -1,0,0 |] // 4 beside and 1 above, places where we may find direct sunshine
+let accumulateSkyLightSourcesAndMaybeInitialize(sourcesByLevel:System.Collections.Generic.HashSet<_>[],shouldInitialize,xs,ys,zs,blocks:_[],skyLight:_[],cachedHeightMap:_[,]) =
+    for dx = 0 to 15 do
+        for dz = 0 to 15 do
+            let x,z = xs+dx,zs+dz
+            let curHM = cachedHeightMap.[x,z]
+            for dy = 0 to 15 do
+                let y = ys+dy
+                if y >= curHM then
+                    if shouldInitialize then
+                        NibbleArray.set(skyLight,x,y,z,15uy)
+                else
+                    // rather than treat any of the above-HM cells as sources (there are tons!), instead we'll find blocks that are below the HM but adjacent to skylight sources,
+                    // and treat those terrain blocks as the sources for the relighting algorithm.
+                    // This has the nice side-effect of not having to deal with 'sources' in unrepresented sections in the sky; all 'sources' are in represented sections.
+                    let mutable pureSkyNearby = false
+                    for dx,dy,dz in FIVE_NEIGHBORS do
+                        let x,y,z = x+dx,y+dy,z+dz
+                        if y >= cachedHeightMap.[x,z] then
+                            pureSkyNearby <- true
+                    let mutable initValue = 0uy
+                    if pureSkyNearby then
+                        // see if we may be a source
+                        let i = dy*256 + dz*16 + dx
+                        let bid = blocks.[i]
+                        let myLightLevel = max 0 (15 - OPACITY.[int bid])
+                        if myLightLevel > 0 then
+                            sourcesByLevel.[myLightLevel].Add(x,y,z) |> ignore
+                            initValue <- byte myLightLevel
+                    if shouldInitialize then
+                        NibbleArray.set(skyLight,x,y,z,initValue)
+    ()
+
+// this is an additive, batch-repainting-of-sources
+let ADJACENCIES = [| 0,0,1; 0,1,0; 1,0,0; 0,0,-1; 0,-1,0; -1,0,0 |]
+let newRecomputeLightCore(map:MapFolder, sourcesByLevel:System.Collections.Generic.HashSet<_>[], isSky) =
+    // propogate light at each level
+    for level = 15 downto 1 do
+        //printfn "There are %d sources at level %d" sourcesByLevel.[level].Count level
+        for x,y,z in sourcesByLevel.[level] do
+            let _nbt,_bids,_blockData,blockLight,skyLight = map.MaybeMaybeGetSection(x,y,z)
+            let light = if isSky then skyLight else blockLight
+            let curLight = NibbleArray.get(light,x,y,z)
+            // Note: curLight typically will equal level, but may be greater, e.g. when there is a brown mushroom (source level 1) which was found as a source, but then later painted over with a brighter source
+            assert( curLight >= byte level )
+            if level > 1 then
+                for dx,dy,dz in ADJACENCIES do
+                    let bi = if y+dy>=0 && y+dy<=255 then map.MaybeGetBlockInfo(x+dx,y+dy,z+dz) else null
+                    if bi <> null then // null means outside the map (outside y, or outside represented chunks)
+                        let neighborLevelBasedOnMySpread = max 0 (level - OPACITY.[int bi.BlockID])
+                        assert(neighborLevelBasedOnMySpread < level)
+                        if neighborLevelBasedOnMySpread > 0 then
+                            let _,_,_,neighborBlockLight,neighborSkyLight = map.MaybeMaybeGetSection(x+dx,y+dy,z+dz)
+                            let neighborLight = if isSky then neighborSkyLight else neighborBlockLight
+                            assert(neighborLight <> null) // 'bi' existed, so this must too
+                            let curNeighborLevel = NibbleArray.get(neighborLight,x+dx,y+dy,z+dz)
+                            if curNeighborLevel < byte neighborLevelBasedOnMySpread then
+                                sourcesByLevel.[neighborLevelBasedOnMySpread].Add(x+dx,y+dy,z+dz) |> ignore
+                                NibbleArray.set(neighborLight,x+dx,y+dy,z+dz,byte neighborLevelBasedOnMySpread)
+
+let relightTheWorld(map:MapFolder) =
+    let isFully = new System.Collections.Generic.HashSet<_>()
+    MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Array.iter (fun bid -> isFully.Add(byte bid) |> ignore)
+    let hasBeenInitialized = new System.Collections.Generic.HashSet<_>()
+    for rx = -99 to 99 do
+        for rz = -99 to 99 do
+            let r = map.MaybeGetRegion(rx*512,rz*512)
+            if r <> null then
+                printf "r.%3d.%3d... calc HM..." rx rz
+                let sw = System.Diagnostics.Stopwatch.StartNew()
+                // make a heightmapcache (that is one chunk plus one cell greater around), init to all 255s
+                let minx = rx * 512  // bottom coords of region
+                let minz = rz * 512
+                let heightMapCache = Array2D.createBased (minx-17) (minz-17) (512+17+17) (512+17+17) 255
+                // populate the heightmap cache for all represented chunks
+                for x = minx-17 to minx+512+17-1 do
+                    for z = minz-17 to minz+512+17-1 do
+                        let r = map.MaybeGetRegion(x,z)
+                        if r <> null then
+                            let bi = r.MaybeGetBlockInfo(x,0,z)
+                            if bi <> null then
+                                // calculate the height map (don't trust the contents from disk)
+                                let mutable y = 255  // TODO how does minecraft represent an opaque block at the build height in the HM? does it use 256? is that why int and not byte?
+                                heightMapCache.[x,z] <- 0
+                                while y >= 0 do
+                                    let bi = r.MaybeGetBlockInfo(x,y,z)
+                                    if bi <> null && not(isFully.Contains(bi.BlockID)) then
+                                        heightMapCache.[x,z] <- y+1
+                                        r.SetHeightMap(x,z,y+1)
+                                        y <- -1
+                                    else 
+                                        y <- y - 1
+                printf "...relight..."
+                // accumulate all light sources (and initialize any uninitalized chunks light arrays)
+                let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+                let skyLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
+                for x in [minx-16 .. 16 .. minx+512+16-1] do
+                    for z in [minz-16 .. 16 .. minz+512+16-1] do
+                        let r = map.MaybeGetRegion(x,z)
+                        if r <> null then
+                            let bi = r.MaybeGetBlockInfo(x,0,z)
+                            if bi <> null then
+                                let cx = ((x+51200)%512)/16
+                                let cz = ((z+51200)%512)/16
+                                let chunkId = (rx*32+cx)*100000 + (rz*32+cz)
+                                let needsInit = hasBeenInitialized.Add(chunkId)
+                                for y in [0 .. 16 .. 255] do
+                                    let _nbt,blocks,_blockData,blockLight,skyLight = r.GetSection(x,y,z)
+                                    if blocks <> null then
+                                        accumulateBlockLightSourcesAndMaybeInitialize(blockLightSourcesByLevel,needsInit,x,y,z,blocks,blockLight)
+                                        accumulateSkyLightSourcesAndMaybeInitialize(skyLightSourcesByLevel,needsInit,x,y,z,blocks,skyLight,heightMapCache)
+                // light it up!
+                newRecomputeLightCore(map, blockLightSourcesByLevel, false)
+                newRecomputeLightCore(map, skyLightSourcesByLevel, true)
+                printfn " ...took %dms" sw.ElapsedMilliseconds 
+
+
+let demoFixTheWorld() =
+    let originalRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109OriginalLighting\region\"""
+    let fixedRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109CorrectedLighting\region\"""
+    let testMap = new MapFolder(originalRegionFolder)
+    testMap.GetRegion(0,0) |> ignore
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    relightTheWorld(testMap)
+    printfn "took %dms" sw.ElapsedMilliseconds 
+    let goodMap = new MapFolder(fixedRegionFolder)
+    compareLighting(goodMap, testMap, 0, 0, 511, 511)

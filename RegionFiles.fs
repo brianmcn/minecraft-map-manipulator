@@ -85,6 +85,7 @@ type RegionFile(filename) =
                                                                     NBT.Byte("LightPopulated",0uy); NBT.Byte("TerrainPopulated",1uy); // TODO best TerrainPopulated value?
                                                                     NBT.Byte("V",1uy); NBT.Long("InhabitedTime",0L);
                                                                     NBT.IntArray("HeightMap", Array.zeroCreate 256)
+                                                                    NBT.ByteArray("Biomes", Array.zeroCreate 256)
                                                                     // a number of things can be absent
                                                                     NBT.List("Sections", Compounds([||]))
                                                                     NBT.End
@@ -254,7 +255,7 @@ type RegionFile(filename) =
         let zz = ((z+51200)%512)/16
         let theChunk = getOrCreateChunk(xx,zz)
         theChunk
-    member this.GetSection(x,y,z) =  // x,y,z are world coordinates - will return (null,null,null) for unrepresented sections
+    member this.GetSection(x,y,z) =  // x,y,z are world coordinates - will return (null,null,null,null,null) for unrepresented sections
         this.GetOrCreateSectionCore(x,y,z,false)
     member private this.GetOrCreateSectionCore(x,y,z,createIfUnrepresented) =  // x,y,z are world coordinates
         let xx = ((x+51200)%512)/16
@@ -262,17 +263,22 @@ type RegionFile(filename) =
         let theChunk = getOrCreateChunk(xx,zz) // do this even though we don't "need" it, to avoid having sections without parent chunks
         let sy = y/16
         match chunkSectionsCache.[xx,zz].[sy] with
-        | null, null, null,null,null -> 
-            let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-            let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
-            let theSection = 
+        | nbtCacheProxy,null,null,null,null -> 
+            if nbtCacheProxy <> null && not(createIfUnrepresented) then
+                // we've already tried to look up this section, and it wasn't there. we're not trying to make a new one, so quick-return.
+                null,null,null,null,null
+            else
+                let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                let sections = match theChunkLevel.["Sections"] with List(_,Compounds(cs)) -> cs
                 match sections |> Array.tryFind (Array.exists (function Byte("Y",n) when n=byte(y/16) -> true | _ -> false)) with
                 | Some x -> 
                     let blocks = x |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
                     let blockData = x |> Array.pick (function ByteArray("Data",a) -> Some a | _ -> None)
                     let blockLight = x |> Array.pick (function ByteArray("BlockLight",a) -> Some a | _ -> None)
                     let skyLight = x |> Array.pick (function ByteArray("SkyLight",a) -> Some a | _ -> None)
-                    x, blocks, blockData, blockLight, skyLight
+                    let r = x, blocks, blockData, blockLight, skyLight
+                    chunkSectionsCache.[xx,zz].[sy] <- r
+                    r
                 | None ->
                     if createIfUnrepresented then
                         let blocks = Array.zeroCreate 4096
@@ -287,11 +293,12 @@ type RegionFile(filename) =
                             let i = a.FindIndex (fun x -> x.Name="Sections")
                             a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
                             isChunkDirty.[xx,zz] <- true
-                            newSection, blocks, blockData, blockLight, skyLight
+                            let r = newSection, blocks, blockData, blockLight, skyLight
+                            chunkSectionsCache.[xx,zz].[sy] <- r
+                            r
                     else
+                        chunkSectionsCache.[xx,zz].[sy] <- [||],null,null,null,null
                         null,null,null,null,null
-            chunkSectionsCache.[xx,zz].[sy] <- theSection
-            theSection
         | x -> x
     member this.GetOrCreateSection(x,y,z) =  // x,y,z are world coordinates
         this.GetOrCreateSectionCore(x,y,z,true)
@@ -310,7 +317,7 @@ type RegionFile(filename) =
         let i = dy*256 + dz*16 + dx
         let blockDataAtI = if i%2=1 then blockData.[i/2] >>> 4 else blockData.[i/2] &&& 0xFuy
 #if DEBUG
-        let bdai = NibbleArray.get(blockData, x, y, z)
+        let bdai = NibbleArray.get(blockData, dx, dy, dz)
         assert(bdai = blockDataAtI)
 #endif
         new BlockInfo(blocks.[i], blockDataAtI)
@@ -575,16 +582,22 @@ type RegionFile(filename) =
 type MapFolder(folderName) =
     let MMM = 100
     let cachedRegions = Array2D.zeroCreateBased -MMM -MMM (2*MMM) (2*MMM)
-    let getOrCreateRegion(rx,rz) =
+    let checkRegionBounds(rx,rz) =
         if rx < -MMM || rx > MMM-1 || rz < -MMM || rz > MMM-1 then
             failwith "MapFolder can currently only do a fixed num regions"
+    let getOrLoadRegion(rx,rz,failIfNotThere) =
+        checkRegionBounds(rx,rz)
         if cachedRegions.[rx,rz] <> null then
             cachedRegions.[rx,rz]
         else
             let fil = System.IO.Path.Combine(folderName, sprintf "r.%d.%d.mca" rx rz)
-            let r = new RegionFile(fil)
-            cachedRegions.[rx,rz] <- r
-            r
+            if not(System.IO.File.Exists(fil)) && not(failIfNotThere) then
+                null
+            else
+                let r = new RegionFile(fil)
+                cachedRegions.[rx,rz] <- r
+                r
+    let getOrCreateRegion(rx,rz) = getOrLoadRegion(rx,rz,true) // TODO 'create' is a bad name choice, it loads off disk into cache, but does not create a new one if nonexistent
     member this.AddEntities(es) =
         // partition by region,chunk
         let data = new System.Collections.Generic.Dictionary<_,_>()
@@ -708,6 +721,12 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r
+    member this.MaybeGetRegion(x,z) =  // may return null if no file on disk
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        checkRegionBounds(rx,rz)
+        let r = getOrLoadRegion(rx,rz,false)
+        r
     member this.EnsureSetBlockIDAndDamage(x,y,z,bid,d) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
@@ -723,6 +742,17 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetSection(x,y,z)
+    member this.MaybeMaybeGetSection(x,y,z) = // if region exists, if chunk exists, if section exists, return it, else nulls - create nothing
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrLoadRegion(rx,rz,false)
+        if r <> null then
+            let cx = ((x+51200)%512)/16
+            let cz = ((z+51200)%512)/16
+            match r.TryGetChunk(cx,cz) with
+            | Some _ -> r.GetSection(x,y,z)
+            | _ -> null,null,null,null,null
+        else null,null,null,null,null
     member this.GetOrCreateSection(x,y,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000
