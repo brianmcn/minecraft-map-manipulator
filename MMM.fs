@@ -2743,10 +2743,10 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //RecomputeLighting.demoCorrectBoundaries()
-    //RecomputeLighting.demoFixTheWorld()
-    let map = new MapFolder(worldSaveFolder+"""\region\""")
+    RecomputeLighting.demoFixTheWorld()
+    //let map = new MapFolder(worldSaveFolder+"""\region\""")
     //RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1])
-    RecomputeLighting.relightTheWorldHelper(map,[1],[1])
+    //RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)
     //map.WriteAll()
 
 

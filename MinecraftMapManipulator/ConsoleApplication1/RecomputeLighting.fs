@@ -68,9 +68,9 @@ let recomputeSkyLightHelper(map:MapFolder, canChange, skyLightSources) = // skyL
     // TODO wiki suggests leaves/cobweb/ice are different, but I cannot find anything that suggests I need to handle them differently
     recomputeLightCore(map, canChange, skyLightSources, true)
 
-let LIGHTBIDS = new System.Collections.Generic.Dictionary<_,_>()
+let LIGHTBIDS = Array.zeroCreate 256 // block ids just go 0-255
 for bid, lvl in MC_Constants.BLOCKIDS_THAT_EMIT_LIGHT do
-    LIGHTBIDS.Add(byte bid, byte lvl)
+    LIGHTBIDS.[int bid] <- byte lvl
 
 // TODO do I need the incoming sourcesByLevel argument any more? not being used...
 let recomputeBlockLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.HashSet<_>[],minx,minz,maxx,maxz,canChange,shouldZero) =
@@ -96,8 +96,8 @@ let recomputeBlockLight(map:MapFolder,sourcesByLevel:System.Collections.Generic.
                                 let i = dy*256 + dz*16 + dx
                                 let bid = blocks.[i]
                                 // if it emits light, add it to light sources
-                                if LIGHTBIDS.ContainsKey(bid) then
-                                    let level = LIGHTBIDS.[bid]
+                                let level = LIGHTBIDS.[int bid]
+                                if level <> 0uy then
                                     // we may have already painted a higher level over this source (from a source outside this chunk/section), in which case this source can be ignored, so check it
                                     let existingLevel = NibbleArray.get(blockLight,xs+dx,ys+dy,zs+dz)
                                     if existingLevel < level then
@@ -410,8 +410,8 @@ let accumulateBlockLightSourcesAndMaybeInitialize(sourcesByLevel:System.Collecti
                 let i = dy*256 + dz*16 + dx
                 let bid = blocks.[i]
                 // if it emits light, add it to light sources
-                if LIGHTBIDS.ContainsKey(bid) then
-                    let level = LIGHTBIDS.[bid]
+                let level = LIGHTBIDS.[int bid]
+                if level <> 0uy then
                     // we may have already painted a higher level over this source (from a source outside this chunk/section), in which case this source can be ignored, so check it
                     let existingLevel = NibbleArray.get(blockLight,dx,dy,dz)
                     if existingLevel < level then
@@ -479,9 +479,9 @@ let newRecomputeLightCore(map:MapFolder, sourcesByLevel:System.Collections.Gener
                                 sourcesByLevel.[neighborLevelBasedOnMySpread].Add(x+dx,y+dy,z+dz) |> ignore
                                 NibbleArray.set(neighborLight,x+dx,y+dy,z+dz,byte neighborLevelBasedOnMySpread)
 
-let relightTheWorldHelper(map:MapFolder, rxs, rzs) =
-    let isFully = new System.Collections.Generic.HashSet<_>()
-    MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Array.iter (fun bid -> isFully.Add(byte bid) |> ignore)
+let relightTheWorldHelper(map:MapFolder, rxs, rzs, trustTheHeightMap) =
+    let isFully = Array.zeroCreate 256
+    MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Array.iter (fun bid -> isFully.[bid] <- true)
     let hasBeenInitialized = new System.Collections.Generic.HashSet<_>()
     for rx in rxs do
         for rz in rzs do
@@ -500,22 +500,36 @@ let relightTheWorldHelper(map:MapFolder, rxs, rzs) =
                         if r <> null then
                             let bi = r.MaybeGetBlockInfo(x,0,z)
                             if bi <> null then
-                                // calculate the height map (don't trust the contents from disk)
-                                // TODO an option to 'trust the HM' would probably make this run twice as fast or something
-                                let mutable y = 255  // TODO how does minecraft represent an opaque block at the build height in the HM? does it use 256? is that why int and not byte?
-                                heightMapCache.[x,z] <- 0
-                                while y >= 0 do
-                                    let bi = r.MaybeGetBlockInfo(x,y,z)
-                                    if bi <> null && not(isFully.Contains(bi.BlockID)) then
-                                        heightMapCache.[x,z] <- y+1
-                                        r.SetHeightMap(x,z,y+1)
-                                        // now also ensure every section below here is represented, as unrepresented sections below HM are incorrectly lit by MC (e.g. air just above flat plane of blocks at section boundary looks wrong)
-                                        y <- y - 16
-                                        while y >= 0 do
-                                            r.GetOrCreateSection(x,y,z) |> ignore
+                                if trustTheHeightMap then
+                                    heightMapCache.[x,z] <- r.GetHeightMap(x,z)
+                                else
+                                    // calculate the height map (don't trust the contents from disk)
+                                    let dx = MOD(x,16)
+                                    let dz = MOD(z,16)
+                                    let mutable y = 255  // TODO how does minecraft represent an opaque block at the build height in the HM? does it use 256? is that why int and not byte?
+                                    let mutable _,curSectionBlocks,_,_,_ = r.GetSection(x,y,z)
+                                    heightMapCache.[x,z] <- 0
+                                    while y >= 0 do
+                                        if curSectionBlocks = null then
+                                            // This section is not represented, jump down to section below
+                                            assert(y%16 = 15)
                                             y <- y - 16
-                                    else 
-                                        y <- y - 1
+                                            let _,blocks,_,_,_ = r.GetSection(x,y,z)
+                                            curSectionBlocks <- blocks
+                                        elif not(isFully.[int curSectionBlocks.[(y%16)*256+dz*16+dx]]) then
+                                            heightMapCache.[x,z] <- y+1
+                                            r.SetHeightMap(x,z,y+1)
+                                            // now also ensure every section below here is represented, as unrepresented sections below HM are incorrectly lit by MC (e.g. air just above flat plane of blocks at section boundary looks wrong)
+                                            y <- y - 16
+                                            while y >= 0 do
+                                                r.GetOrCreateSection(x,y,z) |> ignore
+                                                y <- y - 16
+                                        else
+                                            // we're in terrain, but at a fully transparent block
+                                            y <- y - 1
+                                            if y%16 = 15 then
+                                                let _,blocks,_,_,_ = r.GetSection(x,y,z)
+                                                curSectionBlocks <- blocks
                 printf "...relight..."
                 // accumulate all light sources (and initialize any uninitalized chunks light arrays)
                 let blockLightSourcesByLevel = Array.init 16 (fun _ -> new System.Collections.Generic.HashSet<_>())
@@ -540,7 +554,7 @@ let relightTheWorldHelper(map:MapFolder, rxs, rzs) =
                 newRecomputeLightCore(map, skyLightSourcesByLevel, true)
                 printfn " ...took %dms" sw.ElapsedMilliseconds 
 
-let relightTheWorld(map:MapFolder) = relightTheWorldHelper(map, [-99..99], [-99..99])
+let relightTheWorld(map:MapFolder) = relightTheWorldHelper(map, [-99..99], [-99..99], false)
 // TODO known oddities
 //  - RandomCTM (seed 109) at -72 80 -809, top surface of flat peak mini-bedrock is dark (unrepresented air?)
 //  - RandomCTM (seed 109) at 618 66 671, jack-o-lantern does not give off light
@@ -549,12 +563,13 @@ let relightTheWorld(map:MapFolder) = relightTheWorldHelper(map, [-99..99], [-99.
 //  - maybe MC is intolerant to jack-o-lanterns sitting atop non-opaque blocks (you can't place them there)?
 
 let demoFixTheWorld() =
-    let originalRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109OriginalLighting\region\"""
-    let fixedRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109CorrectedLighting\region\"""
+    //let originalRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109OriginalLighting\region\"""
+    //let fixedRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109CorrectedLighting\region\"""
+    let originalRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM\region\"""
+    let fixedRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM109WithNearlyFixedLighting\region\"""
     let testMap = new MapFolder(originalRegionFolder)
-    testMap.GetRegion(0,0) |> ignore
     let sw = System.Diagnostics.Stopwatch.StartNew()
-    relightTheWorld(testMap)
+    relightTheWorldHelper(testMap,[-2..1],[-2..1],false)
     printfn "took %dms" sw.ElapsedMilliseconds 
     let goodMap = new MapFolder(fixedRegionFolder)
-    compareLighting(goodMap, testMap, 0, 0, 511, 511)
+    compareLighting(goodMap, testMap, -2*512, -2*512, 1*512+511, 1*512+511)

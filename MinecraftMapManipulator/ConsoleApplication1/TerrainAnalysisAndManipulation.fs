@@ -2100,7 +2100,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         placeStartingCommands(map,hm))
     time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
-        RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1])) // right before we save
+        RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
