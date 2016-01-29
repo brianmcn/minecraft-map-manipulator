@@ -119,11 +119,6 @@ let runCommandBlockOnLoadSelfDestruct(sx,sy,sz,map:MapFolder,cmd) =
     runCommandBlockOnLoadCore(sx,sy,sz,map,cmd,1)
     runCommandBlockOnLoadCore(sx,sy-1,sz,map,"fill ~ ~ ~ ~ ~1 ~ air",2)
 
-let putThingRecomputeLight(sx,sy,sz,map:MapFolder,thing,dmg) =
-    // for lighted blocks (e.g. thing="glowstone"), to have Minecraft recompute the light, use a command block and a tile tick
-    runCommandBlockOnLoad(sx,sy,sz,map,sprintf "setblock ~ ~ ~ %s %d" thing dmg)
-let putGlowstoneRecomputeLight(sx,sy,sz,map:MapFolder) = putThingRecomputeLight(sx,sy,sz,map,"glowstone",0)
-
 let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed,itemsNbt,topbid,topdmg,glassbid,glassdmg,radius) =
     let RADIUS = radius
     for x = sx-RADIUS to sx+RADIUS do
@@ -134,7 +129,7 @@ let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed,item
         for y = sy+1 to sy+2 do
             for z = sz-RADIUS to sz+RADIUS do
                 map.SetBlockIDAndDamage(x,y,z,glassbid,glassdmg)  // glass
-    putThingRecomputeLight(sx,sy+2,sz,map,"end_rod",1) // end rods give off light level 14, don't obstruct a beacon shining through, can attach to top of chest
+    map.SetBlockIDAndDamage(sx,sy+2,sz,198uy,1uy) // 198=end_rod  (end rods give off light level 14, don't obstruct a beacon shining through, can attach to top of chest)
     putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,"Lootz!",lootTableName,lootTableSeed,map,null)
 
 let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed) =
@@ -503,9 +498,8 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
                     bestZ <- z
             if bestY <> 0 then
                 // found highest point in this cave exposed to surface
-                for y = bestY + 10 to bestY + 25 do
+                for y = bestY + 10 to bestY + 26 do
                     map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
-                putGlowstoneRecomputeLight(bestX,bestY+26,bestZ,map)
                 hm.[bestX,bestZ] <- bestY+27
                 map.SetHeightMap(bestX, bestZ, bestY+27)
                 caveCount <- caveCount + 1
@@ -1208,7 +1202,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                          End |]
             |]
     putUntrappedChestWithItemsAt(bx,by,bz,"Hidden treasure!",chestItems,map,null)
-    putGlowstoneRecomputeLight(bx,by-1,bz,map)
+    map.SetBlockIDAndDamage(bx,by-1,bz,89uy,0uy) // 89=glowstone
     // put a tiny mark on the surface
     map.SetBlockIDAndDamage(bx,hmIgnoringLeaves.[bx,bz]+0,bz,3uy,0uy) // 3=dirt
     map.SetBlockIDAndDamage(bx,hmIgnoringLeaves.[bx,bz]+1,bz,38uy,1uy) // 38,1=blue orchid
@@ -1232,10 +1226,10 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
         for xx = x-3 to x+3 do
             for zz = z-3 to z+3 do
                 map.SetBlockIDAndDamage(xx,y-1,zz,7uy,0uy) // 7=bedrock floor under to prevent cheesing
-        putThingRecomputeLight(x-2,y+4,z-2,map,"redstone_torch",5) 
-        putThingRecomputeLight(x-2,y+4,z+2,map,"redstone_torch",5) 
-        putThingRecomputeLight(x+2,y+4,z-2,map,"redstone_torch",5) 
-        putThingRecomputeLight(x+2,y+4,z+2,map,"redstone_torch",5) 
+        map.SetBlockIDAndDamage(x-2,y+4,z-2,76uy,5uy) // 76=redstone_torch
+        map.SetBlockIDAndDamage(x-2,y+4,z+2,76uy,5uy) // 76=redstone_torch
+        map.SetBlockIDAndDamage(x+2,y+4,z-2,76uy,5uy) // 76=redstone_torch
+        map.SetBlockIDAndDamage(x+2,y+4,z+2,76uy,5uy) // 76=redstone_torch
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
                 makeAreaHard(map,i,j)
@@ -1255,7 +1249,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                         let x = i
                         let z = j
                         let y = hm.[x,z]
-                        putThingRecomputeLight(x,y,z,map,"redstone_torch",5) 
+                        map.SetBlockIDAndDamage(x,y,z,76uy,5uy) // 76=redstone_torch
                 // ceiling over top to prevent cheesing it
                 map.SetBlockIDAndDamage(i,y+5,j,7uy,0uy) // 7=bedrock
                 map.SetHeightMap(i,j,y+6)
@@ -1347,7 +1341,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                         elif rng.Next(3) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
                     elif rng.Next(60) = 0 then
-                        putThingRecomputeLight(i,hm.[i,j],j,map,"redstone_torch",5) 
+                        map.SetBlockIDAndDamage(i,hm.[i,j],j,76uy,5uy) // 76=redstone_torch
         spawners.AddToMapAndLog(map,log)
         let CR = RADIUS+7 // ceiling radius
         for i = x-CR to x+CR do
@@ -1387,7 +1381,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
         for x,z in [cx-2,cz; cx+2,cz] do
             runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Witch ~ ~1 ~ {PersistenceRequired:1b}")
         for x,z in [cx-RMID,cz-RMID; cx-RMID,cz+RMID; cx+RMID,cz-RMID; cx+RMID,cz+RMID] do
-            putThingRecomputeLight(x,hm.[x,z],z,map,"redstone_torch",5) 
+            map.SetBlockIDAndDamage(x,hm.[x,z],z,76uy,5uy) // 76=redstone_torch
             map.SetBlockIDAndDamage(x, hm.[x,z]+1, z, 52uy, 0uy) // 52 = monster spawner
             spawners.Add(FLAT_SET_PIECE_SPAWNER_DATA.NextSpawnerAt(x,hm.[x,z]+1,z,rng))
             map.SetBlockIDAndDamage(x, y+16, z, 52uy, 0uy) // 52 = monster spawner
@@ -1492,7 +1486,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                         if rng.Next(4) = 0 then // TODO probability, so don't place on all
                             // TODO could be on hillside, and so chest under maybe exposed
                             if noneWithin(50,points.[2],x,y,z) then
-                                putThingRecomputeLight(x,y,z,map,"lit_pumpkin",int dmg) // replace with jack'o'lantern  // TODO found one, was not giving off light, hm
+                                map.SetBlockIDAndDamage(x,y,z,91uy,dmg) // 91=lit_pumpkin  // TODO found one, was not giving off light, hm
                                 // chest below
                                 let y = y - 1
                                 putTrappedChestWithLoot(x,y,z,2)
@@ -1578,7 +1572,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                                 map.SetBlockIDAndDamage(nx,ny+1,nz,1uy,4uy) // 1,4 is polished diorite
                                                                 for i = 1 to 3 do
                                                                     map.SetBlockIDAndDamage(nx+i*dx,ny-1,nz+i*dz,0uy,0uy) // air
-                                                                putThingRecomputeLight(nx+4*dx,ny-1,nz+4*dz,map,"torch",0)
+                                                                map.SetBlockIDAndDamage(nx+4*dx,ny-1,nz+4*dz,50uy,5uy) // 50,5=torch attached at bottom
                                                                 // chest below
                                                                 putTrappedChestWithLoot(nx,ny-1,nz,2)
                                                                 points.[5].Add( (nx,ny-1,nz) )
@@ -1696,7 +1690,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
         if h > 60 then
             for y = 60 to h do
                 map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
-            putGlowstoneRecomputeLight(x,h+1,z,map)
+            map.SetBlockIDAndDamage(x,h+1,z,89uy,0uy) // 89=glowstone
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
     I("gamerule logAdminCommands false")
@@ -1950,7 +1944,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                         let y = hmIgnoringLeaves.[ix,iz]
                                         let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                         putTrappedChestWithItemsAt(ix,y,iz,"Keep your eyes open",chestItems,map,null)
-                                        putThingRecomputeLight(ix,y-1,iz,map,"redstone_torch",0) // TODO not always putting light
+                                        map.SetBlockIDAndDamage(ix,y-1,iz,76uy,5uy) // 76=redstone_torch
                                         decorations.Add('*',ix,iz) // TODO will this interfere with dungeon placement?
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)

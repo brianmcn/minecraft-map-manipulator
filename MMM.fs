@@ -2743,10 +2743,14 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //RecomputeLighting.demoCorrectBoundaries()
-    RecomputeLighting.demoFixTheWorld()
+    //RecomputeLighting.demoFixTheWorld()
     //let map = new MapFolder(worldSaveFolder+"""\region\""")
     //RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1])
     //RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)
+    //map.WriteAll()
+
+    //let map = new MapFolder(worldSaveFolder+"""\region\""")
+    //map.SetBlockIDAndDamage(73,82,-801,50uy,5uy)
     //map.WriteAll()
 
 
@@ -2772,6 +2776,7 @@ do
     // test if teleporters get discovered (barely so far, now tried making farther and less spread out marks)
     // test if peaks (hmDiffPerCC value) look ok
     // test new STRUCTURE_SPACING to spread out peaks/flats
+    // test the potion buffs (speed is good, not tested others)
     // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
     // test SMP loot balance
     // (changed logAdmindCmds) a little a4ter set piece, huge game lag (and some 'block placed' notes), hm... logAdminCmds is true, should turn o44 to get rid o4 all set time? lighting updates?
@@ -2792,8 +2797,19 @@ do
     // playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
 
     // TODO: bugs & good ideas
-    // fix lighting (get rid of putXrecomputeLight, deal with oddities)
+    // flat and mountain can overlap (flat probably doesn't have enough buffer space around, may need each deco to know its size)
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
+    // since dungeons can be done out of order, last book cannot be written to assume it is the last book.  (also has typo on 2nd page, and is unfinished)
+    // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
+    // fix and I blitzed the green dungeon easy by moving fast, maybe have each spawner have a 1/20 chance of insta-spawning?
+    // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
+    // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
+    // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
+    // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
+    // 4inal book TODOs, some kind o4 better acknowledgement when complete map
+    // spawners inside tree leaves are nice simple 'traps', maybe by the tree chests? (how look on fast graphics if inside? or maybe just top center block of '+' e.g.)
+    // summary and maybe starting book need summary customization info (seed, # player loot, difficulty, ...)
+    // fix lighting oddities? (figure out jack o lanterns, maybe put red torch on top corners of flat mini-bedrock)
     // obe notes that random-drop axes never have weapon enchants
     // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), consider those
     // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
@@ -2801,13 +2817,11 @@ do
     // obe though redstone path should be 'breadcrumbs' ... i could maybe make start full, then switch to every 2 or every 3 blocks? or would that make feel like going wrong way?
     // both fix and obe prefer world dark if a single player leaves spawn in SMP - light the monument/start area? (if so, change starting book text)
     // need to have thank yous to obe/fix, and others who help (codewarrior?)
-    // obe did not know he could walk into black cube of teleporter, thought he needed enderpearl
+    // obe did not know he could walk into black cube of teleporter, thought he needed enderpearl (how to teach? chat text? book?)
     // to make teleporters more discoverable, have any out-of-place light source (red lamp? torch? glow?) along the path.  'light' = 'come look', and then will see path, etc. ...
     // glass set piece had cave below it, fixer went into it.  set piece was kinda blah
     // vary food per starting biome?
     // purple beacon dungeon - witches infighting caused a feesh-pocalypse, I nearly died... not sure how to deal with, but un-ideal
-    // since dungeons can be done out of order, last book cannot be written to assume it is the last book.  (also has typo on 2nd page, and is unfinished)
-    // consider not turning on purple beacon until the book describing it has been found? (how to implement, and be sure book says it's been unlocked, so if people mapped they don't assume not there b/c didn't see before)
     // elytra and jump pots need to be completely reworked/rethought:
     //  - fixxer died crashing from elytra, would have lost all stuff in unknown area, including a monument block (keepInventory with elytra?)
     //  - had never used elytra before, didn't know how to fly, looked straight down, died of fall damage (FF X boots? but maybe can still die of velocity...)
@@ -2815,34 +2829,18 @@ do
     //  - maybe move monument block to mountain peak, make secret treasure book part of mountain peak loot, elytra becomes optional? but then need to figure out where purple beacon book goes
     //  - also could have a 'how to fly with elytra' book
     // teleporter command blocks look like a bug, consider moving cmds
-    // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket? or just have ice in ceiling or water sources behind spawners, etc
-    // fix and I blitzed the green dungeon easy by moving fast, maybe have each spawner have a 1/20 chance of insta-spawning?
-    // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla)
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
-    // lag again at flat cobwebs, think skylight calc is an issue (unrepresented sections?) can probably hack something to ensure sections represented... maybe also LightPopulated=0 and ceiling is the issue? could try LP=1, though then other bits may break? hm...
-    // speed bu44 is quite nice (emeralds in short supply - buff? did now, see how works out); strength seemed ok
-    // 4inal book TODOs, some kind o4 better acknowledgement when complete map
     // diorite pillars at day/night go down into some caves, was kind a cool effect, other ways to use?
     // getting chest in glass set piece spawns 4 ghasts - good or bad?
-    // spawners inside tree leaves are nice simple 'traps', maybe by the tree chests? (how look on fast graphics if inside?)
-    // villager at end of green beacon who has no trades but suggests you look for his friends?
     // consider directly give some fw2 boots with other good something, to make more likely to use? no, has downsides too (waterfalls, farms, ...), hm
-    // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
-    // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
-    // summary and maybe starting book need summary customization info (seed, # player loot, difficulty, ...)
     // remove bingo's spammable iron sword
-    // ice near spawners in cave, to knock out torches?
     // snow golems and creepers something something
-    // still hard to get init bow
     // note to self: craft gapples next time
     // still some skeleton bugs (screenshots from jan 20)
-    // good horse spawn egg as loot? (encourage travel/exploration?)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
-    // zisteau-like firelands biome (netherrack trees on fire, lava rivers/lakes, ...)? aesthetic biomes with block changes? ... swapping out grass for X (mycelium, red mush top?) can be good; randomizing the trees?
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
     // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
-    // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
     // spawner underneath dead-end chest?
     // ***hyper-spawner (dispenser with eggs)
     // ***places where gravel floor falls
@@ -2852,7 +2850,8 @@ do
     // ***primed tnt buried in walls
     // "retro"/"throwback"?
     // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
-    // legendary: seeing x from afar leads to seeing y up close...
+    // a finite set of collectable items could be good long-term for completionists
+    // legendary: seeing x from afar leads to seeing y up close... (telporter path, ...)
     // have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
     //    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
@@ -2860,7 +2859,6 @@ do
     // TODOs and refactorings...
     // return to spawn from teleporter, villagers don't immediately appear on client?
     // noisemaker noteblock troll underground? fireworks spawner
-    // a finite set of collectable items could be good long-term for completionists
 
 
     // other ideas

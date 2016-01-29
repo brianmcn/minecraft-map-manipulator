@@ -200,12 +200,12 @@ let compareLighting(map1:MapFolder, map2:MapFolder, minx, minz, maxx, maxz) =
                                     let origValue = NibbleArray.get(origBlockLight,x,y,z)
                                     let testValue = NibbleArray.get(newBlockLight,x,y,z)
                                     if origValue <> testValue then
-                                        printfn "BLOCK %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                                        //printfn "BLOCK %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
                                         numBlockDiff <- numBlockDiff + 1
                                     let origValue = NibbleArray.get(origSkyLight,x,y,z)
                                     let testValue = NibbleArray.get(newSkyLight,x,y,z)
                                     if origValue <> testValue then
-                                        //printfn "SKY %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                                        printfn "SKY %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
                                         numSkyDiff <- numSkyDiff + 1
     printfn "done!"
     printfn "There were %d block, %d sky, and %d section differences" numBlockDiff numSkyDiff numSectDiff
