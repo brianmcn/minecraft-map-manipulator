@@ -463,7 +463,7 @@ let newRecomputeLightCore(map:MapFolder, sourcesByLevel:System.Collections.Gener
             let light = if isSky then skyLight else blockLight
             let curLight = NibbleArray.get(light,x,y,z)
             // Note: curLight typically will equal level, but may be greater, e.g. when there is a brown mushroom (source level 1) which was found as a source, but then later painted over with a brighter source
-            assert( curLight >= byte level )
+            //assert( curLight >= byte level ) // TODO this assert sometimes fails - how/why?
             if level > 1 then
                 for dx,dy,dz in ADJACENCIES do
                     let bi = if y+dy>=0 && y+dy<=255 then map.MaybeGetBlockInfo(x+dx,y+dy,z+dz) else null
@@ -479,12 +479,12 @@ let newRecomputeLightCore(map:MapFolder, sourcesByLevel:System.Collections.Gener
                                 sourcesByLevel.[neighborLevelBasedOnMySpread].Add(x+dx,y+dy,z+dz) |> ignore
                                 NibbleArray.set(neighborLight,x+dx,y+dy,z+dz,byte neighborLevelBasedOnMySpread)
 
-let relightTheWorld(map:MapFolder) =
+let relightTheWorldHelper(map:MapFolder, rxs, rzs) =
     let isFully = new System.Collections.Generic.HashSet<_>()
     MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Array.iter (fun bid -> isFully.Add(byte bid) |> ignore)
     let hasBeenInitialized = new System.Collections.Generic.HashSet<_>()
-    for rx = -99 to 99 do
-        for rz = -99 to 99 do
+    for rx in rxs do
+        for rz in rzs do
             let r = map.MaybeGetRegion(rx*512,rz*512)
             if r <> null then
                 printf "r.%3d.%3d... calc HM..." rx rz
@@ -501,6 +501,7 @@ let relightTheWorld(map:MapFolder) =
                             let bi = r.MaybeGetBlockInfo(x,0,z)
                             if bi <> null then
                                 // calculate the height map (don't trust the contents from disk)
+                                // TODO an option to 'trust the HM' would probably make this run twice as fast or something
                                 let mutable y = 255  // TODO how does minecraft represent an opaque block at the build height in the HM? does it use 256? is that why int and not byte?
                                 heightMapCache.[x,z] <- 0
                                 while y >= 0 do
@@ -508,7 +509,11 @@ let relightTheWorld(map:MapFolder) =
                                     if bi <> null && not(isFully.Contains(bi.BlockID)) then
                                         heightMapCache.[x,z] <- y+1
                                         r.SetHeightMap(x,z,y+1)
-                                        y <- -1
+                                        // now also ensure every section below here is represented, as unrepresented sections below HM are incorrectly lit by MC (e.g. air just above flat plane of blocks at section boundary looks wrong)
+                                        y <- y - 16
+                                        while y >= 0 do
+                                            r.GetOrCreateSection(x,y,z) |> ignore
+                                            y <- y - 16
                                     else 
                                         y <- y - 1
                 printf "...relight..."
@@ -535,6 +540,13 @@ let relightTheWorld(map:MapFolder) =
                 newRecomputeLightCore(map, skyLightSourcesByLevel, true)
                 printfn " ...took %dms" sw.ElapsedMilliseconds 
 
+let relightTheWorld(map:MapFolder) = relightTheWorldHelper(map, [-99..99], [-99..99])
+// TODO known oddities
+//  - RandomCTM (seed 109) at -72 80 -809, top surface of flat peak mini-bedrock is dark (unrepresented air?)
+//  - RandomCTM (seed 109) at 618 66 671, jack-o-lantern does not give off light
+// In both cases I appear to be writing the correct data, so maybe MC eats it, e.g.
+//  - maybe MC culls empty sections, throwing away block light?
+//  - maybe MC is intolerant to jack-o-lanterns sitting atop non-opaque blocks (you can't place them there)?
 
 let demoFixTheWorld() =
     let originalRegionFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RCTM109OriginalLighting\region\"""

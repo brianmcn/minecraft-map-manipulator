@@ -2743,14 +2743,13 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //RecomputeLighting.demoCorrectBoundaries()
-(*
-*)
-    let myMap = new MapFolder(worldSaveFolder+"""\region\""")
-    for x in [-2..1] do for z in [-2..1] do myMap.GetRegion(512*x,512*z) |> ignore
-    RecomputeLighting.relightTheWorld(myMap)
-    //myMap.WriteAll()
     //RecomputeLighting.demoFixTheWorld()
-    
+    let map = new MapFolder(worldSaveFolder+"""\region\""")
+    //RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1])
+    RecomputeLighting.relightTheWorldHelper(map,[1],[1])
+    //map.WriteAll()
+
+
     printfn "press a key to end"
     System.Console.Beep()
     System.Console.ReadKey() |> ignore
@@ -2767,6 +2766,7 @@ do
     // test new food balance
     // test new flat set piece...
     // test new iron/gold distr.
+    // test SMP lighting
     // test new dungeon chance (seems ok)
     // test new distances to main dungeons...
     // test if teleporters get discovered (barely so far, now tried making farther and less spread out marks)
@@ -2792,11 +2792,10 @@ do
     // playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
 
     // TODO: bugs & good ideas
-    // fix lighting (call my stuff, get rid of putXrecomputeLight) - Fixxer died, daylight went even under bedrock ceiling, also lag, so really need to fix lighting, and SMP is good way to test
+    // fix lighting (get rid of putXrecomputeLight, deal with oddities)
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // obe notes that random-drop axes never have weapon enchants
     // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), consider those
-    // see about red torch ambient lighting on mountain/flat now that can properly light
     // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
     // obe would like to 'continue with normal survival' after done
     // obe though redstone path should be 'breadcrumbs' ... i could maybe make start full, then switch to every 2 or every 3 blocks? or would that make feel like going wrong way?

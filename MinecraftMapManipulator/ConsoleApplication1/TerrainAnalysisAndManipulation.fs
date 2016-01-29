@@ -1346,7 +1346,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                             spawners.Add(ms)
                         elif rng.Next(3) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
-                    elif rng.Next(100) = 0 then
+                    elif rng.Next(60) = 0 then
                         putThingRecomputeLight(i,hm.[i,j],j,map,"redstone_torch",5) 
         spawners.AddToMapAndLog(map,log)
         let CR = RADIUS+7 // ceiling radius
@@ -2084,20 +2084,23 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    xtime (fun () -> allTrees := treeify(map))
+    time (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
+    time (fun () -> 
+        log.LogSummary("RELIGHTING THE WORLD")
+        RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1])) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
