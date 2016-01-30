@@ -74,18 +74,18 @@ let debugRegion() =
                 
 ////////////////////////////////////////////
 
-let chestTE(x,y,z,items,customName,lootTable,lootTableSeed) =
+let chestTE(x,y,z,items,customName:Strings.TranslatableString,lootTable,lootTableSeed) =
     let te = [| yield Int("x",x); yield Int("y",y); yield Int("z",z)
                 yield String("id","Chest"); yield String("Lock",""); 
                 yield List("Items",items)
-                yield String("CustomName",customName)
+                yield String("CustomName",customName.Text)
                 if lootTable <> null then
                     yield String("LootTable",lootTable)
                     yield Long("LootTableSeed",lootTableSeed)
                 yield End |]
     te
 
-let putChestCore(x,y,z,chestBid,chestDmg,items,customName,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
+let putChestCore(x,y,z,chestBid,chestDmg,items,customName:Strings.TranslatableString,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
     map.SetBlockIDAndDamage(x,y,z,chestBid,chestDmg)
     let te = chestTE(x,y,z,items,customName,lootTable,lootTableSeed)
     if tileEntities <> null then
@@ -130,7 +130,7 @@ let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed,item
             for z = sz-RADIUS to sz+RADIUS do
                 map.SetBlockIDAndDamage(x,y,z,glassbid,glassdmg)  // glass
     map.SetBlockIDAndDamage(sx,sy+2,sz,198uy,1uy) // 198=end_rod  (end rods give off light level 14, don't obstruct a beacon shining through, can attach to top of chest)
-    putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,"Lootz!",lootTableName,lootTableSeed,map,null)
+    putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,Strings.NAME_OF_GENERIC_TREASURE_BOX,lootTableName,lootTableSeed,map,null)
 
 let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed) =
     putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,lootTableSeed,[| |],22uy,0uy,20uy,0uy,2) //22=lapis, 20=glass
@@ -501,7 +501,6 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
                 for y = bestY + 10 to bestY + 26 do
                     map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
                 hm.[bestX,bestZ] <- bestY+27
-                map.SetHeightMap(bestX, bestZ, bestY+27)
                 caveCount <- caveCount + 1
                 (*
                 for p in hs do
@@ -714,16 +713,10 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                     yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:sponge"); Compound("tag", [|
                                                 Compound("display",[|String("Name","Monument Block: Sponge");End|] |> ResizeArray); End |] |> ResizeArray); End |]
                                     yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                                             Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Congratulations!", 
-                                                                                         [| 
-                                                                                            """{"text":"Once all monument blocks are placed on the monument, you win! ..."}"""
-                                                                                            """{"text":"I hope enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO..."}"""
-                                                                                            """{"text":"If you enjoyed and would like to leave me a donation, I'd very much appreciate that! TODO donation link"}"""
-                                                                                         |]) |> ResizeArray
-                                                      )
+                                             Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST
                                              End |]
                                 |]
-                        putUntrappedChestWithItemsAt(bx,by,bz,"Winner!",chestItems,map,null)
+                        putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_FINAL_PURPLE_DUNGEON_CHEST,chestItems,map,null)
                     else // no reason for side paths in final dungeon
                         // make side paths with extra loot
                         printfn "computing paths endpoints -> redstone"
@@ -763,7 +756,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                 let F = CustomizationKnobs.LOOT_FUNCTION
                                 let numEmeralds = 1 + rng.Next(F 2)
                                 let chestItems = Compounds[| [| Byte("Count",byte numEmeralds); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
-                                putTrappedChestWithItemsAt(x,y,z,"Dead end, turn back & try again", chestItems, map, tes)
+                                putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON, chestItems, map, tes)
                                 log.LogInfo(sprintf "added side path length %d" l)
                         map.AddOrReplaceTileEntities(tes)
     // end foreach CC
@@ -901,7 +894,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                         if rng.Next(15) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
                     elif bid = 54uy then // chest // TODO assuming all chests are dungeon chests, no verification
-                        chestTEs.Add( chestTE(x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng)),"Spooky dungeon loot",null,0L) )
+                        chestTEs.Add( chestTE(x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng)),Strings.NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST,null,0L) )
     log.LogSummary("added random spawners underground")
     spawners1.AddToMapAndLog(map,log)
     spawners2.AddToMapAndLog(map,log)
@@ -1172,14 +1165,14 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
     let quadrant = 
         if finalEX < 0 then
             if finalEZ < 0 then 
-                "NorthWest (-X,-Z)"
+                Strings.QUADRANT_NORTHWEST
             else
-                "SouthWest (-X,+Z)"
+                Strings.QUADRANT_SOUTHWEST 
         else
             if finalEZ < 0 then 
-                "NorthEast (+X,-Z)"
+                Strings.QUADRANT_NORTHEAST 
             else
-                "SouthEast (+X,+Z)"
+                Strings.QUADRANT_SOUTHEAST 
     let chestItems = 
         Compounds[| 
                 for slot in [12uy..14uy] do
@@ -1187,21 +1180,17 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                 // jump boost pots
                 for slot in [3uy;4uy;5uy] do
                     yield [| Byte("Count",24uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|
-                                Compound("display",[|String("Name","Super jump boost");List("Lore",Strings[|"Don't use without";"your elytra wings on!"|]);End|] |> ResizeArray)
+                                Strings.NameAndLore.SUPER_JUMP_BOOST
                                 List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",100);End|]|]);End|]|>ResizeArray); End |]
                 yield [| Byte("Slot",21uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|
-                            Compound("display",[|String("Name","Monument Block: Purpur Block");End|] |> ResizeArray)
+                            Strings.NameAndLore.MONUMENT_BLOCK_PURPUR
                             End
                       |] |> ResizeArray); End |]
                 yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                         Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","5. Final dungeon...", 
-                                        [| 
-                                        sprintf """{"text":"The final dungeon entrance is marked by a PURPLE beacon found somewhere in the %s quadrant of the map! The other items from this chest should make traveling easier :)"}""" quadrant
-                                        |]) |> ResizeArray
-                                  )
+                         Strings.BOOK_IN_HIDING_SPOT(quadrant)
                          End |]
             |]
-    putUntrappedChestWithItemsAt(bx,by,bz,"Hidden treasure!",chestItems,map,null)
+    putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_HIDDEN_TREASURE_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(bx,by-1,bz,89uy,0uy) // 89=glowstone
     // put a tiny mark on the surface
     map.SetBlockIDAndDamage(bx,hmIgnoringLeaves.[bx,bz]+0,bz,3uy,0uy) // 3=dirt
@@ -1216,12 +1205,8 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
         log.LogSummary(sprintf "added mountain peak (score %d) at %d %d %d" s x y z)
         let spawners = SpawnerAccumulator("spawners around mountain peak")
         putTreasureBoxWithItemsAt(map,x,y,z,[|
-                [| Byte("Slot",12uy); Byte("Count",1uy); String("id","minecraft:written_book"); Compound("tag",
-                        Utilities.makeWrittenBookTags("Lorgon111","4. Secret Treasure", 
-                            [| 
-                               """{"text":"The secret treasure is buried at\nX : ","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":"\nZ : "},{"score":{"name":"Z","objective":"hidden"}}]}"""
-                            |]) |> ResizeArray); End |]
-                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems("Mountain Peak Loot",LootTables.NEWsampleTier5Chest(rng)) |]
+                [| Byte("Slot",12uy); Byte("Count",1uy); String("id","minecraft:written_book"); Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
+                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT,LootTables.NEWsampleTier5Chest(rng)) |]
             |])
         for xx = x-3 to x+3 do
             for zz = z-3 to z+3 do
@@ -1241,7 +1226,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                         let x = i
                         let z = j
                         let y = hm.[x,z]
-                        map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner   // TODO heightmap, blocklight, skylight
+                        map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
                         let ms = MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
                         spawners.Add(ms)
                     // red torches for mood lighting
@@ -1252,7 +1237,6 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                         map.SetBlockIDAndDamage(x,y,z,76uy,5uy) // 76=redstone_torch
                 // ceiling over top to prevent cheesing it
                 map.SetBlockIDAndDamage(i,y+5,j,7uy,0uy) // 7=bedrock
-                map.SetHeightMap(i,j,y+6)
                 hm.[i,j] <- y+6
         spawners.AddToMapAndLog(map,log)
     ()
@@ -1301,13 +1285,14 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
             failwith "unexpected very high flat dungeon"
         putTreasureBoxWithItemsAt(map,x,y,z,[|
                 [| Byte("Slot",12uy); Byte("Count",1uy); String("id","end_bricks"); Compound("tag", [|
-                        Compound("display",[|String("Name","Monument Block: End Stone Brick");End|] |> ResizeArray)
+                        Strings.NameAndLore.MONUMENT_BLOCK_END_STONE_BRICK
                         End
                     |] |> ResizeArray); End |]
-                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems("Red Beacon Web Loot",LootTables.NEWsampleTier4Chest(rng)) |]
+                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,LootTables.NEWsampleTier4Chest(rng)) |]
             |])
         map.SetBlockIDAndDamage(x,y+3,z,20uy,0uy) // glass (replace roof of box so beacon works)
         putBeaconAt(map,x,y,z,14uy,false) // 14 = red
+        // TODO make these spawners in CustomizationKnobs?
         // add blazes atop
         for (dx,dz) in [-3,-3; -3,3; 3,-3; 3,3] do
             let x,y,z = x+dx, y+5, z+dz
@@ -1376,10 +1361,12 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
             [| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:diamond_sword"); Compound("tag", [|List("ench",Compounds[|[|Short("id",17s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
                [| Byte("Count", byte numEmeralds); Byte("Slot", 22uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
         putTreasureBoxAtCore(map,cx,y+4,cz,null,0L,chestItems,49uy,0uy,20uy,0uy,1) // 49=obsidian, 20=glass
+        // TODO make mobs below in CustomizationKnobs?
         for x,z in [cx-2,cz-2; cx-2,cz+2; cx+2,cz-2; cx+2,cz+2] do
             runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Skeleton ~ ~1 ~ {HandItems:[{id:iron_sword,Count:1},{}],SkeletonType:1b,PersistenceRequired:1b}")
         for x,z in [cx-2,cz; cx+2,cz] do
             runCommandBlockOnLoadSelfDestruct(x,hm.[x,z]+1,z,map,"summon Witch ~ ~1 ~ {PersistenceRequired:1b}")
+        // TODO make spawners below in CustomizationKnobs?
         for x,z in [cx-RMID,cz-RMID; cx-RMID,cz+RMID; cx+RMID,cz-RMID; cx+RMID,cz+RMID] do
             map.SetBlockIDAndDamage(x,hm.[x,z],z,76uy,5uy) // 76=redstone_torch
             map.SetBlockIDAndDamage(x, hm.[x,z]+1, z, 52uy, 0uy) // 52 = monster spawner
@@ -1444,7 +1431,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng)
                     elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng)
                     else failwith "bad aesthetic tier"
-        putTrappedChestWithItemsAt(x,y,z,"Lootz!",Compounds(items),map,tileEntities)
+        putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z)
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
@@ -1568,7 +1555,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                                     not(isOkBlock(map.GetBlockInfo(nx+i*dx-abs dz,ny,nz+i*dz-abs dx))) then
                                                                         ok <- false
                                                             if ok then
-                                                                printfn "found waterfall top at %d %d %d" nx ny nz
+                                                                //printfn "found waterfall top at %d %d %d" nx ny nz
                                                                 map.SetBlockIDAndDamage(nx,ny+1,nz,1uy,4uy) // 1,4 is polished diorite
                                                                 for i = 1 to 3 do
                                                                     map.SetBlockIDAndDamage(nx+i*dx,ny-1,nz+i*dz,0uy,0uy) // air
@@ -1578,13 +1565,13 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                                 points.[5].Add( (nx,ny-1,nz) )
                                                                 names.[5] <- "waterfall top"
                                                             else
-                                                                printfn "ignoring waterfall top at %d %d %d because couldn't recess torch" nx ny nz
+                                                                ()//printfn "ignoring waterfall top at %d %d %d because couldn't recess torch" nx ny nz
                                                         else
-                                                            printfn "ignoring waterfall top at %d %d %d because water is weird" nx ny nz
+                                                            ()//printfn "ignoring waterfall top at %d %d %d because water is weird" nx ny nz
                                                     else
-                                                        printfn "ignoring waterfall top at %d %d %d because air above source" nx ny nz
+                                                        ()//printfn "ignoring waterfall top at %d %d %d because air above source" nx ny nz
                                                 else
-                                                    printfn "ignoring waterfall top at %d %d %d because underground" nx ny nz // no harm in placing chests there, but probably no one will find them, prefer to have count of findable ones; in one map, 24 of 72 waterfall tops were on surface
+                                                    ()//printfn "ignoring waterfall top at %d %d %d because underground" nx ny nz // no harm in placing chests there, but probably no one will find them, prefer to have count of findable ones; in one map, 24 of 72 waterfall tops were on surface
                     elif bid = 100uy && bi.BlockData = 5uy then  // 100=red_mushroom_block, 5=red only on top-center
                         putTrappedChestWithLoot(x,y,z,1)
                         points.[6].Add( (x,y,z) )
@@ -1734,9 +1721,9 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     map.SetBlockIDAndDamage(1,h+1,3,68uy,2uy)
     map.SetBlockIDAndDamage(0,h+1,3,68uy,2uy)
     map.AddOrReplaceTileEntities([|
-                                    [| Int("x",2); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"text":"End Stone Brick"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
-                                    [| Int("x",1); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"text":"Purpur Block"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
-                                    [| Int("x",0); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"text":"Sponge"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",2); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.endBricks.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",1); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.purpurBlock.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",0); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.sponge.dry.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
                                  |])
 
     let chestItems = 
@@ -1748,59 +1735,13 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                     yield [| Byte("Count", 8uy); Byte("Slot", byte(18*i)+2uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
                     yield [| Byte("Count",32uy); Byte("Slot", byte(18*i)+3uy); Short("Damage",0s); String("id","minecraft:cookie"); End |]
                     yield [| Byte("Count",64uy); Byte("Slot", byte(18*i)+4uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
-                yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
-                            "Lorgon111","Rules",
-                            [|
-                                Utilities.wrapInJSONTextContinued "RULES\n\nMy personal belief is that in Minecraft there are no rules; you should play whatever way you find most fun."
-                                Utilities.wrapInJSONTextContinued "That said, I have created a map designed to help you have fun, and the next pages have some suggestions that I think will make it the most fun for most players."
-                                Utilities.wrapInJSONTextContinued (sprintf "Suggestions\n\n%s\n\nSurvive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn." (if CustomizationKnobs.SINGLEPLAYER then "This map's loot is suitable for single-player." else "This map's loot is suitable for multi-player."))
-                                Utilities.wrapInJSONText "Use normal difficulty.\n\nYou CAN use/move/craft enderchests.\n\nDon't go to Nether or leave the worldborder.\n\nYou can use beds to set spawn, but they don't affect the daylight cycle."
-                            |]) |> ResizeArray); End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
-                            "Lorgon111","Map Overview",
-                            [|
-                                Utilities.wrapInJSONTextContinued "OVERVIEW\n\nCTM Maps are often most fun to play blind, but there are a few things you ought to know about this map before getting started."
-                                Utilities.wrapInJSONTextContinued "Note: if you have not played Minecraft 1.9 before, I do not recommend playing this map as your first 1.9 map. Get used to 1.9 first."
-                                Utilities.wrapInJSONTextContinued "CTM\n\nThis is a three objective Complete The Monument (CTM) map.  The goal/objective blocks you need are hidden in chests in various dungeons in the world."
-                                Utilities.wrapInJSONTextContinued "OPEN WORLD\n\nThis is an open-world map that takes place on a 2048x2048 piece of (heavily modified) Minecraft terrain. Spawn is 0,0 and there's a worldborder 1024 blocks out."
-                                Utilities.wrapInJSONTextContinued "...\nThere are multiple versions of most dungeons, and you'll find many just by wandering around. You'll find more books that suggest the best thing to do next after completing each dungeon."
-                                Utilities.wrapInJSONTextContinued "DAYLIGHT CYCLE\n\nThe sun is not moving in the sky. Near spawn it's permanently daytime, and the rest you can discover for yourself."
-                                Utilities.wrapInJSONTextContinued "MOBS\n\nMob loot drops are heavily modified in this map, but the mobs themselves are completely vanilla. There are many spawners in the map; both to guard loot, and to surprise you."
-                                Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
-                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you do not have to farm xp/drops, mine for diamonds, or make an enchanting table, but you can if you want."
-                                Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
-                                Utilities.wrapInJSONText "...\nIf you encounter something especially weird, don't over-think the map-maker rationale; it's possible my code had a bug and did something silly."
-                            |]) |> ResizeArray); End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
-                            "Lorgon111","Getting started",
-                            [|
-                                Utilities.wrapInJSONTextContinued "You have some starting items, but you'll still want to gather some wood and do some caving near spawn to get more supplies."
-                                Utilities.wrapInJSONText "Explore! If you travel too far from spawn, things will get scarier, so I recommend caving near spawn to improve your gear until you are strong enough to venture further and you discover suggestions of what to try next."
-                            |]) |> ResizeArray); End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
-                            "Lorgon111","1.9 Food and Combat",
-                            [|
-                                Utilities.wrapInJSONTextContinued "Minecraft 1.9 changed the food and combat systems a lot. Here are some quick tips."
-                                Utilities.wrapInJSONTextContinued "FOOD\n\nFood is no longer merely a survival mechanism. It's now also a combat mechanic, as over-feeding with high-saturation food will replenish life very quickly."
-                                Utilities.wrapInJSONTextContinued "It helps to manage food carefully, preferring lower saturation foods (cookies, apples, ...) when you're 'safe', and save higher saturation foods (bread, steak, ...) for combat where rapid healing is valuable."
-                                Utilities.wrapInJSONTextContinued "COMBAT\n\nClicking your weapons too quickly (to use them repeatedly) will cause them to deal less damage. Weapons now have cooldowns, which means you need to wait a half-second or more between attacks for maximal damage."
-                                Utilities.wrapInJSONText "Stone, iron, and diamond axes are strong weapons, but they have long cooldowns. Swords deal less damage, but have shorter cooldowns, so you can swing them more often with no damage decrease."
-                            |]) |> ResizeArray); End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags(
-                            "Lorgon111","Hints and Spoilers",
-                            [|
-                                Utilities.wrapInJSONTextContinued "The following pages outline the simplest 'progression order' of the map. You can refer to this if you get stuck, but DON'T READ THIS UNLESS YOU NEED TO BECAUSE YOU'RE STUCK."
-                                Utilities.wrapInJSONTextContinued "Note: In the map folder on disk, there are two pictures of the terrain, one has locations of major dungeons labeled (spoilers), the other does not."
-                                Utilities.wrapInJSONTextContinued "1. GEARING UP\n\nGetting your first cobblestone is not so easy, though there are at least 5 different ways you can obtain it."
-                                Utilities.wrapInJSONTextContinued "...\nCaving near spawn to find dungeons (which are somewhat common) or abandoned mineshafts is the best way to find initial loot to gear up. You can also mine iron and gold (or even diamonds) for early gear."
-                                Utilities.wrapInJSONTextContinued "2. GREEN BEACONS\n\nNext explore the world for GREEN beacons ('B' on spoiler map image), which lead to underground dungeons. You'll find a marked path through a cave and spawners guarding a good loot box."
-                                Utilities.wrapInJSONTextContinued "3. RED BEACONS\n\nNext explore the world for RED beacons ('F' on spoiler map image): cobwebbed dungeons on the surface.  The loot box at the center has the first monument block and more gear upgrades."
-                                Utilities.wrapInJSONTextContinued "4. MOUNTAIN PEAKS\n\nNext explore the world for dangerous looking mountain peaks ('P' on spoiler map image), illuminated with redstone torches. Buried treasure directions, and more loot!"
-                                Utilities.wrapInJSONTextContinued "5. SECRET TREASURE\n\nNext dig for treasure at the given coordinates ('H' on the spoiler map image). You'll find the second monument block, and faster travel/exploration."
-                                Utilities.wrapInJSONText "6. FINAL DUNGEON\n\nFinally explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), the final dungeon. It's like the first dungeon, but harder, and has the final monument block."
-                            |]) |> ResizeArray); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_RULES; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_OVERVIEW; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_GETTING_STARTED; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_FOOD_AND_COMBAT; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_HINTS_AND_SPOILERS; End |]
             |]
-    putUntrappedChestWithItemsAt(1,h+1,-2,"Welcome!",chestItems,map,null)
+    putUntrappedChestWithItemsAt(1,h+1,-2,Strings.NAME_OF_STARTING_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(1,h+2,-2,130uy,3uy) // enderchest
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(3,h-11,0,137uy,0uy)
@@ -1810,7 +1751,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
         [|
             P (sprintf "testforblock %d %d 4 %s" x (h+2) tilename)
             C "scoreboard players add CTM hidden 1"
-            C """tellraw @a ["You placed ",{"score":{"name":"CTM","objective":"hidden"}}," of 3 objective blocks so far!"]"""
+            C Strings.TELLRAW_PLACED_A_MONUMENT_BLOCK 
             C "fill ~ ~ ~ ~ ~ ~-3 air"
         |]
     for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
@@ -1841,10 +1782,10 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
     let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,1uy,"minecraft:chain_command_block")
     let villagerData(i) =
         match i with
-        | 0 -> """Profession:1,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:3b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:1b,Amplifier:0b,Duration:119980}],display:{Name:"Enduring Speed",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 1=speed
-        | 1 -> """Profession:2,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:2b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:3b,Amplifier:0b,Duration:119980}],display:{Name:"Enduring Haste",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 3=haste
-        | 2 -> """Profession:3,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:4b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:5b,Amplifier:1b,Duration:119980}],display:{Name:"Enduring Strength",Lore:["Lasts until you die or drink milk"]}}}}]}""" // 5=strength
-        | 3 -> """Profession:4,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:5b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:21b,Amplifier:1b,Duration:119980}],display:{Name:"Enduring Health Boost",Lore:["Lasts until you die or drink milk"]}}}}]}"""// 21=health boost
+        | 0 -> sprintf """Profession:1,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:3b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:1b,Amplifier:0b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_SPEED_NAME.Text          Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 1=speed
+        | 1 -> sprintf """Profession:2,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:2b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:3b,Amplifier:0b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_HASTE_NAME.Text          Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 3=haste
+        | 2 -> sprintf """Profession:3,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:4b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:5b,Amplifier:1b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_STRENGTH_NAME.Text       Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 5=strength
+        | 3 -> sprintf """Profession:4,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:5b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:21b,Amplifier:1b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_HEALTH_BOOST_NAME.Text  Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 21=health boost
         | _ -> failwith "bad villager #"
     let unusedVillagers = ResizeArray [| 0; 1; 2; 3 |]
     let villagers = ResizeArray()
@@ -1852,10 +1793,10 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
         let n = rng.Next(unusedVillagers.Count)
         villagers.Add(villagerData(unusedVillagers.[n]))
         unusedVillagers.RemoveAt(n)
-    for xs,zs,dirName,spx,spz,tpdata,vd in [-512,-512,"NorthWest (-X,-Z)",-1,-1,"~0.5 ~0.2 ~0.5 -45 10",villagers.[0]
-                                            -512,+512,"SouthWest (-X,+Z)",-1,3,"~0.5 ~0.2 ~-0.5 -135 10",villagers.[1]
-                                            +512,+512,"SouthEast (+X,+Z)",3,3,"~-0.5 ~0.2 ~-0.5 135 10",villagers.[2]
-                                            +512,-512,"NorthEast (+X,-Z)",3,-1,"~-0.5 ~0.2 ~0.5 45 10",villagers.[3]] do
+    for xs,zs,dirName,spx,spz,tpdata,vd in [-512,-512,Strings.QUADRANT_NORTHWEST,-1,-1,"~0.5 ~0.2 ~0.5 -45 10",villagers.[0]
+                                            -512,+512,Strings.QUADRANT_SOUTHWEST,-1,3,"~0.5 ~0.2 ~-0.5 -135 10",villagers.[1]
+                                            +512,+512,Strings.QUADRANT_SOUTHEAST,3,3,"~-0.5 ~0.2 ~-0.5 135 10",villagers.[2]
+                                            +512,-512,Strings.QUADRANT_NORTHEAST,3,-1,"~-0.5 ~0.2 ~0.5 45 10",villagers.[3]] do
         let mutable found = false
         for dx = -30 to 30 do
             if not found then
@@ -1891,8 +1832,8 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             placeImpulse(x+2,h+21,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (hm.[1,1]-11) 0) // expose teleporters at spawn //note brittle coords of block
                             placeChain(x+2,h+20,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
                             placeImpulse(x+2,h+19,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-5) spz (x+2) (h+6) (z+2))
-                            placeChain(x+2,h+18,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"Teleporter to %s\",%s}" spx (hm.[1,1]-3) spz dirName vd)
-                            placeChain(x+2,h+17,z+2,"""tellraw @a [{"text":"A two-way teleporter to/from spawn has been unlocked nearby"}]""")
+                            placeChain(x+2,h+18,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}" spx (hm.[1,1]-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
+                            placeChain(x+2,h+17,z+2,Strings.TELLRAW_TELEPORTER_UNLOCKED)
                             placeChain(x+2,h+16,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
                             placeImpulse(x+2,h+15,z+2,"")
                             placeChain(x+2,h+14,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (hm.[1,1]-3) spz tpdata)
@@ -1943,7 +1884,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     if dist > 0 && dist % A.[1] = 0 then
                                         let y = hmIgnoringLeaves.[ix,iz]
                                         let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
-                                        putTrappedChestWithItemsAt(ix,y,iz,"Keep your eyes open",chestItems,map,null)
+                                        putTrappedChestWithItemsAt(ix,y,iz,Strings.NAME_OF_TELEPORTER_BREADCRUMBS_CHEST,chestItems,map,null)
                                         map.SetBlockIDAndDamage(ix,y-1,iz,76uy,5uy) // 76=redstone_torch
                                         decorations.Add('*',ix,iz) // TODO will this interfere with dungeon placement?
         if not found then

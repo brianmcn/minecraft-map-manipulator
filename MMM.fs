@@ -2775,11 +2775,9 @@ do
     // test new distances to main dungeons...
     // test if teleporters get discovered (barely so far, now tried making farther and less spread out marks)
     // test if peaks (hmDiffPerCC value) look ok
-    // test new STRUCTURE_SPACING to spread out peaks/flats
+    // test new STRUCTURE_SPACING to spread out peaks/flats (flats not as flat, also overlap problems uncovered)...
     // test the potion buffs (speed is good, not tested others)
-    // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
     // test SMP loot balance
-    // (changed logAdmindCmds) a little a4ter set piece, huge game lag (and some 'block placed' notes), hm... logAdminCmds is true, should turn o44 to get rid o4 all set time? lighting updates?
     // SMP testing is super-useful!
     // cobweb flat would make good screenshot, half slice of hollowed-out mountain (if I ever make that)
     // playtest note: Fixxxer didn't use silk touch for feesh->cobble, nor think of picking up enderchest with it
@@ -2795,20 +2793,38 @@ do
     // playtest note: Obe finished in 14 hours (6 hours on camera, 8 farming, exploring, etc) with 13 deaths
     // playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
     // playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
+    // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
 
     // TODO: bugs & good ideas
-    // flat and mountain can overlap (flat probably doesn't have enough buffer space around, may need each deco to know its size)
-    // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
-    // since dungeons can be done out of order, last book cannot be written to assume it is the last book.  (also has typo on 2nd page, and is unfinished)
-    // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
     // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
     // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
+    //  - idea: CC the lava/flowing_lava, convert all connected to level 10 to glowstone, if y>10, 50% air, if y <=10 obsidian?
+    //  - forests/birchforest, replace flatt grass ground with 3x3 coarse dirt, chest underneath center?
+    //  - 'red desert', desert with sand/sandstone -> red sand/red sandstone Hell
+    //  - biome change-up (to change grass colors)? to what purpose? (prefer to have a mechanic)
+    //  - guardian swamp? (would it have treasure? utility item?)
+    //  - some snow biome changeup with snowmen/creeper spawners on surface (some utility item?)
+    //  - forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
+    //  - mushroom biome with no mobs and rainbow color stuff? (lit with glowstone etc?) brown wool troll chest, in a fleecy box? too OP for underground loot? ok if near far egde of map, after caving not useful.
+    // diorite pillars at day/night go down into some caves, was kind a cool effect, other ways to use? circle around some box/chest for another mini set piece?
+    // (the obeslisks in Eventide were effectively 'set pieces', can I think of others? wide area spawners did wonders for them; witch area (light) or guardian area (no water) may be good too?)
+    // flat and mountain can overlap (flat probably doesn't have enough buffer space around, may need each deco to know its size)
+    // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
+    // possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
+
+    // "retro"/"throwback"? seed-ed? roguelike? customized? randomized? play on spelunky/BoI? made-to-order? ___-crafted? rand-crafted, like hand-crafted?
+
+    // consider language translation?
+
+    // since dungeons can be done out of order, last book cannot be written to assume it is the last book.
+    // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
     // 4inal book TODOs, some kind o4 better acknowledgement when complete map
     // spawners inside tree leaves are nice simple 'traps', maybe by the tree chests? (how look on fast graphics if inside? or maybe just top center block of '+' e.g.)
     // summary and maybe starting book need summary customization info (seed, # player loot, difficulty, ...)
     // fix lighting oddities? (figure out jack o lanterns, maybe put red torch on top corners of flat mini-bedrock)
+    // consider language/translation stuff? german/ellpeck? (don't spend too much effort unless clear could be a big payoff)
     // obe notes that random-drop axes never have weapon enchants
     // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), consider those
     // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
@@ -2830,13 +2846,11 @@ do
     // teleporter command blocks look like a bug, consider moving cmds
     // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket? or just have ice in ceiling or water sources behind spawners, etc
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
-    // diorite pillars at day/night go down into some caves, was kind a cool effect, other ways to use?
     // getting chest in glass set piece spawns 4 ghasts - good or bad?
     // consider directly give some fw2 boots with other good something, to make more likely to use? no, has downsides too (waterfalls, farms, ...), hm
     // remove bingo's spammable iron sword
-    // snow golems and creepers something something
     // note to self: craft gapples next time
-    // still some skeleton bugs (screenshots from jan 20)
+    // still some cave-skeleton bugs (screenshots from jan 20)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
     // ***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
@@ -2847,7 +2861,6 @@ do
     //   - key is getting player to set off trap, need a hook: gold block, chest, etc. and a few of them so not every one is a trap
     // ***skeleton trap, electrified creeper
     // ***primed tnt buried in walls
-    // "retro"/"throwback"?
     // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
     // a finite set of collectable items could be good long-term for completionists
     // legendary: seeing x from afar leads to seeing y up close... (telporter path, ...)
@@ -2862,13 +2875,12 @@ do
 
     // other ideas
     // floating structures? lava/water pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
+    //  - also oceans/tiny islands, can build without overlap, just need ways to draw players out there to find them
     // could put more than one spawner in wall in green/purple cave as progress... could extinguish lava -> obsidian for less light...
     // teleporters could be color-coded (easier to remember?)
     // tnt exploding a morse code explosion-sound something?!?
     // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
-    // fix heightmap issues? blocklight/skylight?
     // hollow out mountain, for top-down, multi-tier, encased in bedrock dungeon? ghast spawner atop mtn when broken could lead to ladder down to hollowed mountain dungeon
-    // forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
     // desert falling sand could also open hole into giant underground cavern of some sort?
     // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
     // more random chest locations:

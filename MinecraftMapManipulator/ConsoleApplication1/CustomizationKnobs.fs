@@ -98,8 +98,10 @@ let LOOT_FUNCTION(n) =
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
+// TODO think abotu kinds of changes needed for UHC mode, maybe
 // TODO freq of random loot chests? (may interact with trades by having emeralds, may contain gapples or occasional OP weapon/armor? ...)
 // TODO (eventually maybe) number of monumnet blocks / major dungeon types?
+// TODO options to armor mobs in the spawners
 
 // TODO initial terrain biome/etc stuff (is a kind of aesthetic customization)
 

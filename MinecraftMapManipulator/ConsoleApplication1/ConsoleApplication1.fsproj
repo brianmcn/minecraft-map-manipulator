@@ -83,6 +83,7 @@
       <Link>Utilities.fs</Link>
     </Compile>
     <Compile Include="CustomizationKnobs.fs" />
+    <Compile Include="Strings.fs" />
     <Compile Include="LootTables.fs" />
     <Compile Include="TerrainAnalysisAndManipulation.fs" />
     <Compile Include="..\..\MMM.fs">

@@ -248,7 +248,7 @@ let defaultMobDrop(itemName, countMin, countMax, lootingMin, lootingMax) =
 let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])  // TODO gold pile?
 let arrows = Item("minecraft:arrow", [SetCount(6,9)])
-let luckyGapple = Item("minecraft:golden_apple", [SetCount(1,1);SetNbt("""{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}""")])
+let luckyGapple = Item("minecraft:golden_apple", [SetCount(1,1);SetNbt(Strings.NBT_LUCKY_GAPPLE)])
 let MOB = [KilledByPlayer]
 let LOOT_FROM_DEFAULT_MOBS =
     [|
@@ -297,9 +297,7 @@ let LOOT_FROM_DEFAULT_MOBS =
     |]
 
 let noFishingForYou =
-        Pools[ Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
-                                            """{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to donate!"}""" // TODO donate link?
-                                        |]))]),1,0, []]) ]
+        Pools[ Pool(Roll(1,1),[Item("minecraft:written_book",[SetNbt(Strings.NBT_FISHING)]),1,0, []]) ]
 
 let LOOT_FROM_DEFAULT_CHESTS =
     [|
@@ -369,10 +367,9 @@ open NBT_Manipulation
 
 let makeItem(rng:System.Random,name,min,max,dmg) =
     [| String("id","minecraft:"+name); Byte("Count", byte(min+rng.Next(max-min+1))); Short("Damage",dmg); End |]
-let INNER_CHEST_LORE = [|"Place this chest"; "and open it"; "for more loot"|]
 let makeChestItemWithNBTItems(name,items) =
     [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:chest"); Compound("tag", [
-                Compound("display",[String("Name",name);List("Lore",Strings INNER_CHEST_LORE);End]|>ResizeArray);
+                Strings.NameAndLore.INNER_CHEST_WITH_NAME(name);
                 Compound("BlockEntityTag", [List("Items",Compounds items);End] |> ResizeArray); End] |> ResizeArray); End |]
 let makeBookWithIdLvl(id, lvl) =
     [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:enchanted_book"); Compound("tag", [|List("StoredEnchantments",Compounds[|[|Short("id",int16 id);Short("lvl",int16 lvl);End|]|]); End |] |> ResizeArray); End |]
@@ -426,9 +423,7 @@ let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
             yield! Algorithms.pickNnonindependently(rng,F 1,[makeItem(rng,"iron_pickaxe",1,1,0s);makeItem(rng,"iron_sword",1,1,0s);makeItem(rng,"iron_axe",1,1,0s);makeItem(rng,"iron_ingot",2,9,0s)])
             yield makeItem(rng,"saddle",1,1,0s)
             yield makeItem(rng,"iron_horse_armor",1,1,0s)
-            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
-                                            """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
-                                        |]) |> ResizeArray); End |]
+            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
         |]
     addSlotTags tier2Items 
 
@@ -446,17 +441,15 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
             yield! chooseNbooks(rng,F 3,tier3MeleeBooks)
             yield! chooseNbooks(rng,F 2,tier3UtilBooks)
             yield! chooseNbooks(rng,F 2,tier3BowBooks)
-            yield makeChestItemWithNBTItems("Dungeon Loot",NEWsampleTier2Chest(rng))
-            yield makeChestItemWithNBTItems("Dungeon Loot",NEWsampleTier2Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng))
             yield makeItem(rng,"experience_bottle",64,64,0s)
             yield makeItem(rng,"diamond_pickaxe",1,1,0s)
             yield makeItem(rng,"diamond_sword",1,1,0s)
             yield makeItem(rng,"iron_ingot",F 20,F 30,0s)
             yield makeItem(rng,"gold_ingot",F 20,F 30,0s)
             yield makeItem(rng,"cooked_beef",F 10,F 20,0s)
-            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","2. After green beacon cave",[|
-                                            """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
-                                        |]) |> ResizeArray); End |]
+            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_GREEN_BEACON_CHEST; End |]
         |]
     addSlotTags tier3Items 
 
@@ -473,12 +466,10 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
             yield! chooseNbooks(rng,F 3,tier4UtilBooks)
             yield! chooseNbooks(rng,F 3,tier4BowBooks)
             yield makeItem(rng,"anvil",F 3,F 5,2s)
-            yield makeChestItemWithNBTItems("Green Beacon Cave Loot",NEWsampleTier3Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng))
             yield makeItem(rng,"diamond",F 20,F 30,0s)
             yield makeItem(rng,"golden_apple",F 9,F 14,0s)
-            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","3. After red beacon webs",[|
-                                            """{"text":"Once strong enough, attack dangerous-looking mountain peaks with glassed loot boxes to get a map to the best treasure!"}"""
-                                        |]) |> ResizeArray); End |]
+            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
         |]
     addSlotTags tier4Items 
 
@@ -486,8 +477,8 @@ let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier5Items =
         [|
-            yield makeChestItemWithNBTItems("Red Beacon Web Loot",NEWsampleTier4Chest(rng))
-            yield makeChestItemWithNBTItems("Red Beacon Web Loot",NEWsampleTier4Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng))
             for _i = 1 to F 2 do
                 yield makeItem(rng,"experience_bottle",64,64,0s)
         |]
@@ -577,7 +568,7 @@ let NEWaestheticTier3Chest(rng:System.Random) =
                 makeItem(rng,"hay_block",64,64,0s)
                 ])
             // other chests
-            yield makeChestItemWithNBTItems("Basic Blocks",NEWaestheticTier1Chest(rng))
-            yield makeChestItemWithNBTItems("Nicer blocks and fun",NEWaestheticTier2Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng))
         |]
     addSlotTags items 
