@@ -1464,7 +1464,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             let x = if rng.Next(2) = 0 then x-1 else x+1
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
-                                if noneWithin(120,points.[1],x,y,z) then
+                                if noneWithin(150,points.[1],x,y,z) && noneWithin(150,points.[7],x,y,z) then
                                     putTrappedChestWithLoot(x,y,z,1)
                                     points.[1].Add( (x,y,z) )
                                     names.[1] <- "tree top leaves"
@@ -1576,6 +1576,18 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                         putTrappedChestWithLoot(x,y,z,1)
                         points.[6].Add( (x,y,z) )
                         names.[6] <- "red mushroom top"
+                    elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 0uy && checkForPlus(x,y,z,2uy,2uy) && checkForPlus(x,y+1,z,0uy,0uy) then
+                        // 3x3 of grass with air above
+                        let b = biome.[x,z]
+                        if b = 4uy || b = 27uy || b = 29uy then // forest/birch/roofed
+                            if rng.Next(50) = 0 then // TODO probability, so don't place on all
+                                if noneWithin(150,points.[7],x,y,z) && noneWithin(150,points.[1],x,y,z) then
+                                    for dx in [-1..1] do
+                                        for dz in [-1..1] do
+                                            map.SetBlockIDAndDamage(x+dx,y,z+dz,3uy,1uy) //3,1=coarse dirt
+                                    putTrappedChestWithLoot(x,y-1,z,1)
+                                    points.[7].Add( (x,y-1,z) )
+                                    names.[7] <- "forest buried"
                     else
                         () // TODO other stuff
                 // end for y
@@ -2019,28 +2031,28 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
+    xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
