@@ -105,7 +105,7 @@ let LOOT_FUNCTION(n) =
 
 // TODO initial terrain biome/etc stuff (is a kind of aesthetic customization)
 
-let BIOME_HELL_PERCENTAGE = 0.15
+let BIOME_HELL_PERCENTAGE = 0.1
 let BIOME_SKY_PERCENTAGE = 0.2
 
 let SPAWN_PROTECTION_DISTANCE_GREEN = 200

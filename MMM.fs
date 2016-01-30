@@ -2800,7 +2800,6 @@ do
     // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
     // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
     //  - idea: CC the lava/flowing_lava, convert all connected to level 10 to glowstone, if y>10, 50% air, if y <=10 obsidian?
-    //  - 'red desert', desert with sand/sandstone -> red sand/red sandstone Hell
     //  - biome change-up (to change grass colors)? to what purpose? (prefer to have a mechanic)
     //  - guardian swamp? (would it have treasure? utility item?)
     //  - some snow biome changeup with snowmen/creeper spawners on surface (some utility item?)

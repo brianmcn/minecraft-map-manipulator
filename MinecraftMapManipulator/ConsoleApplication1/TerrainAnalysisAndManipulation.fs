@@ -930,37 +930,58 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
     printfn "...done!"
 
 let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLog, biome:_[,], allTrees:ResizeArray<MCTree>) =
-    let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
+    let plains = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
+    let desert = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let OKR = DAYLIGHT_RADIUS + 32  // want to give buffer to reduce chance standing in daylight and spawning ghasts in nearby hell biome
     // find plains biomes
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         for z = MINIMUM to MINIMUM+LENGTH-1 do
             let b = biome.[x,z]
             if b = 1uy then // 1 = Plains
-                a.[x,z] <- new Partition(new Thingy(0,(x*x+z*z<OKR*OKR),false))
+                plains.[x,z] <- new Partition(new Thingy(0,(x*x+z*z<OKR*OKR),false))
+            elif b = 2uy || b = 17uy then // desert, deserthills
+                desert.[x,z] <- new Partition(new Thingy(0,(x*x+z*z<OKR*OKR),false))
     // connected-components them
     for x = MINIMUM to MINIMUM+LENGTH-2 do
         for z = MINIMUM to MINIMUM+LENGTH-2 do
-            if a.[x,z] <> null && a.[x,z+1] <> null then
-                a.[x,z].Union(a.[x,z+1])
-            if a.[x,z] <> null && a.[x+1,z] <> null then
-                a.[x,z].Union(a.[x+1,z])
-    let CCs = new System.Collections.Generic.Dictionary<_,_>()
+            if plains.[x,z] <> null && plains.[x,z+1] <> null then
+                plains.[x,z].Union(plains.[x,z+1])
+            if plains.[x,z] <> null && plains.[x+1,z] <> null then
+                plains.[x,z].Union(plains.[x+1,z])
+            if desert.[x,z] <> null && desert.[x,z+1] <> null then
+                desert.[x,z].Union(desert.[x,z+1])
+            if desert.[x,z] <> null && desert.[x+1,z] <> null then
+                desert.[x,z].Union(desert.[x+1,z])
+    let plainsCCs = new System.Collections.Generic.Dictionary<_,_>()
+    let desertCCs = new System.Collections.Generic.Dictionary<_,_>()
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         for z = MINIMUM to MINIMUM+LENGTH-1 do
-            if a.[x,z] <> null then
-                let rep = a.[x,z].Find()
+            if plains.[x,z] <> null then
+                let rep = plains.[x,z].Find()
                 if not rep.Value.IsLeft then  // only find plains completely outside OKR
-                    if not(CCs.ContainsKey(rep)) then
-                        CCs.Add(rep, new System.Collections.Generic.HashSet<_>())
-                    CCs.[rep].Add( (x,z) ) |> ignore
+                    if not(plainsCCs.ContainsKey(rep)) then
+                        plainsCCs.Add(rep, new System.Collections.Generic.HashSet<_>())
+                    plainsCCs.[rep].Add( (x,z) ) |> ignore
+            if desert.[x,z] <> null then
+                let rep = desert.[x,z].Find()
+                if not rep.Value.IsLeft then  // only find desert completely outside OKR
+                    if not(desertCCs.ContainsKey(rep)) then
+                        desertCCs.Add(rep, new System.Collections.Generic.HashSet<_>())
+                    desertCCs.[rep].Add( (x,z) ) |> ignore
     let tooSmall = ResizeArray()
-    for KeyValue(k,v) in CCs do
+    for KeyValue(k,v) in plainsCCs do
         if v.Count < 1000 then
             tooSmall.Add(k)
     for k in tooSmall do
-        CCs.Remove(k) |> ignore
-    log.LogInfo(sprintf "found %d decent-sized plains biomes outside OKR" CCs.Count)
+        plainsCCs.Remove(k) |> ignore
+    let tooSmall = ResizeArray()
+    for KeyValue(k,v) in desertCCs do
+        if v.Count < 1000 then
+            tooSmall.Add(k)
+    for k in tooSmall do
+        desertCCs.Remove(k) |> ignore
+    log.LogInfo(sprintf "found %d decent-sized plains biomes outside OKR" plainsCCs.Count)
+    log.LogInfo(sprintf "found %d decent-sized desert biomes outside OKR" desertCCs.Count)
     // preprocess trees
     let treeByXZ = new System.Collections.Generic.Dictionary<_,_>()
     if allTrees = null then
@@ -972,8 +993,9 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
                 treeByXZ.Add((x,z),ResizeArray[t])
             else
                 treeByXZ.[x,z].Add(t)
-    let mutable hellBiomeCount, skyBiomeCount, hellTreeCount, skyTreeCount = 0,0,0,0
-    for KeyValue(_k,v) in CCs do
+    let mutable hellBiomePlainsCount, skyBiomePlainsCount, hellPlainsTreeCount, skyPlainsTreeCount = 0,0,0,0
+    let mutable hellBiomeDesertCount, hellDesertTreeCount = 0,0
+    for KeyValue(_k,v) in plainsCCs do
         if rng.NextDouble() < BIOME_HELL_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,8uy) // 8 = Hell
@@ -984,8 +1006,8 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
                             map.SetBlockIDAndDamage(x,y,z,112uy,0uy) // 112=nether_brick
                         for x,y,z,_ in t.Leaves do
                             map.SetBlockIDAndDamage(x,y,z,87uy,0uy) // 87=netherrack
-                        hellTreeCount <- hellTreeCount + 1
-            hellBiomeCount <- hellBiomeCount + 1
+                        hellPlainsTreeCount <- hellPlainsTreeCount + 1
+            hellBiomePlainsCount <- hellBiomePlainsCount + 1
         elif rng.NextDouble() < BIOME_SKY_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,9uy) // 9 = Sky
@@ -996,9 +1018,29 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
                             map.SetBlockIDAndDamage(x,y,z,49uy,0uy) // 49=obsidian
                         for x,y,z,_ in t.Leaves do
                             map.SetBlockIDAndDamage(x,y,z,120uy,0uy) // 120=end_portal_frame
-                        skyTreeCount <- skyTreeCount + 1
-            skyBiomeCount <- skyBiomeCount + 1
-    log.LogSummary(sprintf "Added %d Hell biomes (%d trees) and %d Sky biomes (%d trees) replacing some Plains" hellBiomeCount skyBiomeCount hellTreeCount skyTreeCount)
+                        skyPlainsTreeCount <- skyPlainsTreeCount + 1
+            skyBiomePlainsCount <- skyBiomePlainsCount + 1
+    for KeyValue(_k,v) in desertCCs do
+        if rng.NextDouble() < BIOME_HELL_PERCENTAGE then
+            for x,z in v do
+                map.SetBiome(x,z,8uy) // 8 = Hell
+                biome.[x,z] <- 8uy
+                if treeByXZ.ContainsKey(x,z) then
+                    for t in treeByXZ.[x,z] do
+                        for x,y,z in t.Logs do
+                            map.SetBlockIDAndDamage(x,y,z,112uy,0uy) // 112=nether_brick
+                        for x,y,z,_ in t.Leaves do
+                            map.SetBlockIDAndDamage(x,y,z,87uy,0uy) // 87=netherrack
+                        hellDesertTreeCount <- hellDesertTreeCount + 1
+                for y = 128 downto 56 do
+                    let bi = map.GetBlockInfo(x,y,z)
+                    if bi.BlockID = 12uy then // 12=sand
+                        map.SetBlockIDAndDamage(x,y,z,12uy,1uy) //12,1=red sand
+                    elif bi.BlockID = 24uy then // 24=sandstone
+                        map.SetBlockIDAndDamage(x,y,z,179uy,bi.BlockData) //179=red sandstone (keep block data, which is variant, e.g. smooth)
+            hellBiomeDesertCount <- hellBiomeDesertCount + 1
+    log.LogSummary(sprintf "Added %d Hell biomes (%d trees) and %d Sky biomes (%d trees) replacing some Plains" hellBiomePlainsCount hellPlainsTreeCount skyBiomePlainsCount skyPlainsTreeCount)
+    log.LogSummary(sprintf "Added %d Hell biomes (%d trees) replacing some Desert" hellBiomeDesertCount hellDesertTreeCount)
 
 // mappings: should probably be to a chance set that's a function of difficulty or something...
 // given that I can customize them, but want same custom settings for whole world generation, just consider as N buckets, but can e.g. customize the granite etc for more 'choice'...
@@ -1504,7 +1546,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             if deserts |> Array.exists (fun b -> b = biome.[x,z]) then
                                 if checkForPlus(x,y,z,12uy,12uy) && checkForPlus(x,y+1,z,0uy,0uy) && checkForPlus(x,y+2,z,0uy,0uy) then // flat square of sand with air above
                                     if rng.Next(20) = 0 then // TODO probability, so don't place on all
-                                        if noneWithin(120,points.[4],x,y,z) then
+                                        if noneWithin(150,points.[4],x,y,z) then
                                             let y = y + 1
                                             // put cactus
                                             for dy = 0 to 1 do
@@ -1573,9 +1615,11 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                 else
                                                     ()//printfn "ignoring waterfall top at %d %d %d because underground" nx ny nz // no harm in placing chests there, but probably no one will find them, prefer to have count of findable ones; in one map, 24 of 72 waterfall tops were on surface
                     elif bid = 100uy && bi.BlockData = 5uy then  // 100=red_mushroom_block, 5=red only on top-center
-                        putTrappedChestWithLoot(x,y,z,1)
-                        points.[6].Add( (x,y,z) )
-                        names.[6] <- "red mushroom top"
+                        if rng.Next(3) = 0 then // TODO probability, so don't place on all
+                            if noneWithin(120,points.[6],x,y,z) then
+                                putTrappedChestWithLoot(x,y,z,1)
+                                points.[6].Add( (x,y,z) )
+                                names.[6] <- "red mushroom top"
                     elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 0uy && checkForPlus(x,y,z,2uy,2uy) && checkForPlus(x,y+1,z,0uy,0uy) then
                         // 3x3 of grass with air above
                         let b = biome.[x,z]
@@ -2040,8 +2084,8 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
@@ -2052,7 +2096,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
