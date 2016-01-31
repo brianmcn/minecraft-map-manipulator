@@ -86,6 +86,7 @@
     <Compile Include="Strings.fs" />
     <Compile Include="LootTables.fs" />
     <Compile Include="TerrainAnalysisAndManipulation.fs" />
+    <Compile Include="MinecraftBingo.fs" />
     <Compile Include="..\..\MMM.fs">
       <Link>MMM.fs</Link>
     </Compile>
