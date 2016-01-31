@@ -724,82 +724,34 @@ let makeGetAllItemsGame() =
 [<System.STAThread()>]  
 do   
     //makeGetAllItemsGame()
-    //let user = "brianmcn"
     let user = "Admin1"
     //killAllEntities()
     //dumpChunkInfo("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\SnakeGameByLorgon111\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\InstantReplay09\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Mandelbrot 1_9\region\r.0.0.mca""")
-    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Learning\region\r.0.0.mca""")
     //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca""",
       //              """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmpy\region\r.0.0.mca.new""")
-    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
     //placeCertainEntitiesInTheWorld()
-    // 45,000,012
-    //diffRegionFiles("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""",
-      //              """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca.new""")
-    //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\38a\region\r.0.0.mca""")
-    //testing2()
-    //placeCommandBlocksInTheWorldTemp("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\BugRepro\region\r.0.0.mca""")
-
     //mixTerrain()
     //findStrongholds()
-
-    //printfn "%s" (makeCommandGivePlayerWrittenBook("Lorgon111", "BestTitle", [|"""["line1\n","line2"]"""; """["p2line1\n","p2line2",{"selector":"@p"}]"""|]))
     //dumpPlayerDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\playerdata\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat""")
-
-    
     //editMapDat("""C:\Users\"""+user+"""\Desktop\Eventide Trance v1.0.0 backup1\data\map_1.dat""")
-    //testing2()
     //editMapDat("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_1.dat""")
-
     //mapDatToPng("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.dat""", """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\data\map_0.png""")
     //findAllLootBookItems("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\VoidLoot\region\""")
     //findAllLoot("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed5Normal\region\""")
-    //findAllLoot("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\43aAt8200\region\""")
     //testBackpatching("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\VoidLoot\region\r.0.0.mca""")
     //repopulateAsAnotherBiome()
     //debugRegion()
-    //findUndergroundAirSpaceConnectedComponents()
-    //substituteBlocks()
-    (*
-    let sb = new System.Text.StringBuilder()
-    let sw = new System.IO.StringWriter(sb)
-    simple_dungeon.Write(sw)
-    sw.Close()
-    printfn "%s" (sb.ToString())
-    *)
-
-    (*
-    let fil = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\15w45a\region\r.0.0.mca"""
-    let r = RegionFile(fil)
-    r.AddTileTick("minecraft:command_block",1,0,27,67,33)
-    r.Write(fil+".new")
-    *)
     //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\RandomCTM\region\r.0.0.mca""")
-    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\seed31Copy\region\r.0.0.mca""")
     //diffDatFilesGui("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //diffDatFilesText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp3\level.dat""","""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\level.dat""")
     //placeCertainBlocksInTheWorld()
     //placeVideoFramesInTheWorld()
-    //dumpPlayerDat("""C:\Users\Admin1\AppData\Local\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds\AhceAMzyAAA=\level.dat""")
     //dumpPlayerDat("""C:\Users\"""+user+"""\Desktop\igloo45a\igloo_bottom.nbt""")
-
     //musicStuff()
     //plotRegionalDifficulty()
     //chatToVoiceDemo()
-    (*
-    let map = new MapFolder(worldSaveFolder+"""\region\""")
-    let rng = new System.Random()
-    map.EnsureSetBlockIDAndDamage(1,100,1,0uy,0uy)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,1,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,3,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,5,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,7,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    TerrainAnalysisAndManipulation.putChestCore(1,100,9,54uy,2uy,Compounds(LootTables.NEWsampleTier4Chest(rng)),"",null,0L,map,null)
-    map.WriteAll()
-    *)
+
 
     (*
     compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w03a.zip""","""C:\Users\Admin1\Desktop\16w04a.zip""")
@@ -976,15 +928,6 @@ do
     
 
 
-
-    (*
-    let scrabbleRegion = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\ScrabbleBackup\region\r.0.0.mca"""
-    let r = new RegionFile(scrabbleRegion)
-    doTrie(r)
-    //r.Write(scrabbleRegion+".new")
-    //System.IO.File.Delete(scrabbleRegion)
-    //System.IO.File.Move(scrabbleRegion+".new",scrabbleRegion)
-    *)
 
     let readInSomeArt = false
     if readInSomeArt then
