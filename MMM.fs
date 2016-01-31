@@ -2807,16 +2807,17 @@ do
     //  - mushroom biome with no mobs and rainbow color stuff? (lit with glowstone etc?) brown wool troll chest, in a fleecy box? too OP for underground loot? ok if near far egde of map, after caving not useful.
     // diorite pillars at day/night go down into some caves, was kind a cool effect, other ways to use? circle around some box/chest for another mini set piece?
     // (the obeslisks in Eventide were effectively 'set pieces', can I think of others? wide area spawners did wonders for them; witch area (light) or guardian area (no water) may be good too?)
-    // flat and mountain can overlap (flat probably doesn't have enough buffer space around, may need each deco to know its size)
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
 
     // "retro"/"throwback"? seed-ed? roguelike? customized? randomized? play on spelunky/BoI? made-to-order? ___-crafted? rand-crafted, like hand-crafted?
-
-    // consider language translation?
+    // procedural? programmed? custom-built?
+    // alternate-universe? multiplicity? variety? replay?
+    // summon CTM {SpawnerCount:"High",NumPlayers:2,Seed:3456,Language:"English"}
+    // 'seed the monument' (beetroots o plant e.g. are a goal?!?)
+    // Mapple cobbler
 
     // since dungeons can be done out of order, last book cannot be written to assume it is the last book.
-    // value of emeralds unknown at start of map, have starter book say they can eventually be traded for useful 'buffs'
     // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
     // 4inal book TODOs, some kind o4 better acknowledgement when complete map
     // spawners inside tree leaves are nice simple 'traps', maybe by the tree chests? (how look on fast graphics if inside? or maybe just top center block of '+' e.g.)
@@ -2835,12 +2836,9 @@ do
     // glass set piece had cave below it, fixer went into it.  set piece was kinda blah
     // vary food per starting biome?
     // purple beacon dungeon - witches infighting caused a feesh-pocalypse, I nearly died... not sure how to deal with, but un-ideal
-    // elytra and jump pots need to be completely reworked/rethought:
-    //  - fixxer died crashing from elytra, would have lost all stuff in unknown area, including a monument block (keepInventory with elytra?)
-    //  - had never used elytra before, didn't know how to fly, looked straight down, died of fall damage (FF X boots? but maybe can still die of velocity...)
-    //  - jump pots unstack when dropped, inventory nightmare (other takeoff mechanic?)
-    //  - maybe move monument block to mountain peak, make secret treasure book part of mountain peak loot, elytra becomes optional? but then need to figure out where purple beacon book goes
-    //  - also could have a 'how to fly with elytra' book
+    // elytra rework:
+    //  - Fix had never used elytra before, didn't know how to fly, looked straight down, died of fall damage
+    //  - have a 'how to fly with elytra' book
     // teleporter command blocks look like a bug, consider moving cmds
     // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket? or just have ice in ceiling or water sources behind spawners, etc
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
@@ -2869,6 +2867,8 @@ do
     // TODOs and refactorings...
     // return to spawn from teleporter, villagers don't immediately appear on client?
     // noisemaker noteblock troll underground? fireworks spawner
+    // undergound: 'giant crystal cave', e.g. you go down a cave and find a huge open space with ice and glass and whatnot. (how to generate 'look', how to place so there's a path, how to get player to find)
+    // even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece
 
 
     // other ideas

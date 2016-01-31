@@ -1224,11 +1224,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                     yield [| Byte("Count",24uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|
                                 Strings.NameAndLore.SUPER_JUMP_BOOST
                                 List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",100);End|]|]);End|]|>ResizeArray); End |]
-                yield [| Byte("Slot",21uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|
-                            Strings.NameAndLore.MONUMENT_BLOCK_PURPUR
-                            End
-                      |] |> ResizeArray); End |]
-                yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                yield [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                          Strings.BOOK_IN_HIDING_SPOT(quadrant)
                          End |]
             |]
@@ -1247,8 +1243,9 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
         log.LogSummary(sprintf "added mountain peak (score %d) at %d %d %d" s x y z)
         let spawners = SpawnerAccumulator("spawners around mountain peak")
         putTreasureBoxWithItemsAt(map,x,y,z,[|
-                [| Byte("Slot",12uy); Byte("Count",1uy); String("id","minecraft:written_book"); Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
-                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT,LootTables.NEWsampleTier5Chest(rng)) |]
+                [| Byte("Slot",11uy); Byte("Count",1uy); String("id","minecraft:written_book"); Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
+                [| Byte("Slot",13uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|Strings.NameAndLore.MONUMENT_BLOCK_PURPUR;End|] |> ResizeArray); End |]
+                [| yield Byte("Slot",15uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT,LootTables.NEWsampleTier5Chest(rng)) |]
             |])
         for xx = x-3 to x+3 do
             for zz = z-3 to z+3 do

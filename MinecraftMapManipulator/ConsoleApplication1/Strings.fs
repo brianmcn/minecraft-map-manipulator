@@ -72,6 +72,7 @@ let STARTING_BOOK_OVERVIEW =
                                 Utilities.wrapInJSONTextContinued "MOBS\n\nMob loot drops are heavily modified in this map, but the mobs themselves are completely vanilla. There are many spawners in the map; both to guard loot, and to surprise you."
                                 Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
                                 Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you do not have to farm xp/drops, mine for diamonds, or make an enchanting table, but you can if you want."
+                                Utilities.wrapInJSONTextContinued "...\nThere will be emeralds in some loot chests. You should save them, as eventually you may unlock the ability to trade emeralds for some very useful buffs."
                                 Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
                                 Utilities.wrapInJSONText "...\nIf you encounter something especially weird, don't over-think the map-maker rationale; it's possible my code had a bug and did something silly."
                             |]) |> ResizeArray)
@@ -87,7 +88,7 @@ let STARTING_BOOK_FOOD_AND_COMBAT =
     Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","1.9 Food and Combat",
                             [|
-                                Utilities.wrapInJSONTextContinued "Minecraft 1.9 changed the food and combat systems a lot. Here are some quick tips."
+                                Utilities.wrapInJSONTextContinued "For those new to 1.9: Minecraft 1.9 changed the food and combat systems a lot. Here are some quick tips."
                                 Utilities.wrapInJSONTextContinued "FOOD\n\nFood is no longer merely a survival mechanism. It's now also a combat mechanic, as over-feeding with high-saturation food will replenish life very quickly."
                                 Utilities.wrapInJSONTextContinued "It helps to manage food carefully, preferring lower saturation foods (cookies, apples, ...) when you're 'safe', and save higher saturation foods (bread, steak, ...) for combat where rapid healing is valuable."
                                 Utilities.wrapInJSONTextContinued "COMBAT\n\nClicking your weapons too quickly (to use them repeatedly) will cause them to deal less damage. Weapons now have cooldowns, which means you need to wait a half-second or more between attacks for maximal damage."

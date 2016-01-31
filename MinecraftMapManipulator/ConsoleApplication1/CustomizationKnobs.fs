@@ -113,7 +113,7 @@ let SPAWN_PROTECTION_DISTANCE_FLAT = 350
 let SPAWN_PROTECTION_DISTANCE_PEAK = 500
 let SPAWN_PROTECTION_DISTANCE_PURPLE = 700
 let STRUCTURE_SPACING = 300  // no two of same structure within this dist of each other (currently used by peaks and flats)
-let DECORATION_SPACING = 60  // no two decos this close together
+let DECORATION_SPACING = 85  // no two decos this close together (used by peaks and flats) note: they have squares of 40 and 20, and so 85 is (40+20)*sqrt(2)
 let RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION = 50 // no rand loot chests near dungeons, for example
 let DAYLIGHT_RADIUS = 180
 
