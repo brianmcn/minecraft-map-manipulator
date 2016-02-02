@@ -805,13 +805,13 @@ let oreSpawnCustom =
         // block, Size, Count, MinHeight, MaxHeight
         "dirt",     33, 90, 0, 256
         "gravel",   33,  8, 0, 256
-        "granite",   3, 12, 0,  80
+        "granite",   3, GRANITE_COUNT, 0,  80
         "diorite",  12,120, 0,  80
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
         "iron",      9,  5, 0,  58
         "gold",      9,  5, 0,  62
-        "redstone",  3,  4, 0,  32
+        "redstone",  3,  REDSTONE_COUNT, 0,  32
         "diamond",   4,  1, 0,  16
     |]
 
@@ -1303,9 +1303,10 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
     printfn ""
     let bestFlatPoints = findBestPeaksAlgorithm(a,2000,3000,D,0,decorations)
     let RADIUS = 40
+    let CR = RADIUS+7 // ceiling radius
     let BEDROCK_HEIGHT = 127
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_FLAT*SPAWN_PROTECTION_DISTANCE_FLAT)
-    let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
+    let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+CR && z > MINIMUM+CR && x < MINIMUM+LENGTH-CR-1 && z < MINIMUM+LENGTH-CR-1)
     let allFlatPoints = bestFlatPoints |> Seq.toArray 
     let bestFlatPoints, nextBestFlatPoints = 
         if allFlatPoints.Length < 10 then
@@ -1367,7 +1368,6 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                     elif rng.Next(60) = 0 then
                         map.SetBlockIDAndDamage(i,hm.[i,j],j,76uy,5uy) // 76=redstone_torch
         spawners.AddToMapAndLog(map,log)
-        let CR = RADIUS+7 // ceiling radius
         for i = x-CR to x+CR do
             for j = z-CR to z+CR do
                 map.SetBlockIDAndDamage(i,BEDROCK_HEIGHT,j,7uy,0uy) // 7 = bedrock
@@ -1736,6 +1736,8 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     I("gamerule logAdminCommands false")
     I("gamerule commandBlockOutput false")
     //I("gamerule keepInventory true")
+    if UHC_MODE then
+        I("gamerule naturalRegeneration false")  // TODO starting book info
     I(sprintf "setworldspawn 1 %d 1" h)
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
@@ -2072,21 +2074,21 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    xtime (fun () -> allTrees := treeify(map))
+    time (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
     time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun() ->   // after hiding spots figured
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->

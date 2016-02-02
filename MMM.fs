@@ -788,7 +788,6 @@ do
     //map.SetBlockIDAndDamage(73,82,-801,50uy,5uy)
     //map.WriteAll()
 
-
     printfn "press a key to end"
     System.Console.Beep()
     System.Console.ReadKey() |> ignore
@@ -798,7 +797,31 @@ do
     //System.Windows.Clipboard.SetText(custom)
     //genTerrainWithMCServer(worldSeed,custom)
 
+    
+    // TEST
 
+    // try to make a 'no natural regen' customization of the map and play it - this will help factor/tune the knobs, and add another 'axis'
+    //  - global turn down spawners (dungeons, underground)
+    //  - come up with ih/reg/ga drop rate for mobs (in the 3-9% range)
+    //  - change food to be less obnoxious (maybe just apples and steak), since it's only about sprinting now
+    //  - would any 'prot' book stuff need to change?
+    // 4eedback:
+    //  - bread in dungeon chest (why?)
+    //  - maybe start o44 with a 4ew heals, start is brutal; maybe also a bow too?
+    //  - not neary enough heals, it 4eels, but did de4eat green dungeon ag4ter 3 deaths
+
+    // 4lat went into an ocean (spacing is really taking its toll)
+    // fix red torches (maybe change block below them to andesite?)
+
+    // idea: foresight potion, shows what rare things mobs will drop
+    //   - zombie/skeleton/pigzombie wear item as head armor slot
+    //   - other mobs have a visible customname
+    // to implement it, would have to use commands:
+    //   - select an unprocessed-tag mob, mark to-process
+    //   - deceide whether it gets a rare drop at all (most don't)
+    //   - if so, select a 'kind' (item sans enchants) of rare drop from its table (long list of commands, PRNG to activate one)
+    //   - entitydata/replaceitem the mob to display it; entitydata its DeathLootTable to drop it (loot table could still e.g. apply random enchants)
+    //   - (requires factoring loot tables differently, so 'common' loot is in a separate table, so 'rare' could still reference 'common'; alternatively, could just be 'extra' loot atop normal drops)
 
     // to test
     // made some changes to cave-side-paths, see if ok... they are decent, main issue is still that not always at dead ends, due to imperfect skeleton
@@ -851,6 +874,7 @@ do
     // summon CTM {SpawnerCount:"High",NumPlayers:2,Seed:3456,Language:"English"}
     // 'seed the monument' (beetroots o plant e.g. are a goal?!?)
     // Mapple cobbler
+
 
     // since dungeons can be done out of order, last book cannot be written to assume it is the last book.
     // ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot

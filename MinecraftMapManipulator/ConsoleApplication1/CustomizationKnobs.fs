@@ -56,23 +56,30 @@ type SpawnerData(distributionInfo, densityMultiplier) =
                 ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
         ms
 
+let UHC_MODE = true
+
+let UHC_MULT = if UHC_MODE then 0.5 else 1.0
+
+
 // mega-dungeons
 let GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|],                                1.0, DelayF = (fun (ms,rng) -> if rng.Next(10)=0 then ms.Delay <- 1s))
+    SpawnerData([|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|],                                UHC_MULT*1.0, DelayF = (fun (ms,rng) -> if rng.Next(10)=0 then ms.Delay <- 1s))
 let PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(6,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (2,"Skeleton"); (2,"Creeper")|], 1.6, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
+    SpawnerData([|(6,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (2,"Skeleton"); (2,"Creeper")|], UHC_MULT*1.6, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
 let MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(4,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|],     1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 1.0)
+    SpawnerData([|(4,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|],     UHC_MULT*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 1.0)
 let FLAT_COBWEB_OUTER_SPAWNER_DATA = 
-    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.0)
+    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.0)
 let FLAT_COBWEB_INNER_SPAWNER_DATA = 
-    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.333)
+    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.333)
 let FLAT_SET_PIECE_SPAWNER_DATA = 
-    SpawnerData([|(4,"Zombie"); (1,"Skeleton") |],                                              1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s))
+    SpawnerData([|(4,"Zombie"); (1,"Skeleton") |],                                              UHC_MULT*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s))
 
 // terrain ore substitutes
+let GRANITE_COUNT = int(UHC_MULT*12.0)
 let GRANITE_SPAWNER_DATA = 
     SpawnerData([|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (1,"Blaze"); (1,"Creeper")|],     0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
+let REDSTONE_COUNT = int(UHC_MULT*4.0)
 let REDTSONE_SPAWNER_DATA = 
     SpawnerData([|(1,"Zombie"); (1,"Skeleton"); (1,"Spider"); (1,"Blaze"); (1,"Creeper"); (1,"CaveSpider")|], 0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
 
@@ -96,6 +103,7 @@ let LOOT_FUNCTION(n) =
         | 3 -> 5
         | _ -> int (float n * 1.5)
 
+
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
 // TODO think abotu kinds of changes needed for UHC mode, maybe
@@ -113,7 +121,7 @@ let SPAWN_PROTECTION_DISTANCE_FLAT = 350
 let SPAWN_PROTECTION_DISTANCE_PEAK = 500
 let SPAWN_PROTECTION_DISTANCE_PURPLE = 700
 let STRUCTURE_SPACING = 300  // no two of same structure within this dist of each other (currently used by peaks and flats)
-let DECORATION_SPACING = 85  // no two decos this close together (used by peaks and flats) note: they have squares of 40 and 20, and so 85 is (40+20)*sqrt(2)
+let DECORATION_SPACING = 94  // no two decos this close together (used by peaks and flats) note: they have squares of 47 and 20, and so 94 is (47+20)*sqrt(2)
 let RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION = 50 // no rand loot chests near dungeons, for example
 let DAYLIGHT_RADIUS = 180
 

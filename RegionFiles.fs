@@ -51,12 +51,14 @@ let DUMMY = "say dummy"
 let DIV(x:int,m:int) = (x+10000*m)/m - 10000
 let MOD(x:int,m:int) = (x+10000*m)%m
 
+type ChunkLightPopulated = | DIRTY | CLEAN | UNCHANGED
+
 [<AllowNullLiteral>]
 type RegionFile(filename) =
     let rx, rz =
         let m = System.Text.RegularExpressions.Regex.Match(filename, """.*r\.(.*)\.(.*)\.mca(\.new|\.old)?$""")
         int m.Groups.[1].Value, int m.Groups.[2].Value
-    let isChunkDirty = Array2D.create 32 32 false
+    let isChunkDirty = Array2D.create 32 32 UNCHANGED
     let chunkHeightMapCache : TwoDArrayFacadeOverOneDArray<int>[,] = Array2D.create 32 32 null   // chunkHeightMapCache.[cx,cz].[x,z]
     let chunkBiomeCache : TwoDArrayFacadeOverOneDArray<byte>[,] = Array2D.create 32 32 null   // chunkBiomeCache.[cx,cz].[x,z]
     let chunkInhabitedTimeCache = Array2D.create 32 32 -1L // -1 means unrepesented/unknown
@@ -201,12 +203,20 @@ type RegionFile(filename) =
         for cx = 0 to 31 do
             for cz = 0 to 31 do
                 if chunks.[cx,cz] <> End then
-                    if isChunkDirty.[cx,cz] then
+                    if isChunkDirty.[cx,cz] = DIRTY then
                         let chunkLevel = match chunks.[cx,cz] with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
                         match chunkLevel with 
                         | Compound(n,nbts) -> 
                             let i = nbts.FindIndex (fun nbt -> nbt.Name = "LightPopulated")
                             nbts.[i] <- NBT.Byte("LightPopulated", 0uy)
+                    elif isChunkDirty.[cx,cz] = CLEAN then
+                        let chunkLevel = match chunks.[cx,cz] with Compound(_,rsa) -> rsa.[0] // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
+                        match chunkLevel with 
+                        | Compound(n,nbts) -> 
+                            let i = nbts.FindIndex (fun nbt -> nbt.Name = "LightPopulated")
+                            nbts.[i] <- NBT.Byte("LightPopulated", 1uy)
+                    else 
+                        assert( isChunkDirty.[cx,cz] = UNCHANGED )
                     let ms = new System.IO.MemoryStream()
                     use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionMode.Compress, true)
                     chunks.[cx,cz].Write(new BinaryWriter2(s))
@@ -249,7 +259,12 @@ type RegionFile(filename) =
         // we note chunks where we want to recompute light as 'dirty'
         let xx = ((x+51200)%512)/16   // TODO start using DIV and MOD
         let zz = ((z+51200)%512)/16
-        isChunkDirty.[xx,zz] <- true
+        isChunkDirty.[xx,zz] <- DIRTY
+    member this.SetChunkClean(x,z) = // x,z are world coordinates
+        // we note chunks where we recomputed the light offline as 'clean'
+        let xx = ((x+51200)%512)/16   // TODO start using DIV and MOD
+        let zz = ((z+51200)%512)/16
+        isChunkDirty.[xx,zz] <- CLEAN
     member this.GetOrCreateChunk(x,z) =  // x,z are world coordinates
         let xx = ((x+51200)%512)/16
         let zz = ((z+51200)%512)/16
@@ -292,7 +307,7 @@ type RegionFile(filename) =
                         | Compound(_,a) ->
                             let i = a.FindIndex (fun x -> x.Name="Sections")
                             a.[i] <- List("Sections",Compounds( sections |> Seq.append [| newSection |] |> Seq.toArray ))
-                            isChunkDirty.[xx,zz] <- true
+                            isChunkDirty.[xx,zz] <- DIRTY
                             let r = newSection, blocks, blockData, blockLight, skyLight
                             chunkSectionsCache.[xx,zz].[sy] <- r
                             r

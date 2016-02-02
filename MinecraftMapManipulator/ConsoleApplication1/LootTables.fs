@@ -108,23 +108,11 @@ let simple_dungeon =
                 ])
         ]
 
-// ench books, anvils, bottles
-// blocks
-// heals? IH1/2, R1/2, gapple
-// aesthetic blocks
-
-// wood tier: player acquires on own on surface, can grind for better
-// stone tier: dungeons & mineshafts
-// gold tier: surface dungeons I make
-// iron tier: best loot from ribbons and mountains
-
-// loot tables: e.g. armor.[1], tool.[3], etc
-
 // mobs: drop stuff at their tier and rarely a next tier thing
 
 let LOOT_NS_PREFIX = "brianloot"  // NOTE: must be all lowercase, to work on both Windows and Linux! 
 let LOOT_FORMAT s n = sprintf "%s:%s%d" LOOT_NS_PREFIX s n
-type LOOT_KIND = | ARMOR | TOOLS | FOOD | BOOKS //| TODO 
+type LOOT_KIND = | ARMOR | TOOLS | FOOD //| TODO 
 let P11 x = Pool(Roll(1,1),x)
 let OneOfAtNPercent(entryData, n, conds) = 
     assert(n>=0 && n <=100)
@@ -174,6 +162,7 @@ let LOOT_ARMOR =
                                ])]
     |]
 
+
 // TODO should I somehow stop mob-dropping useless tools late in the game? after first monument block, they might no longer be desirable?
 //       - or maybe even player-configurable? ('stop dropping wood/stone tools' toggle, sets score, kills the drops?)
 //       - or maybe the drops get better but rarer (e.g. iron stuff after first block?)
@@ -219,21 +208,49 @@ let LOOT_TOOLS =
 
 // TODO make a customization knob to buff/nerf these drops/chances, perhaps?
 let LOOT_FOOD =
-    [|
-        // tier 1
-        Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(6,10)]), 1, 0, []])]
-        // tier 2
-        Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(4,6)]), 1, 0, []])]
-        // tier 3
-        Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,5)]), 1, 0, []])]
-        // tier 4
-        Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
-        // tier 5
-        Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0, []])]
-    |]
+    if CustomizationKnobs.UHC_MODE then  
+        [|  // just apples and beef
+            // tier 1
+            Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(4,6)]), 1, 0, []])]
+            // tier 2
+            Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(4,6)]), 1, 0, []])]
+            // tier 3
+            Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
+            // tier 4
+            Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
+            // tier 5
+            Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0, []])]
+        |]
+    else
+        [|
+            // tier 1
+            Pools [Pool(Roll(1,1), [Item("minecraft:cookie",   [SetCount(6,10)]), 1, 0, []])]
+            // tier 2
+            Pools [Pool(Roll(1,1), [Item("minecraft:apple",   [SetCount(4,6)]), 1, 0, []])]
+            // tier 3
+            Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,5)]), 1, 0, []])]
+            // tier 4
+            Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
+            // tier 5
+            Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0, []])]
+        |]
+
+let HEALS = 
+    if CustomizationKnobs.UHC_MODE then  
+        [|
+            Item("minecraft:splash_potion",[SetNbt("""{Potion:\"minecraft:healing\"}""")])  // 2 hearts IH
+            Item("minecraft:splash_potion",[SetNbt("""{Potion:\"minecraft:strong_healing\"}""")])  // 4 hearts IH
+            Item("minecraft:splash_potion",[SetNbt("{CustomPotionEffects:[{Id:10,Amplifier:1b,Duration:240}]}")])  // 4/4.5 hearts R2
+            Item("minecraft:splash_potion",[SetNbt("{CustomPotionEffects:[{Id:10,Amplifier:2b,Duration:120}]}")])  // 4/5 hearts R3
+            Item("minecraft:golden_apple",[])
+        |]
+    else
+        [|
+            Empty
+        |]
 
 let tierNLootData n kinds = 
-    [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) | BOOKS -> yield LootTable(LOOT_FORMAT"books"n) ] // NOTE: names must be all lowercase, to work on both Windows and Linux! 
+    [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) ] // NOTE: names must be all lowercase, to work on both Windows and Linux! 
 let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
     assert(n>=0 && n <=100)
     let weight = (kinds|>Seq.length) * (1000-10*n-n)
@@ -270,30 +287,30 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/wolf
 
         // HOSTILE
-        "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 4 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
-        "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB)]
+        "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 4 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,10,MOB)]
+        "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,10,MOB)]
         "minecraft:entities/creeper", Pools [defaultMobDrop("gunpowder",0,1,0,1)
-                                             tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB)]
+                                             tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB); OneOfAtNPercent(HEALS,5,MOB)]
 //        "minecraft:entities/elder_guardian
         "minecraft:entities/enderman", Pools [defaultMobDrop("ender_pearl",0,1,0,1)
-                                              tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)  // extra loot
+                                              tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB); OneOfAtNPercent(HEALS,5,MOB)  // extra loot
                                              ]
-        "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 3 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
+        "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 3 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,5,MOB)]
 //        "minecraft:entities/guardian
-        "minecraft:entities/magma_cube", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
+        "minecraft:entities/magma_cube", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,5,MOB)]
 
 //        "minecraft:entities/shulker
-        "minecraft:entities/silverfish", Pools [tierxyLootPct MOB 2 3 [FOOD] 20] // TODO what ought silverfish drop?
+        "minecraft:entities/silverfish", Pools [tierxyLootPct MOB 2 3 [FOOD] 20; OneOfAtNPercent(HEALS,5,MOB)]
         "minecraft:entities/skeleton", Pools [defaultMobDrop("bone",0,2,0,1)
-                                              tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB)]
+                                              tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB); OneOfAtNPercent(HEALS,5,MOB)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
-        "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
-        "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
-        "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB)]
-        "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB)]
+        "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,5,MOB)]
+        "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB); OneOfAtNPercent(HEALS,10,MOB)]
+        "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,10,MOB)]
+        "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,5,MOB)]
 //        "minecraft:entities/zombie_horse
-        "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB)]
+        "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB); OneOfAtNPercent(HEALS,5,MOB)]
     |]
 
 let noFishingForYou =

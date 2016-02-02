@@ -200,16 +200,10 @@ let diffRegionFiles(regionFile1,regionFile2) =
     let r2 = new RegionFile(regionFile2)
     diffRegions(r1,r2,regionFile1,regionFile2)
 
-let diffDatFileStreams(datFile1,datFile2) =
-    skipUnchangedChunks <- false
-    namesToIgnore <- [| |]
-    skipUnchangedValues <- false
-    startExpanded <- false
+let diffNBTs(r1:NBT,r2:NBT,h1,h2) =
     let tv = new TreeView()
-    let r1 = readDatFileStream(datFile1)
-    let r2 = readDatFileStream(datFile2)
-    tv.Items.Add(new TreeViewItem(Header=datFile1,Background=Brushes.Red)) |> ignore
-    tv.Items.Add(new TreeViewItem(Header=datFile2,Background=Brushes.Yellow)) |> ignore
+    tv.Items.Add(new TreeViewItem(Header=h1,Background=Brushes.Red)) |> ignore
+    tv.Items.Add(new TreeViewItem(Header=h2,Background=Brushes.Yellow)) |> ignore
     let n = new TreeViewItem(Header="<root>")
     if MakeTreeDiff r1 r2 n then
         n.Background <- Brushes.Orange 
@@ -218,8 +212,19 @@ let diffDatFileStreams(datFile1,datFile2) =
         n.ExpandSubtree()
     tv
 
+let diffDatFileStreams(datFile1,datFile2) =
+    let r1 = readDatFileStream(datFile1)
+    let r2 = readDatFileStream(datFile2)
+    diffNBTs(r1,r2,datFile1,datFile2)
+
 let diffDatFilesGui(datFile1,datFile2) =
     let tv = diffDatFileStreams(datFile1,datFile2)
+    let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
+    let app = new Application()
+    app.Run(window) |> ignore
+
+let diffNBTGui(nbt1,nbt2) =
+    let tv = diffNBTs(nbt1,nbt2,"1","2")
     let window = new Window(Title="NBT Difference viewer by Dr. Brian Lorgon111", Content=tv)
     let app = new Application()
     app.Run(window) |> ignore

@@ -35,16 +35,22 @@ let compareLighting(map1:MapFolder, map2:MapFolder, minx, minz, maxx, maxz) =
         failwith "this algorithm only works on full chunks"
     printfn "comparing results..."
     // compare
-    let mutable numBlockDiff,numSkyDiff,numSectDiff = 0,0,0
+    let mutable numBlockDiff,numSkyDiff,numSectDiff,numHMDiff = 0,0,0,0
     for xs in [ minx .. 16 .. maxx ] do
         for zs in [ minz .. 16 .. maxz ] do
+            printf "."
+            if map1.MaybeGetBlockInfo(xs,0,zs)<> null && map2.MaybeGetBlockInfo(xs,0,zs)<> null then
+                let hm1 = map1.GetHeightMap(xs,zs)
+                let hm2 = map2.GetHeightMap(xs,zs)
+                if hm1 <> hm2 then
+                    printfn "heightmap differ at %d %d, values of %d versus %d" xs zs hm1 hm2
+                    numHMDiff <- numHMDiff + 1
             for ys in [ 0 .. 16 .. 255 ] do
-                printf "."
                 let _,_,_,origBlockLight,origSkyLight = map1.GetSection(xs,ys,zs)
                 if origBlockLight <> null then
                     let _,_,_,newBlockLight,newSkyLight = map2.GetSection(xs,ys,zs)
                     if newBlockLight = null then
-                        //printfn "%3d %3d %3d differ, orig populated section, test no section" xs ys zs
+                        printfn "%3d %3d %3d differ, orig populated section, test no section" xs ys zs
                         numSectDiff <- numSectDiff + 1
                     else
                         for dx = 0 to 15 do
@@ -56,15 +62,20 @@ let compareLighting(map1:MapFolder, map2:MapFolder, minx, minz, maxx, maxz) =
                                     let origValue = NibbleArray.get(origBlockLight,x,y,z)
                                     let testValue = NibbleArray.get(newBlockLight,x,y,z)
                                     if origValue <> testValue then
-                                        //printfn "BLOCK %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
+                                        printfn "BLOCK %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
                                         numBlockDiff <- numBlockDiff + 1
                                     let origValue = NibbleArray.get(origSkyLight,x,y,z)
                                     let testValue = NibbleArray.get(newSkyLight,x,y,z)
                                     if origValue <> testValue then
                                         printfn "SKY %3d %3d %3d differ, orig %2d test %2d" x y z origValue testValue 
                                         numSkyDiff <- numSkyDiff + 1
+                else
+                    let _,_,_,newBlockLight,_newSkyLight = map2.GetSection(xs,ys,zs)
+                    if newBlockLight <> null then
+                        printfn "%3d %3d %3d differ, orig no section, test had section" xs ys zs
+                        numSectDiff <- numSectDiff + 1
     printfn "done!"
-    printfn "There were %d block, %d sky, and %d section differences" numBlockDiff numSkyDiff numSectDiff
+    printfn "There were %d block, %d sky, %d section and %d HM differences" numBlockDiff numSkyDiff numSectDiff numHMDiff
 
 /////////////////////////////////////////
 
@@ -220,6 +231,19 @@ let relightTheWorldHelper(map:MapFolder, rxs, rzs, trustTheHeightMap) =
                 newRecomputeLightCore(map, blockLightSourcesByLevel, false)
                 newRecomputeLightCore(map, skyLightSourcesByLevel, true)
                 printfn " ...took %dms" sw.ElapsedMilliseconds 
+    // update LightPopulated
+    printf "updating LightPopulated..."
+    for rx in rxs do
+        for rz in rzs do
+            let r = map.MaybeGetRegion(rx*512,rz*512)
+            if r <> null then
+                for cx = 0 to 31 do
+                    for cz = 0 to 31 do
+                        let x,z = rx*512+cx*16, rz*512+cz*16
+                        let bi = r.MaybeGetBlockInfo(x,0,z)
+                        if bi <> null then // chunk is represented
+                            r.SetChunkClean(x,z)
+    printfn "...done!"
 
 let relightTheWorld(map:MapFolder) = relightTheWorldHelper(map, [-99..99], [-99..99], false)
 // TODO known oddities
