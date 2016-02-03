@@ -800,15 +800,7 @@ do
     
     // TEST
 
-    // try to make a 'no natural regen' customization of the map and play it - this will help factor/tune the knobs, and add another 'axis'
-    //  - global turn down spawners (dungeons, underground)
-    //  - come up with ih/reg/ga drop rate for mobs (in the 3-9% range)
-    //  - change food to be less obnoxious (maybe just apples and steak), since it's only about sprinting now
-    //  - would any 'prot' book stuff need to change?
-    // 4eedback:
-    //  - bread in dungeon chest (why?)
-    //  - maybe start o44 with a 4ew heals, start is brutal; maybe also a bow too?
-    //  - not neary enough heals, it 4eels, but did de4eat green dungeon ag4ter 3 deaths
+    // bark-only wood?
 
     // 4lat went into an ocean (spacing is really taking its toll)
     // fix red torches (maybe change block below them to andesite?)
@@ -824,6 +816,7 @@ do
     //   - (requires factoring loot tables differently, so 'common' loot is in a separate table, so 'rare' could still reference 'common'; alternatively, could just be 'extra' loot atop normal drops)
 
     // to test
+    // uhc balance; made lots of changes to food/heals/start items/spawners
     // made some changes to cave-side-paths, see if ok... they are decent, main issue is still that not always at dead ends, due to imperfect skeleton
     // test new food balance
     // test new flat set piece...
@@ -867,6 +860,8 @@ do
     // (the obeslisks in Eventide were effectively 'set pieces', can I think of others? wide area spawners did wonders for them; witch area (light) or guardian area (no water) may be good too?)
     // teleporter does not work in SMP, got glitched into bedrock.  figure that out.
     // possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
+    // seemd like there may still be some skylight bugs, do more checks versus MC
+    // 'keep eyes open', can have multiple chest names, vary
 
     // "retro"/"throwback"? seed-ed? roguelike? customized? randomized? play on spelunky/BoI? made-to-order? ___-crafted? rand-crafted, like hand-crafted?
     // procedural? programmed? custom-built?
@@ -884,7 +879,7 @@ do
     // fix lighting oddities? (figure out jack o lanterns, maybe put red torch on top corners of flat mini-bedrock)
     // consider language/translation stuff? german/ellpeck? (don't spend too much effort unless clear could be a big payoff)
     // obe notes that random-drop axes never have weapon enchants
-    // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), consider those
+    // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff? consider those
     // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
     // obe would like to 'continue with normal survival' after done
     // obe though redstone path should be 'breadcrumbs' ... i could maybe make start full, then switch to every 2 or every 3 blocks? or would that make feel like going wrong way?
@@ -916,6 +911,7 @@ do
     //   - key is getting player to set off trap, need a hook: gold block, chest, etc. and a few of them so not every one is a trap
     // ***skeleton trap, electrified creeper
     // ***primed tnt buried in walls
+    // trap where enderman grabs sand/whatever and update lava somehow (floating lava?)
     // more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
     // a finite set of collectable items could be good long-term for completionists
     // legendary: seeing x from afar leads to seeing y up close... (telporter path, ...)

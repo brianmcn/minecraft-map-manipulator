@@ -1787,9 +1787,16 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
                 for i = 0 to times-1 do
                     yield [| Byte("Count", 1uy); Byte("Slot", byte(18*i)+0uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
                     yield [| Byte("Count", 1uy); Byte("Slot", byte(18*i)+1uy); Short("Damage",0s); String("id","minecraft:shield"); End |]
-                    yield [| Byte("Count", 8uy); Byte("Slot", byte(18*i)+2uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
-                    yield [| Byte("Count",32uy); Byte("Slot", byte(18*i)+3uy); Short("Damage",0s); String("id","minecraft:cookie"); End |]
+                    if CustomizationKnobs.UHC_MODE then
+                        yield [| Byte("Count",12uy); Byte("Slot", byte(18*i)+2uy); Short("Damage",0s); String("id","minecraft:apple"); End |]
+                    else
+                        yield [| Byte("Count", 8uy); Byte("Slot", byte(18*i)+2uy); Short("Damage",0s); String("id","minecraft:bread"); End |]
+                        yield [| Byte("Count",32uy); Byte("Slot", byte(18*i)+3uy); Short("Damage",0s); String("id","minecraft:cookie"); End |]
                     yield [| Byte("Count",64uy); Byte("Slot", byte(18*i)+4uy); Short("Damage",0s); String("id","minecraft:dirt"); End |]
+                    if CustomizationKnobs.UHC_MODE then
+                        yield [| Byte("Count", 1uy); Byte("Slot", byte(18*i)+5uy); Short("Damage",0s); String("id","minecraft:bow"); End |]
+                        yield [| Byte("Count",24uy); Byte("Slot", byte(18*i)+6uy); Short("Damage",0s); String("id","minecraft:arrow"); End |]
+                        yield [| Byte("Count", 3uy); Byte("Slot", byte(18*i)+7uy); Short("Damage",0s); String("id","minecraft:golden_apple"); End |]
                 yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_RULES; End |]
                 yield [| Byte("Count", 1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_OVERVIEW; End |]
                 yield [| Byte("Count", 1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_GETTING_STARTED; End |]
@@ -1881,18 +1888,18 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     map.SetBlockIDAndDamage(x+i,h+7,z+j,0uy,0uy)  // 0=air
                             map.SetBlockIDAndDamage(x+2,h+2,z+2,209uy,0uy) // 209=end_gateway
                             map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",hm.[1,1]-4);Int("Z",1);End]|>ResizeArray); End |] |])
-                            putBeaconAt(map,x+2,h+12,z+2,0uy,false)
-                            placeRepeating(x+2,h+22,z+2,sprintf "execute @p[r=25] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+21) (z+2)) // absolute coords since execute-at
-                            map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+22,z+2)
-                            placeImpulse(x+2,h+21,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (hm.[1,1]-11) 0) // expose teleporters at spawn //note brittle coords of block
-                            placeChain(x+2,h+20,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
-                            placeImpulse(x+2,h+19,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-5) spz (x+2) (h+6) (z+2))
-                            placeChain(x+2,h+18,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}" spx (hm.[1,1]-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
-                            placeChain(x+2,h+17,z+2,Strings.TELLRAW_TELEPORTER_UNLOCKED)
-                            placeChain(x+2,h+16,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
-                            placeImpulse(x+2,h+15,z+2,"")
-                            placeChain(x+2,h+14,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (hm.[1,1]-3) spz tpdata)
-                            placeChain(x+2,h+13,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us
+                            putBeaconAt(map,x+2,h+14,z+2,0uy,false)
+                            placeRepeating(x+2,h+24,z+2,sprintf "execute @p[r=28] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+23) (z+2)) // absolute coords since execute-at
+                            map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+24,z+2)
+                            placeImpulse(x+2,h+23,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (hm.[1,1]-11) 0) // expose teleporters at spawn //note brittle coords of block
+                            placeChain(x+2,h+22,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
+                            placeImpulse(x+2,h+21,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-5) spz (x+2) (h+6) (z+2))
+                            placeChain(x+2,h+20,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}" spx (hm.[1,1]-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
+                            placeChain(x+2,h+19,z+2,Strings.TELLRAW_TELEPORTER_UNLOCKED)
+                            placeChain(x+2,h+18,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
+                            placeImpulse(x+2,h+17,z+2,"")
+                            placeChain(x+2,h+16,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (hm.[1,1]-3) spz tpdata)
+                            placeChain(x+2,h+15,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us
                             // place an 8-way path out to make these more findable
                             let DIRS = [|-1,-1; -1,0; -1,+1; 0,+1; +1,+1; +1,0; +1,-1; 0,-1|]  // dx, dz
                             let WIDE = [| -2; -1; 0; 1; 2 |]
@@ -2074,28 +2081,28 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
+    xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
