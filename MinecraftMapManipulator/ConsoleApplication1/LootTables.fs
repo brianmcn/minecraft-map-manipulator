@@ -237,12 +237,11 @@ let LOOT_FOOD =
 
 let HEALS = 
     if CustomizationKnobs.UHC_MODE then  
-        [|
-            // TODO better differentiation?
-            Item("minecraft:splash_potion",[SetNbt("""{Potion:\"minecraft:healing\"}""")])  // 2 hearts IH
+        [|  // inventory management is tough; award mostly gapples, and occasionally an IH, good enough
             Item("minecraft:splash_potion",[SetNbt("""{Potion:\"minecraft:strong_healing\"}""")])  // 4 hearts IH
-            Item("minecraft:splash_potion",[SetNbt("{CustomPotionEffects:[{Id:10,Amplifier:1b,Duration:240}]}")])  // 4/4.5 hearts R2
-            Item("minecraft:splash_potion",[SetNbt("{CustomPotionEffects:[{Id:10,Amplifier:2b,Duration:120}]}")])  // 4/5 hearts R3
+            //Item("minecraft:splash_potion",[SetNbt("{CustomPotionEffects:[{Id:10,Amplifier:2b,Duration:120}]}")])  // 4/5 hearts R3
+            Item("minecraft:golden_apple",[])
+            Item("minecraft:golden_apple",[])
             Item("minecraft:golden_apple",[])
         |]
     else
@@ -288,15 +287,15 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/wolf
 
         // HOSTILE
-        "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 4 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,15,MOB)]
-        "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 16; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,15,MOB)]
+        "minecraft:entities/blaze", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 8; tierxyLootPct MOB 3 4 [FOOD] 10; OneOfAtNPercent([ironPile],5,MOB); OneOfAtNPercent(HEALS,15,MOB)]
+        "minecraft:entities/cave_spider", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 3 3 [FOOD] 10; OneOfAtNPercent([ironPile],5,MOB); OneOfAtNPercent(HEALS,15,MOB)]
         "minecraft:entities/creeper", Pools [defaultMobDrop("gunpowder",0,1,0,1)
                                              tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 16; OneOfAtNPercent([cobblePile],10,MOB); OneOfAtNPercent(HEALS,8,MOB)]
 //        "minecraft:entities/elder_guardian
         "minecraft:entities/enderman", Pools [defaultMobDrop("ender_pearl",0,1,0,1)
                                               tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 16; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB); OneOfAtNPercent(HEALS,8,MOB)  // extra loot
                                              ]
-        "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 3 3 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,8,MOB)]
+        "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 8; tierxyLootPct MOB 3 3 [FOOD] 10; OneOfAtNPercent([ironPile],5,MOB); OneOfAtNPercent(HEALS,8,MOB)]
 //        "minecraft:entities/guardian
         "minecraft:entities/magma_cube", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
 
@@ -308,7 +307,7 @@ let LOOT_FROM_DEFAULT_MOBS =
 //        "minecraft:entities/slime
         "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
         "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB); OneOfAtNPercent(HEALS,15,MOB)]
-        "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 33; tierxyLootPct MOB 2 2 [FOOD] 33; OneOfAtNPercent([ironPile],10,MOB); OneOfAtNPercent(HEALS,15,MOB)]
+        "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 2 2 [FOOD] 10; OneOfAtNPercent([ironPile],5,MOB); OneOfAtNPercent(HEALS,15,MOB)]
         "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
 //        "minecraft:entities/zombie_horse
         "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB); OneOfAtNPercent(HEALS,8,MOB)]
@@ -444,8 +443,9 @@ let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
             else
                 yield makeItem(rng,"bread",F 2,F 2,0s)
             yield! Algorithms.pickNnonindependently(rng,F 1,[makeItem(rng,"iron_pickaxe",1,1,0s);makeItem(rng,"iron_sword",1,1,0s);makeItem(rng,"iron_axe",1,1,0s);makeItem(rng,"iron_ingot",2,9,0s)])
-            yield makeItem(rng,"saddle",1,1,0s)
-            yield makeItem(rng,"iron_horse_armor",1,1,0s)
+            if rng.Next(2)=0 then
+                yield makeItem(rng,"saddle",1,1,0s)
+                yield makeItem(rng,"iron_horse_armor",1,1,0s)
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
         |]
     addSlotTags tier2Items 
@@ -469,8 +469,8 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
             yield makeItem(rng,"experience_bottle",64,64,0s)
             yield makeItem(rng,"diamond_pickaxe",1,1,0s)
             yield makeItem(rng,"diamond_sword",1,1,0s)
-            yield makeItem(rng,"iron_ingot",F 20,F 30,0s)
-            yield makeItem(rng,"gold_ingot",F 20,F 30,0s)
+            yield makeItem(rng,"iron_ingot",F 15,F 20,0s)
+            yield makeItem(rng,"gold_ingot",F 15,F 20,0s)
             yield makeItem(rng,"cooked_beef",F 10,F 20,0s)
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_GREEN_BEACON_CHEST; End |]
         |]
@@ -490,8 +490,8 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
             yield! chooseNbooks(rng,F 3,tier4BowBooks)
             yield makeItem(rng,"anvil",F 3,F 5,2s)
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng))
-            yield makeItem(rng,"diamond",F 20,F 30,0s)
-            yield makeItem(rng,"golden_apple",F 9,F 14,0s)
+            yield makeItem(rng,"diamond",F 10,F 16,0s)
+            yield makeItem(rng,"golden_apple",F 4,F 7,0s)
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
         |]
     addSlotTags tier4Items 

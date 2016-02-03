@@ -739,25 +739,27 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         //sideLengths.Sort()
                         let tes = ResizeArray()
                         for sidePath in sidePaths do
-                            let l = sidePath.Count 
-                            if l >= 15 && l <= 40 then
-                                for x,y,z in sidePath do
-                                    if debugSkeleton then
-                                        map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane
-                                    // put stripe on the ground
-                                    replaceGroundBelowWith(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
-                                // put chest on ground at dead end
-                                let mutable x,y,z = sidePath.[0]
-                                while a.[x,y,z]<>null do
-                                    y <- y - 1
-                                y <- y + 1
-                                // TODO probably make a loot table, be more interesting
-                                // TODO sometimes be trap or troll
-                                let F = CustomizationKnobs.LOOT_FUNCTION
-                                let numEmeralds = 1 + rng.Next(F 2)
-                                let chestItems = Compounds[| [| Byte("Count",byte numEmeralds); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
-                                putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON, chestItems, map, tes)
-                                log.LogInfo(sprintf "added side path length %d" l)
+                            let _,spy,_ = sidePath.[0]
+                            if spy <= 56 then // an apparent endpoint at a height near 60 may just be where there was a cave opening but the analysis cut off at high y and saw it as endpoint, so ignore high-y endpoints
+                                let l = sidePath.Count 
+                                if l >= 15 && l <= 40 then
+                                    for x,y,z in sidePath do
+                                        if debugSkeleton then
+                                            map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane
+                                        // put stripe on the ground
+                                        replaceGroundBelowWith(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
+                                    // put chest on ground at dead end
+                                    let mutable x,y,z = sidePath.[0]
+                                    while a.[x,y,z]<>null do
+                                        y <- y - 1
+                                    y <- y + 1
+                                    // TODO probably make a loot table, be more interesting
+                                    // TODO sometimes be trap or troll
+                                    let F = CustomizationKnobs.LOOT_FUNCTION
+                                    let numEmeralds = 1 + rng.Next(F 2)
+                                    let chestItems = Compounds[| [| Byte("Count",byte numEmeralds); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
+                                    putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON, chestItems, map, tes)
+                                    log.LogInfo(sprintf "added side path length %d" l)
                         map.AddOrReplaceTileEntities(tes)
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
@@ -891,7 +893,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                         else
                             map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
-                        if rng.Next(15) = 0 then
+                        if rng.Next(18) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
                     elif bid = 54uy then // chest // assuming all chests are dungeon chests, no verification
                         chestTEs.Add( chestTE(x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng)),Strings.NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST,null,0L) )
@@ -1713,7 +1715,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     for x,_,z in lootLocations do
         decorations.Add('*',x,z)
 
-let placeStartingCommands(map:MapFolder,hm:_[,]) =
+let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,]) =
     let placeCommand(x,y,z,command,bid,name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
@@ -1722,7 +1724,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
     let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,"minecraft:command_block")
     let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,"minecraft:repeating_command_block")
     //let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,"minecraft:chain_command_block")
-    let h = hm.[1,1] // 1,1 since 0,0 has commands
+    let h = hmIgnoringLeaves.[1,1] // 1,1 since 0,0 has commands
     let y = ref 255
     let R(c) = placeRepeating(0,!y,0,c); decr y
     let I(c) = placeImpulse(0,!y,0,c); decr y
@@ -1732,7 +1734,7 @@ let placeStartingCommands(map:MapFolder,hm:_[,]) =
         let theta = System.Math.PI * 2.0 * float i / 100.0
         let x = cos theta * float DAYLIGHT_RADIUS |> int
         let z = sin theta * float DAYLIGHT_RADIUS |> int
-        let h = hm.[x,z] + 5
+        let h = hmIgnoringLeaves.[x,z] + 5
         if h > 60 then
             for y = 60 to h do
                 map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
@@ -1882,6 +1884,9 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             found <- true
                             log.LogSummary(sprintf "TP at %d %d" x z)
                             decorations.Add('T',x+2,z+2)
+                            for i = -1 to 5 do
+                                for j = -1 to 5 do
+                                    map.SetBlockIDAndDamage(x+i,h-1,z+j,7uy,0uy)  // 7=bedrock   // wider platform at base, in case generates on ocean, can 'climb up'
                             for i = 0 to 4 do
                                 for j = 0 to 4 do
                                     map.SetBlockIDAndDamage(x+i,h+0,z+j,7uy,0uy)  // 7=bedrock
@@ -1893,18 +1898,19 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     map.SetBlockIDAndDamage(x+i,h+6,z+j,0uy,0uy)  // 0=air
                                     map.SetBlockIDAndDamage(x+i,h+7,z+j,0uy,0uy)  // 0=air
                             map.SetBlockIDAndDamage(x+2,h+2,z+2,209uy,0uy) // 209=end_gateway
-                            map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",hm.[1,1]-4);Int("Z",1);End]|>ResizeArray); End |] |])
+                            let spawnHeight = hmIgnoringLeaves.[1,1]
+                            map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",spawnHeight-4);Int("Z",1);End]|>ResizeArray); End |] |])
                             putBeaconAt(map,x+2,h+14,z+2,0uy,false)
                             placeRepeating(x+2,h+24,z+2,sprintf "execute @p[r=28] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+23) (z+2)) // absolute coords since execute-at
                             map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+24,z+2)
-                            placeImpulse(x+2,h+23,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (hm.[1,1]-11) 0) // expose teleporters at spawn //note brittle coords of block
+                            placeImpulse(x+2,h+23,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (spawnHeight-11) 0) // expose teleporters at spawn //note brittle coords of block
                             placeChain(x+2,h+22,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
-                            placeImpulse(x+2,h+21,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (hm.[1,1]-5) spz (x+2) (h+6) (z+2))
-                            placeChain(x+2,h+20,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}" spx (hm.[1,1]-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
+                            placeImpulse(x+2,h+21,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (spawnHeight-5) spz (x+2) (h+6) (z+2))
+                            placeChain(x+2,h+20,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}" spx (spawnHeight-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
                             placeChain(x+2,h+19,z+2,Strings.TELLRAW_TELEPORTER_UNLOCKED)
                             placeChain(x+2,h+18,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
                             placeImpulse(x+2,h+17,z+2,"")
-                            placeChain(x+2,h+16,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (hm.[1,1]-3) spz tpdata)
+                            placeChain(x+2,h+16,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (spawnHeight-3) spz tpdata)
                             placeChain(x+2,h+15,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us
                             // place an 8-way path out to make these more findable
                             let DIRS = [|-1,-1; -1,0; -1,+1; 0,+1; +1,+1; +1,0; +1,-1; 0,-1|]  // dx, dz
@@ -2088,20 +2094,20 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    xtime (fun () -> allTrees := treeify(map))
+    time (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
-        placeStartingCommands(map,hm))
+        placeStartingCommands(map,hmIgnoringLeaves))
     time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save

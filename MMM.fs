@@ -754,10 +754,10 @@ do
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w03a.zip""","""C:\Users\Admin1\Desktop\16w04a.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w04a.zip""","""C:\Users\Admin1\Desktop\16w05a.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\d1\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
-    let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\30b0989b97f6c10183de1ddf47f428b5d4edc895""")
+    let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
     if not(diffStringArrays(oldSoundsJson, currentSoundsJson)) then
         printfn "no sound json diff"
     *)
@@ -770,7 +770,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -843,6 +843,17 @@ do
     // playtest note: I never used a random drop tool/armor in uhc mode, probably b/c I killed so few mobs (maybe with more heals now that will change?)
 
     // TODO: bugs & good ideas
+
+    // vertical redstone hops can be very hard to 4ollow (ideas?)
+    // teleporter trapped chests in ocean - maybe put above water?
+    // absorbtion/HB hearts sometimes not show (client reset 4ixes)
+    // could give people teleporters (e.g. ICBs that turn sel4 into TP home), i4 desired, hm
+    // desert wells get gen'd - loot in them?
+    // loot in things other than chests? furnaces? what else could 'blend'?
+    // 'write all' - save to byte array first, then write to disk all at once, would that be any faster? (so slow now)
+    // 'daylight potion' (spell of repel), time mechanic with consumable that makes it daylight (e.g. for overworld convenient travel), maybe after beat the 'flat'? (how implement? eat poison potato or nonsense?)
+
+
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
     // some other block substitutions to make things interesting? cobble stairs/double-slabs to feign stone in caves?
     // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)

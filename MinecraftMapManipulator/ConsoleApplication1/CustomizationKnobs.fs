@@ -2,6 +2,27 @@
 
 open NBT_Manipulation
 
+///////////////////////////////////////////////////
+
+let UHC_MODE = true
+
+let UHC_MULT_A = if UHC_MODE then 0.5 else 1.0   // most of map is much harder, make easier
+let UHC_MULT_B = if UHC_MODE then 0.8 else 1.0   // end of map with great armor doesn't need as much buffer
+
+let SINGLEPLAYER = true
+let LOOT_FUNCTION(n) =
+    if SINGLEPLAYER then
+        n
+    else
+        match n with
+        | 0 -> 0
+        | 1 -> 2
+        | 2 -> 3
+        | 3 -> 5
+        | _ -> int (float n * 1.5)
+
+///////////////////////////////////////////////////
+
 type MobSpawnerInfo() =
     member val RequiredPlayerRange =  16s with get, set
     member val SpawnCount          =   4s with get, set
@@ -56,19 +77,15 @@ type SpawnerData(distributionInfo, densityMultiplier) =
                 ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
         ms
 
-let UHC_MODE = true
-
-let UHC_MULT_A = if UHC_MODE then 0.5 else 1.0   // most of map is much harder, make easier
-let UHC_MULT_B = if UHC_MODE then 0.8 else 1.0   // end of map with great armor doesn't need as much buffer
 
 
 // mega-dungeons
 let GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
     SpawnerData([|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,rng) -> if rng.Next(10)=0 then ms.Delay <- 1s))
 let PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(6,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (2,"Skeleton"); (2,"Creeper")|], UHC_MULT_B*1.6, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
+    SpawnerData([|(6,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (2,"Skeleton"); (2,"Creeper")|], UHC_MULT_B*1.5, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
 let MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(4,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (1,"Ghast")|],     UHC_MULT_B*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 1.0)
+    SpawnerData([|(3,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (2,"Ghast")|],     UHC_MULT_B*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 1.0)
 let FLAT_COBWEB_OUTER_SPAWNER_DATA = 
     SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.0)
 let FLAT_COBWEB_INNER_SPAWNER_DATA = 
@@ -90,19 +107,6 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
                                             Delay=1s, // primed
                                             MinSpawnDelay=200s, MaxSpawnDelay=400s) // 10-20s, rather than 10-40s
 
-
-
-let SINGLEPLAYER = false
-let LOOT_FUNCTION(n) =
-    if SINGLEPLAYER then
-        n
-    else
-        match n with
-        | 0 -> 0
-        | 1 -> 2
-        | 2 -> 3
-        | 3 -> 5
-        | _ -> int (float n * 1.5)
 
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
