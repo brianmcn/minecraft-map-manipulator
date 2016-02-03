@@ -13,6 +13,8 @@ let private displayNameAndLore(name, lore:_[]) = // lore can be null
                              yield List("Lore",Strings(lore));
                          yield End|] |> ResizeArray)
 
+let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
+
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
          id """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
@@ -47,7 +49,7 @@ let BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","Congratulations!",[| 
         id """{"text":"Once all monument blocks are placed on the monument, you win! ..."}"""
         id """{"text":"I hope you enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO..."}"""
-        id """{"text":"If you enjoyed and would like to leave me a donation, I'd very much appreciate that! TODO donation link"}"""
+        sprintf """[{"text":"If you enjoyed the map and would like to leave me a donation, I'd very much appreciate that!\n\n"},{"text":"Click to donate","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
      |])|> ResizeArray)
 
 let STARTING_BOOK_RULES =
@@ -137,7 +139,7 @@ let TELLRAW_TELEPORTER_UNLOCKED = """tellraw @a [{"text":"A two-way teleporter t
 let NBT_LUCKY_GAPPLE = """{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}"""
 let NBT_FISHING = 
     Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
-        id """{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to donate!"}""" // TODO donate link?
+        sprintf """[{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to "},{"text":"donate!","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
     |])
 
 module NameAndLore =

@@ -107,7 +107,6 @@ let LOOT_FUNCTION(n) =
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
-// TODO think abotu kinds of changes needed for UHC mode, maybe
 // TODO freq of random loot chests? (may interact with trades by having emeralds, may contain gapples or occasional OP weapon/armor? ...)
 // TODO (eventually maybe) number of monumnet blocks / major dungeon types?
 // TODO options to armor mobs in the spawners
@@ -121,7 +120,7 @@ let SPAWN_PROTECTION_DISTANCE_GREEN = 200
 let SPAWN_PROTECTION_DISTANCE_FLAT = 350
 let SPAWN_PROTECTION_DISTANCE_PEAK = 500
 let SPAWN_PROTECTION_DISTANCE_PURPLE = 700
-let STRUCTURE_SPACING = 300  // no two of same structure within this dist of each other (currently used by peaks and flats)
+let STRUCTURE_SPACING = 250  // no two of same structure within this dist of each other (currently used by peaks and flats)
 let DECORATION_SPACING = 94  // no two decos this close together (used by peaks and flats) note: they have squares of 47 and 20, and so 94 is (47+20)*sqrt(2)
 let RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION = 50 // no rand loot chests near dungeons, for example
 let DAYLIGHT_RADIUS = 180

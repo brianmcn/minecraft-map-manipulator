@@ -800,11 +800,6 @@ do
     
     // TEST
 
-    // bark-only wood?
-
-    // 4lat went into an ocean (spacing is really taking its toll)
-    // fix red torches (maybe change block below them to andesite?)
-
     // idea: foresight potion, shows what rare things mobs will drop
     //   - zombie/skeleton/pigzombie wear item as head armor slot
     //   - other mobs have a visible customname
@@ -844,11 +839,12 @@ do
     // playtest note: Obe finished in 14 hours (6 hours on camera, 8 farming, exploring, etc) with 13 deaths
     // playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
     // playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
-    // get use to clicking for invincibility frames, think about mob balance with viable spam clicking
+    // get use to clicking for invincibility frames, think about mob balance with viable spam clicking\
+    // playtest note: I never used a random drop tool/armor in uhc mode, probably b/c I killed so few mobs (maybe with more heals now that will change?)
 
     // TODO: bugs & good ideas
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
-    // some other block substitutions to make things interesting? six-sided oak/shroom texture (set bits 4 & 8 of log dmg)? cobble stairs/double-slabs to feign stone in caves?
+    // some other block substitutions to make things interesting? cobble stairs/double-slabs to feign stone in caves?
     // glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...)
     //  - idea: CC the lava/flowing_lava, convert all connected to level 10 to glowstone, if y>10, 50% air, if y <=10 obsidian?
     //  - biome change-up (to change grass colors)? to what purpose? (prefer to have a mechanic)
@@ -876,7 +872,7 @@ do
     // 4inal book TODOs, some kind o4 better acknowledgement when complete map
     // spawners inside tree leaves are nice simple 'traps', maybe by the tree chests? (how look on fast graphics if inside? or maybe just top center block of '+' e.g.)
     // summary and maybe starting book need summary customization info (seed, # player loot, difficulty, ...)
-    // fix lighting oddities? (figure out jack o lanterns, maybe put red torch on top corners of flat mini-bedrock)
+    // fix lighting oddities? (figure out jack o lanterns - fixed now maybe?)
     // consider language/translation stuff? german/ellpeck? (don't spend too much effort unless clear could be a big payoff)
     // obe notes that random-drop axes never have weapon enchants
     // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff? consider those
@@ -893,13 +889,11 @@ do
     // elytra rework:
     //  - Fix had never used elytra before, didn't know how to fly, looked straight down, died of fall damage
     //  - have a 'how to fly with elytra' book
-    // teleporter command blocks look like a bug, consider moving cmds
     // awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket? or just have ice in ceiling or water sources behind spawners, etc
     // spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
     // getting chest in glass set piece spawns 4 ghasts - good or bad?
     // consider directly give some fw2 boots with other good something, to make more likely to use? no, has downsides too (waterfalls, farms, ...), hm
     // remove bingo's spammable iron sword
-    // note to self: craft gapples next time
     // still some cave-skeleton bugs (screenshots from jan 20)
     // ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
     // ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
@@ -930,12 +924,10 @@ do
     // floating structures? lava/water pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff
     //  - also oceans/tiny islands, can build without overlap, just need ways to draw players out there to find them
     // could put more than one spawner in wall in green/purple cave as progress... could extinguish lava -> obsidian for less light...
-    // teleporters could be color-coded (easier to remember?)
     // tnt exploding a morse code explosion-sound something?!?
     // infinite loot chest puzzle (need a certain tree/path through 27 chests in each to win, or something)
     // hollow out mountain, for top-down, multi-tier, encased in bedrock dungeon? ghast spawner atop mtn when broken could lead to ladder down to hollowed mountain dungeon
     // desert falling sand could also open hole into giant underground cavern of some sort?
-    // consider strongly how hard it would be for a good biome-specific music implementation (transitions etc) to e.g. help alert of nether biomes, day/night area, etc
     // more random chest locations:
     //   - bottom of surface ravine (low heightmap)
     //   - flower forest, near poeny/rosebush, put '+' of tall flowers with chest in middle

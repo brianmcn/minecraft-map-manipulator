@@ -579,7 +579,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
         while a.[pi,pj,pk]<>null do
             pj <- pj - 1
         let skippableDown(bid) = 
-            (bid = 8uy || bid = 10uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy) // flowing_water/flowing_lava/web/tallgrass/2flowers/2mushrooms // TODO or rail?
+            (bid = 8uy || bid = 10uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=66uy) // flowing_water/flowing_lava/web/tallgrass/2flowers/2mushrooms/rail
         while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) do
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
@@ -893,8 +893,10 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     elif bid = 16uy && dmg = 0uy then // coal ore ->
                         if rng.Next(15) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
-                    elif bid = 54uy then // chest // TODO assuming all chests are dungeon chests, no verification
+                    elif bid = 54uy then // chest // assuming all chests are dungeon chests, no verification
                         chestTEs.Add( chestTE(x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng)),Strings.NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST,null,0L) )
+                    elif bid = 17uy || bid = 162uy then // log/log2
+                        map.SetBlockIDAndDamage(x,y,z,bid,dmg ||| 12uy) // setting bits 4&8 yields 6-sided bark texture, which looks cool
     log.LogSummary("added random spawners underground")
     spawners1.AddToMapAndLog(map,log)
     spawners2.AddToMapAndLog(map,log)
@@ -1274,6 +1276,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                         let z = j
                         let y = hm.[x,z]
                         map.SetBlockIDAndDamage(x,y,z,76uy,5uy) // 76=redstone_torch
+                        map.SetBlockIDAndDamage(x,y-1,z,1uy,5uy) // 1,5=andesite
                 // ceiling over top to prevent cheesing it
                 map.SetBlockIDAndDamage(i,y+5,j,7uy,0uy) // 7=bedrock
                 hm.[i,j] <- y+6
@@ -1347,6 +1350,8 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
         for dx = -3 to 3 do
             for dz = -3 to 3 do
                 map.SetBlockIDAndDamage(x+dx, y+6, z+dz, 7uy, 0uy) // 7 = bedrock ceiling
+                if abs(dx)=3 && abs(dz)=3 then
+                    map.SetBlockIDAndDamage(x+dx, y+7, z+dz, 76uy, 5uy) // 76=redstone_torch
         // surround with danger
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
@@ -1367,6 +1372,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
                     elif rng.Next(60) = 0 then
                         map.SetBlockIDAndDamage(i,hm.[i,j],j,76uy,5uy) // 76=redstone_torch
+                        map.SetBlockIDAndDamage(i,hm.[i,j]-1,j,1uy,5uy) // 1,5=andesite
         spawners.AddToMapAndLog(map,log)
         for i = x-CR to x+CR do
             for j = z-CR to z+CR do
@@ -1948,6 +1954,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                         let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                         putTrappedChestWithItemsAt(ix,y,iz,Strings.NAME_OF_TELEPORTER_BREADCRUMBS_CHEST,chestItems,map,null)
                                         map.SetBlockIDAndDamage(ix,y-1,iz,76uy,5uy) // 76=redstone_torch
+                                        map.SetBlockIDAndDamage(ix,y-2,iz,1uy,5uy) // 1,5=andesite
                                         decorations.Add('*',ix,iz) // TODO will this interfere with dungeon placement?
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
@@ -2083,26 +2090,26 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let allTrees = ref null
     xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hm))
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
