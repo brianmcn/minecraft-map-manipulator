@@ -111,6 +111,13 @@ let STARTING_BOOK_HINTS_AND_SPOILERS =
                                 Utilities.wrapInJSONTextContinued "5. SECRET TREASURE\n\nNext dig for treasure at the given coordinates ('H' on the spoiler map image). You'll find the second monument block, and faster travel/exploration."
                                 Utilities.wrapInJSONText "6. FINAL DUNGEON\n\nFinally explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), the final dungeon. It's like the first dungeon, but harder, and has the final monument block."
                             |]) |> ResizeArray)
+let TELEPORTER_HUB_BOOK =
+    Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","Teleport hub",
+                            [|
+                                Utilities.wrapInJSONTextContinued "This teleporter hub allows for faster travel to unlocked corners of the map. Each unlocked teleporter also provides a villager who trades emeralds for potion buffs."
+                                Utilities.wrapInJSONText "If you can't see a villager in this room, exit/disconnect from the world, then reload/rejoin, and the villager should appear above the teleporter (Minecraft rendering bug)."
+                            |]) |> ResizeArray)
 
 let NAME_OF_FINAL_PURPLE_DUNGEON_CHEST = TranslatableString "Winner!"
 let NAME_OF_GENERIC_TREASURE_BOX = TranslatableString "Lootz!"
@@ -118,6 +125,7 @@ let NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON = TranslatableString "Dead end, turn
 let NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST = TranslatableString "Spooky dungeon loot"
 let NAME_OF_HIDDEN_TREASURE_CHEST = TranslatableString "Hidden treasure!"
 let NAME_OF_STARTING_CHEST = TranslatableString "Welcome!"
+let NAME_OF_TELEPORT_ROOM_CHEST = TranslatableString "Teleporter hub"
 let NAME_OF_TELEPORTER_BREADCRUMBS_CHEST = TranslatableString "Keep your eyes open"
 let NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT = TranslatableString "Mountain Peak Loot"
 let NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT = TranslatableString "Red Beacon Web Loot"

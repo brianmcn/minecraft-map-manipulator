@@ -218,7 +218,8 @@ type RegionFile(filename) =
                     else 
                         assert( isChunkDirty.[cx,cz] = UNCHANGED )
                     let ms = new System.IO.MemoryStream()
-                    use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionMode.Compress, true)
+                    //use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionMode.Compress, true)
+                    use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionLevel.Fastest, true)  // This is about 2.2x faster, but files are about 15% larger. (MC opens them fine.)
                     chunks.[cx,cz].Write(new BinaryWriter2(s))
                     s.Close()
                     let numBytes = int ms.Length

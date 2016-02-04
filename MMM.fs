@@ -770,7 +770,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -844,14 +844,14 @@ do
 
     // TODO: bugs & good ideas
 
-    // vertical redstone hops can be very hard to 4ollow (ideas?)
-    // teleporter trapped chests in ocean - maybe put above water?
     // absorbtion/HB hearts sometimes not show (client reset 4ixes)
-    // could give people teleporters (e.g. ICBs that turn sel4 into TP home), i4 desired, hm
-    // desert wells get gen'd - loot in them?
-    // loot in things other than chests? furnaces? what else could 'blend'?
-    // 'write all' - save to byte array first, then write to disk all at once, would that be any faster? (so slow now)
-    // 'daylight potion' (spell of repel), time mechanic with consumable that makes it daylight (e.g. for overworld convenient travel), maybe after beat the 'flat'? (how implement? eat poison potato or nonsense?)
+    // one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
+    // loot in things other than chests? furnaces? what else could 'blend'? (furnace is kinda it)
+    // 'daylight potion' (spell of repel), time mechanic with consumable that makes it daylight (e.g. for overworld convenient travel), maybe after beat the 'flat'? 
+    //  - (how implement? eat poison potato or nonsense?) potion of luck! testfor @a {ActiveEffects:[{Id:26b}]} // Item("minecraft:splash_potion",[SetNbt("""{Potion:\"minecraft:luck\"}""")])  // 5 mins
+    //  - but need to extend ceiling around mountain and update distance separations (and does make some chests harder to find, but some easier)
+    //  - can just put one pot in red flat chest, then would get 2 more in mtn peak chest as result, fair?
+
 
 
     // more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
@@ -925,7 +925,6 @@ do
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
     // TODOs and refactorings...
-    // return to spawn from teleporter, villagers don't immediately appear on client?
     // noisemaker noteblock troll underground? fireworks spawner
     // undergound: 'giant crystal cave', e.g. you go down a cave and find a huge open space with ice and glass and whatnot. (how to generate 'look', how to place so there's a path, how to get player to find)
     // even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece

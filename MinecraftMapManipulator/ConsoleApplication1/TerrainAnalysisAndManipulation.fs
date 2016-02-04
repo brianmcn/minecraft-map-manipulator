@@ -240,6 +240,11 @@ type MCTree(woodType) =
     member this.Leaves = leaves
     member this.LowestLeafY with get() = lly and set(y) = lly <- y
     member this.CanonicalStump with get() = cs and set(p) = cs <- p
+    member this.Replace(map:MapFolder, logbid, logdmg, leafbid, leafdmg) =
+        for x,y,z in this.Logs do
+            map.SetBlockIDAndDamage(x,y,z,logbid,logdmg)
+        for x,y,z,_ in this.Leaves do
+            map.SetBlockIDAndDamage(x,y,z,leafbid,leafdmg)
 
 type PriorityQueue() =
     let mutable pq = Set.empty 
@@ -574,12 +579,12 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         goodCCs.[v.Point].Add(PT(x,y,z)) |> ignore
     printfn ""
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
+    let skippableDown(bid) = 
+        (bid = 8uy || bid = 10uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=66uy) // flowing_water/flowing_lava/web/tallgrass/2flowers/2mushrooms/rail
     let replaceGroundBelowWith(x,y,z,bid,dmg) = 
         let mutable pi,pj,pk = x,y,z
         while a.[pi,pj,pk]<>null do
             pj <- pj - 1
-        let skippableDown(bid) = 
-            (bid = 8uy || bid = 10uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=66uy) // flowing_water/flowing_lava/web/tallgrass/2flowers/2mushrooms/rail
         while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) do
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
@@ -673,7 +678,8 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                 for x in xs do
                                     for y in ys do
                                         for z in zs do
-                                            if map.GetBlockInfo(x,y,z).BlockID <> 0uy then // if not air
+                                            let bid = map.GetBlockInfo(x,y,z).BlockID
+                                            if bid <> 0uy && not(skippableDown(bid)) then // if 'solid' enough to replace with spawner
                                                 candidates.Add(x,y,z)
                                 if candidates.Count > 0 then
                                     let x,y,z = candidates.[rng.Next(candidates.Count-1)]
@@ -1006,10 +1012,7 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
                 biome.[x,z] <- 8uy
                 if treeByXZ.ContainsKey(x,z) then
                     for t in treeByXZ.[x,z] do
-                        for x,y,z in t.Logs do
-                            map.SetBlockIDAndDamage(x,y,z,112uy,0uy) // 112=nether_brick
-                        for x,y,z,_ in t.Leaves do
-                            map.SetBlockIDAndDamage(x,y,z,87uy,0uy) // 87=netherrack
+                        t.Replace(map,112uy,0uy,87uy,0uy)// 112=nether_brick, 87=netherrack
                         hellPlainsTreeCount <- hellPlainsTreeCount + 1
             hellBiomePlainsCount <- hellBiomePlainsCount + 1
         elif rng.NextDouble() < BIOME_SKY_PERCENTAGE then
@@ -1018,10 +1021,7 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
                 biome.[x,z] <- 9uy
                 if treeByXZ.ContainsKey(x,z) then
                     for t in treeByXZ.[x,z] do
-                        for x,y,z in t.Logs do
-                            map.SetBlockIDAndDamage(x,y,z,49uy,0uy) // 49=obsidian
-                        for x,y,z,_ in t.Leaves do
-                            map.SetBlockIDAndDamage(x,y,z,120uy,0uy) // 120=end_portal_frame
+                        t.Replace(map,49uy,0uy,120uy,0uy)// 49=obsidian, 120=end_portal_frame
                         skyPlainsTreeCount <- skyPlainsTreeCount + 1
             skyBiomePlainsCount <- skyBiomePlainsCount + 1
     for KeyValue(_k,v) in desertCCs do
@@ -1031,10 +1031,7 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
                 biome.[x,z] <- 8uy
                 if treeByXZ.ContainsKey(x,z) then
                     for t in treeByXZ.[x,z] do
-                        for x,y,z in t.Logs do
-                            map.SetBlockIDAndDamage(x,y,z,112uy,0uy) // 112=nether_brick
-                        for x,y,z,_ in t.Leaves do
-                            map.SetBlockIDAndDamage(x,y,z,87uy,0uy) // 87=netherrack
+                        t.Replace(map,112uy,0uy,87uy,0uy)// 112=nether_brick, 87=netherrack
                         hellDesertTreeCount <- hellDesertTreeCount + 1
                 for y = 128 downto 56 do
                     let bi = map.GetBlockInfo(x,y,z)
@@ -1637,6 +1634,21 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     putTrappedChestWithLoot(x,y-1,z,1)
                                     points.[7].Add( (x,y-1,z) )
                                     names.[7] <- "forest buried"
+                    elif bid = 24uy && checkForPlus(x,y,z,44uy,44uy) then // 24=sandstone, 44=slab - top of desert well
+                        printfn "DESERT WELL %d %d %d" x y z
+                        // do 100% of them, they're very rare
+                        // 5 down chest, 4 more down torch
+                        putTrappedChestWithLoot(x,y-5,z,2)
+                        for i = 1 to 4 do
+                            map.SetBlockIDAndDamage(x+1,y-5-i,z,24uy,0uy)
+                            map.SetBlockIDAndDamage(x-1,y-5-i,z,24uy,0uy)
+                            map.SetBlockIDAndDamage(x,y-5-i,z+1,24uy,0uy)
+                            map.SetBlockIDAndDamage(x,y-5-i,z-1,24uy,0uy)
+                            map.SetBlockIDAndDamage(x,y-5-i,z,0uy,0uy)
+                        map.SetBlockIDAndDamage(x,y-5-4,z,50uy,5uy)
+                        map.SetBlockIDAndDamage(x,y-5-5,z,24uy,0uy)
+                        points.[8].Add( (x,y-5,z) )
+                        names.[8] <- "rare desert well"
                     else
                         () // TODO other stuff
                 // end for y
@@ -1715,7 +1727,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     for x,_,z in lootLocations do
         decorations.Add('*',x,z)
 
-let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,]) =
+let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArray<MCTree>) =
     let placeCommand(x,y,z,command,bid,name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
@@ -1749,7 +1761,6 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,]) =
     I(sprintf "setworldspawn 1 %d 1" h)
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
-    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 hollow" (h-6) h)  // teleport room, surface is monument floor
     I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 outline" (h-12) (h-10))  // command room, cmds at h-11
     I("scoreboard objectives add hidden dummy")
     I("scoreboard objectives add Deaths stat.deaths")
@@ -1768,14 +1779,20 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,]) =
 
 
     putBeaconAt(map,1,h-6,1,0uy,false)  // beacon at spawn for convenience
-    map.SetBlockIDAndDamage(1,h,1,120uy,0uy) // 120=end portal frame
-    // clear space above spawn platform
+    // clear space above spawn platform...
+    // ..remove entirety of nearby trees
+    if allTrees = null then
+        printfn "allTrees WAS NULL, SKIPPING TREE REDO"
+    else
+        for t in allTrees do
+            let x,_,z = t.CanonicalStump 
+            if abs(x) < 10 && abs(z) < 10 then
+                t.Replace(map, 0uy, 0uy, 0uy, 0uy)
+    // ...clear out any other blocks
     for x = -2 to 4 do
         for z = -2 to 4 do
-            map.SetBlockIDAndDamage(x,h+1,z,0uy,0uy) // air
-            map.SetBlockIDAndDamage(x,h+2,z,0uy,0uy) // air
-            map.SetBlockIDAndDamage(x,h+3,z,0uy,0uy) // air
-            map.SetBlockIDAndDamage(x,h+4,z,0uy,0uy) // air
+            for dy = 1 to 20 do
+                map.SetBlockIDAndDamage(x,h+dy,z,0uy,0uy) // air
     // rest of monument
     map.SetBlockIDAndDamage(2,h+1,4,7uy,0uy) // 7=bedrock
     map.SetBlockIDAndDamage(1,h+1,4,7uy,0uy)
@@ -1813,6 +1830,23 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,]) =
             |]
     putUntrappedChestWithItemsAt(1,h+1,-2,Strings.NAME_OF_STARTING_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(1,h+2,-2,130uy,3uy) // enderchest
+    // the TP hub...
+    // ...floor & ceiling
+    for x = -2 to 4 do
+        for z = -2 to 4 do
+            map.SetBlockIDAndDamage(x,h-6,z,7uy,0uy)
+            map.SetBlockIDAndDamage(x,h,z,7uy,0uy)
+    // ...walls and room
+    for x = -2 to 4 do
+        for z = -2 to 4 do
+            for y = h-5 to h-1 do
+                if x = -2 || x = 4 || z = -2 || z = 4 then
+                    map.SetBlockIDAndDamage(x,y,z,7uy,0uy)
+                else
+                    map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+    // ...stuff in the room to start
+    let chestItems = Compounds[| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.TELEPORTER_HUB_BOOK; End |] |]
+    putUntrappedChestWithItemsAt(1,h-5,-1,Strings.NAME_OF_TELEPORT_ROOM_CHEST,chestItems,map,null)
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(3,h-11,0,137uy,0uy)
     map.AddOrReplaceTileEntities([| [| Int("x",3); Int("y",h-11); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 h 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
@@ -1887,6 +1921,8 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             for i = -1 to 5 do
                                 for j = -1 to 5 do
                                     map.SetBlockIDAndDamage(x+i,h-1,z+j,7uy,0uy)  // 7=bedrock   // wider platform at base, in case generates on ocean, can 'climb up'
+                                    map.SetBlockIDAndDamage(x+i,h+0,z+j,0uy,0uy)
+                                    map.SetBlockIDAndDamage(x+i,h+1,z+j,0uy,0uy)
                             for i = 0 to 4 do
                                 for j = 0 to 4 do
                                     map.SetBlockIDAndDamage(x+i,h+0,z+j,7uy,0uy)  // 7=bedrock
@@ -2097,25 +2133,25 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     time (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
-        placeStartingCommands(map,hmIgnoringLeaves))
-    time (fun () -> 
+        placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
