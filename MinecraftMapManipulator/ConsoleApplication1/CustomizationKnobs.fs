@@ -96,7 +96,7 @@ let FLAT_SET_PIECE_SPAWNER_DATA =
 // terrain ore substitutes
 let GRANITE_COUNT = int(UHC_MULT_A*12.0)
 let GRANITE_SPAWNER_DATA = 
-    SpawnerData([|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (1,"Blaze"); (1,"Creeper")|],     0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
+    SpawnerData([|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (2,"Creeper")|],     0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
 let REDSTONE_COUNT = int(UHC_MULT_A*4.0)
 let REDTSONE_SPAWNER_DATA = 
     SpawnerData([|(1,"Zombie"); (1,"Skeleton"); (1,"Spider"); (1,"Blaze"); (1,"Creeper"); (1,"CaveSpider")|], 0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
@@ -120,12 +120,17 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
 let BIOME_HELL_PERCENTAGE = 0.1
 let BIOME_SKY_PERCENTAGE = 0.2
 
+
+let DAYLIGHT_BEDROCK_BUFFER_RADIUS = 7
+let MOUNTAIN_PEAK_DANGER_RADIUS = 20
+let FLAT_COBWEB_DANGER_RADIUS = 40
+
 let SPAWN_PROTECTION_DISTANCE_GREEN = 200
 let SPAWN_PROTECTION_DISTANCE_FLAT = 350
 let SPAWN_PROTECTION_DISTANCE_PEAK = 500
 let SPAWN_PROTECTION_DISTANCE_PURPLE = 700
 let STRUCTURE_SPACING = 250  // no two of same structure within this dist of each other (currently used by peaks and flats)
-let DECORATION_SPACING = 94  // no two decos this close together (used by peaks and flats) note: they have squares of 47 and 20, and so 94 is (47+20)*sqrt(2)
+let DECORATION_SPACING = float(MOUNTAIN_PEAK_DANGER_RADIUS+FLAT_COBWEB_DANGER_RADIUS+2*DAYLIGHT_BEDROCK_BUFFER_RADIUS)*sqrt(2.0)|>int  // no two decos this close together (used by peaks and flats)
 let RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION = 50 // no rand loot chests near dungeons, for example
 let DAYLIGHT_RADIUS = 180
 

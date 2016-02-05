@@ -251,14 +251,14 @@ let HEALS =
 
 let tierNLootData n kinds = 
     [ for k in kinds do match k with | ARMOR -> yield LootTable(LOOT_FORMAT"armor"n) | FOOD -> yield LootTable(LOOT_FORMAT"food"n) | TOOLS -> yield LootTable(LOOT_FORMAT"tools"n) ] // NOTE: names must be all lowercase, to work on both Windows and Linux! 
-let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/10%.... so n=10 give 10%x, 1%y, and 89% nothing
+let tierxyLootPct conds x y kinds n = // tier x at n%, but instead tier y at n/5%.... so n=10 give 10%x, 2%y, and 88% nothing
     assert(n>=0 && n <=100)
-    let weight = (kinds|>Seq.length) * (1000-10*n-n)
+    let weight = (kinds|>Seq.length) * (1000-10*n-2*n)
     P11[yield (Empty, weight, 0, conds)
         for ed in tierNLootData x kinds do 
             yield (ed, 10*n, 0, conds)
         for ed in tierNLootData y kinds do 
-            yield (ed, n, 0, conds)
+            yield (ed, 2*n, 0, conds)
        ]
 let defaultMobDrop(itemName, countMin, countMax, lootingMin, lootingMax) = 
     Pool(Roll(1,1),[Item(sprintf "minecraft:%s" itemName,[SetCount(countMin,countMax);LootingEnchant(lootingMin,lootingMax)]),1,0, []])
@@ -492,6 +492,9 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng))
             yield makeItem(rng,"diamond",F 10,F 16,0s)
             yield makeItem(rng,"golden_apple",F 4,F 7,0s)
+            for _i = 1 to 2 do
+                yield [| String("id","minecraft:potion"); Byte("Count", 1uy); Short("Damage",0s); Compound("tag",[
+                    String("Potion","minecraft:luck"); Compound("display", Strings.NameAndLore.LUCK_POTION_DISPLAY |> ResizeArray); End] |> ResizeArray); End |]
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
         |]
     addSlotTags tier4Items 

@@ -155,3 +155,4 @@ module NameAndLore =
     let MONUMENT_BLOCK_PURPUR = displayNameAndLore("Monument Block: Purpur Block",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let MONUMENT_BLOCK_END_STONE_BRICK = displayNameAndLore("Monument Block: End Stone Brick",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let INNER_CHEST_WITH_NAME(name:TranslatableString) = displayNameAndLore(name.Text, [|"Place this chest"; "and open it"; "for more loot"|])
+    let LUCK_POTION_DISPLAY = [String("Name","Your lucky DAY"); List("Lore", Strings[|"While this luck"; "potion is active"; "it will remain"; "daylight, even"; "away from spawn"|]); End]

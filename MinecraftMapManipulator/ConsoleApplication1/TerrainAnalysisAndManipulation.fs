@@ -1174,7 +1174,7 @@ let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
 let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>) =
-    let RADIUS = 20
+    let RADIUS = MOUNTAIN_PEAK_DANGER_RADIUS
     let computeBestHighPoints(minH) =
         let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,minH,minH+20,10,6,decorations)
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 0)  // negative scores often mean tall spike with no nearby same-height ground, get rid of them
@@ -1276,6 +1276,9 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                         let y = hm.[x,z]
                         map.SetBlockIDAndDamage(x,y,z,76uy,5uy) // 76=redstone_torch
                         map.SetBlockIDAndDamage(x,y-1,z,1uy,5uy) // 1,5=andesite
+        let RADIUS = RADIUS + DAYLIGHT_BEDROCK_BUFFER_RADIUS
+        for i = x-RADIUS to x+RADIUS do
+            for j = z-RADIUS to z+RADIUS do
                 // ceiling over top to prevent cheesing it
                 map.SetBlockIDAndDamage(i,y+5,j,7uy,0uy) // 7=bedrock
                 hm.[i,j] <- y+6
@@ -1304,8 +1307,8 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
             a.[x,z] <- score
     printfn ""
     let bestFlatPoints = findBestPeaksAlgorithm(a,2000,3000,D,0,decorations)
-    let RADIUS = 40
-    let CR = RADIUS+7 // ceiling radius
+    let RADIUS = FLAT_COBWEB_DANGER_RADIUS
+    let CR = RADIUS+DAYLIGHT_BEDROCK_BUFFER_RADIUS // ceiling radius
     let BEDROCK_HEIGHT = 127
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_FLAT*SPAWN_PROTECTION_DISTANCE_FLAT)
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+CR && z > MINIMUM+CR && x < MINIMUM+LENGTH-CR-1 && z < MINIMUM+LENGTH-CR-1)
@@ -1728,19 +1731,17 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         decorations.Add('*',x,z)
 
 let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArray<MCTree>) =
-    let placeCommand(x,y,z,command,bid,name) =
-        map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
+    let placeCommand(x,y,z,command,bid,dmg,name) =
+        map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
         if bid <> 211uy then
             map.AddTileTick(name,100,0,x,y,z)
-    let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,"minecraft:command_block")
-    let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,"minecraft:repeating_command_block")
-    //let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,"minecraft:chain_command_block")
+    let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,0uy,"minecraft:command_block")
+    let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,0uy,"minecraft:repeating_command_block")
+    let placeChain(x,y,z,command,cond) = placeCommand(x,y,z,command,211uy,(if cond then 8uy else 0uy),"minecraft:chain_command_block")
     let h = hmIgnoringLeaves.[1,1] // 1,1 since 0,0 has commands
     let y = ref 255
-    let R(c) = placeRepeating(0,!y,0,c); decr y
     let I(c) = placeImpulse(0,!y,0,c); decr y
-    //let C(c) = placeChain(0,!y,0,c); decr y
     // add diorite pillars to denote border between light and dark
     for i = 0 to 99 do
         let theta = System.Math.PI * 2.0 * float i / 100.0
@@ -1761,7 +1762,7 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     I(sprintf "setworldspawn 1 %d 1" h)
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
-    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 outline" (h-12) (h-10))  // command room, cmds at h-11
+    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 outline" (h-30) (h-10))  // command room, cmds start at h-11
     I("scoreboard objectives add hidden dummy")
     I("scoreboard objectives add Deaths stat.deaths")
     I("scoreboard objectives setdisplay sidebar Deaths")
@@ -1774,7 +1775,7 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     I(sprintf "blockdata 0 %d 0 {auto:1b}" (h-11))
     I(sprintf "blockdata 1 %d 0 {auto:1b}" (h-11))
     I(sprintf "blockdata 2 %d 0 {auto:1b}" (h-11))
-    I(sprintf "fill 0 %d 0 0 255 0 air" !y) // remove all the ICBs, just leave the RCBs
+    I(sprintf "fill 0 %d 0 0 255 0 air" !y) // remove all the ICBs
     
 
 
@@ -1858,10 +1859,17 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
             C Strings.TELLRAW_PLACED_A_MONUMENT_BLOCK 
             C "fill ~ ~ ~ ~ ~ ~-3 air"
         |]
+    // h-11, monument block detectors
     for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
         r.PlaceCommandBlocksStartingAt(x,h-11,0,cmds(x,tilename),"check ctm block")
-    placeRepeating(3,h-11,1,(sprintf "execute @p[rm=%d,x=0,y=80,z=0] ~ ~ ~ time set 14500" DAYLIGHT_RADIUS))
-    placeRepeating(3,h-11,2,(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS))  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
+    let y = ref (h-13)
+    let R(c) = placeRepeating(0,!y,0,c); decr y
+    let C(c) = placeChain(0,!y,0,c,true); decr y
+    let U(c) = placeChain(0,!y,0,c,false); decr y
+    R("time set 14500") // night
+    U("testfor @a {ActiveEffects:[{Id:26b}]}") // if anyone has luck potion
+    C("time set 1000") // day
+    U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
 (*  TODO
     let finalCmds = 
         [|

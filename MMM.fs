@@ -774,7 +774,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -793,7 +793,7 @@ do
     //map.WriteAll()
 
     //printfn "%d" survivalObtainableItems.Length  // 516
-    makeGetAllItemsGame()
+    //makeGetAllItemsGame()
 
     printfn "press a key to end"
     System.Console.Beep()
@@ -848,21 +848,18 @@ do
 
     // TODO: bugs & good ideas
 
-    // high/near-spawn blaze spawners always 4eel lousy (too early)
+
     // ds could be use4ul 4or outrunning mobs across river; like fw, hard to encourage enough tho... and exclusive to each other, hm
-    // tons cookies, hardly any apples in non-uhc?     // the loot at e.g. 10/1% for tiern should maybe have more chance of higher tier (like 1 in 6)
     // tree with logs facing wrong way on stem, chest underneath?
-    // noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest
+    // noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)
     // even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
+    // 4lat has f blazes on corner, but then pig in center spawner - what bug?
+    // beacon at spawn sometimes not render
     
     
     // absorbtion/HB hearts sometimes not show (client reset 4ixes)
     // one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
     // loot in things other than chests? furnaces? what else could 'blend'? (furnace is kinda it)
-    // 'daylight potion' (spell of repel), time mechanic with consumable that makes it daylight (e.g. for overworld convenient travel), maybe after beat the 'flat'? 
-    //  - (how implement? eat poison potato or nonsense?) potion of luck! testfor @a {ActiveEffects:[{Id:26b}]} // Item("minecraft:splash_potion",[SetNbt("""{Potion:\"minecraft:luck\"}""")])  // 5 mins
-    //  - but need to extend ceiling around mountain and update distance separations (and does make some chests harder to find, but some easier)
-    //  - can just put one pot in red flat chest, then would get 2 more in mtn peak chest as result, fair?
 
 
 
@@ -898,7 +895,7 @@ do
     // fix lighting oddities? (figure out jack o lanterns - fixed now maybe?)
     // consider language/translation stuff? german/ellpeck? (don't spend too much effort unless clear could be a big payoff)
     // obe notes that random-drop axes never have weapon enchants
-    // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff? consider those
+    // obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff? 'attribute loot', armor with health boost, knockback resist, etc... consider those
     // obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
     // obe would like to 'continue with normal survival' after done
     // obe though redstone path should be 'breadcrumbs' ... i could maybe make start full, then switch to every 2 or every 3 blocks? or would that make feel like going wrong way?
