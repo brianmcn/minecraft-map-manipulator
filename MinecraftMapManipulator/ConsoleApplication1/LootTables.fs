@@ -176,7 +176,7 @@ let LOOT_TOOLS =
                         Item("minecraft:stone_sword",    [EnchantWithLevels( 1,15,false)]), 1, 0, []
                         Item("minecraft:wooden_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0, []
                         Item("minecraft:wooden_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0, []
-                        Item("minecraft:stone_axe",      [EnchantWithLevels( 1,15,false)]), 1, 0, []
+                        //Item("minecraft:stone_axe",      [EnchantWithLevels( 1,15,false)]), 1, 0, []  // TODO any axes? i never use other than BoA, would need manual enchants
                         Item("minecraft:bucket",         []), 1, 0, []
                                ])]
         // tier 2
@@ -184,7 +184,7 @@ let LOOT_TOOLS =
                         Item("minecraft:stone_sword",   [EnchantWithLevels(16,30,false)]), 1, 0, []
                         Item("minecraft:stone_pickaxe", [EnchantWithLevels(16,30,false)]), 1, 0, []
                         Item("minecraft:stone_shovel",  [EnchantWithLevels(16,30,false)]), 1, 0, []
-                        Item("minecraft:stone_axe",     [EnchantWithLevels(16,30,false)]), 1, 0, []
+                        //Item("minecraft:stone_axe",     [EnchantWithLevels(16,30,false)]), 1, 0, [] // see TODO above
                                ])]
         // tier 3
         Pools [Pool(Roll(1,1), [
@@ -297,7 +297,7 @@ let LOOT_FROM_DEFAULT_MOBS =
                                              ]
         "minecraft:entities/ghast", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 8; tierxyLootPct MOB 3 3 [FOOD] 10; OneOfAtNPercent([ironPile],5,MOB); OneOfAtNPercent(HEALS,8,MOB)]
 //        "minecraft:entities/guardian
-        "minecraft:entities/magma_cube", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
+        "minecraft:entities/magma_cube", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent(HEALS,8,MOB)]
 
 //        "minecraft:entities/shulker
         "minecraft:entities/silverfish", Pools [tierxyLootPct MOB 2 3 [FOOD] 20; OneOfAtNPercent(HEALS,8,MOB)]

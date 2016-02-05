@@ -682,30 +682,36 @@ let makeGetAllItemsGame() =
     let L = (survivalObtainableItems.Length+4)/5
     let Q = (L+3)/4
     let ox = 1
+    let mutable count = 0
     for oz = 1 to 4*Q do
-        for y = YMIN to YMIN+4 do
-            let i = (y-YMIN)*L + oz
+        for y = YMIN+4 downto YMIN do
+            let i = (YMIN+4-y)*L + oz - 1
             let x,z,dx,dz,facing =
                 if oz <= Q then
-                    ox,oz+1,1,0,3
+                    ox,Q+2-oz,1,0,3
                 elif oz <= 2*Q then
-                    oz-Q+3,Q+2,0,1,2
+                    oz-Q+3,1,0,-1,0
                 elif oz <= 3*Q then
-                    Q+6,3*Q+2-oz,-1,0,1
+                    Q+6,2+oz-2*Q,-1,0,1
                 else
-                    oz-3*Q+3,1,0,-1,0
+                    4*Q-oz+4,Q+2,0,1,2
             map.EnsureSetBlockIDAndDamage(x+dx,y,z+dz,1uy,0uy)
+            count <- count + 1
+            map.EnsureSetBlockIDAndDamage(ox,y,oz,211uy,3uy)
             if i < survivalObtainableItems.Length then
-                map.EnsureSetBlockIDAndDamage(ox,y,oz,211uy,3uy)
                 let bid,dmg,name = survivalObtainableItems.[i]
                 let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,_y) -> x=bid) |> snd else sprintf "minecraft:%s" name
-                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds}}""" (x+2*dx) y (z+0*dz) facing itemName dmg
+                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%d"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg i
                 tes.Add [|Int("x",ox); Int("y",y); Int("z",oz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",cmd); End |]
-                // TODO filled_map is weird
-                // TODOs from the item list, e.g. potions, ench books, etc
-    for y = YMIN to YMIN+4 do
+            else // empty command, just to ensure overwriting blocks
+                tes.Add [|Int("x",ox); Int("y",y); Int("z",oz); String("id","Control"); 
+                            Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                            String("Command",""); End |]
+                // TODO filled_map looks weird
+                // TODOs from the item list, e.g. potions, ench books, etc.. figure out where draw line, maybe if more than 17 variations of X?
+    for y = YMIN+4 downto YMIN do
         let x = 1
         let z = 0
         map.SetBlockIDAndDamage(x,y,z,137uy,3uy)
@@ -714,8 +720,7 @@ let makeGetAllItemsGame() =
                     Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                     String("Command",cmd); End |]
     map.AddOrReplaceTileEntities(tes)
-    // blockIdToMinecraftName
-    printfn "%d" survivalObtainableItems.Length 
+    printfn "%d wall spots, %d items" count survivalObtainableItems.Length 
     map.WriteAll()
 
 ////////////////////////////////////////
@@ -723,7 +728,6 @@ let makeGetAllItemsGame() =
 
 [<System.STAThread()>]  
 do   
-    //makeGetAllItemsGame()
     let user = "Admin1"
     //killAllEntities()
     //dumpChunkInfo("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\rrr\region\r.0.-3.mca""", 0, 31, 0, 31, true)
@@ -754,7 +758,7 @@ do
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w04a.zip""","""C:\Users\Admin1\Desktop\16w05a.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w05a.zip""","""C:\Users\Admin1\Desktop\16w05b.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\d1\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
@@ -770,7 +774,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -787,6 +791,9 @@ do
     //let map = new MapFolder(worldSaveFolder+"""\region\""")
     //map.SetBlockIDAndDamage(73,82,-801,50uy,5uy)
     //map.WriteAll()
+
+    //printfn "%d" survivalObtainableItems.Length  // 516
+    makeGetAllItemsGame()
 
     printfn "press a key to end"
     System.Console.Beep()
@@ -815,14 +822,12 @@ do
     // made some changes to cave-side-paths, see if ok... they are decent, main issue is still that not always at dead ends, due to imperfect skeleton
     // test new food balance
     // test new flat set piece...
-    // test new iron/gold distr.
     // test SMP lighting
-    // test new dungeon chance (seems ok)
     // test new distances to main dungeons...
     // test if teleporters get discovered (barely so far, now tried making farther and less spread out marks)
     // test if peaks (hmDiffPerCC value) look ok
     // test new STRUCTURE_SPACING to spread out peaks/flats (flats not as flat, also overlap problems uncovered)...
-    // test the potion buffs (speed is good, not tested others)
+    // test the potion buffs (speed is good, strength good, haste didn't notice much, health boost good when not glitch display)
     // test SMP loot balance
     // SMP testing is super-useful!
     // cobweb flat would make good screenshot, half slice of hollowed-out mountain (if I ever make that)
@@ -840,10 +845,17 @@ do
     // playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
     // playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
     // get use to clicking for invincibility frames, think about mob balance with viable spam clicking\
-    // playtest note: I never used a random drop tool/armor in uhc mode, probably b/c I killed so few mobs (maybe with more heals now that will change?)
 
     // TODO: bugs & good ideas
 
+    // high/near-spawn blaze spawners always 4eel lousy (too early)
+    // ds could be use4ul 4or outrunning mobs across river; like fw, hard to encourage enough tho... and exclusive to each other, hm
+    // tons cookies, hardly any apples in non-uhc?     // the loot at e.g. 10/1% for tiern should maybe have more chance of higher tier (like 1 in 6)
+    // tree with logs facing wrong way on stem, chest underneath?
+    // noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest
+    // even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
+    
+    
     // absorbtion/HB hearts sometimes not show (client reset 4ixes)
     // one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
     // loot in things other than chests? furnaces? what else could 'blend'? (furnace is kinda it)
@@ -925,9 +937,7 @@ do
     //    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
     // glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
     // TODOs and refactorings...
-    // noisemaker noteblock troll underground? fireworks spawner
     // undergound: 'giant crystal cave', e.g. you go down a cave and find a huge open space with ice and glass and whatnot. (how to generate 'look', how to place so there's a path, how to get player to find)
-    // even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece
 
 
     // other ideas

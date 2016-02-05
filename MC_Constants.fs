@@ -1035,7 +1035,6 @@ let survivalObtainableItems =
         112,0,"nether brick block"
         113,0,"nether brick fence"
         114,0,"nether brick stairs"
-        115,0,"netherwart"
         116,0,"enchanting table"
         121,0,"end stone"
         122,0,"dragon egg"
@@ -1058,8 +1057,9 @@ let survivalObtainableItems =
         139,0,"cobblestone wall"
         139,1,"mossy cobblestone wall"
         143,0,"wooden button"
-        // TODO 144 = skull
-        145,0,"anvil" // TODO 3 types
+        145,0,"anvil"
+        145,1,"slightly damaged anvil"
+        145,2,"very damaged anvil"
         146,0,"trapped chest"
         147,0,"gold pressure plate"
         148,0,"iron pressure plate"
@@ -1155,14 +1155,12 @@ let survivalObtainableItems =
         191,0,"dark oak fence"
         192,0,"acacia fence"
         198,0,"end rod"
-        199,0,"chorus plant" // TODO obtainable?
         200,0,"chorus flower"
         201,0,"purpur block"
         202,0,"purpur pillar"
         203,0,"purpur stairs"
         205,0,"purpur slab"
         206,0,"end stone bricks"
-        207,0,"beetroot seeds"
         // end of blocks, on to items...
         256,0,"iron_shovel"
         257,0,"iron_pickaxe"
@@ -1302,7 +1300,7 @@ let survivalObtainableItems =
         370,0,"ghast_tear"
         371,0,"gold_nugget"
         372,0,"nether_wart"
-        373,0,"potion"       // TODO lots of obtainable versions
+        373,0,"potion"       // TODO 30+ obtainable versions
         374,0,"glass_bottle"
         375,0,"spider_eye"
         376,0,"fermented_spider_eye"
@@ -1332,9 +1330,9 @@ let survivalObtainableItems =
         398,0,"carrot_on_a_stick"
         399,0,"nether_star"
         400,0,"pumpkin_pie"
-        401,0,"fireworks" // TODO
-        402,0,"firework_charge" // TODO
-        403,0,"enchanted_book" // TODO variations
+        401,0,"fireworks" // TODO tons
+        402,0,"firework_charge" // TODO tons
+        403,0,"enchanted_book" // TODO 26 variations
         404,0,"comparator"
         405,0,"netherbrick"
         406,0,"quartz"
@@ -1355,12 +1353,29 @@ let survivalObtainableItems =
         421,0,"name_tag"
         423,0,"mutton"
         424,0,"cooked_mutton"
-        425,0,"banner" // TODO
+        425,0,"banner" // TODO millions of kinds
         427,0,"spruce_door"
         428,0,"birch_door"
         429,0,"jungle_door"
         430,0,"acacia_door"
         431,0,"dark_oak_door"
+        432,0,"chorus_fruit"
+        433,0,"chorus_fruit_popped"
+        434,0,"beetroot"
+        435,0,"beetroot_seeds"
+        436,0,"beetroot_soup"
+        437,0,"dragon_breath"
+        438,0,"splash_potion" // TODO 30+ kinds
+        439,0,"spectral_arrow"
+        440,0,"tipped_arrow" // TODO 30+ kinds
+        441,0,"lingering_potion" // TODO 30+ kinds
+        442,0,"shield" // TODO millions of banners to add
+        443,0,"elytra"
+        444,0,"spruce_boat"
+        445,0,"birch_boat"
+        446,0,"jungle_boat"
+        447,0,"acacia_boat"
+        448,0,"dark_oak_boat"
         2256,0,"record_13"
         2257,0,"record_cat"
         2258,0,"record_blocks"
@@ -1373,8 +1388,6 @@ let survivalObtainableItems =
         2265,0,"record_ward"
         2266,0,"record_11"
         2267,0,"record_wait"
-
-
     |]
 
 ///////////////////////////////////////

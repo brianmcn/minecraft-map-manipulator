@@ -4,7 +4,7 @@ open NBT_Manipulation
 
 ///////////////////////////////////////////////////
 
-let UHC_MODE = true
+let UHC_MODE = false
 
 let UHC_MULT_A = if UHC_MODE then 0.5 else 1.0   // most of map is much harder, make easier
 let UHC_MULT_B = if UHC_MODE then 0.8 else 1.0   // end of map with great armor doesn't need as much buffer
