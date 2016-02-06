@@ -1039,6 +1039,12 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
                         map.SetBlockIDAndDamage(x,y,z,12uy,1uy) //12,1=red sand
                     elif bi.BlockID = 24uy then // 24=sandstone
                         map.SetBlockIDAndDamage(x,y,z,179uy,bi.BlockData) //179=red sandstone (keep block data, which is variant, e.g. smooth)
+                    elif bi.BlockID = 44uy && bi.BlockData = 1uy then // 44,1=lower sandstone slab
+                        map.SetBlockIDAndDamage(x,y,z,182uy,0uy) //182,0=lower red sandstone slab
+                    elif bi.BlockID = 44uy && bi.BlockData = 9uy then // 44,9=upper sandstone slab
+                        map.SetBlockIDAndDamage(x,y,z,182uy,8uy) //182,8=upper red sandstone slab
+                    elif bi.BlockID = 128uy then // 128=sandstone stairs
+                        map.SetBlockIDAndDamage(x,y,z,180uy,bi.BlockData) //180=red sandstone stairs (keep block data, which is orientation)
             hellBiomeDesertCount <- hellBiomeDesertCount + 1
     log.LogSummary(sprintf "Added %d Hell biomes (%d trees) and %d Sky biomes (%d trees) replacing some Plains" hellBiomePlainsCount hellPlainsTreeCount skyBiomePlainsCount skyPlainsTreeCount)
     log.LogSummary(sprintf "Added %d Hell biomes (%d trees) replacing some Desert" hellBiomeDesertCount hellDesertTreeCount)
@@ -1962,32 +1968,45 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             let cx, cz = x+2, z+2
                             let TABLE = 
                                 [|
-                                    1uy,3uy      // stone (and variants)   -> dirt
-                                    2uy,208uy    // grass                  -> grass_path
-                                    3uy,110uy    // dirt (and variants)    -> mycelium
-                                    7uy, 7uy     // bedrock (to keep algorithm from falling off a cliff)
-                                    12uy,24uy    // sand                   -> sandstone   // TODO birch planks may be better, also, with red sand, acacia planks
-                                    13uy,82uy    // gravel                 -> clay
-                                    24uy,159uy   // sandstone              -> stained_hardned_clay
-                                    78uy,171uy   // snow_layer             -> carpet
-                                    80uy,35uy    // snow                   -> wool
-                                    82uy,1uy     // clay                   -> stone
-                                    110uy,2uy    // mycelium               -> grass
-                                    159uy,172uy  // stained_hardened_clay  -> hardened_clay
-                                    172uy,159uy  // hardened_clay          -> stained_hardened_clay
+                                    1uy,3uy,0uy      // stone (and variants)   -> dirt
+                                    2uy,208uy,0uy    // grass                  -> grass_path
+                                    3uy,110uy,0uy    // dirt (and variants)    -> mycelium
+                                    7uy, 7uy,0uy     // bedrock (to keep algorithm from falling off a cliff)
+                                    12uy,128uy,4uy   // sand                   -> upside-down sandstone stairs (red sand special-cased below)
+                                    13uy,82uy,0uy    // gravel                 -> clay
+                                    24uy,159uy,0uy   // sandstone              -> stained_hardned_clay
+                                    78uy,171uy,0uy   // snow_layer             -> carpet   // TODO will never be used, since below hmIgnoringLeaves, yes?
+                                    80uy,35uy,0uy    // snow                   -> wool
+                                    82uy,1uy,0uy     // clay                   -> stone
+                                    110uy,2uy,0uy    // mycelium               -> grass
+                                    159uy,172uy,0uy  // stained_hardened_clay  -> hardened_clay
+                                    172uy,159uy,0uy  // hardened_clay          -> stained_hardened_clay
                                 |]
-                            let subst(x,z) =
+                            let subst(x,z,wideVal) =
                                 let mutable y = hmIgnoringLeaves.[x,z]
                                 let mutable ok = false
                                 while not ok do
                                     let bid = map.GetBlockInfo(x,y,z).BlockID
-                                    match TABLE |> Array.tryFind (fun (orig,_new) -> orig=bid) with
-                                    | None -> y <- y - 1
-                                    | Some(_,n) ->
+                                    if bid = 9uy && map.GetBlockInfo(x,y-1,z).BlockID = 9uy then
                                         ok <- true
-                                        map.SetBlockIDAndDamage(x,y,z,n,0uy)
-                                        if map.GetBlockInfo(x,y+1,z).BlockID = 78uy then // 78=snow_layer above
-                                            map.SetBlockIDAndDamage(x,y+1,z,0uy,0uy)     // replace snow_layer with air, for visibility (hard enough to see as-is)
+                                        // two-deep water, special-case it
+                                        if wideVal = 0 then // only in center of path
+                                            map.SetBlockIDAndDamage(x,y-1,z,79uy,0uy) // ice one below surface
+                                    else
+                                        match TABLE |> Array.tryFind (fun (orig,_new,_) -> orig=bid) with
+                                        | None -> y <- y - 1
+                                        | Some(_,nbid,ndmg) ->
+                                            ok <- true
+                                            if nbid = 110uy && map.GetBlockInfo(x,y+1,z).BlockID = 9uy then
+                                                // mycelium placed under water will die, use sand instead
+                                                map.SetBlockIDAndDamage(x,y,z,12uy,0uy)
+                                            else
+                                                if bid = 12uy && map.GetBlockInfo(x,y,z).BlockData = 1uy then
+                                                    map.SetBlockIDAndDamage(x,y,z,180uy,4uy)  // red sand -> upside-down red sandstone stairs
+                                                else
+                                                    map.SetBlockIDAndDamage(x,y,z,nbid,ndmg)
+                                                if map.GetBlockInfo(x,y+1,z).BlockID = 78uy then // 78=snow_layer above
+                                                    map.SetBlockIDAndDamage(x,y+1,z,0uy,0uy)     // replace snow_layer with air, for visibility (hard enough to see as-is)
                             for i = 0 to 7 do
                                 let dx,dz = DIRS.[i]
                                 let ax,az = DIRS.[(i+2)%8]  // right angle
@@ -1997,15 +2016,25 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     ix <- ix + dx
                                     iz <- iz + dz
                                     let w = rng.Next(WIDE.Length)
-                                    if dist<A.[0] && dist%2=0 || dist<A.[1] && dist%3=0 || dist<A.[2] && dist%4=0 || dist<A.[3] && dist%5=0 || dist<A.[4] && dist%6=0 then
-                                        subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az)
-                                    if dist > 0 && dist % A.[1] = 0 then
+                                    if dist > 5 && dist % A.[1] > 5 then
+                                        if dist<A.[0] && dist%2=0 || dist<A.[1] && dist%3=0 || dist<A.[2] && dist%4=0 || dist<A.[3] && dist%5=0 || dist<A.[4] && dist%6=0 then
+                                            subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az, WIDE.[w])
+                                    elif dist > 0 && dist % A.[1] = 2 then
                                         let y = hmIgnoringLeaves.[ix,iz]
                                         let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                         putTrappedChestWithItemsAt(ix,y,iz,Strings.NAME_OF_TELEPORTER_BREADCRUMBS_CHEST,chestItems,map,null)
-                                        map.SetBlockIDAndDamage(ix,y-1,iz,76uy,5uy) // 76=redstone_torch
-                                        map.SetBlockIDAndDamage(ix,y-2,iz,1uy,5uy) // 1,5=andesite
+                                        map.SetBlockIDAndDamage(ix,y-1,iz,0uy,0uy) // 0=air
+                                        map.SetBlockIDAndDamage(ix,y-2,iz,76uy,5uy) // 76=redstone_torch
+                                        map.SetBlockIDAndDamage(ix,y-3,iz,1uy,5uy) // 1,5=andesite
+                                        if map.GetBlockInfo(ix,y+1,iz).BlockID = 78uy then // 78=snow_layer above
+                                            map.SetBlockIDAndDamage(ix,y+1,iz,0uy,0uy)     // replace snow_layer with air, for visibility (hard enough to see as-is)
                                         decorations.Add('*',ix,iz) // TODO will this interfere with dungeon placement?
+                                        // make an arrow/chevron pointing in right direction
+                                        subst(ix-dx, iz-dz, 0)
+                                        subst(ix+ax, iz+az, 0)
+                                        subst(ix-ax, iz-az, 0)
+                                        subst(ix+dx+2*ax, iz+dz+2*az, 0)
+                                        subst(ix+dx-2*ax, iz+dz-2*az, 0)
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
             failwith "no teleporters"
@@ -2138,17 +2167,17 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
+    xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
@@ -2159,7 +2188,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
