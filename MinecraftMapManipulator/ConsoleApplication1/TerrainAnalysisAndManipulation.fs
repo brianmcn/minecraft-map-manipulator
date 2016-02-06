@@ -1346,7 +1346,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
             spawners.Add(ms)
         // add a spider jockey too
         map.SetBlockIDAndDamage(x, y+5, z, 52uy, 0uy) // 52 = monster spawner
-        let ms = MobSpawnerInfo(x=x, y=y+6, z=z, BasicMob="Spider", Delay=1s)
+        let ms = MobSpawnerInfo(x=x, y=y+5, z=z, BasicMob="Spider", Delay=1s)
         ms.ExtraNbt <- [ List("Passengers",Compounds[| [|String("id","Skeleton"); List("HandItems",Compounds[| [|String("id","bow");Int("Count",1);End|]; [| End |] |]); End|] |] )]
         spawners.Add(ms)
         for dx = -3 to 3 do
