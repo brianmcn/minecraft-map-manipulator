@@ -494,7 +494,9 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
             yield makeItem(rng,"golden_apple",F 4,F 7,0s)
             for _i = 1 to 2 do
                 yield [| String("id","minecraft:potion"); Byte("Count", 1uy); Short("Damage",0s); Compound("tag",[
-                    String("Potion","minecraft:luck"); Compound("display", Strings.NameAndLore.LUCK_POTION_DISPLAY |> ResizeArray); End] |> ResizeArray); End |]
+                    //String("Potion","minecraft:luck"); // make Ambient:1b
+                    List("CustomPotionEffects",Compounds[|[|Byte("Id",26uy);Byte("Amplifier",0uy);Int("Duration",6000);Byte("Ambient",1uy); End|]|])
+                    Compound("display", Strings.NameAndLore.LUCK_POTION_DISPLAY |> ResizeArray); End] |> ResizeArray); End |]
             yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
         |]
     addSlotTags tier4Items 

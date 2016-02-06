@@ -42,11 +42,9 @@ consider directly give some fw2 boots with other good something, to make more li
 tree with logs facing wrong way on stem, chest underneath?
 noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)
 even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
-'enduring' potions do eventually run out, make higher number
-(can I make enduring/luck potion effects not cause particles? the particles are distracting)
+loot in furnaces? maybe furnace in stone at side of surface lava pit?
 
 one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
-loot in furnaces? maybe furnace in stone at side of surface lava pit?
 final book TODOs, some kind of better acknowledgement when complete map (fireworks spawner? could appear at ladder top)
 
 

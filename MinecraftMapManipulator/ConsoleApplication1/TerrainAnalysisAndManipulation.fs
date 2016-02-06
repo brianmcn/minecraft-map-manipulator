@@ -1387,6 +1387,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                 map.SetBlockIDAndDamage(i,BEDROCK_HEIGHT,j,7uy,0uy) // 7 = bedrock
                 hm.[i,j] <- BEDROCK_HEIGHT
     // decorate map with set piece
+    let nextBestFlatPoints = [] // TODO these are not ready for primetime. bedrock ceiling not big enough, area not flat enough, loot/mobs not engaging enough, just not good.
     for (cx,cz),_,_,s in nextBestFlatPoints do
         // TODO alternate mob/loot loadouts
         // TODO other loot in chest?
@@ -1899,11 +1900,12 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
     let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,1uy,"minecraft:repeating_command_block")
     let placeChain(x,y,z,command) = placeCommand(x,y,z,command,211uy,1uy,"minecraft:chain_command_block")
     let villagerData(i) =
+        // note: Ambient:1b has potion in upper-right of HUD, whereas ShowParticles:0b does not, so I prefer ambient
         match i with
-        | 0 -> sprintf """Profession:1,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:3b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:1b,Amplifier:0b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_SPEED_NAME.Text          Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 1=speed
-        | 1 -> sprintf """Profession:2,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:2b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:3b,Amplifier:0b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_HASTE_NAME.Text          Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 3=haste
-        | 2 -> sprintf """Profession:3,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:4b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:5b,Amplifier:1b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_STRENGTH_NAME.Text       Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 5=strength
-        | 3 -> sprintf """Profession:4,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:5b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:21b,Amplifier:1b,Duration:119980}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_HEALTH_BOOST_NAME.Text  Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 21=health boost
+        | 0 -> sprintf """Profession:1,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:3b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:1b,Amplifier:0b,Duration:999999,Ambient:1b}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_SPEED_NAME.Text          Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 1=speed
+        | 1 -> sprintf """Profession:2,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:2b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:3b,Amplifier:0b,Duration:999999,Ambient:1b}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_HASTE_NAME.Text          Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 3=haste
+        | 2 -> sprintf """Profession:3,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:4b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:5b,Amplifier:1b,Duration:999999,Ambient:1b}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_STRENGTH_NAME.Text       Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 5=strength
+        | 3 -> sprintf """Profession:4,Career:1,CareerLevel:9999,Offers:{Recipes:[{rewardExp:0b,maxUses:99999,uses:0,buy:{Count:5b,id:"emerald"},sell:{Count:1b,id:"potion",tag:{CustomPotionEffects:[{Id:21b,Amplifier:1b,Duration:999999,Ambient:1b}],display:{Name:"%s",Lore:["%s","%s"]}}}}]}""" Strings.POTION_HEALTH_BOOST_NAME.Text  Strings.POTION_LORE1.Text Strings.POTION_LORE2.Text // 21=health boost
         | _ -> failwith "bad villager #"
     let unusedVillagers = ResizeArray [| 0; 1; 2; 3 |]
     let villagers = ResizeArray()
@@ -2019,7 +2021,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     if dist > 5 && dist % A.[1] > 5 then
                                         if dist<A.[0] && dist%2=0 || dist<A.[1] && dist%3=0 || dist<A.[2] && dist%4=0 || dist<A.[3] && dist%5=0 || dist<A.[4] && dist%6=0 then
                                             subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az, WIDE.[w])
-                                    elif dist > 0 && dist % A.[1] = 2 then
+                                    elif dist > 5 && dist % A.[1] = 2 then
                                         let y = hmIgnoringLeaves.[ix,iz]
                                         let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                         putTrappedChestWithItemsAt(ix,y,iz,Strings.NAME_OF_TELEPORTER_BREADCRUMBS_CHEST,chestItems,map,null)
@@ -2167,17 +2169,17 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    xtime (fun () -> allTrees := treeify(map))
+    time (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
+    time (fun () -> doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
@@ -2188,7 +2190,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
