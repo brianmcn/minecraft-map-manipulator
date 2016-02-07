@@ -74,9 +74,9 @@ let debugRegion() =
                 
 ////////////////////////////////////////////
 
-let chestTE(x,y,z,items,customName:Strings.TranslatableString,lootTable,lootTableSeed) =
+let blockTE(blockEntityName,x,y,z,items,customName:Strings.TranslatableString,lootTable,lootTableSeed) =
     let te = [| yield Int("x",x); yield Int("y",y); yield Int("z",z)
-                yield String("id","Chest"); yield String("Lock",""); 
+                yield String("id",blockEntityName); yield String("Lock",""); 
                 yield List("Items",items)
                 yield String("CustomName",customName.Text)
                 if lootTable <> null then
@@ -85,25 +85,28 @@ let chestTE(x,y,z,items,customName:Strings.TranslatableString,lootTable,lootTabl
                 yield End |]
     te
 
-let putChestCore(x,y,z,chestBid,chestDmg,items,customName:Strings.TranslatableString,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
+let putChestCore(blockEntityName,x,y,z,chestBid,chestDmg,items,customName:Strings.TranslatableString,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
     map.SetBlockIDAndDamage(x,y,z,chestBid,chestDmg)
-    let te = chestTE(x,y,z,items,customName,lootTable,lootTableSeed)
+    let te = blockTE(blockEntityName,x,y,z,items,customName,lootTable,lootTableSeed)
     if tileEntities <> null then
         tileEntities.Add( te )
     else
         map.AddOrReplaceTileEntities[| te |]
 
 let putTrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,map,tileEntities) =
-    putChestCore(x,y,z,146uy,3uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 146=trapped chest
+    putChestCore("Chest",x,y,z,146uy,3uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 146=trapped chest
 
 let putUntrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,map,tileEntities) =
-    putChestCore(x,y,z,54uy,3uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 54=(non-trapped) chest
+    putChestCore("Chest",x,y,z,54uy,3uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 54=(non-trapped) chest
 
 let putTrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
-    putChestCore(x,y,z,146uy,3uy,items,customName,null,0L,map,tileEntities)  // 146=trapped chest
+    putChestCore("Chest",x,y,z,146uy,3uy,items,customName,null,0L,map,tileEntities)  // 146=trapped chest
 
 let putUntrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
-    putChestCore(x,y,z,54uy,3uy,items,customName,null,0L,map,tileEntities)  // 54=(non-trapped) chest
+    putChestCore("Chest",x,y,z,54uy,3uy,items,customName,null,0L,map,tileEntities)  // 54=(non-trapped) chest
+
+let putFurnaceWithItemsAt(x,y,z,customName,items,map,tileEntities) =
+    putChestCore("Furnace",x,y,z,61uy,3uy,items,customName,null,0L,map,tileEntities)  // 61,3=furnace facing south (just has slots 0/1/2)
 
 ///////////////////////////////////////////////
 
@@ -130,7 +133,7 @@ let putTreasureBoxAtCore(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed,item
             for z = sz-RADIUS to sz+RADIUS do
                 map.SetBlockIDAndDamage(x,y,z,glassbid,glassdmg)  // glass
     map.SetBlockIDAndDamage(sx,sy+2,sz,198uy,1uy) // 198=end_rod  (end rods give off light level 14, don't obstruct a beacon shining through, can attach to top of chest)
-    putChestCore(sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,Strings.NAME_OF_GENERIC_TREASURE_BOX,lootTableName,lootTableSeed,map,null)
+    putChestCore("Chest",sx,sy+1,sz,54uy,2uy,Compounds itemsNbt,Strings.NAME_OF_GENERIC_TREASURE_BOX,lootTableName,lootTableSeed,map,null)
 
 let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed) =
     putTreasureBoxAtCore(map,sx,sy,sz,lootTableName,lootTableSeed,[| |],22uy,0uy,20uy,0uy,2) //22=lapis, 20=glass
@@ -902,7 +905,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                         if rng.Next(18) = 0 then
                             map.SetBlockIDAndDamage(x,y,z,173uy,0uy) // coal block
                     elif bid = 54uy then // chest // assuming all chests are dungeon chests, no verification
-                        chestTEs.Add( chestTE(x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng)),Strings.NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST,null,0L) )
+                        chestTEs.Add( blockTE("Chest",x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng)),Strings.NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST,null,0L) )
                     elif bid = 17uy || bid = 162uy then // log/log2
                         map.SetBlockIDAndDamage(x,y,z,bid,dmg ||| 12uy) // setting bits 4&8 yields 6-sided bark texture, which looks cool
     log.LogSummary("added random spawners underground")
@@ -1487,6 +1490,13 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     else failwith "bad aesthetic tier"
         putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z)
+    let putFurnaceWithLoot(x,y,z) =
+        // can hold up to 3 items
+        let items = [|  [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
+                        LootTables.makeMultiBook(rng)
+                    |] |> LootTables.addSlotTags
+        putFurnaceWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
+        lootLocations.Add(x,y,z)
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
     // TODO consider fun names for each kind of chest (a la /help command)
@@ -1499,7 +1509,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 if (x-dx)*(x-dx) + (z-dz)*(z-dz) < RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION*RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION then
                     nearDecoration <- true
             if not nearDecoration then
-                for y = 90 downto 64 do
+                for y = 90 downto 59 do
                     let bi = map.GetBlockInfo(x,y,z)
                     let bid = bi.BlockID 
                     if bid = 48uy && checkForPlus(x,y,z,0uy,48uy) then // 48 = moss stone
@@ -1533,7 +1543,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                 putTrappedChestWithLoot(x,y,z,2)
                                 points.[2].Add( (x,y,z) )
                                 names.[2] <- "pumpkin patch"
-                    elif bid = 9uy && bi.BlockData = 0uy then  // water falling straight down has different damage value, only want sources
+                    elif y>63 && bid = 9uy && bi.BlockData = 0uy then  // water falling straight down has different damage value, only want sources
                         if y >= hm.[x,z]-1 then // 9=water, at top of heightmap (-1 because lake surface is actually just below heightmap)
                             let b = biome.[x,z]
                             // not one of these
@@ -1571,7 +1581,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                             points.[4].Add( (x,y,z) )
                                             names.[4] <- "desert cactus"
                                             // TODO sometimes be a trap
-                    elif isFlowingWater(bi) then
+                    elif y>63 && isFlowingWater(bi) then
                         if not(flowingWaterVisited.Contains(x,y,z)) then
                             flowingWaterVisited.Add(x,y,z) |> ignore
                             let q = new System.Collections.Generic.Queue<_>()
@@ -1636,6 +1646,9 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                         // 3x3 of grass with air above
                         let b = biome.[x,z]
                         if b = 4uy || b = 27uy || b = 29uy then // forest/birch/roofed
+                            // TODO these probabilities can cause wild swings in variance; a better system would gather all the candidates, and try to smooth out the results over all the buckets somehow
+                            // e.g. have each bucket have an xyz candidate placement and a function to run to modify the map, and then could choose a candidate from the least-populated
+                            // bucket, and run it, until candidates exhausted or reach some maximum (ensure xyz are randomized across map)
                             if rng.Next(50) = 0 then // TODO probability, so don't place on all
                                 if noneWithin(150,points.[7],x,y,z) && noneWithin(150,points.[1],x,y,z) then
                                     for dx in [-1..1] do
@@ -1659,6 +1672,29 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                         map.SetBlockIDAndDamage(x,y-5-5,z,24uy,0uy)
                         points.[8].Add( (x,y-5,z) )
                         names.[8] <- "rare desert well"
+                    elif bid = 11uy && hm.[x,z] <= y+1 then // 11=lava at surface
+                        for dx,dz in [0,1; 1,0; 0,-1; -1,0] do
+                            if noneWithin(150,points.[9],x,y,z) then // in the loop so stop after placing one
+                                let mutable ok = true
+                                for i = 1 to 3 do
+                                    // 3 more lava on one side
+                                    if map.GetBlockInfo(x+i*dx, y, z+i*dz).BlockID <> 11uy then
+                                        ok <- false
+                                    // stone on other side
+                                    if map.GetBlockInfo(x-dx, y, z-dz).BlockID <> 1uy then
+                                        ok <- false
+                                    // air above stone
+                                    if map.GetBlockInfo(x-dx, y+1, z-dz).BlockID <> 0uy then
+                                        ok <- false
+                                    // non-transparent farther from lava
+                                    if MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Array.contains(int(map.GetBlockInfo(x-2*dx, y+1, z-2*dz).BlockID)) then
+                                        ok <- false
+                                if ok then
+                                    let x,z = x-dx, z-dz
+                                    putFurnaceWithLoot(x,y,z)
+                                    points.[9].Add( (x,y,z) )
+                                    names.[9] <- "surface lava pool"
+                                    printfn "lava %d %d %d" x y z
                     else
                         () // TODO other stuff
                 // end for y
@@ -2169,17 +2205,17 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
+    xtime (fun () -> allTrees := treeify(map))
     xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
@@ -2190,7 +2226,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
