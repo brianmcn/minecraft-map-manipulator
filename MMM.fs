@@ -725,6 +725,179 @@ let makeGetAllItemsGame() =
 
 ////////////////////////////////////////
 
+let testCompass() =
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Superflat\region\""")
+    //let theString = """ x - S - x - W - x - N - x - E -"""
+    //let theString = """ --->  --->  ^  <---  <---  -v- """
+    let theString = """  ------->    ------->    ^^    <-------    <-------    --vv--  """
+    let twice = theString + theString
+    //let at(n) = twice.Substring(n, 13)
+    let at(n) = twice.Substring(n*2, 26)
+    let i = ref 0
+    let next() =
+        let r = at(!i)
+        incr i
+        r
+    let cmds = 
+        [|
+            O """fill ~ ~ ~ ~ ~ ~120 air"""
+            O """title @p times 0 10 0"""
+            P """testfor @p {Inventory:[{Slot:0b,id:"minecraft:compass"}]}"""
+            C """blockdata ~ ~ ~2 {auto:1b}"""
+            C """blockdata ~ ~ ~1 {auto:0b}"""
+            O ""
+            U(sprintf """title @p[rym=1,ry=11] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=12,ry=22] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=23,ry=33] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=34,ry=45] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=46,ry=56] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=57,ry=67] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=68,ry=78] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=79,ry=90] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=91,ry=101] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=102,ry=112] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=113,ry=123] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=124,ry=135] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=136,ry=146] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=147,ry=157] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=158,ry=168] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=169,ry=180] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=181,ry=191] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=192,ry=202] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=203,ry=213] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=214,ry=225] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=226,ry=236] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=237,ry=247] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=248,ry=258] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=259,ry=270] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=271,ry=281] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=282,ry=292] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=293,ry=303] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=304,ry=315] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=316,ry=326] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=327,ry=337] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=338,ry=348] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[rym=349,ry=360] subtitle {"text":"%s"}""" (next()))
+            U("""title @p title {"text":""}""")
+        |]
+    let r = map.GetRegion(1,1)
+    r.PlaceCommandBlocksStartingAt(1,4,1,cmds,"")
+    map.WriteAll()
+
+let testCompass2() =
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Superflat\region\""")
+    let theString = """  ------->    ------->    ^^    <-------    <-------    --vv--  """
+    let twice = theString + theString
+    let at(n) = twice.Substring(n*2, 26)
+    let i = ref 0
+    let next() =
+        let r = at(!i)
+        incr i
+        r
+    let cmds = 
+        [|
+            O """fill 10 3 10 90 3 90 grass"""
+            U """fill ~ ~ ~-1 ~ ~ ~120 air"""
+            O """title @p times 0 10 0"""
+            U """scoreboard objectives add Rot dummy"""
+            U """scoreboard players set #ThreeSixty Rot 360"""
+            P """testfor @p {Inventory:[{Slot:0b,id:"minecraft:compass"}]}"""
+            C """scoreboard players set @p Rot 456"""  // where the ^^ is (96), +360
+            C """execute @p ~ ~-1 ~ blockdata ~ ~ ~ {auto:1b}"""
+            C """execute @p ~ ~-1 ~ blockdata ~ ~ ~ {auto:0b}"""
+            C """blockdata ~ ~ ~2 {auto:1b}"""
+            C """blockdata ~ ~ ~1 {auto:0b}"""
+            O ""
+
+            U("""scoreboard players add @p[rym=1,ry=11] Rot 6""")
+            U("""scoreboard players add @p[rym=12,ry=22] Rot 17""")
+            U("""scoreboard players add @p[rym=23,ry=33] Rot 28""")
+            U("""scoreboard players add @p[rym=34,ry=45] Rot 39""")
+            U("""scoreboard players add @p[rym=46,ry=56] Rot 51""")
+            U("""scoreboard players add @p[rym=57,ry=67] Rot 62""")
+            U("""scoreboard players add @p[rym=68,ry=78] Rot 73""")
+            U("""scoreboard players add @p[rym=79,ry=90] Rot 84""")
+            U("""scoreboard players add @p[rym=91,ry=101] Rot 96""")
+            U("""scoreboard players add @p[rym=102,ry=112] Rot 107""")
+            U("""scoreboard players add @p[rym=113,ry=123] Rot 118""")
+            U("""scoreboard players add @p[rym=124,ry=135] Rot 129""")
+            U("""scoreboard players add @p[rym=136,ry=146] Rot 141""")
+            U("""scoreboard players add @p[rym=147,ry=157] Rot 152""")
+            U("""scoreboard players add @p[rym=158,ry=168] Rot 163""")
+            U("""scoreboard players add @p[rym=169,ry=180] Rot 174""")
+            U("""scoreboard players add @p[rym=181,ry=191] Rot 186""")
+            U("""scoreboard players add @p[rym=192,ry=202] Rot 197""")
+            U("""scoreboard players add @p[rym=203,ry=213] Rot 208""")
+            U("""scoreboard players add @p[rym=214,ry=225] Rot 219""")
+            U("""scoreboard players add @p[rym=226,ry=236] Rot 231""")
+            U("""scoreboard players add @p[rym=237,ry=247] Rot 242""")
+            U("""scoreboard players add @p[rym=248,ry=258] Rot 253""")
+            U("""scoreboard players add @p[rym=259,ry=270] Rot 264""")
+            U("""scoreboard players add @p[rym=271,ry=281] Rot 276""")
+            U("""scoreboard players add @p[rym=282,ry=292] Rot 287""")
+            U("""scoreboard players add @p[rym=293,ry=303] Rot 298""")
+            U("""scoreboard players add @p[rym=304,ry=315] Rot 309""")
+            U("""scoreboard players add @p[rym=316,ry=326] Rot 321""")
+            U("""scoreboard players add @p[rym=327,ry=337] Rot 332""")
+            U("""scoreboard players add @p[rym=338,ry=348] Rot 343""")
+            U("""scoreboard players add @p[rym=349,ry=360] Rot 354""")
+
+            U("scoreboard players operation @p Rot %= #ThreeSixty Rot")
+
+            U(sprintf """title @p[score_Rot_min=1,score_Rot=11] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=12,score_Rot=22] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=23,score_Rot=33] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=34,score_Rot=45] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=46,score_Rot=56] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=57,score_Rot=67] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=68,score_Rot=78] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=79,score_Rot=90] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=91,score_Rot=101] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=102,score_Rot=112] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=113,score_Rot=123] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=124,score_Rot=135] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=136,score_Rot=146] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=147,score_Rot=157] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=158,score_Rot=168] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=169,score_Rot=180] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=181,score_Rot=191] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=192,score_Rot=202] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=203,score_Rot=213] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=214,score_Rot=225] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=226,score_Rot=236] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=237,score_Rot=247] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=248,score_Rot=258] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=259,score_Rot=270] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=271,score_Rot=281] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=282,score_Rot=292] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=293,score_Rot=303] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=304,score_Rot=315] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=316,score_Rot=326] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=327,score_Rot=337] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=338,score_Rot=348] subtitle {"text":"%s"}""" (next()))
+            U(sprintf """title @p[score_Rot_min=349,score_Rot=360] subtitle {"text":"%s"}""" (next()))
+
+            U("""title @p title {"text":""}""")
+        |]
+    let r = map.GetRegion(1,1)
+    r.PlaceCommandBlocksStartingAt(1,4,1,cmds,"")
+
+    let goalX, goalZ = 60, 60
+    for x = 10 to 90 do
+        let cmds = 
+            [|
+                for z = 10 to 90 do
+                    let dx = goalX-x
+                    let dz = goalZ-z
+                    let dy,dx = -dx,dz // Minecraft coords are insane
+                    let degrees = 180.0 * System.Math.Atan2(float dy, float dx) / System.Math.PI |> int
+                    let degrees = degrees + 360 // scoreboard remove only handles positive numbers (?!?)
+                    yield O(sprintf "scoreboard players remove @p Rot %d" degrees)
+            |]
+        r.PlaceCommandBlocksStartingAt(x,3,10,cmds,"")
+    map.WriteAll()
+
+////////////////////////////////////////
 
 [<System.STAThread()>]  
 do   
@@ -774,7 +947,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -783,6 +956,7 @@ do
 
     //printfn "%d" survivalObtainableItems.Length  // 516
     //makeGetAllItemsGame()
+    testCompass2()
 
     printfn "press a key to end"
     System.Console.Beep()
