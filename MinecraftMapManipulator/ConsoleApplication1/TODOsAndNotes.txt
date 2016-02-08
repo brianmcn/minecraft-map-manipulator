@@ -50,11 +50,12 @@ deal with "// TODO these probabilities can cause wild swings in variance"
 
 consider a "homing beeper" (compass-like object to take you to a location), think about command implementation, how best to direct, etc...
  - also consider implications of moving world spawn so compasses can do it (how deal with other cmds) - oh, setworldspawn is untenable, because of no-bed death
+ - obe likes the idea (proof of concept video), fix does too
 
 one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
 final book TODOs, some kind of better acknowledgement when complete map (fireworks spawner? could appear at ladder top)
 
-
+LNG https://plus.google.com/b/116398726889585382877/102898606764462175242 said he's interested in beta-testing (but has not played 1.9 before)
 
 more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
 some other block substitutions to make things interesting? cobble stairs/double-slabs to feign stone in caves?

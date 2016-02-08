@@ -809,6 +809,7 @@ let testCompass2() =
             C """blockdata ~ ~ ~1 {auto:0b}"""
             O ""
 
+            // TODO can binary search this by tp-ing an armor stand to player to get original rotation, and then twisting the armor stand to 'subtract' degrees
             U("""scoreboard players add @p[rym=1,ry=11] Rot 6""")
             U("""scoreboard players add @p[rym=12,ry=22] Rot 17""")
             U("""scoreboard players add @p[rym=23,ry=33] Rot 28""")
@@ -844,6 +845,8 @@ let testCompass2() =
 
             U("scoreboard players operation @p Rot %= #ThreeSixty Rot")
 
+            // TODO should be 0-359 now, yes?
+            // TODO could array-index this with armor stands for instant lookup, a la teleportBasedOnScore in MinecraftBINGO
             U(sprintf """title @p[score_Rot_min=1,score_Rot=11] subtitle {"text":"%s"}""" (next()))
             U(sprintf """title @p[score_Rot_min=12,score_Rot=22] subtitle {"text":"%s"}""" (next()))
             U(sprintf """title @p[score_Rot_min=23,score_Rot=33] subtitle {"text":"%s"}""" (next()))
@@ -878,6 +881,99 @@ let testCompass2() =
             U(sprintf """title @p[score_Rot_min=349,score_Rot=360] subtitle {"text":"%s"}""" (next()))
 
             U("""title @p title {"text":""}""")
+        |]
+    let r = map.GetRegion(1,1)
+    r.PlaceCommandBlocksStartingAt(1,4,1,cmds,"")
+
+    let goalX, goalZ = 60, 60
+    for x = 10 to 90 do
+        let cmds = 
+            [|
+                for z = 10 to 90 do
+                    let dx = goalX-x
+                    let dz = goalZ-z
+                    let dy,dx = -dx,dz // Minecraft coords are insane
+                    let degrees = 180.0 * System.Math.Atan2(float dy, float dx) / System.Math.PI |> int
+                    let degrees = degrees + 360 // scoreboard remove only handles positive numbers (?!?)
+                    yield O(sprintf "scoreboard players remove @p Rot %d" degrees)
+            |]
+        r.PlaceCommandBlocksStartingAt(x,3,10,cmds,"")
+    map.WriteAll()
+
+let testCompass3() =
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Superflat\region\""")
+    let theString = """  ------->    ------->    ^^    <-------    <-------    --vv--  """
+    let twice = theString + theString
+    let at(n) = twice.Substring(n*2, 26)
+    let i = ref 0
+    let next() =
+        let r = at(!i)
+        incr i
+        r
+    let cmds = 
+        [|
+            // clean up the world
+            yield O """fill 10 3 10 90 3 90 grass"""
+            yield U """fill ~ ~ ~-1 ~ ~ ~120 air"""
+            // init world
+            yield O """scoreboard objectives add Rot dummy"""
+            yield U """scoreboard players set #ThreeSixty Rot 360"""
+            // always-running loop to test for holding item
+            yield P(sprintf """scoreboard players tag @p add Divining {SelectedItem:{tag:{display:{Lore:["%s"]}}}}""" Strings.NameAndLore.DIVINING_ROD_LORE)
+            yield U """testfor @p[tag=Divining]"""
+            yield C """blockdata ~ ~ ~2 {auto:1b}"""
+            yield C """blockdata ~ ~ ~1 {auto:0b}"""
+            // if item held... init score and call world-location and player rotation code
+            yield O """scoreboard players set @p[tag=Divining] Rot 456"""  // where the ^^ is (96), +360
+            yield U """execute @p[tag=Divining] ~ ~-1 ~ blockdata ~ ~ ~ {auto:1b}"""
+            yield U """execute @p[tag=Divining] ~ ~-1 ~ blockdata ~ ~ ~ {auto:0b}"""
+            yield U """blockdata ~ ~ ~2 {auto:1b}"""
+            yield U """blockdata ~ ~ ~1 {auto:0b}"""
+            // detect player rotation 
+            yield O """title @p[tag=Divining] times 0 10 0""" // is not saved with the world, so has to be re-executed to ensure run after restart client
+            yield U("""summon ArmorStand ~ ~ ~ {Marker:1,Invulnerable:1,Invisible:1,Tags:["ASRot"]}""")
+            yield U("""tp @e[tag=ASRot] @p[tag=Divining]""")
+            for deg in [180; 90; 45; 22; 11] do
+                yield U(sprintf """scoreboard players add @e[tag=ASRot,rym=%d] Rot %d""" deg deg)
+                yield U(sprintf """tp @e[tag=ASRot,rym=%d] ~ ~ ~ ~-%d ~""" deg deg)
+            yield U("""scoreboard players operation @p[tag=Divining] Rot += @e[tag=ASRot] Rot""")
+            yield U("""kill @e[tag=ASRot]""")
+            // convert score to title text
+            yield U("scoreboard players operation @p[tag=Divining] Rot %= #ThreeSixty Rot")
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=0,score_Rot=11] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=12,score_Rot=22] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=23,score_Rot=33] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=34,score_Rot=45] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=46,score_Rot=56] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=57,score_Rot=67] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=68,score_Rot=78] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=79,score_Rot=90] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=91,score_Rot=101] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=102,score_Rot=112] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=113,score_Rot=123] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=124,score_Rot=135] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=136,score_Rot=146] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=147,score_Rot=157] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=158,score_Rot=168] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=169,score_Rot=180] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=181,score_Rot=191] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=192,score_Rot=202] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=203,score_Rot=213] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=214,score_Rot=225] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=226,score_Rot=236] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=237,score_Rot=247] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=248,score_Rot=258] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=259,score_Rot=270] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=271,score_Rot=281] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=282,score_Rot=292] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=293,score_Rot=303] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=304,score_Rot=315] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=316,score_Rot=326] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=327,score_Rot=337] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=338,score_Rot=348] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=349,score_Rot=359] subtitle {"text":"%s"}""" (next()))
+            yield U("""title @p[tag=Divining] title {"text":""}""")
+            yield U("""scoreboard players tag @a remove Divining""")
         |]
     let r = map.GetRegion(1,1)
     r.PlaceCommandBlocksStartingAt(1,4,1,cmds,"")
@@ -956,7 +1052,7 @@ do
 
     //printfn "%d" survivalObtainableItems.Length  // 516
     //makeGetAllItemsGame()
-    testCompass2()
+    testCompass3()
 
     printfn "press a key to end"
     System.Console.Beep()
