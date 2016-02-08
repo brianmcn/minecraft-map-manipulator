@@ -393,7 +393,7 @@ let doTrie(r:RegionFile) =
                 yield U "tp @e[type=Slime] @e[type=LavaSlime]"
                 yield U "execute @e[type=Slime] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"  // slime at new place
             |]
-        r.PlaceCommandBlocksStartingAt(x,0,0,cmds,"on key",false)
+        r.PlaceCommandBlocksStartingAt(x,0,0,cmds,"on key",false,true)
     let keys = 
         [|
             for i = 0 to 25 do
@@ -444,7 +444,7 @@ let doTrie(r:RegionFile) =
             U "fill 69 0 0 69 3 30 wool 0"
             U (sprintf "tellraw @a [%s]" (System.String.Join(",",keys)))
         |]
-    r.PlaceCommandBlocksStartingAt(30,0,0,initCmds,"init",false)
+    r.PlaceCommandBlocksStartingAt(30,0,0,initCmds,"init",false,true)
 ////////////////////////////////////////////
 
 let musicStuff() =
@@ -988,9 +988,139 @@ let testCompass3() =
                     let dy,dx = -dx,dz // Minecraft coords are insane
                     let degrees = 180.0 * System.Math.Atan2(float dy, float dx) / System.Math.PI |> int
                     let degrees = degrees + 360 // scoreboard remove only handles positive numbers (?!?)
-                    yield O(sprintf "scoreboard players remove @p Rot %d" degrees)
+                    yield O(sprintf "scoreboard players remove @p[tag=Divining] Rot %d" degrees)
             |]
         r.PlaceCommandBlocksStartingAt(x,3,10,cmds,"")
+    map.WriteAll()
+
+let testCompass4() =
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Superflat\region\""")
+    let theString = """  ------->    ------->    ^^    <-------    <-------    --vv--  """
+    let twice = theString + theString
+    let at(n) = twice.Substring(n*2, 26)
+    let i = ref 0
+    let next() =
+        let r = at(!i)
+        incr i
+        r
+    let cmds = 
+        [|
+            // clean up the world
+            yield O """fill 10 3 10 90 3 90 grass"""
+            yield U """fill ~ ~ ~-1 ~ ~ ~120 air"""
+            // init world
+            yield O """scoreboard objectives add Rot dummy"""
+            yield U """scoreboard players set #ThreeSixty Rot 360"""
+            // always-running loop to test for holding item
+            yield P(sprintf """scoreboard players tag @p add Divining {SelectedItem:{tag:{display:{Lore:["%s"]}}}}""" Strings.NameAndLore.DIVINING_ROD_LORE)
+            yield U """testfor @p[tag=Divining]"""
+            yield C """blockdata ~ ~ ~2 {auto:1b}"""
+            yield C """blockdata ~ ~ ~1 {auto:0b}"""
+            // if item held... init score and call world-location and player rotation code
+            yield O """scoreboard players set @p[tag=Divining] Rot 456"""  // where the ^^ is (96), +360
+            // read world data
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 0 scoreboard players remove @p[tag=Divining] Rot 6""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 1 scoreboard players remove @p[tag=Divining] Rot 17""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 2 scoreboard players remove @p[tag=Divining] Rot 28""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 3 scoreboard players remove @p[tag=Divining] Rot 39""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 4 scoreboard players remove @p[tag=Divining] Rot 51""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 5 scoreboard players remove @p[tag=Divining] Rot 62""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 6 scoreboard players remove @p[tag=Divining] Rot 73""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 7 scoreboard players remove @p[tag=Divining] Rot 84""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 8 scoreboard players remove @p[tag=Divining] Rot 96""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 9 scoreboard players remove @p[tag=Divining] Rot 107""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 10 scoreboard players remove @p[tag=Divining] Rot 118""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 11 scoreboard players remove @p[tag=Divining] Rot 129""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 12 scoreboard players remove @p[tag=Divining] Rot 141""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 13 scoreboard players remove @p[tag=Divining] Rot 152""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 14 scoreboard players remove @p[tag=Divining] Rot 163""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_glass 15 scoreboard players remove @p[tag=Divining] Rot 174""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 0 scoreboard players remove @p[tag=Divining] Rot 186""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 1 scoreboard players remove @p[tag=Divining] Rot 197""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 2 scoreboard players remove @p[tag=Divining] Rot 208""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 3 scoreboard players remove @p[tag=Divining] Rot 219""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 4 scoreboard players remove @p[tag=Divining] Rot 231""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 5 scoreboard players remove @p[tag=Divining] Rot 242""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 6 scoreboard players remove @p[tag=Divining] Rot 253""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 7 scoreboard players remove @p[tag=Divining] Rot 264""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 8 scoreboard players remove @p[tag=Divining] Rot 276""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 9 scoreboard players remove @p[tag=Divining] Rot 287""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 10 scoreboard players remove @p[tag=Divining] Rot 298""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 11 scoreboard players remove @p[tag=Divining] Rot 309""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 12 scoreboard players remove @p[tag=Divining] Rot 321""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 13 scoreboard players remove @p[tag=Divining] Rot 332""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 14 scoreboard players remove @p[tag=Divining] Rot 343""")
+            yield U("""execute @p[tag=Divining] ~ ~-1 ~ detect ~ ~ ~ stained_hardened_clay 15 scoreboard players remove @p[tag=Divining] Rot 354""")
+            // detect player rotation 
+            yield U """title @p[tag=Divining] times 0 10 0""" // is not saved with the world, so has to be re-executed to ensure run after restart client
+            yield U("""summon ArmorStand ~ ~ ~ {Marker:1,Invulnerable:1,Invisible:1,Tags:["ASRot"]}""")
+            yield U("""tp @e[tag=ASRot] @p[tag=Divining]""")
+            for deg in [180; 90; 45; 22; 11] do
+                yield U(sprintf """scoreboard players add @e[tag=ASRot,rym=%d] Rot %d""" deg deg)
+                yield U(sprintf """tp @e[tag=ASRot,rym=%d] ~ ~ ~ ~-%d ~""" deg deg)
+            yield U("""scoreboard players operation @p[tag=Divining] Rot += @e[tag=ASRot] Rot""")
+            yield U("""kill @e[tag=ASRot]""")
+            // convert score to title text
+            yield U("scoreboard players operation @p[tag=Divining] Rot %= #ThreeSixty Rot")
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=0,score_Rot=11] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=12,score_Rot=22] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=23,score_Rot=33] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=34,score_Rot=45] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=46,score_Rot=56] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=57,score_Rot=67] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=68,score_Rot=78] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=79,score_Rot=90] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=91,score_Rot=101] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=102,score_Rot=112] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=113,score_Rot=123] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=124,score_Rot=135] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=136,score_Rot=146] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=147,score_Rot=157] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=158,score_Rot=168] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=169,score_Rot=180] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=181,score_Rot=191] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=192,score_Rot=202] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=203,score_Rot=213] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=214,score_Rot=225] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=226,score_Rot=236] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=237,score_Rot=247] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=248,score_Rot=258] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=259,score_Rot=270] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=271,score_Rot=281] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=282,score_Rot=292] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=293,score_Rot=303] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=304,score_Rot=315] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=316,score_Rot=326] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=327,score_Rot=337] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=338,score_Rot=348] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """title @p[tag=Divining,score_Rot_min=349,score_Rot=359] subtitle {"text":"%s"}""" (next()))
+            yield U("""title @p[tag=Divining] title {"text":""}""")
+            yield U("""scoreboard players tag @a remove Divining""")
+        |]
+    let r = map.GetRegion(1,1)
+    r.PlaceCommandBlocksStartingAt(1,4,1,cmds,"")
+
+    let goalX, goalZ = 60, 60
+    for x = 10 to 90 do
+        for z = 10 to 90 do
+            let dx = goalX-x
+            let dz = goalZ-z
+            let dy,dx = -dx,dz // Minecraft coords are insane
+            let degrees = 180.0 * System.Math.Atan2(float dy, float dx) / System.Math.PI |> int
+            let degrees = degrees + 720
+            let degrees = degrees % 360
+            let mutable degrees = degrees
+            let mutable steps = 0
+            for D in [180; 90; 45; 22; 11] do
+                if degrees >= D then
+                    degrees <- degrees - D
+                    steps <- steps + 1
+                steps <- steps * 2
+            steps <- steps / 2
+            if steps < 16 then
+                map.SetBlockIDAndDamage(x,3,z,95uy,byte steps) // 95=stained_glass
+            else
+                map.SetBlockIDAndDamage(x,3,z,159uy,byte(steps-16)) // 159=stained_hardened_clay
     map.WriteAll()
 
 ////////////////////////////////////////
@@ -1043,7 +1173,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1052,7 +1182,7 @@ do
 
     //printfn "%d" survivalObtainableItems.Length  // 516
     //makeGetAllItemsGame()
-    testCompass3()
+    //testCompass4()
 
     printfn "press a key to end"
     System.Console.Beep()

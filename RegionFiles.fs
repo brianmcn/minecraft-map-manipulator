@@ -437,8 +437,8 @@ type RegionFile(filename) =
         let cmds = [| yield! cmds; yield U (sprintf "fill ~ ~ ~-%d ~ ~ ~ air" cmds.Length) |]
         this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
-        this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment,true)
-    member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment,checkForOverwrites) =
+        this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment,true,true)
+    member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment,checkForOverwrites,putDummyAirAtEnd) =
         if comment <> "" then
             printfn "%s%d commands being placed - %s" (if startz + cmds.Length > 180 then "***WARN*** - " else "") cmds.Length comment
         let preprocessForBackpatching(a:_[]) =
@@ -486,7 +486,11 @@ type RegionFile(filename) =
                 | _ -> ()
         preprocessForBackpatching(cmds)
         numCommandBlocksPlaced <- numCommandBlocksPlaced + cmds.Length 
-        let cmds = Seq.append cmds [| O DUMMY |] |> Array.ofSeq  // dummy will put air at end - ensure not chain into existing blocks from world
+        let cmds = 
+            if putDummyAirAtEnd then
+                Seq.append cmds [| O DUMMY |] |> Array.ofSeq  // dummy will put air at end - ensure not chain into existing blocks from world
+            else
+                cmds
 #if DEBUG_DETAIL
         if cmds.[0] = O "" then
             cmds.[0] <- O (sprintf "say %s" comment)
