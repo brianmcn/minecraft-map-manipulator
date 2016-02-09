@@ -1354,6 +1354,7 @@ let survivalObtainableItems =
         423,0,"mutton"
         424,0,"cooked_mutton"
         425,0,"banner" // TODO millions of kinds
+        426,0,"end_crystal"
         427,0,"spruce_door"
         428,0,"birch_door"
         429,0,"jungle_door"

@@ -674,54 +674,139 @@ let chatToVoiceDemo() =
 ////////////////////////////////////////
 
 open MC_Constants
-let makeGetAllItemsGame() =    
+let makeGetAllItemsGame(minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
     // TODO encase in barrier
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\flattest\region""")
     let tes = ResizeArray()
-    let YMIN = 5
+    let YMIN = minyRoom
     let L = (survivalObtainableItems.Length+4)/5
     let Q = (L+3)/4
-    let ox = 1
     let mutable count = 0
     for oz = 1 to 4*Q do
-        for y = YMIN+4 downto YMIN do
+        for dy = 4 downto 0 do
+            let y = YMIN+dy
             let i = (YMIN+4-y)*L + oz - 1
             let x,z,dx,dz,facing =
                 if oz <= Q then
-                    ox,Q+2-oz,1,0,3
+                    1,Q+2-oz,1,0,3
                 elif oz <= 2*Q then
                     oz-Q+3,1,0,-1,0
                 elif oz <= 3*Q then
                     Q+6,2+oz-2*Q,-1,0,1
                 else
                     4*Q-oz+4,Q+2,0,1,2
-            map.EnsureSetBlockIDAndDamage(x+dx,y,z+dz,1uy,0uy)
+            let x,y,z = x-2+minxRoom, y, z+minzRoom
+            // x : [-1,-1]    z : [Q+1,2]
+            // x : [2,Q+1]    z : [1,1]
+            // x : [Q+4,Q+4]  z : [3,Q+2]
+            // x : [Q+1,2]    z : [Q+2,Q+2]
+            map.EnsureSetBlockIDAndDamage(x+dx,y,z+dz,1uy,0uy) // 1,0 = stone
             count <- count + 1
-            map.EnsureSetBlockIDAndDamage(ox,y,oz,211uy,3uy)
+            let cx, cy, cz = minxCmds, minyCmds+dy, minzCmds+oz
+            map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,3uy)
             if i < survivalObtainableItems.Length then
                 let bid,dmg,name = survivalObtainableItems.[i]
                 let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,_y) -> x=bid) |> snd else sprintf "minecraft:%s" name
-                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%d"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg i
-                tes.Add [|Int("x",ox); Int("y",y); Int("z",oz); String("id","Control"); 
+//                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%d"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg i
+                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%s"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg name
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",cmd); End |]
-            else // empty command, just to ensure overwriting blocks
-                tes.Add [|Int("x",ox); Int("y",y); Int("z",oz); String("id","Control"); 
+                // backing commands
+                // testfor @a {Inventory:[{id:"minecraft:%s",Damage:%ds}]}
+                let cmdFacing = [| 2uy; 5uy; 3uy; 4uy |].[facing]  // convert item-frame-facing to opposite command-block-facing
+                let cx,cy,cz = x+0*dx, y, z+2*dz
+                map.EnsureSetBlockIDAndDamage(cx,cy,cz,210uy,cmdFacing) // 210=repeating
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                            Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                            String("Command",sprintf """testfor @a {Inventory:[{id:"%s",Damage:%ds}]}""" itemName dmg); End |]
+                // setblock emerald
+                let cx,cy,cz = x+ -1*dx, y, z+3*dz
+                map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                            Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                            String("Command",sprintf """setblock ~%d ~ ~%d emerald_block""" (2*dx) (-2*dz)); End |]
+                // chat announce name
+                let cx,cy,cz = x+ -2*dx, y, z+4*dz
+                map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                            Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                            String("Command",sprintf """tellraw @a ["Got %s"]""" itemName); End |]
+                // TODO score++
+                // TODO sound
+            else 
+                // empty command, just to ensure overwriting blocks
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",""); End |]
                 // TODO filled_map looks weird
                 // TODOs from the item list, e.g. potions, ench books, etc.. figure out where draw line, maybe if more than 17 variations of X?
-    for y = YMIN+4 downto YMIN do
-        let x = 1
-        let z = 0
+    // ICBs to init the item frames at each Y
+    for dy = 4 downto 0 do
+        let x = minxCmds
+        let z = minzCmds
+        let y = minyCmds + dy
         map.SetBlockIDAndDamage(x,y,z,137uy,3uy)
         let cmd = ""
         tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","Control"); 
                     Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                     String("Command",cmd); End |]
+    // ICBs to put redstone to start the checkers
+    let cx,cy,cz = minxRoom+10, minyRoom, minzRoom+10
+    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom) (minyRoom) (minzRoom+Q+1) (minxRoom) (minyRoom+4) (minzRoom+2)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+2) (minyRoom) (minzRoom) (minxRoom+Q+1) (minyRoom+4) (minzRoom)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+3) (minyRoom) (minzRoom+3) (minxRoom+Q+3) (minyRoom+4) (minzRoom+Q+2)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+3) (minxRoom+2) (minyRoom+4) (minzRoom+Q+3)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    // ICBs to put barriers to enclose room
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+2)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+2) (minxRoom+Q+1) (minyRoom+4) (minzRoom+2)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+3) (minxRoom+Q+1) (minyRoom+4) (minzRoom+Q+1)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+Q+1)
+    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    // write it all out
     map.AddOrReplaceTileEntities(tes)
     printfn "%d wall spots, %d items" count survivalObtainableItems.Length 
     map.WriteAll()
+
+
 
 ////////////////////////////////////////
 
@@ -1173,7 +1258,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1181,7 +1266,7 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //printfn "%d" survivalObtainableItems.Length  // 516
-    //makeGetAllItemsGame()
+    makeGetAllItemsGame(8,4,5,1,4,0)
     //testCompass4()
 
     printfn "press a key to end"
