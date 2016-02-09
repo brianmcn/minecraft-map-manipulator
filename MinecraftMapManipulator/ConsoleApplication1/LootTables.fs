@@ -497,7 +497,7 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
                     //String("Potion","minecraft:luck"); // make Ambient:1b
                     List("CustomPotionEffects",Compounds[|[|Byte("Id",26uy);Byte("Amplifier",0uy);Int("Duration",6000);Byte("Ambient",1uy); End|]|])
                     Compound("display", Strings.NameAndLore.LUCK_POTION_DISPLAY |> ResizeArray); End] |> ResizeArray); End |]
-            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
+            yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
         |]
     addSlotTags tier4Items 
 
@@ -507,6 +507,9 @@ let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
         [|
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng))
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng))
+            yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
+            yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:golden_hoe"); Compound("tag",[
+                        Int("Unbreakable",1); Strings.NameAndLore.DIVINING_ROD; End] |> ResizeArray); End |]
             for _i = 1 to F 2 do
                 yield makeItem(rng,"experience_bottle",64,64,0s)
         |]

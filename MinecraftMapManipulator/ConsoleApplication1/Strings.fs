@@ -13,6 +13,16 @@ let private displayNameAndLore(name, lore:_[]) = // lore can be null
                              yield List("Lore",Strings(lore));
                          yield End|] |> ResizeArray)
 
+module NameAndLore =
+    let SUPER_JUMP_BOOST = displayNameAndLore("Super jump boost",[|"Don't use without";"your elytra wings on!"|]) // TODO note 'elytra' here too
+    let MONUMENT_BLOCK_PURPUR = displayNameAndLore("Monument Block: Purpur Block",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
+    let MONUMENT_BLOCK_END_STONE_BRICK = displayNameAndLore("Monument Block: End Stone Brick",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
+    let INNER_CHEST_WITH_NAME(name:TranslatableString) = displayNameAndLore(name.Text, [|"Place this chest"; "and open it"; "for more loot"|])
+    let LUCK_POTION_DISPLAY = [String("Name","Your lucky DAY"); List("Lore", Strings[|"While this luck"; "potion is active"; "it will remain"; "daylight, even"; "away from spawn"|]); End]
+    let DIVINING_ROD_LORE = "Hold me to locate loot!" //must be one-line
+    let DIVINING_ROD_NAME = "Mysterious Divining Rod"
+    let DIVINING_ROD = displayNameAndLore(DIVINING_ROD_NAME,[|DIVINING_ROD_LORE|])
+
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
 
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 
@@ -32,7 +42,8 @@ let BOOK_IN_FLAT_DUNGEON_CHEST =
 
 let BOOK_IN_MOUNTAIN_PEAK_CHEST =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","4. Secret Treasure",[| 
-        id """{"text":"The secret treasure is buried at\nX : ","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":"\nZ : "},{"score":{"name":"Z","objective":"hidden"}}]}"""
+//        id """{"text":"The secret treasure is buried at\nX : ","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":"\nZ : "},{"score":{"name":"Z","objective":"hidden"}}]}"""
+        sprintf """{"text":"A secret treasure lies buried in a mountain top... hold the %s while exploring to find it!"}}]}""" NameAndLore.DIVINING_ROD_NAME 
      |])|> ResizeArray)
 
 // TODO quadrant stuff is sloppy, ideally should be 4 strings in both places
@@ -150,10 +161,3 @@ let NBT_FISHING =
         sprintf """[{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to "},{"text":"donate!","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
     |])
 
-module NameAndLore =
-    let SUPER_JUMP_BOOST = displayNameAndLore("Super jump boost",[|"Don't use without";"your elytra wings on!"|]) // TODO note 'elytra' here too
-    let MONUMENT_BLOCK_PURPUR = displayNameAndLore("Monument Block: Purpur Block",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
-    let MONUMENT_BLOCK_END_STONE_BRICK = displayNameAndLore("Monument Block: End Stone Brick",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
-    let INNER_CHEST_WITH_NAME(name:TranslatableString) = displayNameAndLore(name.Text, [|"Place this chest"; "and open it"; "for more loot"|])
-    let LUCK_POTION_DISPLAY = [String("Name","Your lucky DAY"); List("Lore", Strings[|"While this luck"; "potion is active"; "it will remain"; "daylight, even"; "away from spawn"|]); End]
-    let DIVINING_ROD_LORE = "XXX" //"Hold me to locate loot!" //must be one-line

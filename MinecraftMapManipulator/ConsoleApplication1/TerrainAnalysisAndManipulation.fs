@@ -1182,7 +1182,7 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
 let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
-let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>, allTrees:MCTree seq) =
     let RADIUS = MOUNTAIN_PEAK_DANGER_RADIUS
     let computeBestHighPoints(minH) =
         let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,minH,minH+20,10,6,decorations)
@@ -1241,8 +1241,18 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
     putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_HIDDEN_TREASURE_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(bx,by-1,bz,89uy,0uy) // 89=glowstone
     // put a tiny mark on the surface
-    map.SetBlockIDAndDamage(bx,hmIgnoringLeaves.[bx,bz]+0,bz,3uy,0uy) // 3=dirt
-    map.SetBlockIDAndDamage(bx,hmIgnoringLeaves.[bx,bz]+1,bz,38uy,1uy) // 38,1=blue orchid
+    do
+        let mutable by = hmIgnoringLeaves.[bx,bz]
+        // ..remove entirety of nearby trees (because having the orchid not placed, or atop a tree, is confusing/unhelpful)
+        if allTrees = null then
+            printfn "allTrees WAS NULL, SKIPPING TREE REDO"
+        else
+            for t in allTrees do
+                let x,_,z = t.CanonicalStump 
+                if abs(x-bx) < 10 && abs(z-bz) < 10 then
+                    t.Replace(map, 0uy, 0uy, 0uy, 0uy)
+        map.SetBlockIDAndDamage(bx,by+0,bz,3uy,0uy) // 3=dirt
+        map.SetBlockIDAndDamage(bx,by+1,bz,38uy,1uy) // 38,1=blue orchid
     /////////////////////////////////////////////////////////////////
     // mountain peaks
     let bestHighPoints = try Seq.take 10 bestHighPoints |> ResizeArray with _e -> bestHighPoints |> ResizeArray
@@ -1253,9 +1263,8 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
         log.LogSummary(sprintf "added mountain peak (score %d) at %d %d %d" s x y z)
         let spawners = SpawnerAccumulator("spawners around mountain peak")
         putTreasureBoxWithItemsAt(map,x,y,z,[|
-                [| Byte("Slot",11uy); Byte("Count",1uy); String("id","minecraft:written_book"); Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
-                [| Byte("Slot",13uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|Strings.NameAndLore.MONUMENT_BLOCK_PURPUR;End|] |> ResizeArray); End |]
-                [| yield Byte("Slot",15uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT,LootTables.NEWsampleTier5Chest(rng)) |]
+                [| Byte("Slot",12uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|Strings.NameAndLore.MONUMENT_BLOCK_PURPUR;End|] |> ResizeArray); End |]
+                [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT,LootTables.NEWsampleTier5Chest(rng)) |]
             |])
         for xx = x-3 to x+3 do
             for zz = z-3 to z+3 do
@@ -2334,31 +2343,31 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    xtime (fun () -> allTrees := treeify(map))
-    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> allTrees := treeify(map))
+//    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

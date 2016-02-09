@@ -36,8 +36,6 @@ get use to clicking for invincibility frames, think about mob balance with viabl
 
 TODO: bugs & good ideas
 
-seed 126, put orchid on top of tree (hidden) - if wood there, find corresponding tree and delete it (convert to air) first
-
 ds could be use4ul 4or outrunning mobs across river; like fw, hard to encourage enough tho... and exclusive to each other, hm
 consider directly give some fw2 boots with other good something, to make more likely to use? no, has downsides too (waterfalls, farms, ...), hm
 FW works with mobs, can use that somehow? summon Skeleton ~ ~ ~1 {ArmorItems:[{id:iron_boots,tag:{ench:[{id:9s,lvl:1s}]}}]}  replaceitem any near the thingy?
