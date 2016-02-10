@@ -2,6 +2,15 @@
 
 ////////////////////////////
 
+let swap (a: _[]) x y =
+    let tmp = a.[x]
+    a.[x] <- a.[y]
+    a.[y] <- tmp
+
+let shuffle(a,rng:System.Random) = Array.iteri (fun i _ -> swap a i (rng.Next(i, Array.length a))) a
+
+////////////////////////////
+
 // choose N items from array A, with replacement, but make it increasingly unlikely to re-choose an item the more it has already been chosen
 let pickNnonindependently(rng:System.Random,n,a) =
     let a = a |> Seq.toArray 

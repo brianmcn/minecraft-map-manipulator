@@ -42,8 +42,6 @@ ds could be use4ul 4or outrunning mobs across river; like fw, hard to encourage 
 consider directly give some fw2 boots with other good something, to make more likely to use? no, has downsides too (waterfalls, farms, ...), hm
 FW works with mobs, can use that somehow? summon Skeleton ~ ~ ~1 {ArmorItems:[{id:iron_boots,tag:{ench:[{id:9s,lvl:1s}]}}]}  replaceitem any near the thingy?
 
-tree with logs facing wrong way on stem, chest underneath? all logs horizontal, except the canoical stem which is a different wood type, to make want to chop it
- - acacia with dark oak base, oak with birch base, all others with acacia base; not any of the 'swap biomes' trees (how to deal with? ordering)
 even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
  - have a crude mockup in 126finished
 noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)

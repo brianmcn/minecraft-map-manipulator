@@ -1469,12 +1469,12 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
-let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>) =
+let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>,allTrees:MCTree seq) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
     let lootLocations = ResizeArray()
     let names = Array.create 20 ""
-    let points = Array.init 20 (fun x -> ResizeArray())
+    let points = Array.init 20 (fun _x -> ResizeArray())
     let noneWithin(r,points,x,_y,z) =
         let mutable ok = true
         for px,_,pz in points do
@@ -1728,7 +1728,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 assert(PIXELS.Length = PIXELS.[0].Length)
                 if x < MINIMUM+LENGTH-1 - DIGMAX && z < MINIMUM+LENGTH-1 - DIGMAX then
                     if map.GetBiome(x,z)=6uy && map.GetBlockInfo(x,y,z).BlockID=9uy && map.GetBlockInfo(x,y+1,z).BlockID=0uy then // swamp, water, air
-                        if noneWithin(120,points.[19],x,y,z) then
+                        if noneWithin(120,points.[14],x,y,z) then
                             if rng.Next(40) = 0 then // TODO probability, so don't place on all, or all NE corners, or whatnot (data point: at rng(40), 13 of 17 swamps got covered)
                                 let mutable ok,i = true,0
                                 while ok && i < DIGMAX*DIGMAX do
@@ -1769,11 +1769,42 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     // place hidden trapped chest
                                     let x,y,z = x+9,y-5,z+6  // below the 'X'
                                     putTrappedChestWithLoot(x,y,z,3)
-                                    points.[19].Add( (x,y,z) )
-                                    names.[19] <- "swamp hidden"
+                                    points.[14].Add( (x,y,z) )
+                                    names.[14] <- "swamp hidden"
             // end if not near deco
         // end for z
     // end for x
+    let allTrees = allTrees |> Seq.toArray 
+    Algorithms.shuffle(allTrees,rng)
+    for t in allTrees do
+        let x,y,z = t.CanonicalStump
+        if biome.[x,z] = 8uy || biome.[x,z] = 9uy then
+            () // ignore hell/end trees we've already replaced
+        else
+            // if no other super-common chests nearby
+            if noneWithin(150,points.[7],x,y,z) && noneWithin(150,points.[1],x,y,z) && noneWithin(150,points.[15],x,y,z) then
+                // if base would not leave chest exposed    
+                let bidsAroundBase = 
+                    set [| int(map.GetBlockInfo(x+1,y-1,z).BlockID)
+                           int(map.GetBlockInfo(x-1,y-1,z).BlockID)
+                           int(map.GetBlockInfo(x,y-1,z+1).BlockID)
+                           int(map.GetBlockInfo(x,y-1,z-1).BlockID) |]
+                if (Set.intersect (set MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT) bidsAroundBase).IsEmpty then
+                    // acacia with dark oak base, oak with birch base, all others with acacia base
+                    let nbid,ndmg =
+                        let bi = map.GetBlockInfo(x,y,z)
+                        if bi.BlockID = 17uy && (bi.BlockData &&& 3uy = 0uy) then // oak
+                            17uy, (bi.BlockData &&& 12uy) + 2uy // birch
+                        elif bi.BlockID = 162uy && (bi.BlockData &&& 3uy = 0uy) then // acacia
+                            162uy, (bi.BlockData &&& 12uy) + 1uy // dark oak
+                        else // all others
+                            162uy, (bi.BlockData &&& 12uy) + 0uy // acacia
+                    map.SetBlockIDAndDamage(x,y,z,nbid,ndmg)
+                    printfn "%d %d %d" x y z
+                    let x,y,z = x,y-1,z
+                    putTrappedChestWithLoot(x,y,z,1)
+                    points.[15].Add( (x,y,z) )
+                    names.[15] <- "tree stump"
     map.AddOrReplaceTileEntities(tileEntities)
     log.LogSummary(sprintf "added %d extra loot chests" tileEntities.Count)
     for i = 0 to names.Length-1 do
@@ -2346,15 +2377,15 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     time (fun () -> allTrees := treeify(map))
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations))  // after others, reads decoration locations
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun() ->   // after hiding spots figured
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured
