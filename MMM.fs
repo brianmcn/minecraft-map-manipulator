@@ -674,9 +674,7 @@ let chatToVoiceDemo() =
 ////////////////////////////////////////
 
 open MC_Constants
-let makeGetAllItemsGame(minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
-    // TODO encase in barrier
-    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\flattest\region""")
+let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
     let tes = ResizeArray()
     let YMIN = minyRoom
     let L = (survivalObtainableItems.Length+4)/5
@@ -732,8 +730,18 @@ let makeGetAllItemsGame(minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCm
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",sprintf """tellraw @a ["Got %s"]""" itemName); End |]
-                // TODO score++
-                // TODO sound
+                // score++
+                let cx,cy,cz = x+ -3*dx, y, z+5*dz
+                map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                            Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                            String("Command","""scoreboard players add Have Items 1"""); End |]
+                // sound
+                let cx,cy,cz = x+ -4*dx, y, z+6*dz
+                map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                            Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                            String("Command","""execute @p ~ ~ ~ playsound entity.firework.launch voice @p ~ ~ ~"""); End |]
             else 
                 // empty command, just to ensure overwriting blocks
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
@@ -754,59 +762,75 @@ let makeGetAllItemsGame(minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCm
     // ICBs to put redstone to start the checkers
     let cx,cy,cz = minxRoom+10, minyRoom, minzRoom+10
     let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom) (minyRoom) (minzRoom+Q+1) (minxRoom) (minyRoom+4) (minzRoom+2)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     let cx,cy,cz = cx,cy,cz+1
     let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+2) (minyRoom) (minzRoom) (minxRoom+Q+1) (minyRoom+4) (minzRoom)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     let cx,cy,cz = cx,cy,cz+1
     let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+3) (minyRoom) (minzRoom+3) (minxRoom+Q+3) (minyRoom+4) (minzRoom+Q+2)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     let cx,cy,cz = cx,cy,cz+1
     let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+3) (minxRoom+2) (minyRoom+4) (minzRoom+Q+3)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     // ICBs to put barriers to enclose room
     let cx,cy,cz = cx,cy,cz+1
     let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+2)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     let cx,cy,cz = cx,cy,cz+1
     let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+2) (minxRoom+Q+1) (minyRoom+4) (minzRoom+2)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     let cx,cy,cz = cx,cy,cz+1
     let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+3) (minxRoom+Q+1) (minyRoom+4) (minzRoom+Q+1)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     let cx,cy,cz = cx,cy,cz+1
     let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+Q+1)
-    map.SetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    // ICBs to set up scoreboard
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = "scoreboard objectives add Items dummy"
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = sprintf "scoreboard players set Goal Items %d" survivalObtainableItems.Length 
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
+    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
+                String("Command",cmd); End |]
+    let cx,cy,cz = cx,cy,cz+1
+    let cmd = "scoreboard players set Have Items 0"
+    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
     tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                 Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                 String("Command",cmd); End |]
     // write it all out
     map.AddOrReplaceTileEntities(tes)
     printfn "%d wall spots, %d items" count survivalObtainableItems.Length 
-    map.WriteAll()
-
-
 
 ////////////////////////////////////////
 
@@ -1253,7 +1277,7 @@ do
 
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,35,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
-    //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,80,4,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
+    //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
@@ -1266,7 +1290,17 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //printfn "%d" survivalObtainableItems.Length  // 516
-    makeGetAllItemsGame(8,4,5,1,4,0)
+    do
+        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\everything\region\""")
+        makeGetAllItemsGame(map,8,90,8,0,90,0)
+        for x = 8 to 29+8 do
+            for z = 8 to 29+8 do
+                map.EnsureSetBlockIDAndDamage(x,89,z,20uy,0uy) // glass
+                map.EnsureSetBlockIDAndDamage(x,95,z,20uy,0uy) // glass
+        RecomputeLighting.relightTheWorld(map)
+        map.WriteAll()
+
+
     //testCompass4()
 
     printfn "press a key to end"
