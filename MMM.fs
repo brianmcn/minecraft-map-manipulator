@@ -1266,7 +1266,7 @@ do
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w05a.zip""","""C:\Users\Admin1\Desktop\16w05b.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w05b.zip""","""C:\Users\Admin1\Desktop\16w06a.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\d1\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")

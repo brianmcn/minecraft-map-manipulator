@@ -2163,7 +2163,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             placeImpulse(x+2,h+23,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (spawnHeight-11) 0) // expose teleporters at spawn //note brittle coords of block
                             placeChain(x+2,h+22,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
                             placeImpulse(x+2,h+21,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (spawnHeight-5) spz (x+2) (h+6) (z+2))
-                            placeChain(x+2,h+20,z+2,sprintf "summon Villager %d %d %d {Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}" spx (spawnHeight-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
+                            placeChain(x+2,h+20,z+2,sprintf "summon ArmorStand %d %d %d {NoGravity:1,Marker:1b,Invisible:1,Passengers:[{id:Villager,Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}]}" spx (spawnHeight-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
                             placeChain(x+2,h+19,z+2,Strings.TELLRAW_TELEPORTER_UNLOCKED)
                             placeChain(x+2,h+18,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
                             placeImpulse(x+2,h+17,z+2,"")
@@ -2374,7 +2374,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
+    xtime (fun () -> allTrees := treeify(map))
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
@@ -2383,22 +2383,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
     xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
