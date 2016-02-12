@@ -673,8 +673,22 @@ let chatToVoiceDemo() =
 
 ////////////////////////////////////////
 
+// BUG LIST
+// xTODO bed registered twice, two points? (26 and 355, both named "bed", only 355 should be there)
+// xTODO (white) banner did not register (the issue is Damage)
+// xTODO (damaged) bow (skel drop) did not register (the issue is Damage)
+// xTODO deadbush as 31 and 32, are both obtainable? (31 is not)
+// xTODO dragon head obtainable? 397,5
+// xTODO should chat the display name rather than item name, should add display names currently only in comments
+// obe can beta test
+
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
+    // discover when damage value matters
+    let hasNonZeroDamage = Array.zeroCreate 3000
+    for bid,dmg,_ in survivalObtainableItems do
+        if dmg <> 0 then hasNonZeroDamage.[bid] <- true
+    // main loop
     let tes = ResizeArray()
     let YMIN = minyRoom
     let L = (survivalObtainableItems.Length+4)/5
@@ -704,6 +718,21 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
             map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,3uy)
             if i < survivalObtainableItems.Length then
                 let bid,dmg,name = survivalObtainableItems.[i]
+                // minor name fixup stuff
+                let name = System.Text.RegularExpressions.Regex.Replace(name, """\s+""", " ")  // condense multiple spaces to one space
+                let name = match bid,dmg with
+                           | 263,1 -> "charcoal"
+                           | 322,1 -> "enchanted golden apple"
+                           | 349,1 -> "salmon"
+                           | 349,2 -> "clownfish"
+                           | 349,3 -> "pufferfish"
+                           | 350,1 -> "cooked salmon"
+                           | 397,0 -> "skeleton head"
+                           | 397,1 -> "wither skeleton head"
+                           | 397,2 -> "zombie head"
+                           | 397,4 -> "creeper head"
+                           | 397,5 -> "dragon head"
+                           | _ -> name
                 let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,_y) -> x=bid) |> snd else sprintf "minecraft:%s" name
 //                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%d"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg i
                 let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%s"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg name
@@ -717,7 +746,7 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,210uy,cmdFacing) // 210=repeating
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                             Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                            String("Command",sprintf """testfor @a {Inventory:[{id:"%s",Damage:%ds}]}""" itemName dmg); End |]
+                            String("Command",sprintf """testfor @a {Inventory:[{id:"%s"%s}]}""" itemName (if hasNonZeroDamage.[bid] then sprintf ",Damage:%ds" dmg else "")); End |]
                 // setblock emerald
                 let cx,cy,cz = x+ -1*dx, y, z+3*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
@@ -729,7 +758,7 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                            String("Command",sprintf """tellraw @a ["Got %s"]""" itemName); End |]
+                            String("Command",sprintf """tellraw @a ["Got %s"]""" name); End |]
                 // score++
                 let cx,cy,cz = x+ -3*dx, y, z+5*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
@@ -748,7 +777,6 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",""); End |]
                 // TODO filled_map looks weird
-                // TODOs from the item list, e.g. potions, ench books, etc.. figure out where draw line, maybe if more than 17 variations of X?
     // ICBs to init the item frames at each Y
     for dy = 4 downto 0 do
         let x = minxCmds
@@ -1282,7 +1310,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1290,16 +1318,20 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //printfn "%d" survivalObtainableItems.Length  // 516
-    (*
     do
-        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\everything\region\""")
-        makeGetAllItemsGame(map,8,90,8,0,90,0)
-        for x = 8 to 29+8 do
-            for z = 8 to 29+8 do
-                map.EnsureSetBlockIDAndDamage(x,89,z,20uy,0uy) // glass
-                map.EnsureSetBlockIDAndDamage(x,95,z,20uy,0uy) // glass
-        RecomputeLighting.relightTheWorld(map)
+        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Obesity\region\""")
+        //let X,Y,Z = 8,90,8
+        //makeGetAllItemsGame(map,X,Y,Z,0,Y,0)
+        let X,Y,Z = 200,85,-50
+        makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
+        for x = X to 29+X do
+            for z = Z to 29+Z do
+                map.EnsureSetBlockIDAndDamage(x,Y-1,z,20uy,0uy) // glass
+                map.EnsureSetBlockIDAndDamage(x,Y+5,z,20uy,0uy) // glass
+        //RecomputeLighting.relightTheWorld(map)
+        RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-1..0], false)
         map.WriteAll()
+    (*
     *)
 
     //testCompass4()

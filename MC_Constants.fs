@@ -919,12 +919,10 @@ let survivalObtainableItems =
         24,1,"chiseled sandstone"
         24,2,"smooth sandstone"
         25,0,"note block"
-        26,0,"bed"
         27,0,"powered rail"
         28,0,"detector rail"
         29,0,"sticky piston"
         30,0,"web"
-        31,0,"dead bush"
         31,1,"tall grass"
         31,2,"fern"
         32,0,"dead bush"
@@ -1323,10 +1321,11 @@ let survivalObtainableItems =
         394,0,"poisonous_potato"
         395,0,"map"
         396,0,"golden_carrot"
-        397,0,"skull" // skel
-        397,1,"skull" // wither skel
-        397,2,"skull" // zombie
-        397,4,"skull" // creeper
+        397,0,"skull" // skeleton head
+        397,1,"skull" // wither skeleton head
+        397,2,"skull" // zombie head
+        397,4,"skull" // creeper head
+        397,5,"skull" // dragon head
         398,0,"carrot_on_a_stick"
         399,0,"nether_star"
         400,0,"pumpkin_pie"
