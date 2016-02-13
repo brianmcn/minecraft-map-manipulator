@@ -1742,6 +1742,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     log.LogInfo(sprintf "putting SWAMP bit at %d %d" x z)
                                     // put "DIG" and "X" with entities so frost walker exposes
                                     let mkArmorStandAt(x,y,z) = 
+                                        let y = y + 1  // place AS above the water, so no bubbles
                                         [|
                                             // ArmorStand versus mob - players can move through AS without collision, though both block attacks
                                             NBT.String("id","ArmorStand")
@@ -1749,7 +1750,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                             NBT.List("Pos",Doubles([|float x + 0.5; float y + 0.9; float z + 0.5|]))  // high Y to try to prevent them from preventing people from digging...
                                             NBT.List("Motion",Doubles([|0.0; 0.0; 0.0|]))
                                             NBT.List("Rotation",Doubles([|0.0; 0.0|]))
-                                            NBT.Byte("Marker",0uy) // need hitbox to work with FW
+                                            NBT.Byte("Marker",1uy) // need hitbox to work with FW, so we command it instead below
                                             NBT.Byte("Small",1uy) // small hitbox to avoid interfering much with world
                                             NBT.Byte("Invisible",1uy)
                                             NBT.Byte("NoGravity",1uy)
@@ -1765,12 +1766,35 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         for dz = 0 to DIGMAX-1 do
                                             if PIXELS.[dx].[DIGMAX-1-dz] = 'X' then
                                                 ents.Add(mkArmorStandAt(x+dx,y,z+dz))
+                                            else
+                                                for ddx in [-1;0;1] do
+                                                    for ddz in [-1;0;1] do
+                                                        try
+                                                            if PIXELS.[dx+ddx].[DIGMAX-1-(dz+ddz)] = 'X' then
+                                                                // any space next to X but non-X, ensure no lily-pad by setting to air
+                                                                map.SetBlockIDAndDamage(x+dx,y+1,z+dz,0uy,0uy)
+                                                        with _ -> () // sloppily deal with array index out of bounds rather than using sentinels or checks
                                     map.AddEntities(ents)
                                     // place hidden trapped chest
                                     let x,y,z = x+9,y-5,z+6  // below the 'X'
                                     putTrappedChestWithLoot(x,y,z,3)
                                     points.[14].Add( (x,y,z) )
                                     names.[14] <- "swamp hidden"
+                                    // in order to make more discoverable, have nearby undeads 'help' by having FW boots they often drop
+                                    let y = 2
+                                    let RAD = 30 // if player this close, modify guys that close to player
+                                    for dx,mob in [0,"Zombie"; 1,"Skeleton"] do
+                                        let x = x + dx
+                                        map.SetBlockIDAndDamage(x,y,z,210uy,0uy)  // repeating command block
+                                        let command = sprintf """execute @p[r=%d,x=%d,y=65,z=%d] ~ ~ ~ entitydata @e[r=%d,type=%s,tag=!seen] {Tags:["seen"],ArmorItems:[{id:iron_boots,tag:{ench:[{id:9s,lvl:2s}]},Count:1b}],ArmorDropChances:[1.0F]}""" RAD x z RAD mob
+                                        tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+                                        map.AddTileTick("minecraft:repeating_command_block",1,0,x,y,z)
+                                    // use commands to undo frost-walker on the AS, since Marker:0b causes problems
+                                    let x = x + 2
+                                    map.SetBlockIDAndDamage(x,y,z,210uy,0uy)  // repeating command block
+                                    let command = sprintf """execute @p[r=%d,x=%d,y=65,z=%d] ~ ~ ~ execute @e[type=ArmorStand] ~ ~-1 ~ detect ~ ~ ~ frosted_ice -1 setblock ~ ~ ~ water""" RAD x z // -1 because AS 1 above water
+                                    tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+                                    map.AddTileTick("minecraft:repeating_command_block",1,0,x,y,z)
             // end if not near deco
         // end for z
     // end for x
@@ -2374,31 +2398,31 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    xtime (fun () -> allTrees := treeify(map))
+    time (fun () -> allTrees := treeify(map))
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

@@ -1310,7 +1310,7 @@ do
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1318,6 +1318,7 @@ do
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //printfn "%d" survivalObtainableItems.Length  // 516
+    (*
     do
         let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Obesity\region\""")
         //let X,Y,Z = 8,90,8
@@ -1331,7 +1332,6 @@ do
         //RecomputeLighting.relightTheWorld(map)
         RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-1..0], false)
         map.WriteAll()
-    (*
     *)
 
     //testCompass4()
