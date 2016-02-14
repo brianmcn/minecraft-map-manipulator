@@ -37,7 +37,7 @@ let BOOK_IN_GREEN_BEACON_CHEST =
 
 let BOOK_IN_FLAT_DUNGEON_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","3. After red beacon webs",[|
-         id """{"text":"Once strong enough, attack dangerous-looking mountain peaks to get a map to the best treasure!"}"""
+         id """{"text":"Once strong enough, attack dangerous-looking bedrock-roofed mountain peaks to get a map to the best treasure!"}"""
      |]) |> ResizeArray)
 
 let BOOK_IN_MOUNTAIN_PEAK_CHEST =

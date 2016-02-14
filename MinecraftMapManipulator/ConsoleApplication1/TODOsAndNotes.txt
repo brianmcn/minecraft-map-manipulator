@@ -40,12 +40,12 @@ TODO: bugs & good ideas
 ideas for 'harder' mobs: armored, carrying sharp weapons, having regen/strength, knockback resistance, ...
 
 even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
- - have a crude mockup in 126finished.
+ - have a crude mockup in 126finished.  over plains/ice-plains/desert could be good
 noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)
-something with netherrack fires?
+could even have a block in the starter chest to suggest the hunt
 deal with "// TODO these probabilities can cause wild swings in variance"
-a finite set of collectable items could be good long-term for completionists
-an area made out of chests/furnaces/etc where you want to use your bow is a nice 'trap' as right-clicking opens the chest
+glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what?
+a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
 more 'proc' when you finish the map (fireworks spawner or whatever, chat link to subreddit, etc)
 
 idea: nine lives: each time you die, your default max hearts decreases 1
@@ -115,6 +115,7 @@ spawner underneath dead-end chest?
 ***skeleton trap, electrified creeper
 ***primed tnt buried in walls
 trap where enderman grabs sand/whatever and update lava somehow (floating lava?)
+an area made out of chests/furnaces/etc where you want to use your bow is a nice 'trap' as right-clicking opens the chest
 legendary: seeing x from afar leads to seeing y up close... (telporter path, ...)
 have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...

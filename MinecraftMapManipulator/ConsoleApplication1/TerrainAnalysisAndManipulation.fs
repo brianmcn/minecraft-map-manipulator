@@ -1795,6 +1795,30 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     let command = sprintf """execute @p[r=%d,x=%d,y=65,z=%d] ~ ~ ~ execute @e[type=ArmorStand] ~ ~-1 ~ detect ~ ~ ~ frosted_ice -1 setblock ~ ~ ~ water""" RAD x z // -1 because AS 1 above water
                                     tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
                                     map.AddTileTick("minecraft:repeating_command_block",1,0,x,y,z)
+                // end for y
+                if hmIgnoringLeaves.[x,z] > 100 then
+                    let isValid(coord) = coord >= MINIMUM+1 && coord <= MINIMUM+LENGTH-1-1  // we'll be looking 1 away
+                    if isValid(x) && isValid(z) then
+                        let h = hmIgnoringLeaves.[x,z]
+                        // if a local maximum
+                        if h>hmIgnoringLeaves.[x-1,z-1]+1 && h>hmIgnoringLeaves.[x+0,z-1]+1 && h>hmIgnoringLeaves.[x+1,z-1]+1 && 
+                            h>hmIgnoringLeaves.[x-1,z+0]+1 &&                                   h>hmIgnoringLeaves.[x+1,z+0]+1 && 
+                            h>hmIgnoringLeaves.[x-1,z+1]+1 && h>hmIgnoringLeaves.[x+0,z+1]+1 && h>hmIgnoringLeaves.[x+1,z+1]+1 then
+                            // if not a log
+                            let y = hmIgnoringLeaves.[x,z]
+                            let bid = map.GetBlockInfo(x,y,z).BlockID
+                            if bid <> 17uy && bid <> 162uy then
+                                //printfn "MAYBE CRAZY SPIRE %d %d %d" x y z
+                                let DIFF = 12
+                                // if not too crazy a spire
+                                if h<hmIgnoringLeaves.[x+0,z-1]+DIFF && h<hmIgnoringLeaves.[x-1,z+0]+DIFF && h<hmIgnoringLeaves.[x+1,z+0]+DIFF && h<hmIgnoringLeaves.[x+0,z+1]+DIFF then
+                                    for nx,nz in [x,z; x+1,z; x-1,z; x,z+1; x,z-1] do
+                                        let ny = hmIgnoringLeaves.[nx,nz]
+                                        map.SetBlockIDAndDamage(nx, ny, nz, 87uy, 0uy) // 87=netherrack
+                                        map.SetBlockIDAndDamage(nx, ny+1, nz, 51uy, 0uy) // 51=fire
+                                    putTrappedChestWithLoot(x,y-1,z,2)
+                                    points.[10].Add( (x,y-1,z) )
+                                    names.[10] <- "mountain fire spire"
             // end if not near deco
         // end for z
     // end for x

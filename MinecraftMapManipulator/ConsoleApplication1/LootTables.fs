@@ -578,7 +578,7 @@ let NEWaestheticTier2Chest(rng:System.Random) =
             yield! Algorithms.pickNnonindependently(rng,2,[
                     makeItem(rng,"comparator",64,64,0s)
                     makeItem(rng,"piston",64,64,0s)
-                    makeItem(rng,"slime_block",64,64,0s)
+                    makeItem(rng,"slime",64,64,0s)
                     ])
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
