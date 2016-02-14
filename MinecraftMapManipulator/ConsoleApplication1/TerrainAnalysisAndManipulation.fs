@@ -1234,9 +1234,10 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                     yield [| Byte("Count",24uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|
                                 Strings.NameAndLore.SUPER_JUMP_BOOST
                                 List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",100);End|]|]);End|]|>ResizeArray); End |]
-                yield [| Byte("Count",1uy); Byte("Slot",22uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                         Strings.BOOK_IN_HIDING_SPOT(quadrant)
-                         End |]
+                yield [| Byte("Count",1uy); Byte("Slot",21uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                         Strings.BOOK_IN_HIDING_SPOT(quadrant); End |]
+                yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                         Strings.BOOK_WITH_ELYTRA; End |]
             |]
     putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_HIDDEN_TREASURE_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(bx,by-1,bz,89uy,0uy) // 89=glowstone

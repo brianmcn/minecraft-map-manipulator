@@ -46,10 +46,19 @@ let BOOK_IN_MOUNTAIN_PEAK_CHEST =
         sprintf """{"text":"A secret treasure lies buried in a mountain top... hold the %s while exploring to find it!"}}]}""" NameAndLore.DIVINING_ROD_NAME 
      |])|> ResizeArray)
 
+let BOOK_WITH_ELYTRA =
+    Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","New to flying with elytra?",[| 
+        Utilities.wrapInJSONTextContinued """If you have never used elytra wings before, here are some flight tips which may save your life!\n\nThe elytra wings found here can be worn in place of a chestplate to allow limited flight (gliding)."""
+        Utilities.wrapInJSONTextContinued """While gliding, whatever direction you point your mouse is the direction you'll go. Left/right will steer, and up/down will affect altitude and speed. Be careful!"""
+        Utilities.wrapInJSONTextContinued """Go too slowly and you'll stall out and fall.  Go too quickly and you can crash into a wall or into the ground at high speed and take enough damage to die. Level flight at medium speed is safest."""
+        Utilities.wrapInJSONTextContinued """The jump boost potions found with the elytra in this chest will allow you to jump extremely high into the air. Don't use them without elytra equipped, unless you want to die of fall damage!"""
+        Utilities.wrapInJSONText "Despite those warnings, elytra flight is very fun and expedient. Equip the wings, splash a jump potion, jump up, and enjoy a fantastic glide across the map!"
+     |])|> ResizeArray)
+
 // TODO quadrant stuff is sloppy, ideally should be 4 strings in both places
 let BOOK_IN_HIDING_SPOT(quadrant:TranslatableString) =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","5. Final dungeon...",[| 
-        sprintf """{"text":"The final dungeon entrance is marked by a PURPLE beacon found somewhere in the %s quadrant of the map! The other items from this chest should make traveling easier :)"}""" quadrant.Text 
+        sprintf """{"text":"The final dungeon entrance is marked by a PURPLE beacon found somewhere in the %s quadrant of the map! The other items in this chest should make traveling across the map much quicker and more fun :)"}""" quadrant.Text 
      |])|> ResizeArray)
 let QUADRANT_NORTHWEST = TranslatableString "NorthWest (-X,-Z)"
 let QUADRANT_SOUTHWEST = TranslatableString "SouthWest (-X,+Z)"
