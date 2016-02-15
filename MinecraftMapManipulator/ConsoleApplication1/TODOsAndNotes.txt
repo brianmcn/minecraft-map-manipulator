@@ -47,7 +47,9 @@ deal with "// TODO these probabilities can cause wild swings in variance"
 glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what?
 possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
 a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
-more 'proc' when you finish the map (fireworks spawner or whatever, chat link to subreddit, etc)
+when you finish the map, need to say won/congrats and link to URL for feedback in chat (where link? TODO in code)
+
+elyrta deployment changing, update how-elytra book text
 
 idea: nine lives: each time you die, your default max hearts decreases 1
 

@@ -682,6 +682,8 @@ let chatToVoiceDemo() =
 // xTODO should chat the display name rather than item name, should add display names currently only in comments
 // obe can beta test
 
+// TODO got red mush, said in chat, but no sound nor count++
+
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
     // discover when damage value matters

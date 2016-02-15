@@ -1799,7 +1799,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 // end for y
                 if hmIgnoringLeaves.[x,z] > 100 then
                     let isValid(coord) = coord >= MINIMUM+1 && coord <= MINIMUM+LENGTH-1-1  // we'll be looking 1 away
-                    if isValid(x) && isValid(z) then
+                    if isValid(x) && isValid(z) && noneWithin(120,points.[10],x,y,z) then
                         let h = hmIgnoringLeaves.[x,z]
                         // if a local maximum
                         if h>hmIgnoringLeaves.[x-1,z-1]+1 && h>hmIgnoringLeaves.[x+0,z-1]+1 && h>hmIgnoringLeaves.[x+1,z-1]+1 && 
@@ -1987,17 +1987,18 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
 let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArray<MCTree>) =
-    let placeCommand(x,y,z,command,bid,dmg,name) =
+    let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
-        map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
-        if bid <> 211uy then
+        let auto = if name = "minecraft:command_block" then 0uy else 1uy
+        map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",auto); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
+        if wantTileTick then
             map.AddTileTick(name,100,0,x,y,z)
-    let placeImpulse(x,y,z,command) = placeCommand(x,y,z,command,137uy,0uy,"minecraft:command_block")
-    let placeRepeating(x,y,z,command) = placeCommand(x,y,z,command,210uy,0uy,"minecraft:repeating_command_block")
-    let placeChain(x,y,z,command,cond) = placeCommand(x,y,z,command,211uy,(if cond then 8uy else 0uy),"minecraft:chain_command_block")
+    let placeImpulse(x,y,z,command,wantTileTick) = placeCommand(x,y,z,command,137uy,0uy,"minecraft:command_block",wantTileTick)
+    let placeRepeating(x,y,z,command,wantTileTick) = placeCommand(x,y,z,command,210uy,0uy,"minecraft:repeating_command_block",wantTileTick)
+    let placeChain(x,y,z,command,cond) = placeCommand(x,y,z,command,211uy,(if cond then 8uy else 0uy),"minecraft:chain_command_block",false)
     let h = hmIgnoringLeaves.[1,1] // 1,1 since 0,0 has commands
     let y = ref 255
-    let I(c) = placeImpulse(0,!y,0,c); decr y
+    let I(c) = placeImpulse(0,!y,0,c,true); decr y
     // add diorite pillars to denote border between light and dark
     for i = 0 to 99 do
         let theta = System.Math.PI * 2.0 * float i / 100.0
@@ -2124,26 +2125,29 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
         r.PlaceCommandBlocksStartingAt(x,h-11,0,cmds(x,tilename),"check ctm block")
     let y = ref (h-13)
-    let R(c) = placeRepeating(0,!y,0,c); decr y
+    let R(c) = placeRepeating(0,!y,0,c,true); decr y
     let C(c) = placeChain(0,!y,0,c,true); decr y
     let U(c) = placeChain(0,!y,0,c,false); decr y
+    let I(c) = placeImpulse(0,!y,0,c,false); decr y
     R("time set 14500") // night
     U("testfor @a {ActiveEffects:[{Id:26b}]}") // if anyone has luck potion
     C("time set 1000") // day
     U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
-(*  TODO
-    let finalCmds = 
-        [|
-            O "scoreboard players test CTM hidden 3 *"
-            C """tellraw @a ["You win the map! Daylight cycle restored! World border removed! Feel free to continue playing normal Minecraft now; terrain generation becomes normal after about 1300 blocks from spawn."]"""
-            // TODO nether still different
-            // TODO loot tables still different
-            C "worldborder set 30000000"
-            C "gamerule doDaylightCycle true"
-            C "fill 0 254 0 0 255 0 air"  // remove day/night blocks
-        |]
-    r.PlaceCommandBlocksStartingAt(0,h-3,3,finalCmds,"check ctm win")
-*)
+    U("scoreboard players test CTM hidden 3 *")
+    C(sprintf "blockdata ~ %d ~ {auto:0b}" (h-13)) // turn off main repeat loop
+    C("blockdata ~ ~-2 ~ {auto:1b}")
+    C("blockdata ~ ~-1 ~ {auto:0b}")
+    // won-the-game proc
+    I(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:14,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:1,Colors:[56831],FadeColors:[16715263]}]}}}}" 0 (h+3) 4)
+    U(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:24,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:1,Trail:1,Colors:[3849770],FadeColors:[14500508]}]}}}}" 1 (h+3) 4)
+    U(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:34,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:4,Flicker:1,Trail:1,Colors:[8592414],FadeColors:[13942014]}]}}}}" 2 (h+3) 4)
+    // TODO tellraw to say won, feedback on forum thread, link to wherever for feedback
+    U("gamerule doDaylightCycle true")
+    U("worldborder set 30000000")
+    // TODO embed in normal world terrain
+    // TODO nether still different
+    // TODO loot tables still different
+    // TODO message players about ability to keep playing
 
 let TELEPORT_PATH_OUT_DISTANCES = [|60;120;180;240;300|]
 let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
@@ -2418,7 +2422,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
                 let mutable y = h
-                while (let bid = map.MaybeGetBlockInfo(x,y,z).BlockID in bid = 0uy || bid = 18uy || bid = 161uy || bid = 78uy || bid = 31uy || bid = 175uy || bid = 32uy || bid = 37uy || bid = 38uy || bid = 39uy || bid = 40uy) do // air, leaves, leaves2, snow_layer, tallgrass, double_plant, deadbush, yellow_flower, red_flower, brown_mushroom, red_mushroom
+                while (let bid = map.MaybeGetBlockInfo(x,y,z).BlockID in bid=0uy || bid=18uy || bid=161uy || bid=78uy || bid=31uy || bid=175uy || bid=32uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=106uy) do // air, leaves, leaves2, snow_layer, tallgrass, double_plant, deadbush, yellow_flower, red_flower, brown_mushroom, red_mushroom, vine
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
