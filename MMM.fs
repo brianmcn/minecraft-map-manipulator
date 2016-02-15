@@ -1296,10 +1296,15 @@ do
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w05b.zip""","""C:\Users\Admin1\Desktop\16w06a.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w06a.zip""","""C:\Users\Admin1\Desktop\16w07a.zip""")
     // compare sounds.json
-    let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\d1\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
+    let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\54\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
+    let normalize(a:string[]) =
+        for i = 0 to a.Length-1 do
+            a.[i] <- a.[i].Replace("\r","")
+    normalize(currentSoundsJson)
+    normalize(oldSoundsJson) 
     if not(diffStringArrays(oldSoundsJson, currentSoundsJson)) then
         printfn "no sound json diff"
     *)

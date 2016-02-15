@@ -49,6 +49,8 @@ possibly have each 'type' of random loot chest have a different collectible, so 
 a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
 when you finish the map, need to say won/congrats and link to URL for feedback in chat (where link? TODO in code)
 
+on cactus-random-loot, i place cactus next to walls, which causes to grow/break/weird
+
 elyrta deployment changing, update how-elytra book text
 
 idea: nine lives: each time you die, your default max hearts decreases 1

@@ -2219,7 +2219,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             placeChain(x+2,h+20,z+2,sprintf "summon ArmorStand %d %d %d {NoGravity:1,Marker:1b,Invisible:1,Passengers:[{id:Villager,Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}]}" spx (spawnHeight-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
                             placeChain(x+2,h+19,z+2,Strings.TELLRAW_TELEPORTER_UNLOCKED)
                             placeChain(x+2,h+18,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
-                            placeImpulse(x+2,h+17,z+2,"")
+                            placeImpulse(x+2,h+17,z+2,sprintf "tp @e[type=ArmorStand,x=%d,y=%d,z=%d,r=1] %s" spx (spawnHeight-3) spz tpdata)
                             placeChain(x+2,h+16,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (spawnHeight-3) spz tpdata)
                             placeChain(x+2,h+15,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us
                             // place an 8-way path out to make these more findable
