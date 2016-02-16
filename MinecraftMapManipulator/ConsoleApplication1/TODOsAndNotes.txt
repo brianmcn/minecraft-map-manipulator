@@ -47,21 +47,18 @@ deal with "// TODO these probabilities can cause wild swings in variance"
 glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what?
 possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
 a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
+
+final book TODOs
 when you finish the map, need to say won/congrats and link to URL for feedback in chat (where link? TODO in code)
-
-on cactus-random-loot, i place cactus next to walls, which causes to grow/break/weird
-
-elyrta deployment changing, update how-elytra book text
+more /title at the end might be nice too
 
 idea: nine lives: each time you die, your default max hearts decreases 1
 
 one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
-final book TODOs, some kind of better acknowledgement when complete map (fireworks spawner? could appear at ladder top)
 
 LNG https://plus.google.com/b/116398726889585382877/102898606764462175242 said he's interested in beta-testing (but has not played 1.9 before)
 
 since dungeons can be done out of order, last book cannot be written to assume it is the last book.
-summary and maybe starting book need summary customization info (seed, # player loot, difficulty, ...)
 obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
 obe would like to 'continue with normal survival' after done
 need to have thank yous to obe/fix, and others who help (codewarrior?)
@@ -69,7 +66,8 @@ obe did not know he could walk into black cube of teleporter, thought he needed 
 more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
 (the obeslisks in Eventide were effectively 'set pieces', can I think of others? wide area spawners did wonders for them; witch area (light) or guardian area (no water) may be good too?)
 'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
-
+empty chest (with a name?) can be good troll
+snow layers could be an interesting aesthetic or terrain feature?
 
 
 naming

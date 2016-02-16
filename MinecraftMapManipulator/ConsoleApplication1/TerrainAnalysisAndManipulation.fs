@@ -1510,10 +1510,11 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
     // TODO consider fun names for each kind of chest (a la /help command)
-    for x = MINIMUM to MINIMUM+LENGTH-1 do
+    let BUFFER = 2 // to ensure we don't out-of-bounds in a number of various basic checks
+    for x = MINIMUM+BUFFER to MINIMUM+LENGTH-1-BUFFER do
         if x%200 = 0 then
             printfn "%d" x
-        for z = MINIMUM to MINIMUM+LENGTH-1 do
+        for z = MINIMUM+BUFFER to MINIMUM+LENGTH-1-BUFFER do
             let mutable nearDecoration = false
             for _,dx,dz in decorations do
                 if (x-dx)*(x-dx) + (z-dz)*(z-dz) < RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION*RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION then
@@ -1576,8 +1577,14 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                         if y >= hm.[x,z]-1 then // at top of heightmap (-1 because surface is actually just below heightmap)
                             let deserts = [| 2uy; 17uy; 130uy |]
                             if deserts |> Array.exists (fun b -> b = biome.[x,z]) then
-                                if checkForPlus(x,y,z,12uy,12uy) && checkForPlus(x,y+1,z,0uy,0uy) && checkForPlus(x,y+2,z,0uy,0uy) then // flat square of sand with air above
-                                    if rng.Next(20) = 0 then // TODO probability, so don't place on all
+                                if checkForPlus(x,y,z,12uy,12uy) then // flat square of sand
+                                    let mutable ok = true
+                                    // cacti need to not be placed next to blocks, we need some clear air here
+                                    for xx = x-2 to x+2 do
+                                        for zz = z-2 to z+2 do
+                                            if map.GetBlockInfo(xx,y+1,zz).BlockID <> 0uy || map.GetBlockInfo(xx,y+2,zz).BlockID <> 0uy then
+                                                ok <- false
+                                    if ok && rng.Next(20) = 0 then // TODO probability, so don't place on all
                                         if noneWithin(150,points.[4],x,y,z) then
                                             let y = y + 1
                                             // put cactus
@@ -1798,8 +1805,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     map.AddTileTick("minecraft:repeating_command_block",1,0,x,y,z)
                 // end for y
                 if hmIgnoringLeaves.[x,z] > 100 then
-                    let isValid(coord) = coord >= MINIMUM+1 && coord <= MINIMUM+LENGTH-1-1  // we'll be looking 1 away
-                    if isValid(x) && isValid(z) && noneWithin(120,points.[10],x,y,z) then
+                    if noneWithin(120,points.[10],x,y,z) then
                         let h = hmIgnoringLeaves.[x,z]
                         // if a local maximum
                         if h>hmIgnoringLeaves.[x-1,z-1]+1 && h>hmIgnoringLeaves.[x+0,z-1]+1 && h>hmIgnoringLeaves.[x+1,z-1]+1 && 
@@ -2459,6 +2465,11 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                                 teleporterCenters, decorations)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
+    let now = System.DateTime.Now.ToString()
+    let worldSeed = Utilities.readWorldSeedFromLevelDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
+    log.LogSummary(sprintf "This map was produced with seed %d on %s" worldSeed now)
+    log.LogSummary(sprintf "Customization: SINGLEPLAYER %A, UHC_MODE %A" CustomizationKnobs.SINGLEPLAYER CustomizationKnobs.UHC_MODE)
+
     for xc,xf in ['W', (fun x -> x < 0); 'E', (fun x -> x>=0)] do
         for zc,zf in ['N', (fun x -> x < 0); 'S', (fun x -> x>=0)] do
             let numB = decorations |> Seq.filter (fun (c,x,z) -> c='B' && xf x && zf z) |> Seq.length 

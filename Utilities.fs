@@ -700,6 +700,21 @@ let updateDat(file,f) =
     System.IO.File.Move(file,file+".old")
     System.IO.File.Move(file+".new",file)
 
+let readWorldSeedFromLevelDat(levelDatFilename) = 
+    let nbt = readDatFile(levelDatFilename)
+    //printfn "%s" (nbt.ToString())
+    let worldSeed = ref 0L
+    let f l nbt = 
+        match nbt with
+        | Long("RandomSeed",s) -> 
+            assert((List.toArray l |> Array.map (fun (n:NBT) -> n.Name)) = [| "Data"; "" |])
+            worldSeed := s
+        | _ -> ()
+        nbt
+    cataNBT f (fun _pl nbt -> nbt) [] nbt |> ignore
+    //printfn "%d" !worldSeed 
+    !worldSeed 
+
 let dumpPlayerDat(file) =
     let nbt = readDatFile(file)
     printfn "%s" (nbt.ToString())

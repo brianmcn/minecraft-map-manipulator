@@ -49,6 +49,7 @@ let BOOK_IN_MOUNTAIN_PEAK_CHEST =
 let BOOK_WITH_ELYTRA =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","New to flying with elytra?",[| 
         Utilities.wrapInJSONTextContinued """If you have never used elytra wings before, here are some flight tips which may save your life!\n\nThe elytra wings found here can be worn in place of a chestplate to allow limited flight (gliding)."""
+        Utilities.wrapInJSONTextContinued """You can cause the elytra wings to deploy by pressing the jump key (usually spacebar) while you're in the air and wearing elytra."""
         Utilities.wrapInJSONTextContinued """While gliding, whatever direction you point your mouse is the direction you'll go. Left/right will steer, and up/down will affect altitude and speed. Be careful!"""
         Utilities.wrapInJSONTextContinued """Go too slowly and you'll stall out and fall.  Go too quickly and you can crash into a wall or into the ground at high speed and take enough damage to die. Level flight at medium speed is safest."""
         Utilities.wrapInJSONTextContinued """The jump boost potions found with the elytra in this chest will allow you to jump extremely high into the air. Don't use them without elytra equipped, unless you want to die of fall damage!"""

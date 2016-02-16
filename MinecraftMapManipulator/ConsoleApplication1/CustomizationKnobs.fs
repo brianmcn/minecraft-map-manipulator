@@ -3,13 +3,25 @@
 open NBT_Manipulation
 
 ///////////////////////////////////////////////////
+// Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
+let SINGLEPLAYER = true
+
+
+// TODO kind/freq of armor/weapon/food drops can affect difficulty
+// TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
+// TODO freq of random loot chests? (may interact with trades by having emeralds, may contain gapples or occasional OP weapon/armor? ...)
+// TODO (eventually maybe) number of monumnet blocks / major dungeon types?
+// TODO options to armor mobs in the spawners
+
+// TODO initial terrain biome/etc stuff (is a kind of aesthetic customization)
+
+///////////////////////////////////////////////////
 
 let UHC_MULT_A = if UHC_MODE then 0.5 else 1.0   // most of map is much harder, make easier
 let UHC_MULT_B = if UHC_MODE then 0.8 else 1.0   // end of map with great armor doesn't need as much buffer
 
-let SINGLEPLAYER = true
 let LOOT_FUNCTION(n) =
     if SINGLEPLAYER then
         n
@@ -108,14 +120,6 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
                                             MinSpawnDelay=200s, MaxSpawnDelay=400s) // 10-20s, rather than 10-40s
 
 
-
-// TODO kind/freq of armor/weapon/food drops can affect difficulty
-// TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
-// TODO freq of random loot chests? (may interact with trades by having emeralds, may contain gapples or occasional OP weapon/armor? ...)
-// TODO (eventually maybe) number of monumnet blocks / major dungeon types?
-// TODO options to armor mobs in the spawners
-
-// TODO initial terrain biome/etc stuff (is a kind of aesthetic customization)
 
 let BIOME_HELL_PERCENTAGE = 0.1
 let BIOME_SKY_PERCENTAGE = 0.2
