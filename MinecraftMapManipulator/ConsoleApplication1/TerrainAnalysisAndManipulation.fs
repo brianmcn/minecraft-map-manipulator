@@ -583,7 +583,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
     printfn ""
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
     let skippableDown(bid) = 
-        (bid = 8uy || bid = 10uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=66uy) // flowing_water/flowing_lava/web/tallgrass/2flowers/2mushrooms/rail
+        (bid = 8uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=66uy) // flowing_water/web/tallgrass/2flowers/2mushrooms/rail
     let replaceGroundBelowWith(x,y,z,bid,dmg) = 
         let mutable pi,pj,pk = x,y,z
         while a.[pi,pj,pk]<>null do
@@ -2147,7 +2147,10 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     I(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:14,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:1,Colors:[56831],FadeColors:[16715263]}]}}}}" 0 (h+3) 4)
     U(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:24,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:1,Trail:1,Colors:[3849770],FadeColors:[14500508]}]}}}}" 1 (h+3) 4)
     U(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:34,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:4,Flicker:1,Trail:1,Colors:[8592414],FadeColors:[13942014]}]}}}}" 2 (h+3) 4)
-    // TODO tellraw to say won, feedback on forum thread, link to wherever for feedback
+    U(sprintf """tellraw @a ["You've completed the monument, congratulations! I'd love to hear what you thought of the map!"]""")
+    U(sprintf """tellraw @a [{"text":"Click to leave feedback about the map","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" Strings.feedbackLink)
+    U(sprintf """tellraw @a ["I hope you enjoyed the map. If you did, and would like to leave a donation, I'd appreciate it very much."]""")
+    U(sprintf """tellraw @a [{"text":"Donation link","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" Strings.donationLink)
     U("gamerule doDaylightCycle true")
     U("worldborder set 30000000")
     // TODO embed in normal world terrain
@@ -2220,11 +2223,12 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             placeRepeating(x+2,h+24,z+2,sprintf "execute @p[r=28] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+23) (z+2)) // absolute coords since execute-at
                             map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+24,z+2)
                             placeImpulse(x+2,h+23,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (spawnHeight-11) 0) // expose teleporters at spawn //note brittle coords of block
-                            placeChain(x+2,h+22,z+2,"blockdata ~ ~-1 ~ {auto:1b}") // run rest after that
-                            placeImpulse(x+2,h+21,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (spawnHeight-5) spz (x+2) (h+6) (z+2))
+                            // TODO use @a once fixed
+                            placeChain(x+2,h+22,z+2,"execute @p ~ ~ ~ playsound block.portal.trigger block @p")
+                            placeChain(x+2,h+21,z+2,sprintf "setblock %d %d %d end_gateway 0 replace {ExactTeleport:1b,ExitPortal:{X:%d,Y:%d,Z:%d}}" spx (spawnHeight-5) spz (x+2) (h+6) (z+2))
                             placeChain(x+2,h+20,z+2,sprintf "summon ArmorStand %d %d %d {NoGravity:1,Marker:1b,Invisible:1,Passengers:[{id:Villager,Invulnerable:1,NoAI:1,Silent:1,CustomName:\"%s\",%s}]}" spx (spawnHeight-3) spz (Strings.TELEPORTER_TO_BLAH(dirName).Text) vd)
                             placeChain(x+2,h+19,z+2,Strings.TELLRAW_TELEPORTER_UNLOCKED)
-                            placeChain(x+2,h+18,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""")
+                            placeChain(x+2,h+18,z+2,"""blockdata ~ ~-1 ~ {auto:1b}""") // wait a tick to teleport just-spawned entities
                             placeImpulse(x+2,h+17,z+2,sprintf "tp @e[type=ArmorStand,x=%d,y=%d,z=%d,r=1] %s" spx (spawnHeight-3) spz tpdata)
                             placeChain(x+2,h+16,z+2,sprintf "tp @e[type=Villager,x=%d,y=%d,z=%d,r=1] %s" spx (spawnHeight-3) spz tpdata)
                             placeChain(x+2,h+15,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us

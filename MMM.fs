@@ -683,6 +683,7 @@ let chatToVoiceDemo() =
 // obe can beta test
 
 // TODO got red mush, said in chat, but no sound nor count++
+// TODO /gamerule logAdminCommands false
 
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
@@ -1296,10 +1297,10 @@ do
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w06a.zip""","""C:\Users\Admin1\Desktop\16w07a.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w07a.zip""","""C:\Users\Admin1\Desktop\16w07b.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\54\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
-    let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\d154dfa7a66bda3c07ac3e40cb967aa7ae0b84a0""")
+    let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
     let normalize(a:string[]) =
         for i = 0 to a.Length-1 do
             a.[i] <- a.[i].Replace("\r","")

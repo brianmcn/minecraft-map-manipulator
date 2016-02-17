@@ -1,5 +1,6 @@
 ﻿MOJANG BUGS
 
+playsound @a bug
 beacon at spawn sometimes not render
 absorbtion/HB hearts sometimes not show (client reset 4ixes)
 teleporter does not work in SMP, got glitched into bedrock.  figure that out.  (maybe now fixed? i also tp one block higher now)
@@ -35,9 +36,7 @@ playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
 playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
 get use to clicking for invincibility frames, think about mob balance with viable spam clicking\
 
-TODO: bugs & good ideas
-
-ideas for 'harder' mobs: armored, carrying sharp weapons, having regen/strength, knockback resistance, ...
+COLLECTABLES:
 
 even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
  - have a crude mockup in 126finished.  over plains/ice-plains/desert could be good
@@ -45,14 +44,18 @@ noisemaker noteblock troll underground? fireworks spawner... that has a secret l
 could even have a block in the starter chest to suggest the hunt
 deal with "// TODO these probabilities can cause wild swings in variance"
 glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what?
+out-of-place lilypads on oceans/lakes?
 possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
 a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
+secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
 
-final book TODOs
-when you finish the map, need to say won/congrats and link to URL for feedback in chat (where link? TODO in code)
-more /title at the end might be nice too
+TODO: bugs & good ideas
 
-idea: nine lives: each time you die, your default max hearts decreases 1
+ideas for 'harder' mobs: armored, carrying sharp weapons, flame bow skellies (or jockeys), having regen/strength, knockback resistance, ...
+
+ender crystals?
+herobrine? something with armor stands?
+guardian area in Monument.dat apparently spawns _only_ guardians, so could make a (waterless) no-spawn-hostiles without changing biome? (though that's not what I saw in nafandix)
 
 one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
 
@@ -68,7 +71,7 @@ more variety of random-chest-loot (have some good weapons/armor that will break 
 'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
 empty chest (with a name?) can be good troll
 snow layers could be an interesting aesthetic or terrain feature?
-
+treasure maps (actual maps) are neat, a la https://www.youtube.com/watch?v=YMhSt75or2U&t=9m45s or https://www.youtube.com/watch?v=ae2YKOAHtZY&t=1m55s (savanna flat grass, ring of lilypads (on ocean?)) but how make area recognizable/findable? CTM sub-area is smaller, find map in area... for me?
 
 naming
 ------
@@ -148,3 +151,8 @@ to implement it, would have to use commands:
   - entitydata/replaceitem the mob to display it; entitydata its DeathLootTable to drop it (loot table could still e.g. apply random enchants)
   - (requires factoring loot tables differently, so 'common' loot is in a separate table, so 'rare' could still reference 'common'; alternatively, could just be 'extra' loot atop normal drops)
 
+idea: five lives: each time you die, your default max hearts decreases 2 (discourage suicide in UHC mode)
+/summon ThrownPotion ~ ~2 ~ {Potion:{id:"splash_potion",Count:1b,tag:{CustomPotionEffects:[{Id:21b,Amplifier:-2b,Duration:1000}]}}}
+-2 -3 -4 -5 valid amplifiers for 8 6 4 2 hearts
+but the drinkable health pot would override completely... might be nice to 'buy back' hearts at a time, dunno, kinda tedious...
+overall, not too compelling; those who would avoid suicide don't need the extra challenge, they'll challenge selves; just creating busy work for those who would suicide

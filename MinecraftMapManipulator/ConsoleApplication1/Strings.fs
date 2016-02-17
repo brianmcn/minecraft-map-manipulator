@@ -24,6 +24,8 @@ module NameAndLore =
     let DIVINING_ROD = displayNameAndLore(DIVINING_ROD_NAME,[|DIVINING_ROD_LORE|])
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
+// TODO proper forum? (need map name)
+let feedbackLink = """https://www.reddit.com/r/Lorgon111/comments/468ohj/ctm_beta_testing_feedback/"""
 
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
@@ -68,9 +70,9 @@ let QUADRANT_SOUTHEAST = TranslatableString "SouthEast (+X,+Z)"
 let TELEPORTER_TO_BLAH(quadrant:TranslatableString) = TranslatableString(sprintf "Teleporter to %s" quadrant.Text)
 let BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","Congratulations!",[| 
-        id """{"text":"Once all monument blocks are placed on the monument, you win! ..."}"""
-        id """{"text":"I hope you enjoyed playing the map.  I am happy to hear your feedback, you can contact me at TODO..."}"""
-        sprintf """[{"text":"If you enjoyed the map and would like to leave me a donation, I'd very much appreciate that!\n\n"},{"text":"Click to donate","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
+        Utilities.wrapInJSONTextContinued """(This was intended to be the final dungeon; if you have not yet obtained the other two monument blocks, then you may want to revisit some bedrock-sky areas of the map.)"""
+        Utilities.wrapInJSONTextContinued """Once all monument blocks are placed on the monument, you win!\n\nI hope you enjoyed playing the map. I am happy to hear any feedback you may have."""
+        sprintf """[{"text":"You can leave feeback about the map here:\n\n"},{"text":"Leave feedback","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}},{"text":"\n\nIf you enjoyed the map and would like to leave me a donation, I'd very much appreciate that!\n\n"},{"text":"Click to donate","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" feedbackLink donationLink
      |])|> ResizeArray)
 
 let STARTING_BOOK_RULES =
