@@ -684,6 +684,7 @@ let chatToVoiceDemo() =
 
 // TODO got red mush, said in chat, but no sound nor count++
 // TODO /gamerule logAdminCommands false
+// TODO skylinerw suggests /clear 0 may be cheaper than /testfor
 
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    

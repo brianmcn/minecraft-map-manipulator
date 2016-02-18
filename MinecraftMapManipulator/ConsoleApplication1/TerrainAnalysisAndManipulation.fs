@@ -262,7 +262,7 @@ type PriorityQueue() =
         r
     member this.Count = count
 
-let treeify(map:MapFolder) =
+let treeify(map:MapFolder, hm:_[,]) =
     let TREE_MIN_Y = 63
     let INTERIOR_WINDOW_SIZE = 126 // (so that windows fit snugly in 2048x2048 with 8 border)
     let BORDER_SIZE = 8
@@ -275,7 +275,11 @@ let treeify(map:MapFolder) =
             printfn "%d %d is corner, %d %d is int corner" wx wz (wx+BORDER_SIZE) (wz+BORDER_SIZE)
             let visitedLogs = new System.Collections.Generic.HashSet<_>()
             let treesInThisWindow = ResizeArray()
-            for y = TREE_MIN_Y to 128 do // TODO what is pragmatic
+            let mutable maxh = 0
+            for x = wx to wx+WINDOW_SIZE-1 do
+                for z = wz to wz+WINDOW_SIZE-1 do
+                    maxh <- max maxh hm.[x,z]
+            for y = TREE_MIN_Y to maxh do
                 for x = wx to wx+WINDOW_SIZE-1 do
                     for z = wz to wz+WINDOW_SIZE-1 do
                         let bi = map.GetBlockInfo(x,y,z)
@@ -311,7 +315,8 @@ let treeify(map:MapFolder) =
                                         allTrees.Add(tree)
                                         //printfn "found tree at %d %d %d" x y z
                                 else
-                                    printfn "ignoring tiny tree (jungle floor? burned? diagonal across border? below ground poke above?) at %d %d %d" x y z
+                                    //printfn "ignoring tiny tree (jungle floor? burned? diagonal across border? below ground poke above?) at %d %d %d" x y z
+                                    ()
             // now that we have all the tree wood in the large window, determine leaf ownership
             // first find lowest point where each tree can own a leaf
             for t in treesInThisWindow do
@@ -1138,7 +1143,8 @@ let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, be
                 bestHighPoints.Add( ((hx,hz),a,b,score(hx,hz)) )
     bestHighPoints  // [(point, lo-bound-of-CC, hi-bound-of-CC, score)]
 
-let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),_)) =
+let HIDDEN_DEPTH = 10
+let findHidingSpot(map:MapFolder,hmIgnoringLeaves:_[,],((highx,highz),(minx,minz),(maxx,maxz),_)) =
     // protect it from other structures
     // walk map looking for highest point where no air/lava withing N (20?) blocks
     // can just traverse, each time find bad block, skip N? add to exclusion zone...
@@ -1149,14 +1155,14 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
     // ok, among mountain connected components, just mostly brute force them
     let mutable found = false
     let mutable fx,fy,fz = 0,0,0
-    for y = hm.[highx,highz] downto 80 do // y is outermost loop to prioritize finding high points first
+    for y = hmIgnoringLeaves.[highx,highz] downto 80 do // y is outermost loop to prioritize finding high points first
         printf "."
         if not found then
             for z = minz to maxz do
                 if not found then
                     for x = minx to maxx do
                         if not found then
-                            let D = 10
+                            let D = HIDDEN_DEPTH
                             let mutable ok = true
                             for dx = -D to D do
                                 if ok then
@@ -1172,10 +1178,12 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
                                                         if bid = 0uy || (bid>=8uy && bid<11uy) then  // if air or water/lava
                                                             ok <- false
                             if ok then
-                                found <- true
-                                fx <- x
-                                fy <- y
-                                fz <- z
+                                let h = hmIgnoringLeaves.[x,z]
+                                if y > h-D-3 && y < h-D+1 then  // ensure not too deep, or under floating island, or whatnot... depth should be a little more than D
+                                    found <- true
+                                    fx <- x
+                                    fy <- y
+                                    fz <- z
     printfn ""
     if found then
         Some((fx,fy,fz),(highx,highz))
@@ -1185,13 +1193,17 @@ let findHidingSpot(map:MapFolder,hm:_[,],((highx,highz),(minx,minz),(maxx,maxz),
 let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
-let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves, log:EventAndProgressLog, decorations:ResizeArray<_>, allTrees:MCTree seq) =
+let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves, log:EventAndProgressLog, biome:_[,], decorations:ResizeArray<_>, allTrees:MCTree seq) =
     let RADIUS = MOUNTAIN_PEAK_DANGER_RADIUS
+    let isMegaTaigaOrJungle(b) =  // tall trees in these biomes confuse the 'peak' finding algorithm, so avoid them
+        b = 32uy || b = 33uy || b = 160uy || b = 161uy || 
+        b = 21uy || b = 22uy || b = 23uy || b = 149uy || b = 151uy
     let computeBestHighPoints(minH) =
         let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,minH,minH+20,10,6,decorations)
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 0)  // negative scores often mean tall spike with no nearby same-height ground, get rid of them
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_PEAK*SPAWN_PROTECTION_DISTANCE_PEAK)
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
+        let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> not(isMegaTaigaOrJungle(biome.[x,z])))
         bestHighPoints
     let bestHighPoints = 
         let mutable r = computeBestHighPoints(90)
@@ -1206,7 +1218,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
     // best hiding spot
     let timer = System.Diagnostics.Stopwatch.StartNew()
     printfn "find best hiding spot..."
-    let ((bx,by,bz),(usedX,usedZ)) = bestHighPoints |> Seq.choose (fun x -> findHidingSpot(map,hm,x)) |> Seq.maxBy (fun ((_,y,_),_) -> y)
+    let ((bx,by,bz),(usedX,usedZ)) = bestHighPoints |> Seq.choose (fun x -> findHidingSpot(map,hmIgnoringLeaves,x)) |> Seq.maxBy (fun ((_,y,_),_) -> y)
     let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> not(x=usedX && z=usedZ)) // rest are for mountain peaks
     log.LogSummary(sprintf "best hiding spot: %4d %4d %4d" bx by bz)
     decorations.Add('H',bx,bz)
@@ -1246,7 +1258,6 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
     map.SetBlockIDAndDamage(bx,by-1,bz,89uy,0uy) // 89=glowstone
     // put a tiny mark on the surface
     do
-        let mutable by = hmIgnoringLeaves.[bx,bz]
         // ..remove entirety of nearby trees (because having the orchid not placed, or atop a tree, is confusing/unhelpful)
         if allTrees = null then
             printfn "allTrees WAS NULL, SKIPPING TREE REDO"
@@ -1255,8 +1266,15 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm,hmIgnoringLeaves
                 let x,_,z = t.CanonicalStump 
                 if abs(x-bx) < 10 && abs(z-bz) < 10 then
                     t.Replace(map, 0uy, 0uy, 0uy, 0uy)
-        map.SetBlockIDAndDamage(bx,by+0,bz,3uy,0uy) // 3=dirt
-        map.SetBlockIDAndDamage(bx,by+1,bz,38uy,1uy) // 38,1=blue orchid
+        let mutable h = hmIgnoringLeaves.[bx,bz]
+        // we just removed trees, so hm may be wrong (atop tree logs), recompute
+        while map.GetBlockInfo(bx,h,bz).BlockID = 0uy do
+            h <- h - 1
+        map.SetBlockIDAndDamage(bx,h+0,bz,3uy,0uy) // 3=dirt
+        map.SetBlockIDAndDamage(bx,h+1,bz,38uy,1uy) // 38,1=blue orchid
+        for y = by+2 to h-4 do
+            map.SetBlockIDAndDamage(bx,y,bz,20uy,0uy)  // column of glass, to make clearer the digging is 'working'
+
     /////////////////////////////////////////////////////////////////
     // mountain peaks
     let bestHighPoints = try Seq.take 10 bestHighPoints |> ResizeArray with _e -> bestHighPoints |> ResizeArray
@@ -2441,24 +2459,24 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
-    time (fun () -> allTrees := treeify(map))
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    time (fun() ->   // after hiding spots figured
+    time (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
-    time (fun() ->   // after hiding spots figured
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
