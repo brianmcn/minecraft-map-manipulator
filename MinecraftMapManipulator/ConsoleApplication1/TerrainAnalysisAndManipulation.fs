@@ -610,7 +610,10 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 atHeightMap.Add(x,y,z) |> ignore
         let skel,endp,epwl = Algorithms.skeletonize(sk, ignore, ones) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
         skel.UnionWith(endp)
-        match Algorithms.findShortestPath(topX,topY,topZ,(fun (x,y,z)->a.[x,y,z]<>null),(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
+        let MAXIMUM = MINIMUM+LENGTH-1
+        let YMAX = YMIN+YLEN-1
+        let canMove(x,y,z) = x>MINIMUM && z>MINIMUM && x<MAXIMUM && z < MAXIMUM && y>=YMIN && y<=YMAX && a.[x,y,z]<>null
+        match Algorithms.findShortestPath(topX,topY,topZ,canMove,(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
         | None -> printf "FAILED to get to skeleton" // TODO why ever?
         | Some((tsx,tsy,tsz),_path,_moves) ->
         printfn "there were %d endpoints" endp.Count
@@ -620,7 +623,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
         | Some((sx,sy,sz),_,_) ->
             let pointsToAddBetweenHMAndSkeleton = new System.Collections.Generic.HashSet<_>()
             for x,y,z in atHeightMap do
-                match Algorithms.findShortestPath(x,y,z,(fun (x,y,z)->a.[x,y,z]<>null),(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
+                match Algorithms.findShortestPath(x,y,z,canMove,(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
                 | None -> printf "FAILED to get to skeleton" // TODO why ever?
                 | Some(_,path,_moves) ->
                     for x,y,z in path do
@@ -2053,9 +2056,10 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     if allTrees = null then
         printfn "allTrees WAS NULL, SKIPPING TREE REDO"
     else
+        let TREE_REMOVE_RADIUS = 15
         for t in allTrees do
             let x,_,z = t.CanonicalStump 
-            if abs(x) < 10 && abs(z) < 10 then
+            if abs(x) < TREE_REMOVE_RADIUS && abs(z) < TREE_REMOVE_RADIUS then
                 t.Replace(map, 0uy, 0uy, 0uy, 0uy)
     // ...clear out any other blocks
     for x = -2 to 4 do

@@ -55,7 +55,7 @@ let BOOK_WITH_ELYTRA =
         Utilities.wrapInJSONTextContinued """While gliding, whatever direction you point your mouse is the direction you'll go. Left/right will steer, and up/down will affect altitude and speed. Be careful!"""
         Utilities.wrapInJSONTextContinued """Go too slowly and you'll stall out and fall.  Go too quickly and you can crash into a wall or into the ground at high speed and take enough damage to die. Level flight at medium speed is safest."""
         Utilities.wrapInJSONTextContinued """The jump boost potions found with the elytra in this chest will allow you to jump extremely high into the air. Don't use them without elytra equipped, unless you want to die of fall damage!"""
-        Utilities.wrapInJSONText "Despite those warnings, elytra flight is very fun and expedient. Equip the wings, splash a jump potion, jump up, and enjoy a fantastic glide across the map!"
+        Utilities.wrapInJSONText "Despite those warnings, elytra flight is very fun and expedient. Equip the wings, splash a potion, jump up, press jump again to deploy wings, and enjoy a fantastic glide across the map!"
      |])|> ResizeArray)
 
 // TODO quadrant stuff is sloppy, ideally should be 4 strings in both places

@@ -51,7 +51,10 @@ secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc i
 
 TODO: bugs & good ideas
 
+make dig-4or-treausre blocks more obvious (e.g. diorite a4ter digging a couple below orchid)
 ideas for 'harder' mobs: armored, carrying sharp weapons, flame bow skellies (or jockeys), having regen/strength, knockback resistance, ...
+
+consider no peaks in jungle/mega-taiga variants
 
 ender crystals?
 herobrine? something with armor stands?
