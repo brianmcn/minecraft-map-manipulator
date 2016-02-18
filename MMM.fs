@@ -1291,14 +1291,13 @@ do
 #if BINGO
 
 (*
-tps pointing at sky? (tutorial)
-tutorial, no sugar on card (shook tp in to game, cone bring us to tutorial)
-i kept sugar after tutorial (probably ok)
 cone name still not appear in book pg 7
-start buttom on quartz? beacon with light underneath?
-obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on'
-need to disable elytra checks
+obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
 on each map TP, was clipping down into block stood atop
+tick constantly displaying
+donations
+'beta' on start platform  // scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   scoreboard players tag @a remove playerHasBeenSeen
+TODOS
 *)
 
     let readInSomeArt = false

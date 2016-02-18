@@ -575,7 +575,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeStandingSignIncZ signX signY signZ 4  "(In this map," "_wall_ signs" "can be" "right-clicked)"
             yield! makeStandingSignIncZ signX signY signZ 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
             yield! makeStandingSignIncZ signX signY signZ 4 "MinecraftBINGO" "uses" "clickable signs" ""
-            yield! makeWallSignDo signX (signY+1) signZ 4 "Right-click" "this sign" "to continue" "" (sprintf "tp @p %s 90 180" (TUTORIAL_PLAYER_START.Offset(0,0,5).STR)) "" true "black"
+            yield! makeWallSignDo signX (signY+1) signZ 4 "Right-click" "this sign" "to continue" "" (sprintf "tp @p %s -90 0" (TUTORIAL_PLAYER_START.Offset(0,0,5).STR)) "" true "black"
             signZ <- signZ + 2
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
             signZ <- signZ + 2
@@ -613,7 +613,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             let downloadCmd2 = escape2 <| sprintf """tellraw @a {"text":"%s","underlined":"true","clickEvent":{"action":"open_url","value":"%s"}}""" downloadUrl downloadUrl
             yield U (sprintf "fill %d %d %d %d %d %d stone" (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+5) (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+6))
             yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+5) 4 "Right-click this" "sign to go to" "official site" "" downloadCmd1 downloadCmd2 true "black"
-            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+6) 4 "Or right-click" "me to begin" "playing!" "" (sprintf "tp @p %s 90 180" NEW_PLAYER_LOCATION.STR) "" true "black"
+            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+6) 4 "Or right-click" "me to begin" "playing!" "" (sprintf "tp @p %s -90 0" NEW_PLAYER_LOCATION.STR) "" true "black"
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+7) 4 "(In this map," "_wall_ signs" "can be" "right-clicked)"
             yield! makeSignBoldness "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+8) 4 "server" "true" "properties" "true" "enable-command-" "false" "block = true" "false"
             // new players go here:
@@ -784,7 +784,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         //    - TP any untagged players to tutorial
         //    - tag them
         U "scoreboard players test GameInProgress S 0 0"
-        C (sprintf "tp @a[tag=!InTutorial] %s 90 180" TUTORIAL_PLAYER_START.STR)
+        C (sprintf "tp @a[tag=!InTutorial] %s -90 0" TUTORIAL_PLAYER_START.STR)
         U "scoreboard players test GameInProgress S 0 0" // need to retest because above can fail
         C "scoreboard players tag @a add InTutorial"
         //   if game IS in progress...
@@ -813,9 +813,9 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         U "spawnpoint @a[tag=!playerHasBeenSeen]"
         U "effect @a[tag=!playerHasBeenSeen] night_vision 9999 1 true"
         U "scoreboard players test HasTheMapEverBeenLoadedBefore Calc 1 1"
-        C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_PLAYER_LOCATION.STR)
+        C (sprintf "tp @a[tag=!playerHasBeenSeen] %s -90 0" NEW_PLAYER_LOCATION.STR)
         U "testforblock ~ ~ ~-2 chain_command_block -1 {SuccessCount:0}"
-        C (sprintf "tp @a[tag=!playerHasBeenSeen] %s 90 180" NEW_MAP_LOCATION.STR)
+        C (sprintf "tp @a[tag=!playerHasBeenSeen] %s -90 0" NEW_MAP_LOCATION.STR)
         C "scoreboard players set HasTheMapEverBeenLoadedBefore Calc 1"
         U "scoreboard players tag @a[tag=!playerHasBeenSeen] add playerHasBeenSeen"
         |]
@@ -874,6 +874,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "gamerule doDaylightCycle true"
         yield U "gamerule keepInventory false"
         yield U "gamerule logAdminCommands false"
+        yield U "gamerule disableElytraMovementCheck true"
         yield U "time set 500"
         yield U "weather clear 999999"
         for t in TEAMS do
@@ -1358,13 +1359,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %s dirt"  (TUTORIAL_LOCATION.Offset(-1,0,18).STR))
             yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,1,18).STR))
             yield U (sprintf "setblock %s reeds" (TUTORIAL_LOCATION.Offset(-1,2,18).STR))
-            yield U "scoreboard players set Seed Score 447960"
-            yield U "scoreboard players set Z Calc 447960"
+            yield U "scoreboard players set Seed Score 732041" // a seed with sugar on it
+            yield U "scoreboard players set Z Calc 732041"
             yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
             yield U (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
             yield! nTicksLater(55)
             yield! ensureCardUpdated(TUTORIAL_PLAYER_START)
-            yield U (sprintf "tp @a %s 90 180" TUTORIAL_PLAYER_START.STR) 
+            yield U (sprintf "tp @a %s -90 0" TUTORIAL_PLAYER_START.STR) 
         |]
     region.PlaceCommandBlocksStartingAt(START_TUTORIAL_BUTTON,startTutorialButton,"start tutorial button")
     let ensureCardUpdatedLogic = // tp oneGuyToEnsureBingoCardCleared to center and update
