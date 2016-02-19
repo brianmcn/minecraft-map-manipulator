@@ -408,7 +408,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             |] )
     let donationInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Donations", [|
             // TODO finalize prose
-            """{"text":"I spent more than 200 hours programming MinecraftBINGO - mapmaking is a lot of work!\nIf you enjoy the game, and are able to donate, a donation of any amount is appreciated.\n\n","extra":[{"text":"Click here to donate","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
+            """{"text":"I spent more than 200 hours programming MinecraftBINGO - mapmaking is a lot of work!\nIf you enjoy the game, and are able to donate, a donation of any amount is appreciated.\n\n","extra":[{"text":"Click here to donate","clickEvent":{"action":"open_url","value":"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXRZS"},"underlined":"true"}]}"""
             |] )
     let customConfigBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom game config", [|
             // TODO finalize prose

@@ -1,4 +1,8 @@
-﻿MOJANG BUGS
+﻿Feedback from Thungon:
+ - spawn is ugly (add a layer of nice blocks above bedrock)
+
+
+MOJANG BUGS
 
 playsound @a bug
 beacon at spawn sometimes not render
@@ -50,8 +54,6 @@ a finite set of collectable items could be good long-term for completionists - l
 secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
 
 TODO: bugs & good ideas
-
-removing trees at jungle spawn leaves me with free-floating vines and mushrooms
 
 ideas for 'harder' mobs: armored, carrying sharp weapons, flame bow skellies (or jockeys), having regen/strength, knockback resistance, ...
 

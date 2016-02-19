@@ -1294,15 +1294,18 @@ do
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
 on each map TP, was clipping down into block stood atop
 donation URL (now have book)
+https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXRZS
 'beta' on start platform  // scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   scoreboard players tag @a remove playerHasBeenSeen
 TODOS
 test multiplayer TP sounds
+map name on MC menu
 
 get in a state where can pass off beta to berg/cone/obe/etc
 
 prep map, e.g. 
-scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   
-scoreboard players tag @a remove playerHasBeenSeen
+/scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   
+/scoreboard players tag @a remove playerHasBeenSeen
+/scoreboard players reset Lorgon111
 remove self from scoreboard
 click button to set night vision config
 

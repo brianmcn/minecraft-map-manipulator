@@ -248,6 +248,24 @@ type MCTree(woodType) =
             map.SetBlockIDAndDamage(x,y,z,logbid,logdmg)
         for x,y,z,_ in this.Leaves do
             map.SetBlockIDAndDamage(x,y,z,leafbid,leafdmg)
+    member this.Remove(map:MapFolder) =
+        let nearby(x,y,z) =
+            for dx,dy,dz in [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0] do
+                let x,y,z = x+dx,y+dy,z+dz
+                let bid = map.GetBlockInfo(x,y,z).BlockID 
+                if bid=127uy || bid=39uy || bid=40uy then // cocoa, mushrooms are possible "tree accessories"
+                    map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+                if bid=106uy then // vine, extra attention needed, can hang down
+                    let mutable y = y
+                    while map.GetBlockInfo(x,y,z).BlockID=106uy do
+                        map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+                        y <- y - 1
+        for x,y,z in this.Logs do
+            map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+            nearby(x,y,z)
+        for x,y,z,_ in this.Leaves do
+            map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+            nearby(x,y,z)
 
 type PriorityQueue() =
     let mutable pq = Set.empty 
@@ -1265,7 +1283,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
             for t in allTrees do
                 let x,_,z = t.CanonicalStump 
                 if abs(x-bx) < 10 && abs(z-bz) < 10 then
-                    t.Replace(map, 0uy, 0uy, 0uy, 0uy)
+                    t.Remove(map)
         let mutable h = hmIgnoringLeaves.[bx,bz]
         // we just removed trees, so hm may be wrong (atop tree logs), recompute
         while map.GetBlockInfo(bx,h,bz).BlockID = 0uy do
@@ -2078,7 +2096,7 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
         for t in allTrees do
             let x,_,z = t.CanonicalStump 
             if abs(x) < TREE_REMOVE_RADIUS && abs(z) < TREE_REMOVE_RADIUS then
-                t.Replace(map, 0uy, 0uy, 0uy, 0uy)
+                t.Remove(map)
     // ...clear out any other blocks
     for x = -2 to 4 do
         for z = -2 to 4 do
@@ -2461,19 +2479,19 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
-    time (fun() ->   // after hiding spots figured
+    time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
     time (fun () -> 
@@ -2483,7 +2501,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

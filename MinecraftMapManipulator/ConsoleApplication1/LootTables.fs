@@ -370,7 +370,7 @@ let EFF(lvls) = 32, Seq.toArray lvls
 let SILK(lvls) = 33, Seq.toArray lvls
 let UNBR(lvls) = 34, Seq.toArray lvls
 let FORT(lvls) = 35, Seq.toArray lvls
-let FW(lvls) = 9, Seq.toArray lvls
+//let FW(lvls) = 9, Seq.toArray lvls // removing, given alternative
 let MEND(lvls) = 70, Seq.toArray lvls
 // lure, luck unused
 // BOW
@@ -398,7 +398,7 @@ let makeMultiBook(rng:System.Random) =  // makes a low-level multi-book suitable
     let oneProt = [| PROT,[1]; FP,[1..3]; BP,[1..3]; PROJ,[1..3] |] |> (fun a -> a.[rng.Next(a.Length)]) |> (fun (f,x) -> f x)
     let oneMelee = [| SHARP,[1]; SMITE,[1..3]; BOA,[1..3] |] |> (fun a -> a.[rng.Next(a.Length)]) |> (fun (f,x) -> f x)
     let onePick = [| SILK,[1]; FORT,[1..3] |] |> (fun a -> a.[rng.Next(a.Length)]) |> (fun (f,x) -> f x)
-    let possibles = ResizeArray [oneProt; FF[1..4]; oneMelee; FA[1..2]; KNOCK[2]; onePick; EFF[1..3]; FW[2]; POW[1..2]; PUNCH[1]]
+    let possibles = ResizeArray [oneProt; FF[1..4]; oneMelee; FA[1..2]; KNOCK[2]; onePick; EFF[1..3]; (*FW[2];*) POW[1..2]; PUNCH[1]]
     let chosen = ResizeArray()
     let F = CustomizationKnobs.LOOT_FUNCTION
     for i = 1 to F 2 do
@@ -425,7 +425,7 @@ let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier2ArmorBooks = [PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier2MeleeBooks = [SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]]
-    let tier2UtilBooks = [EFF[1..3]; SILK[1]; FORT[1..3]; FW[2]]
+    let tier2UtilBooks = [EFF[1..3]; SILK[1]; FORT[1..3]] //; FW[2]]
     let tier2BowBooks = [POW[1..2]; PUNCH[1]; FLAME[1..2]]
     let tier2Items =
         [|
