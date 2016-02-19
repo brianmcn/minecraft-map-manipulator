@@ -51,6 +51,8 @@ secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc i
 
 TODO: bugs & good ideas
 
+removing trees at jungle spawn leaves me with free-floating vines and mushrooms
+
 ideas for 'harder' mobs: armored, carrying sharp weapons, flame bow skellies (or jockeys), having regen/strength, knockback resistance, ...
 
 ender crystals?

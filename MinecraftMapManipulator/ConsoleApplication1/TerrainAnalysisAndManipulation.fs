@@ -2461,22 +2461,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
-    xtime (fun() ->   // after hiding spots figured
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->

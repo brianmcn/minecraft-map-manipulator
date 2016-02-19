@@ -367,7 +367,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"Players are given a 'BINGO Card' map picturing 25 different items. The goal is to race to collect these items as fast as possible to get a 5-in-a-row BINGO..."}"""
             """{"text":"Each time you get an item on the card, a fireworks sound will play, your score will update, and a text notification will appear in the chat..."}"""
             """{"text":"You can see which items you have so far by 'updating your map': hold your maps, and then drop one copy on the ground..."}"""
-            """{"text":"Any number of players is supported. On a multi-player server, 4 team colors allow players to collaborate or race against each other..."}"""
+            """{"text":"Any number of players is supported. On a multi-player server, 4 team colors allow players to collaborate on teams or race against each other..."}"""
             """{"text":"In single-player, you can still compete against others by choosing 'seeds'; the same seed number always yields the same BINGO Card and spawn point."}"""
             |] )
     let gameModesBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Major game modes", [|
@@ -375,7 +375,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"Minecraft BINGO supports a variety of different game modes; the most basic is to play for a 'BINGO' (5 in a row, column, or diagonal) to win..."}"""
             """{"text":"For extra challenge, you can play for the 'blackout': getting all 25 items on the card..."}"""
             """{"text":"Another game mode is to gather as many items as possible within 25 minutes (1500 seconds) as a timed challenge..."}"""
-            """{"text":"Each match always supports all these modes (there's nothing to configure); BINGO, blackout, and 25-minute scores are detected and printed automatically..."}"""
+            """{"text":"Each match always supports all these modes (there's nothing to configure); BINGO, blackout, and 25-minute scores are detected and displayed automatically..."}"""
+            """{"text":"Other game modes (including multi-player 'lockout' mode as well as custom starting items) are available, check the room on the other side of the lobby for details..."}"""
             """{"text":"But you're free to make your own rules; if you see a nice mountain and want to build a cabin instead, do it! Minecraft is very flexible :)"}"""
             |] )
     let customTerrainBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom terrain", [|
@@ -383,7 +384,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"Minecraft BINGO is played in a normal Minecraft world, with just 3 small changes to default world generation..."}"""
             """{"text":"First, the biome size is set to 'tiny', so that you do not need to travel for hours to find a jungle or a swamp; most biomes are close by..."}"""
             """{"text":"Second, dungeons frequency is increased to maximum, so that all players have a good chance of finding dungeon loot in the first 10 minutes..."}"""
-            """{"text":"Finally, granite, diorite, and andesite are removed, so that your inventory is not filled with extra stone types while trying to collect items."}"""
+            """{"text":"Finally, granite, diorite, and andesite are removed, so that your inventory is not cluttered with extra stone types while trying to collect items."}"""
             |] )
     let thanksBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Thanks", [|
             // TODO finalize prose
@@ -393,7 +394,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             sprintf """{"text":"Version 2.x playtesters (cont'd):\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[10..19] ["..."]))
             sprintf """{"text":"Version 2.x playtesters (cont'd):\n\n%s"}""" (formatBingoTesters bingo20testers.[20..])
             """{"text":"Special thanks to\nAntVenom\nwho gave me the idea for Version 1.0, and\nBergasms\nwho helped me test and implement the first version."}"""
-            """{"text":"And of course, to you,\n","extra":[{"selector":"@p"},{"text":"\nthanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
+            //"""{"text":"And of course, to you,\n","extra":[{"selector":"@p"},{"text":"\nthanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
+            """{"text":"And of course, to you, current player, thanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
             |] )
     let versionInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Versions", [|
             // TODO finalize prose
@@ -404,10 +406,14 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"Version History\n\n2.1 - 2014/05/12\n\nCustomized terrain with tiny biomes and many dungeons.\n\n2.0 - 2014/04/09\n\nRandomize the 25 items on the card."}"""
             """{"text":"Version History\n\n1.0 - 2013/10/03\n\nOriginal Minecraft 1.6 version. Only one fixed card, dispensed buckets of water to circle items on the map. (pre-dates /setblock!)"}"""
             |] )
+    let donationInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Donations", [|
+            // TODO finalize prose
+            """{"text":"I spent more than 200 hours programming MinecraftBINGO - mapmaking is a lot of work!\nIf you enjoy the game, and are able to donate, a donation of any amount is appreciated.\n\n","extra":[{"text":"Click here to donate","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
+            |] )
     let customConfigBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom game config", [|
             // TODO finalize prose
-            """{"text":"MinecraftBINGO allows you to customize the gameplay with extra command blocks. There are two banks of command blocks you can customize."}"""
-            """{"text":"The first bank of command blocks contains commands that run at the start of the game.\n\nThe second bank runs when a player respawns after death."}"""
+            """{"text":"MinecraftBINGO allows you to customize the gameplay with extra command blocks. There are two sets of command blocks you can customize."}"""
+            """{"text":"The first set of command blocks contains commands that run at the start of the game.\n\nThe second set runs during the game when a player respawns after death."}"""
             """{"text":"You can modify these command blocks (in creative mode) to do a variety of things. But also..."}"""
             """{"text":"There are various right-clickable signs labelled 'Load config' which you click to populate the command blocks with various fun pre-set configs."}"""
             """{"text":"So you can choose one of the 'pre-set' configs just by clicking a sign, or if you know command blocks, you can create your own."}"""
@@ -439,13 +445,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "Starting Chest" "Per Team" "+Night Vision" STARTING_CHEST_NIGHT_VISION_LOADOUT
             // TODO reset everything ('circuit breaker?')
             // interior layout - main room
-            // TODO need this? yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "Go to" "TUTORIAL" "" (sprintf "tp @p %s 90 180" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
+            // TODO need this? yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "Go to" "TUTORIAL" "" (sprintf "tp @p %s -90 0" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "Make RANDOM" "card" RANDOM_SEED_BUTTON true "black"
             if not enabled then
-                yield U (sprintf """blockdata %d %d %d {Text3:"(ends any game",Text4:"in progress)"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8))
+                yield U (sprintf """blockdata %d %d %d {Text3:"{\"text\":\"(ends any game\"}",Text4:"{\"text\":\"in progress)\"}"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8))
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6) 5 "Choose SEED" "for card" CHOOSE_SEED_BUTTON true "black"
             if not enabled then
-                yield U (sprintf """blockdata %d %d %d {Text3:"(ends any game",Text4:"in progress)"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6))
+                yield U (sprintf """blockdata %d %d %d {Text3:"{\"text\":\"(ends any game\"}",Text4:"{\"text\":\"in progress)\"}"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+6))
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+4) 5 "START" "the game" START_GAME_PART_1 enabled (if enabled then "black" else "gray")
             yield! makeSignDoAction "wall_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+5) 4 "Join team" "RED"    "" "" "run_command" "scoreboard teams join red @p"    "run_command" "scoreboard players set @p Score 0" "run_command" (sprintf "blockdata %s {auto:1b}" COMPUTE_LOCKOUT_GOAL.STR) "run_command" (sprintf "blockdata %s {auto:0b}" COMPUTE_LOCKOUT_GOAL.STR) enabled (if enabled then "black" else "gray")
             yield! makeSignDoAction "wall_sign" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+2) (LOBBYY+2) (LOBBYZ+6) 4 "Join team" "BLUE"   "" "" "run_command" "scoreboard teams join blue @p"   "run_command" "scoreboard players set @p Score 0" "run_command" (sprintf "blockdata %s {auto:1b}" COMPUTE_LOCKOUT_GOAL.STR) "run_command" (sprintf "blockdata %s {auto:0b}" COMPUTE_LOCKOUT_GOAL.STR) enabled (if enabled then "black" else "gray")
@@ -470,7 +476,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %d %d %d wool 8" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+7) (LOBBYY) (LOBBYZ+10)) // wool under chests
             yield U (sprintf "setblock %d %d %d wool 8" (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+9) (LOBBYY) (LOBBYZ+10)) // wool under chests
             yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+6) 5 "Version" "Info" "" "" (escape2 versionInfoBookCmd) "" true "black"
-            yield! makeWallSign (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "donate" "" "" ""
+            yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH+5) (LOBBYY+2) (LOBBYZ+4) 5 "Donate" "" "" "" (escape2 donationInfoBookCmd) "" true "black"
             // start platform has a disable-able sign
             let GTT = NEW_PLAYER_PLATFORM_LO.Offset(7,2,6)
             yield U (sprintf "setblock %s stone" (GTT.Offset(1,0,0).STR))
@@ -598,12 +604,11 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             signZ <- signZ + 1
             yield! makeStandingSignIncZ signX signY signZ 4 "Once you get" "5 in a row," "you win!" ""
             yield! makeStandingSignIncZ signX signY signZ 4 "Other game" "modes exist," "learn more" "in the lobby"
-            yield! makeWallSignActivate signX (signY+1) signZ 4 "Let's play!" "Click to start" END_TUTORIAL_BUTTON true "black"  // TODO multiplayer state testing of tutorial
+            yield! makeWallSignActivate signX (signY+1) signZ 4 "Let's play!" "Click to start" END_TUTORIAL_BUTTON true "black"
             signZ <- signZ + 1
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
             // first time map is loaded, players go here:
             yield U (sprintf "fill %s %s sea_lantern" NEW_MAP_PLATFORM_LO.STR (NEW_MAP_PLATFORM_LO.Offset(10,0,10).STR))
-            let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,1,4)
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "This is version" "3.0 Beta" "of the map." ""
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "Do you have" "the latest" "version?" "Find out!"
@@ -681,7 +686,9 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
         // nTicksLater
         yield P ""
+#if DEBUG
         yield U "scoreboard players add Tick Score 1"
+#endif
         yield U "scoreboard players add @e[tag=nTicksLaterScoredArmor] S 1"
         yield U "execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
         yield U "execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
@@ -738,12 +745,12 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "tp @e[tag=whereToTpBackTo] @p[tag=playerThatIsMapUpdating]"  // a tick after summoning, tp marker to player, to preserve facing direction
         yield U (sprintf "tp @p[tag=playerThatIsMapUpdating] %s 180 0" MAP_UPDATE_ROOM.STR)
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
-        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound entity.endermen.teleport ambient @p" // TODO should be @a
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound entity.endermen.teleport ambient @a"
         yield! nTicksLater(30) // TODO adjust timing?
         yield U "tp @p[tag=playerThatIsMapUpdating] @e[tag=whereToTpBackTo]"
         yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ entitydata @e[type=!Player,r=72] {PersistenceRequired:0}"  // don't leak mobs
         yield U "particle portal ~ ~ ~ 3 2 3 1 99 @p[tag=playerThatIsMapUpdating]"
-        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound entity.endermen.teleport ambient @p" // TODO should be @a
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ playsound entity.endermen.teleport ambient @a"
         yield U (sprintf "setworldspawn %s" MAP_UPDATE_ROOM.STR)
         yield U "scoreboard players tag @p[tag=playerThatIsMapUpdating] remove playerThatIsMapUpdating"
         yield U "scoreboard players set hasAnyoneUpdatedMap S 1"
@@ -903,11 +910,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players set Sixty Calc 60"
         // TODO consider just re-hardcoding TIMER_CYCLE_LENGTH
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
+#if DEBUG
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
-        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TimeKeeper"]}"""
+#endif
+        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999999,Tags:["TimeKeeper"]}"""
 #if DEBUG
         // start ticklagdebug // TODO eventually remove this
-        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["TickLagDebug"]}"""
+        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999999,Tags:["TickLagDebug"]}"""
         yield U "fill 100 4 6 100 4 16 wool"  // todo coords
         yield U "fill 100 4 6 100 4 16 redstone_block"  // todo coords
 #endif
@@ -957,7 +966,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield O ""
         // make AECs for teleportBasedOnScore, e.g. to move N spaces with a score of N
         for i = 60 downto 1 do  // 60 is nice, not too many, divides 1-6, makes the 300 X/Z spawns manageable
-            yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999,Tags:[\"Z\"]}" i)  // TODO verify if AEC is ok, or should just use all AS instead
+            yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999999,Tags:[\"Z\"]}" i)
             yield U "scoreboard players add @e[tag=Z] S 1"
         yield U (sprintf "fill %d %d %d %d %d %d stone" 0 MAPY (MAPZ-1) 127 MAPY (MAPZ-1)) // stone above top row, to prevent shading on top line
         |]
@@ -1074,7 +1083,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %s wool" (GOT_LOCKOUT_REDSTONE(t).STR))
             yield U (sprintf "setblock %s wool" (GOT_MEGA_BINGO_REDSTONE(t).STR))
         // ensure long-lived AECs stay alive
-        yield U "entitydata @e[type=AreaEffectCloud] {Duration:999999}"
+        yield U "entitydata @e[type=AreaEffectCloud] {Duration:999999999}"
         |]
     region.PlaceCommandBlocksStartingAt(RESET_SCORES_LOGIC,resetScoresLogic,"reset scores")
 
@@ -1148,7 +1157,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "blockdata %s {auto:1b}" ENSURE_CARD_UPDATED_LOGIC.STR)
             yield U (sprintf "blockdata %s {auto:0b}" ENSURE_CARD_UPDATED_LOGIC.STR)
             yield! nTicksLater(33)
-            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s 90 180" whereToTpBack.STR) 
+            yield U (sprintf "tp @p[tag=oneGuyToEnsureBingoCardCleared] %s -90 0" whereToTpBack.STR) 
             yield U "scoreboard players tag @a remove oneGuyToEnsureBingoCardCleared"
         |]
     let startGameButtonPart1 =
@@ -1575,7 +1584,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // note, we need these short-lived AECs, because these are killed as removed from candidate set
         yield U "kill @e[tag=bingoItem]"
         for i = 1 to bingoItems.Length do
-            yield U (sprintf "summon AreaEffectCloud %d %d %d {Duration:999999,Tags:[\"bingoItem\"]}" (bingoItems.Length - i + BINGO_ITEMS_LOW.X) BINGO_ITEMS_LOW.Y BINGO_ITEMS_LOW.Z)
+            yield U (sprintf "summon AreaEffectCloud %d %d %d {Duration:999999999,Tags:[\"bingoItem\"]}" (bingoItems.Length - i + BINGO_ITEMS_LOW.X) BINGO_ITEMS_LOW.Y BINGO_ITEMS_LOW.Z)
             yield U "scoreboard players add @e[tag=bingoItem] S 1"
         yield U "scoreboard players remove @e[tag=bingoItem] S 1"
         // init other vars
@@ -1669,8 +1678,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let computeYCoordinateInit =
         [|
             yield O ""
-            yield U """execute @e[tag=tpas] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Duration:999999,Tags:["findASY"]}"""
-            yield U (sprintf """summon AreaEffectCloud %s {Duration:999999,Tags:["findYCmd"]}""" TPY_LOW.STR)
+            yield U """execute @e[tag=tpas] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Duration:999999999,Tags:["findASY"]}"""
+            yield U (sprintf """summon AreaEffectCloud %s {Duration:999999999,Tags:["findYCmd"]}""" TPY_LOW.STR)
             yield U """setblock 1 1 1 chain_command_block 3 {auto:1b,Command:"tp @a[tag=oneGuyToTeleport] ~ 68 ~"}"""  // choose a safe-ish default; if the player DCs during startup, need to at least have a CCB so chains are not broken
             yield U "blockdata ~ ~ ~2 {auto:1b}"
             yield U "blockdata ~ ~ ~1 {auto:0b}"

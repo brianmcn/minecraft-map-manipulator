@@ -1291,13 +1291,21 @@ do
 #if BINGO
 
 (*
-cone name still not appear in book pg 7
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
 on each map TP, was clipping down into block stood atop
-tick constantly displaying
-donations
+donation URL (now have book)
 'beta' on start platform  // scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   scoreboard players tag @a remove playerHasBeenSeen
 TODOS
+test multiplayer TP sounds
+
+get in a state where can pass off beta to berg/cone/obe/etc
+
+prep map, e.g. 
+scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   
+scoreboard players tag @a remove playerHasBeenSeen
+remove self from scoreboard
+click button to set night vision config
+
 *)
 
     let readInSomeArt = false
@@ -1321,14 +1329,10 @@ TODOS
     let save = if onlyArt then "BingoArt" else "tmp9"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     //removeAllTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
-    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.0.0.mca""",
-                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save, true)
-    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.0.-1.mca""",
-                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.-1.mca""" user save, true)
-    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.0.mca""",
-                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.0.mca""" user save, true)
-    System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Void\region\r.-1.-1.mca""",
-                        sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.-1.-1.mca""" user save, true)
+    for x in [-2..1] do
+        for z in [-2..1] do
+            System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,
+                                sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.%d.%d.mca""" user save x z, true)
     try 
         MinecraftBingo.placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save, onlyArt) 
     with e -> 
