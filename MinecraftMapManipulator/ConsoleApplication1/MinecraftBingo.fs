@@ -186,11 +186,11 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 
     let VANILLA_LOADOUT = Coords(70,3,10), "Vanilla gameplay (no on-start/on-respawn commands)"
     let NIGHT_VISION_LOADOUT = Coords(71,3,10), "Players get night vision at start & respawn"
-    let SADDLED_HORSE_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision and frost walker at start & respawn, as well as an invulnerable saddled horse at game start"
+    let FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision and frost walker at start & respawn"
     let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10), "Players get night vision at start & respawn, and each team starts with chest of items"
     let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10), "Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
     let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
-    let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; SADDLED_HORSE_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT]
+    let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; FROST_WALKER_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT]
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -440,7 +440,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "Vanilla" "(no extra" "commands)" VANILLA_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "Night Vision" "" "" NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "Spammable" "Iron Sword" "+Night Vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "Saddled Horse" "+Frost Wlker" "+Night Vision" SADDLED_HORSE_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "Frost Walker" "+Night Vision" "" FROST_WALKER_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "Elytra" "+Frost Walker" "+Night Vision" ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "Starting Chest" "Per Team" "+Night Vision" STARTING_CHEST_NIGHT_VISION_LOADOUT
             // TODO reset everything ('circuit breaker?')
@@ -506,18 +506,17 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         |], 
         fst NIGHT_VISION_LOADOUT, "nightVisionLoadout"
     loadout(nightVisionLoadout)
-    let saddledHorseNightVisionLoadout =
+    let frostWalkerNightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
             U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
-            U """execute @a ~ ~ ~ summon EntityHorse ~ ~2 ~ {Tame:1b,Attributes:[0:{Base:40.0d,Name:"generic.maxHealth"},1:{Base:0.0d,Name:"generic.knockbackResistance"},2:{Base:0.3d,Name:"generic.movementSpeed"},3:{Base:0.0d,Name:"generic.armor"},4:{Base:16.0d,Name:"generic.followRange"},5:{Base:0.7d,Name:"horse.jumpStrength"}],Invulnerable:1b,Health:40.0f,SaddleItem:{id:"minecraft:saddle",Count:1b,Damage:0s}}"""
         |],
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
             U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
         |], 
-        fst SADDLED_HORSE_NIGHT_VISION_LOADOUT, "saddledHorseNightVisionLoadout"
-    loadout(saddledHorseNightVisionLoadout)
+        fst FROST_WALKER_NIGHT_VISION_LOADOUT, "frostWalkerNightVisionLoadout"
+    loadout(frostWalkerNightVisionLoadout)
     let startingChestNightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
@@ -525,6 +524,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             U (sprintf "execute @p[team=blue] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             U (sprintf "execute @p[team=yellow] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             U (sprintf "execute @p[team=green] ~ ~ ~ clone %d %d %d %d %d %d ~ ~2 ~" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1) (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
+            U """tellraw @a ["A chest of starting items has appeared above you"]"""
         |],
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
@@ -908,6 +908,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players set TenMillion Calc 10000000"
         yield U "scoreboard players set Twenty Calc 20"
         yield U "scoreboard players set Sixty Calc 60"
+        yield U "scoreboard players set isLockoutMode S 0"
         // TODO consider just re-hardcoding TIMER_CYCLE_LENGTH
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
 #if DEBUG
@@ -932,7 +933,12 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // build tutorial
         yield U (sprintf "blockdata %s {auto:1b}" TUTORIAL_CMDS.STR)
         yield U (sprintf "blockdata %s {auto:0b}" TUTORIAL_CMDS.STR)
-        // debug stuff
+        // build platform to return to lobby at 150 150 150 (to help MinecraftBINGO 2.x players)
+        yield U "fill 145 148 145 155 148 155 stone"
+        yield U "setblock 153 150 150 stone"
+        yield! makeWallSignDo 152 150 150 4 "Right-click" "to return" "to lobby" "" (sprintf "tp @p %s 180 0" OFFERING_SPOT.STR) "" true "black"
+        yield! makeSign "standing_sign" 147 149 150 12 "MinecraftBINGO" "2.x veteran," "are we?" "Turn around."
+        // debugging initial loadout
         yield! nTicksLater(3)
         yield U (sprintf """blockdata %d %d %d {Command:"effect @a night_vision 9999 1 true"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2))
         yield U (sprintf """blockdata %d %d %d {Command:"gamemode 1 @a"}""" (LOBBYX+CFG_ROOM_IWIDTH+1) (LOBBYY+3) (LOBBYZ+2+1))
@@ -1323,9 +1329,11 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             O ""
             U "scoreboard players test isLockoutMode S 1 *"
             C "scoreboard players set isLockoutMode S 0"
+            C """tellraw @a ["Lockout mode disabled"]"""
             C "scoreboard players reset LockoutGoal Score"
             U "testforblock ~ ~ ~-2 chain_command_block -1 {SuccessCount:0}"
             C "scoreboard players set isLockoutMode S 1"
+            C """tellraw @a ["Lockout mode enabled"]"""
             C (sprintf "blockdata %s {auto:1b}" (COMPUTE_LOCKOUT_GOAL.STR))
             C (sprintf "blockdata %s {auto:0b}" (COMPUTE_LOCKOUT_GOAL.STR))
         |]

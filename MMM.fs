@@ -1291,20 +1291,16 @@ do
 #if BINGO
 
 (*
-obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
+
+TO TEST
+test multiplayer TP sounds
+isLockoutMode has no score at start, need to toggle for multiplayer to work at start? (no colors for first multiplayer game)
 on each map TP, was clipping down into block stood atop
-donation URL (now have book)
-https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXRZS
+
+
+obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
 'beta' on start platform  // scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   scoreboard players tag @a remove playerHasBeenSeen
 TODOS
-test multiplayer TP sounds
-map name on MC menu
-//get rid of saddle horse, maybe tame wolf? can't do.
-// horse not spawn at all for cone (but worked when we tried - ralted to bad item?)
-add platform at 150 150 150 with sign to go to lobby (maybe with 2.5 joke)
-isLockoutMode has no score at start, need to toggle for multiplayer to work at start? (no colors for first multiplayer game)
-when toggle lockout mode, put msg in chat too (shows on scoreboard)
-starting chest items is above players, but not obvious
 emerald art, part replaced with clay? screenshot yeah, may need to replace green color on map with lime stained clay, but then colors are awful... or just regen the same seed after clear board?
 
 https://bugs.mojang.com/browse/MC-11834 causes the impossible-item as smooth stone
@@ -1317,7 +1313,6 @@ prep map, e.g.
 /scoreboard players reset Lorgon111
 remove self from scoreboard
 click button to set night vision config
-relight it once all that is ready
 
 *)
 
@@ -1332,8 +1327,13 @@ relight it once all that is ready
         System.IO.File.WriteAllLines(writePath, arr)
 
 
-
-
+(*
+    let tmp3LevelDat = sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\tmp3\level.dat""" user
+    dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Eventide Trance v1.0.2\level.dat""")
+    dumpPlayerDat(tmp3LevelDat)
+    Utilities.renamer(tmp3LevelDat,"\u00A7l\u00A76Minecraft\u00A7dBINGO \u00A79v3.0 \u00A7aby \u00A7eLorgon111\u00A7r ")
+    failwith "bang"
+*)
 
     printfn "bingo seed is 8126030 preset to clipboard..."
     System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(1,100,4,80,true,true,true,true,MC_Constants.oreSpawnBingo))
@@ -1350,6 +1350,9 @@ relight it once all that is ready
         MinecraftBingo.placeCommandBlocksInTheWorld(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" user save, onlyArt) 
     with e -> 
         printfn "caught exception: %s" (e.Message)
+    let bingoFolder = sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save
+    let bingoMap = new MapFolder(bingoFolder)
+    RecomputeLighting.relightTheWorldHelper(bingoMap,[-1;0],[-1;0],false)
     (*
     preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_6.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 36)
     preciseImageToBlocks(sprintf """C:\Users\%s\Desktop\Minimap_Floor_7.png""" user, sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\region\""" user save, 32)

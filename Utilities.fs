@@ -508,8 +508,10 @@ let checkExploredBiomes() =
             //for x in mine do
             //    printfn "%s %s" (if biomeSet.Contains(x) then "XXX" else "   ") x
 
-let renamer() =
-    let file = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\Snakev2.0G\level.dat"""
+// http://minecraft.gamepedia.com/Formatting_codes#Color_codes
+//     Utilities.renamer(tmp3LevelDat,"\u00A7l\u00A76Minecraft\u00A7dBINGO \u00A79v3.0 \u00A7aby \u00A7eLorgon111\u00A7r ")
+let renamer(levelDatFilename,newWorldName) =
+    let file = levelDatFilename
     let nbt = readDatFile(file)
     //printfn "%s" (nbt.ToString())
     let newNbt =
@@ -517,7 +519,7 @@ let renamer() =
         | Compound("",rsa) -> 
             match rsa.[0], rsa.[1] with Compound("Data",a), End -> 
                 let a = a |> Seq.filter (function String("LevelName",_) -> false | _ -> true)
-                let a = a |> Seq.append [|String("LevelName","Snake Game by Lorgon111")|]
+                let a = a |> Seq.append [|String("LevelName",newWorldName)|]
                 Compound("",[|Compound("Data",a|>ResizeArray);End|]|>ResizeArray)
         | _ -> failwith "bummer"
     printfn "%s" (newNbt.ToString())
