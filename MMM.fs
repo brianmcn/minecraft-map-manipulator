@@ -1296,6 +1296,7 @@ TO TEST
 test multiplayer TP sounds
 isLockoutMode has no score at start, need to toggle for multiplayer to work at start? (no colors for first multiplayer game)
 on each map TP, was clipping down into block stood atop
+based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to reduce numbers
 
 
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)

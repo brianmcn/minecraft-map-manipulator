@@ -34,8 +34,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf """tellraw @a ["schedule nTickLater %d at ",{"score":{"name":"Tick","objective":"Score"}}]""" n)
 #endif
             yield U "summon ArmorStand ~ ~ ~3 {Tags:[\"nTicksLaterNewArmor\"],NoGravity:1,Marker:1}"
-            yield U (sprintf "scoreboard players set @e[tag=nTicksLaterNewArmor] S -%d" n)
-            yield U "entitydata @e[tag=nTicksLaterNewArmor] {Tags:[\"nTicksLaterScoredArmor\"]}"
+            yield U (sprintf "scoreboard players set @e[type=ArmorStand,tag=nTicksLaterNewArmor] S -%d" n)
+            yield U "entitydata @e[type=ArmorStand,tag=nTicksLaterNewArmor] {Tags:[\"nTicksLaterScoredArmor\"]}"
             yield O ""
         |]
 
@@ -689,13 +689,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 #if DEBUG
         yield U "scoreboard players add Tick Score 1"
 #endif
-        yield U "scoreboard players add @e[tag=nTicksLaterScoredArmor] S 1"
-        yield U "execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
-        yield U "execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
+        yield U "scoreboard players add @e[type=ArmorStand,tag=nTicksLaterScoredArmor] S 1"
+        yield U "execute @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
+        yield U "execute @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
 #if DEBUG_NTICKSLATER
-        yield U """execute @e[tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ tellraw @a ["nTickLater armor-awaken at ",{"score":{"name":"Tick","objective":"Score"}}]"""
+        yield U """execute @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ tellraw @a ["nTickLater armor-awaken at ",{"score":{"name":"Tick","objective":"Score"}}]"""
 #endif
-        yield U "kill @e[tag=nTicksLaterScoredArmor,score_S_min=-1]"
+        yield U "kill @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1]"
         |]
     let timerCmds = 
         [|
@@ -726,7 +726,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // mark all droppedMap entities
         yield U "scoreboard players tag @e[type=Item] add droppedMap {Item:{id:\"minecraft:filled_map\",Damage:0s}}"
         // tag all nearby players as wanting to tp
-        yield U "execute @e[tag=droppedMap] ~ ~ ~ scoreboard players tag @a[r=5] add playerThatWantsToUpdate"
+        yield U "execute @e[type=Item,tag=droppedMap] ~ ~ ~ scoreboard players tag @a[r=5] add playerThatWantsToUpdate"
         // choose a random one to be the tp'er
         yield U "scoreboard players tag @r[tag=playerThatWantsToUpdate] add playerThatIsMapUpdating"
         // clear the 'wanting' flags
@@ -1536,9 +1536,9 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             C "blockdata ~ ~ ~1 {auto:0b}"
             O ""
             U "worldborder get"
-            U "scoreboard players operation @e[tag=TimeKeeper] S -= TenMillion Calc"
-            U "scoreboard players operation @e[tag=TimeKeeper] S /= Twenty Calc"
-            U "scoreboard players operation Time Score = @e[tag=TimeKeeper] S"
+            U "scoreboard players operation @e[type=AreaEffectCloud,tag=TimeKeeper] S -= TenMillion Calc"
+            U "scoreboard players operation @e[type=AreaEffectCloud,tag=TimeKeeper] S /= Twenty Calc"
+            U "scoreboard players operation Time Score = @e[type=AreaEffectCloud,tag=TimeKeeper] S"
             U "scoreboard players test Time Score 1500 *"
             C (sprintf "setblock %s redstone_block" TIMEKEEPER_25MIN_REDSTONE.STR)
         |]
