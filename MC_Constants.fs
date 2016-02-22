@@ -1203,7 +1203,7 @@ let survivalObtainableItems =
         295,0,"wheat_seeds"
         296,0,"wheat"
         297,0,"bread"
-        298,0,"leather_helmet"
+        298,0,"leather_helmet"  // millions of dye colors, ignore
         299,0,"leather_chestplate"
         300,0,"leather_leggings"
         301,0,"leather_boots"

@@ -1035,29 +1035,149 @@ let mixTerrain() =
     ()
 
 let findStrongholds() =
-    let world = "43a"
-    for rx in [-16 .. 15] do
-        for rz in [-16 .. 15] do
+    //let world = "StrongholdsDefault11"
+    let world = "StrongholdsDefault11 - Copy (3)"
+    let REGIONS = [-30 .. 29]
+    let portals = ResizeArray()
+    //let REGIONS = [-5 .. 5]
+    for rx in REGIONS do
+        for rz in REGIONS do
             let file = sprintf """r.%d.%d.mca""" rx rz
-            let region = new RegionFile((sprintf """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\%s\region\""" world) + file)
-//            printfn "scanning %s" file
-            for cx = 0 to 31 do
-                for cz = 0 to 31 do
-                    match region.TryGetChunk(cx,cz) with
-                    | None -> ()
-                    | _ ->
-                        let x = rx * 512 + cx * 16
-                        let z = rz * 512 + cz * 16
-                        for sy = 0 to 15 do
-                            let y = 16 * sy
-                            match region.GetSection(x,y,z) with
-                            | null,null,null,null,null -> ()
-                            | _s,blocks,_bd,_bl,_sl ->
-                                if blocks |> Array.exists (fun b -> b = 120uy) then // 120 = end portal frame
-                                    if y < 64 then // below ground
+            let fullPath = (sprintf """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\%s\region\""" world) + file
+            if System.IO.File.Exists(fullPath) then
+                let region = new RegionFile(fullPath)
+                printfn "scanning %s" file
+                for cx = 0 to 31 do
+                    for cz = 0 to 31 do
+                        match region.TryGetChunk(cx,cz) with
+                        | None -> ()
+                        | _ ->
+                            let x = rx * 512 + cx * 16
+                            let z = rz * 512 + cz * 16
+                            for sy = 0 to 3 do // 15 do  // don't bother looking above ground
+                                let y = 16 * sy
+                                match region.GetSection(x,y,z) with
+                                | null,null,null,null,null -> ()
+                                | _s,blocks,_bd,_bl,_sl ->
+                                    if blocks |> Array.exists (fun b -> b = 120uy) then // 120 = end portal frame
                                         printfn "end portal at (%6d, %3d, %6d)" x y z
-    ()
+                                        portals.Add((x,y,z))
+    printfn "done!"
+    for x,_y,z in portals do
+        printfn "%d,%d" x z
     (*
+
+-8160,-1744
+-8000,7600
+-7296,3200
+-7296,3216
+-6544,-8656
+-6528,-8656
+-5184,-5856
+-5232,816
+-5216,816
+-4160,7040
+-4160,7056
+-2832,-3680
+-2832,-3664
+-2032,1616
+-2016,1616
+-1968,4928
+-768,-8144
+-768,-8128
+-752,-8144
+-752,-8128
+-80,-1808
+656,7920
+1664,832
+2048,-5040
+3328,4112
+3344,4112
+4368,-7136
+4384,-7136
+5328,-576
+5456,6448
+6272,-9008
+6272,-8992
+7568,-3088
+7584,1600
+8816,7632
+8816,7648
+8832,7632
+8832,7648
+
+
+    -8160	-1744
+    -8000	7600
+    -7296	3200
+    -7296	3216
+    -6544	-8656
+    -6528	-8656
+    -5184	-5856
+    -5232	816
+    -5216	816
+    -4160	7040
+    -4160	7056
+    -2832	-3680
+    -2832	-3664
+    -2032	1616
+    -2016	1616
+    -1968	4928
+    -768	-8144
+    -768	-8128
+    -752	-8144
+    -752	-8128
+    -80	-1808
+    656	7920
+    1664	832
+    2048	-5040
+    3328	4112
+    3344	4112
+    4368	-7136
+    4384	-7136
+    5328	-576
+    5456	6448
+    6272	-9008
+    6272	-8992
+    7568	-3088
+    7584	1600
+    8816	7632
+    8816	7648
+    8832	7632
+    8832	7648
+
+
+
+
+
+
+
+
+    -7296	3200
+    -7296	3216
+    -5184	-5856
+    -5232	816
+    -5216	816
+    -4160	7040
+    -4160	7056
+    -2832	-3680
+    -2832	-3664
+    -2032	1616
+    -2016	1616
+    -1968	4928
+    -80	-1808
+    1664	832
+    2048	-5040
+    3328	4112
+    3344	4112
+    4368	-7136
+    4384	-7136
+    5328	-576
+    5456	6448
+    7568	-3088
+    7584	1600
+
+
 
 RAW
 end portal at ( -6944,  32,   -416)

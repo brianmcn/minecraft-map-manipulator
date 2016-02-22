@@ -2031,7 +2031,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(1,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArray<MCTree>) =
+let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArray<MCTree>, mapTimeInHours) =
     let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
         let auto = if name = "minecraft:command_block" then 0uy else 1uy
@@ -2175,10 +2175,14 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     let C(c) = placeChain(0,!y,0,c,true); decr y
     let U(c) = placeChain(0,!y,0,c,false); decr y
     let I(c) = placeImpulse(0,!y,0,c,false); decr y
-    R("time set 14500") // night
+    let ticks = (int64 mapTimeInHours) * 60L  *60L * 20L
+    assert(ticks % 24000L = 0L)
+    let dayTicks = ticks + 1000L
+    let nightTicks = ticks + 14500L
+    R(sprintf "time set %d" nightTicks) // night
     U("testfor @a {ActiveEffects:[{Id:26b}]}") // if anyone has luck potion
-    C("time set 1000") // day
-    U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set 1000" DAYLIGHT_RADIUS)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
+    C(sprintf "time set %d" dayTicks) // day
+    U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set %d" DAYLIGHT_RADIUS dayTicks)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
     U("scoreboard players test CTM hidden 3 *")
     C(sprintf "blockdata ~ %d ~ {auto:0b}" (h-13)) // turn off main repeat loop
     C("blockdata ~ ~-2 ~ {auto:1b}")
@@ -2414,7 +2418,7 @@ let findMountainToHollowOut(map : MapFolder, hm, hmIgnoringLeaves :_[,], log, de
 
 
 
-let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
+let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTimeInHours) =
     let rng = ref(System.Random())
     let mainTimer = System.Diagnostics.Stopwatch.StartNew()
     let map = new MapFolder(worldSaveFolder + """\region\""")
@@ -2478,7 +2482,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         )
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> allTrees := treeify(map, hm))
     xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
@@ -2493,8 +2497,8 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions) =
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
-        placeStartingCommands(map,hmIgnoringLeaves,!allTrees))
-    time (fun () -> 
+        placeStartingCommands(map,hmIgnoringLeaves,!allTrees, mapTimeInHours))
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->

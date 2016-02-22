@@ -144,13 +144,16 @@ let DAYLIGHT_RADIUS = 180
 
 let makeAreaHard(map:RegionFiles.MapFolder,x,z) =
     map.SetInhabitedTime(x,z,3600000L)
+(*
+// this is not useful, because (A) it's DayTime, not Time, that influences difficulty and (B) /time set will reset it.  So use /time set to influence instead
 let makeMapTimeNhours(levelDat, n) =
     let ticks = (int64 n) * 60L  *60L *20L
     let replaceLevelDatTime pl nbt =
         match pl, nbt with 
-        | Compound("Data",_)::_, NBT.Long("Time",_old) -> NBT.Long("Time",ticks)
+        | Compound("Data",_)::_, NBT.Long("Time",_old) -> NBT.Long("Time",ticks) // DayTime!
         | _ -> nbt
     Utilities.updateDat(levelDat, replaceLevelDatTime)
+*)
 
 /////////////////////////////////
 

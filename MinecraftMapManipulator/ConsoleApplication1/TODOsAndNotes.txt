@@ -1,10 +1,21 @@
 ﻿Feedback from Thungon:
  - spawn is ugly (add a layer of nice blocks above bedrock)
+http://pastebin.com/krkNdJzH
+ - doesn't like death counter on screen (command in book at start to toggle?)
+ - silverfish hard to hit
+ - dug to diamonds looking for stone (ended up with natural cobblegn on surface)
+ - liked coal block
+ - farmed a skellie spawner for init loot
+ - loot chests found: side-green-cave, cactus, lava furnace, fire mountain, coarse dirt
+ - tunneled a bit, red was very easy that way, mountain was harder
 
+ NLC:
+ - loot chests found: moss boulders, tree tops, lake bottoms, side-green-cave, lava furnace
+lorgon111 reddit and http://pastebin.com/qzyH2EzH
+ - I did see some path blocks relatively early, it didn't occur to me to follow them though 
 
 MOJANG BUGS
 
-playsound @a bug
 beacon at spawn sometimes not render
 absorbtion/HB hearts sometimes not show (client reset 4ixes)
 teleporter does not work in SMP, got glitched into bedrock.  figure that out.  (maybe now fixed? i also tp one block higher now)
@@ -52,14 +63,23 @@ out-of-place lilypads on oceans/lakes?
 possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
 a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
 secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
+what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
 
 TODO: bugs & good ideas
 
-ideas for 'harder' mobs: armored, carrying sharp weapons, flame bow skellies (or jockeys), having regen/strength, knockback resistance, ...
+dress up the spawn for better first impression (facade over bedrock)
+toggle death counter command in a starter book
+tunneled below red beacon - add feesh?
+tree removal - consider under bottom logs changing dirt to grass if grass nearby, or adding snow layer if snow nearby (but don't break orchid!)
+
+ideas for 'harder' mobs: armored, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, ...
+
+advantage of this style map - 'fresher' for YTers if diff than others
 
 ender crystals?
 herobrine? something with armor stands?
 guardian area in Monument.dat apparently spawns _only_ guardians, so could make a (waterless) no-spawn-hostiles without changing biome? (though that's not what I saw in nafandix)
+soulsand (over ice?) as challenging terrain/substiution somewhere? v podzol in mega taiga? ...
 
 one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
 
@@ -76,9 +96,15 @@ more variety of random-chest-loot (have some good weapons/armor that will break 
 empty chest (with a name?) can be good troll
 snow layers could be an interesting aesthetic or terrain feature?
 treasure maps (actual maps) are neat, a la https://www.youtube.com/watch?v=YMhSt75or2U&t=9m45s or https://www.youtube.com/watch?v=ae2YKOAHtZY&t=1m55s (savanna flat grass, ring of lilypads (on ocean?)) but how make area recognizable/findable? CTM sub-area is smaller, find map in area... for me?
+	another (missing tall grass/flowers for X): https://www.youtube.com/watch?v=fbtlLfEDsFk&t=9m
+end dimension with other biomes allows other things to spawn (useful for lighting? no beds, bedrock fire, lava speed, what other mechanics in end dimension?)
+'red maze' of goliath, but permanently give fire resist -> explosions make terrain awful, but lava does not kill player? would 'underwater' work just as well though?
 
 naming
 ------
+need to 'version' it by date, to be clear for future releases (if NLC took 5 hours with commentary, that's be like 10-12 episodes? = about a month?)
+just anything catchy and SEO-able could be a good name
+
 "retro"/"throwback"? seed-ed? roguelike? customized? randomized? play on spelunky/BoI? made-to-order? ___-crafted? rand-crafted, like hand-crafted?
 procedural? programmed? custom-built?
 alternate-universe? multiplicity? variety? replay?
@@ -129,7 +155,9 @@ have a way to 'go to normal', e.g. turn off world border, (world embedded in nor
 glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
 TODOs and refactorings...
 undergound: 'giant crystal cave', e.g. you go down a cave and find a huge open space with ice and glass and whatnot. (how to generate 'look', how to place so there's a path, how to get player to find)
-
+special named chickens that lay emeralds or something: https://www.reddit.com/r/Minecraft/comments/46vf81/diamondlaying_chickens/
+interesting 'proc's
+surface (or underground) structures are fun to find, even if just small rare not-too-useful item, nice to 'see new stuff' that looks interesting (but requires 'builds')
 
 other ideas
 floating structures? lava/water pillars fall down? sky has 'advantage' of being open to build without overlap... eventide trance parkour up the creeper platforms stuff

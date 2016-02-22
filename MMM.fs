@@ -1299,8 +1299,17 @@ https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXR
 TODOS
 test multiplayer TP sounds
 map name on MC menu
+//get rid of saddle horse, maybe tame wolf? can't do.
+// horse not spawn at all for cone (but worked when we tried - ralted to bad item?)
+add platform at 150 150 150 with sign to go to lobby (maybe with 2.5 joke)
+isLockoutMode has no score at start, need to toggle for multiplayer to work at start? (no colors for first multiplayer game)
+when toggle lockout mode, put msg in chat too (shows on scoreboard)
+starting chest items is above players, but not obvious
+emerald art, part replaced with clay? screenshot yeah, may need to replace green color on map with lime stained clay, but then colors are awful... or just regen the same seed after clear board?
 
-get in a state where can pass off beta to berg/cone/obe/etc
+https://bugs.mojang.com/browse/MC-11834 causes the impossible-item as smooth stone
+
+get in a state where can pass off beta2 to cone/obe/goth/etc
 
 prep map, e.g. 
 /scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   
@@ -1308,6 +1317,7 @@ prep map, e.g.
 /scoreboard players reset Lorgon111
 remove self from scoreboard
 click button to set night vision config
+relight it once all that is ready
 
 *)
 
@@ -1409,9 +1419,8 @@ click button to set night vision config
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
-    CustomizationKnobs.makeMapTimeNhours(System.IO.Path.Combine(worldSaveFolder, "level.dat"), 11)
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom)
+    dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
