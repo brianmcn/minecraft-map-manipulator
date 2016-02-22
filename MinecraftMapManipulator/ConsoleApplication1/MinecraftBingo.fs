@@ -104,6 +104,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     for x = 1 to 128 do
         for z = 1 to 128 do
             region.EnsureSetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
+            if region.GetBlockInfo(x,MAPY,z).BlockID = 82uy then // clay
+                region.SetBlockIDAndDamage(x,MAPY-2,z,82uy,0uy) // make a 'clear the board' mask at MAPY-2 which we can clone
     // prepare item display chests
     let anyDifficultyItems = ResizeArray()
     let otherItems = ResizeArray()
@@ -1110,8 +1112,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players operation seed is *= OneThousand Calc"
         yield U "scoreboard players operation seed is += tmp is"
         yield U "scoreboard players add seed is 100000"
-        yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace stained_hardened_clay" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
-        yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace emerald_block" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
+        yield U (sprintf "clone %d %d %d %d %d %d %d %d %d masked" (MAPX+4) (MAPY-2) MAPZ (MAPX+122) (MAPY-2) (MAPZ+118) (MAPX+4) MAPY MAPZ)
         yield U "scoreboard players operation Seed Score = seed is"
         yield U "scoreboard players operation Z Calc = seed is"
         yield U "scoreboard players set seed is -2147483648"
@@ -1132,9 +1133,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players enable @a PlayerSeed"
         yield U """tellraw @a {"text":"Press 't' (chat), click below, then replace NNN with a seed number in chat"}"""
         yield U """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/trigger PlayerSeed set NNN"}}"""
-        // clear card of colors _after_ the tellraw (as commands below can lag a few seconds)
-        yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace stained_hardened_clay" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
-        yield U (sprintf "fill %d %d %d %d %d %d clay 0 replace emerald_block" (MAPX+4) MAPY MAPZ (MAPX+122) MAPY (MAPZ+118))
+        // clear card of colors _after_ the tellraw (as command below can lag briefly)
+        yield U (sprintf "clone %d %d %d %d %d %d %d %d %d masked" (MAPX+4) (MAPY-2) MAPZ (MAPX+122) (MAPY-2) (MAPZ+118) (MAPX+4) MAPY MAPZ)
         yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield U (sprintf "setblock %s redstone_block" CHOOSE_SEED_REDSTONE.STR)
         |]

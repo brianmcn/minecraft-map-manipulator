@@ -1302,7 +1302,6 @@ based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
 'beta' on start platform  // scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   scoreboard players tag @a remove playerHasBeenSeen
 TODOS
-emerald art, part replaced with clay? screenshot yeah, may need to replace green color on map with lime stained clay, but then colors are awful... or just regen the same seed after clear board?
 
 https://bugs.mojang.com/browse/MC-11834 causes the impossible-item as smooth stone
 
