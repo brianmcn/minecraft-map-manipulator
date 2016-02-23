@@ -1303,7 +1303,6 @@ obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on'
 'beta' on start platform  // scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   scoreboard players tag @a remove playerHasBeenSeen
 TODOS
 fix corner chunk error on map display
-The message that appears when you start a game that says (If you need to quit before bingo.... etc) will print the message 'Invalid trigger name home' until the game actually starts. Perhaps put this into chat after the game starts. 
 
 
 https://bugs.mojang.com/browse/MC-11834 causes the impossible-item as smooth stone

@@ -776,8 +776,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         U """scoreboard players remove @a hasMaps 1"""
         U """scoreboard players set @a hasMaps 5 {Inventory:[{id:"minecraft:filled_map",Damage:0s}]}"""
         U """give @a[score_hasMaps=0] filled_map 32 0 {display:{Name:"BINGO Card"}}"""
-        U """tellraw @a[63,7,57,rm=30,score_hasMaps=0] ["(If you need to quit before getting BINGO, you can"]"""
-        U """tellraw @a[63,7,57,rm=30,score_hasMaps=0] [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        // The intent below was that 'drop all your maps' was a new way to be able to TP back to lobby. However it's unintuitive, and now that '/tp 150 150 150' works, unneeded.
+        // And this was breaking some things in the start sequence.  So remove it:
+        // U """tellraw @a[63,7,57,rm=30,score_hasMaps=0] ["(If you need to quit before getting BINGO, you can"]"""
+        // U """tellraw @a[63,7,57,rm=30,score_hasMaps=0] [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
         U """scoreboard players set @a[score_hasMaps=0] hasMaps 5"""   // just in case give it to them but inventory full, keep the delay before giving again
         |]
     let cmdsTriggerHome =
