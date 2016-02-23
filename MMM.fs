@@ -1304,9 +1304,6 @@ obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on'
 TODOS
 fix corner chunk error on map display
 The message that appears when you start a game that says (If you need to quit before bingo.... etc) will print the message 'Invalid trigger name home' until the game actually starts. Perhaps put this into chat after the game starts. 
-gen two cards in a row quickly and everything breaks (race), need to disable those signs (or at least the mechanisms) while gen'ing
- - generating a numbered seed then clicking to generate a random seed would produce a card with weird hybrid items on it.
- - With regards to the bottom text of the card being overwritten, can you fly up in the sky and see if the items actually overwrote the map on the south end of the card? (I saw that happen once long ago, where there was like another 15 items generated south of the map.) Probably some race condition when generating multiple cards quickly back-to-back...
 
 
 https://bugs.mojang.com/browse/MC-11834 causes the impossible-item as smooth stone

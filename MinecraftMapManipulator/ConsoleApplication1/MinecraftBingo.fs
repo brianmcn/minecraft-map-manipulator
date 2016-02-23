@@ -920,6 +920,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players set Twenty Calc 20"
         yield U "scoreboard players set Sixty Calc 60"
         yield U "scoreboard players set isLockoutMode S 0"
+        yield U "scoreboard players set isCardGenerationInProgress S 0"
         // TODO consider just re-hardcoding TIMER_CYCLE_LENGTH
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
 #if DEBUG
@@ -1115,6 +1116,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let randomSeedButton =
         [|
         yield O ""
+        yield U "scoreboard players test isCardGenerationInProgress S 1 *"
+        yield C """tellraw @a ["Card generation already in progress, please wait a moment..."]"""
+        yield U "scoreboard players test isCardGenerationInProgress S 0 0"
+        yield C "scoreboard players set isCardGenerationInProgress S 1"
+        yield C "blockdata ~ ~ ~2 {auto:1b}"
+        yield C "blockdata ~ ~ ~1 {auto:0b}"
+        yield O ""
         // cancel out any pending seed choice
         yield U (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
@@ -1159,8 +1167,17 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let chooseSeedCoda =
         [|
         yield P ""
-        yield U "execute @a[score_PlayerSeed_min=-2147483647] ~ ~ ~ scoreboard players operation seed is = @p[score_PlayerSeed_min=-2147483647] PlayerSeed"
+        yield U "execute @p[score_PlayerSeed_min=-2147483647] ~ ~ ~ scoreboard players operation seed is = @p[score_PlayerSeed_min=-2147483647] PlayerSeed"
         yield U "scoreboard players test seed is -2147483647 *"
+        yield C "blockdata ~ ~ ~1 {auto:1b}"
+        yield O "blockdata ~ ~ ~ {auto:0b}"   // we need to avoid the usual idiom so that the purple does not trigger this two ticks in a row, as that breaks things
+        yield U "scoreboard players test isCardGenerationInProgress S 1 *"
+        yield C    """tellraw @a ["Card generation already in progress, please wait a moment..."]"""
+        yield C    "scoreboard players set @a PlayerSeed -2147483648"
+        yield C    "scoreboard players set seed is -2147483648"
+        yield C    "scoreboard players enable @a PlayerSeed"
+        yield U "scoreboard players test isCardGenerationInProgress S 0 0"
+        yield C "scoreboard players set isCardGenerationInProgress S 1"
         yield C (sprintf "setblock %s wool" CHOOSE_SEED_REDSTONE.STR)
         yield C "scoreboard players set @a PlayerSeed -2147483648"
         yield C "scoreboard players operation Seed Score = seed is"
@@ -1656,6 +1673,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "blockdata %d %d %d {auto:1b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U (sprintf "blockdata %d %d %d {auto:0b}" (LOBBYX-4) LOBBYY LOBBYZ)
             yield U """tellraw @a ["...done!"]"""
+            yield U "scoreboard players set isCardGenerationInProgress S 0"
         |]
     region.PlaceCommandBlocksStartingAt(MAKE_SEEDED_CARD,bingoCardMakerCmds(true),"make pixel art and checker")
 
