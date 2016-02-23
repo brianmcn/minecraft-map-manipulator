@@ -67,10 +67,15 @@ what if each of the 16 colors had a one-word name, and the 16 words spelled out 
 
 TODO: bugs & good ideas
 
-dress up the spawn for better first impression (facade over bedrock)
+dress up the spawn for better first impression (facade over bedrock) 
+ - surround bedrock top box in light blue (3) stained clay, with bedrock at beacon hole, and change monument to obsidian
+ - also change ladders to reach up 1 higher, and chest/enderchest, and monument testfors
+ - (consider also stylizing teleporters)
 toggle death counter command in a starter book
-tunneled below red beacon - add feesh?
+tunneled below red beacon - add feesh? obsidian? extend bedrock out 2 or 3?
 tree removal - consider under bottom logs changing dirt to grass if grass nearby, or adding snow layer if snow nearby (but don't break orchid!)
+enderpearls as nice extra loot find
+longer jump boost time for pots? (can elytra give FFX?)
 
 ideas for 'harder' mobs: armored, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, ...
 

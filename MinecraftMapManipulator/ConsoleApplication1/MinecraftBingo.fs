@@ -102,7 +102,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     AA.writeZoneFromString(region, MAPX, MAPY, MAPZ+64, AA.mapBottomLeft)
     AA.writeZoneFromString(region, MAPX+64, MAPY, MAPZ+64, AA.mapBottomRight)
     for x = 1 to 128 do
-        for z = 1 to 128 do
+        for z = 0 to 128 do
             region.EnsureSetBlockIDAndDamage(x, MAPY-1, z, 1uy, 0uy)  // stone below it, to prevent lighting updates
             if region.GetBlockInfo(x,MAPY,z).BlockID = 82uy then // clay
                 region.SetBlockIDAndDamage(x,MAPY-2,z,82uy,0uy) // make a 'clear the board' mask at MAPY-2 which we can clone
@@ -317,13 +317,14 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     region.PlaceCommandBlocksStartingAtSelfDestruct(LOBBYX-2,LOBBYY,LOBBYZ,makeLobbyCmds,"build lobby walls")
     let bingo30testers = // TODO finish this list if more
         [|
+            "Bergasms"
             "Cacille"
             "ConeDodger"
             "DucksEatFree"
-            "Shook50"
             "gothfaerie"
-            "obesity84"
             "Insmanity"
+            "obesity84"
+            "Shook50"
         |] |> Array.sortBy (fun s -> s.ToLower()) 
     let bingo20testers = 
         [|
@@ -611,6 +612,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %s %s stone" (tut.Offset( 0,0,signZ-TUTORIAL_LOCATION.Z).STR) (tut.Offset(-5,4,signZ-TUTORIAL_LOCATION.Z).STR))
             // first time map is loaded, players go here:
             yield U (sprintf "fill %s %s sea_lantern" NEW_MAP_PLATFORM_LO.STR (NEW_MAP_PLATFORM_LO.Offset(10,0,10).STR))
+            yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(-1,2,11).STR)) // x is -1, z changes
+            yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(11,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // x is 11, z changes
+            yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,-1).STR)) // z is -1, x changes
+            yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,11).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // z is 11, x changes
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "This is version" "3.0 Beta" "of the map." ""
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "Do you have" "the latest" "version?" "Find out!"
@@ -625,6 +630,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeSignBoldness "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+8) 4 "server" "true" "properties" "true" "enable-command-" "false" "block = true" "false"
             // new players go here:
             yield U (sprintf "fill %s %s sea_lantern" NEW_PLAYER_PLATFORM_LO.STR (NEW_PLAYER_PLATFORM_LO.Offset(10,0,10).STR))
+            yield U (sprintf "fill %s %s barrier" (NEW_PLAYER_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_PLAYER_PLATFORM_LO.Offset(-1,2,11).STR)) // x is -1, z changes
+            yield U (sprintf "fill %s %s barrier" (NEW_PLAYER_PLATFORM_LO.Offset(11,1,-1).STR) (NEW_PLAYER_PLATFORM_LO.Offset(11,2,11).STR)) // x is 11, z changes
+            yield U (sprintf "fill %s %s barrier" (NEW_PLAYER_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_PLAYER_PLATFORM_LO.Offset(11,2,-1).STR)) // z is -1, x changes
+            yield U (sprintf "fill %s %s barrier" (NEW_PLAYER_PLATFORM_LO.Offset(-1,1,11).STR) (NEW_PLAYER_PLATFORM_LO.Offset(11,2,11).STR)) // z is 11, x changes
             let GTL = NEW_PLAYER_PLATFORM_LO.Offset(7,2,4)
             yield U (sprintf "setblock %s stone" (GTL.Offset(1,0,0).STR))
             yield! makeSignDo "wall_sign" GTL.X GTL.Y GTL.Z 4 "Right-click" "me to go to" "LOBBY" "" (sprintf "tp @p %s 0 0" LOBBY_CENTER_LOCATION.STR) "" true "black"
@@ -937,6 +946,14 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U (sprintf "blockdata %s {auto:0b}" TUTORIAL_CMDS.STR)
         // build platform to return to lobby at 150 150 150 (to help MinecraftBINGO 2.x players)
         yield U "fill 145 148 145 155 148 155 stone"
+        yield U "fill 144 149 144 144 150 156 barrier"
+        yield U "fill 156 149 144 156 150 156 barrier"
+        yield U "fill 144 149 144 156 150 144 barrier"
+        yield U "fill 144 149 156 156 150 156 barrier"
+        yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(11,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // x is 11, z changes
+        yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,-1).STR)) // z is -1, x changes
+        yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,11).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // z is 11, x changes
+
         yield U "setblock 153 150 150 stone"
         yield! makeWallSignDo 152 150 150 4 "Right-click" "to return" "to lobby" "" (sprintf "tp @p %s 180 0" OFFERING_SPOT.STR) "" true "black"
         yield! makeSign "standing_sign" 147 149 150 12 "MinecraftBINGO" "2.x veteran," "are we?" "Turn around."

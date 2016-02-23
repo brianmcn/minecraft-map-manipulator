@@ -45,7 +45,7 @@ let BOOK_IN_FLAT_DUNGEON_CHEST =
 let BOOK_IN_MOUNTAIN_PEAK_CHEST =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","4. Secret Treasure",[| 
 //        id """{"text":"The secret treasure is buried at\nX : ","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":"\nZ : "},{"score":{"name":"Z","objective":"hidden"}}]}"""
-        sprintf """{"text":"A secret treasure lies buried in a mountain top... hold the %s while exploring to find it!"}}]}""" NameAndLore.DIVINING_ROD_NAME 
+        sprintf """{"text":"A secret treasure lies buried in a quiet mountain top... hold the %s while exploring to find it!"}}]}""" NameAndLore.DIVINING_ROD_NAME 
      |])|> ResizeArray)
 
 let BOOK_WITH_ELYTRA =
