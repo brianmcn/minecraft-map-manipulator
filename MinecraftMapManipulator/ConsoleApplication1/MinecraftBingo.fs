@@ -146,7 +146,6 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
 
-    // TODO set render distance to 32 at spawn, ensure no extra chunks gen'd, or gen them
     let MAP_UPDATE_ROOM_LOW = Coords(59,8,69)
     let MAP_UPDATE_ROOM = MAP_UPDATE_ROOM_LOW.Offset(3,2,3)
     let WAITING_ROOM_LOW = Coords(69,8,69)
@@ -363,9 +362,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             sb.Append(s).Append("\n") |> ignore
         let r = sb.ToString()
         r.Substring(0,r.Length-1)
-    // TODO make 'BINGO Card' always be in color or something
     let gameplayBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Gameplay", [|
-            // TODO finalize prose
             """{"text":"Minecraft BINGO is a vanilla-survival scavenger hunt mini-game. Players must punch trees, craft tools, and kill monsters, as in normal Minecraft, but with a goal..."}"""
             """{"text":"Players are given a 'BINGO Card' map picturing 25 different items. The goal is to race to collect these items as fast as possible to get a 5-in-a-row BINGO..."}"""
             """{"text":"Each time you get an item on the card, a fireworks sound will play, your score will update, and a text notification will appear in the chat..."}"""
@@ -374,7 +371,6 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"In single-player, you can still compete against others by choosing 'seeds'; the same seed number always yields the same BINGO Card and spawn point."}"""
             |] )
     let gameModesBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Major game modes", [|
-            // TODO finalize prose
             """{"text":"Minecraft BINGO supports a variety of different game modes; the most basic is to play for a 'BINGO' (5 in a row, column, or diagonal) to win..."}"""
             """{"text":"For extra challenge, you can play for the 'blackout': getting all 25 items on the card..."}"""
             """{"text":"Another game mode is to gather as many items as possible within 25 minutes (1500 seconds) as a timed challenge..."}"""
@@ -383,14 +379,12 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"But you're free to make your own rules; if you see a nice mountain and want to build a cabin instead, do it! Minecraft is very flexible :)"}"""
             |] )
     let customTerrainBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom terrain", [|
-            // TODO finalize prose
             """{"text":"Minecraft BINGO is played in a normal Minecraft world, with just 3 small changes to default world generation..."}"""
             """{"text":"First, the biome size is set to 'tiny', so that you do not need to travel for hours to find a jungle or a swamp; most biomes are close by..."}"""
             """{"text":"Second, dungeons frequency is increased to maximum, so that all players have a good chance of finding dungeon loot in the first 10 minutes..."}"""
             """{"text":"Finally, granite, diorite, and andesite are removed, so that your inventory is not cluttered with extra stone types while trying to collect items."}"""
             |] )
     let thanksBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Thanks", [|
-            // TODO finalize prose
             """{"text":"I've spent more than 200 hours developing MinecraftBINGO, but I got a lot of help along the way.\n\nThanks to..."}"""
             sprintf """{"text":"Version 3.0 playtesters:\n\n%s"}""" (formatBingoTesters bingo30testers)
             sprintf """{"text":"Version 2.x playtesters:\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[0..9] ["..."]))
@@ -401,7 +395,6 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"And of course, to you, current player, thanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
             |] )
     let versionInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Versions", [|
-            // TODO finalize prose
             """{"text":"You're playing MinecraftBINGO\n\nVersion ","extra":[{"text":"3.0",color:"red"},{"text":"\n\nTo get the latest version, click\n\n"},{"text":"@MinecraftBINGO","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
             """{"text":"Version History\n\n3.0 - TODO/MM/DD\n\nRewrote everything from scratch using new Minecraft 1.9 command blocks. So much more efficient!"}"""
             """{"text":"Version History\n\n2.5 - 2014/11/27\n\nUpdate for Minecraft 1.8.1, which changed map colors.\n\n2.4 - 2014/09/12\n\nAdded 'seed' game mode to specify card and spawn point via a seed number."}"""
@@ -410,18 +403,15 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"Version History\n\n1.0 - 2013/10/03\n\nOriginal Minecraft 1.6 version. Only one fixed card, dispensed buckets of water to circle items on the map. (pre-dates /setblock!)"}"""
             |] )
     let donationInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Donations", [|
-            // TODO finalize prose
             """{"text":"I spent more than 200 hours programming MinecraftBINGO - mapmaking is a lot of work!\nIf you enjoy the game, and are able to donate, a donation of any amount is appreciated.\n\n","extra":[{"text":"Click here to donate","clickEvent":{"action":"open_url","value":"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXRZS"},"underlined":"true"}]}"""
             |] )
     let customConfigBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom game config", [|
-            // TODO finalize prose
             """{"text":"MinecraftBINGO allows you to customize the gameplay with extra command blocks. There are two sets of command blocks you can customize."}"""
             """{"text":"The first set of command blocks contains commands that run at the start of the game.\n\nThe second set runs during the game when a player respawns after death."}"""
             """{"text":"You can modify these command blocks (in creative mode) to do a variety of things. But also..."}"""
             """{"text":"There are various right-clickable signs labelled 'Load config' which you click to populate the command blocks with various fun pre-set configs."}"""
             """{"text":"So you can choose one of the 'pre-set' configs just by clicking a sign, or if you know command blocks, you can create your own."}"""
             |] )
-    // TODO community (reddit, twitter)
     let placeSigns(enabled) =
         [|
             yield O ""
@@ -446,9 +436,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "Frost Walker" "+Night Vision" "" FROST_WALKER_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "Elytra" "+Frost Walker" "+Night Vision" ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "Starting Chest" "Per Team" "+Night Vision" STARTING_CHEST_NIGHT_VISION_LOADOUT
-            // TODO reset everything ('circuit breaker?')
             // interior layout - main room
-            // TODO need this? yield! makeWallSignDo (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) (LOBBYY+2) (LOBBYZ+1) 3 "Go to" "TUTORIAL" "" (sprintf "tp @p %s -90 0" (NEW_PLAYER_LOCATION.STR)) "" enabled (if enabled then "black" else "gray")
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "Make RANDOM" "card" RANDOM_SEED_BUTTON true "black"
             if not enabled then
                 yield U (sprintf """blockdata %d %d %d {Text3:"{\"text\":\"(ends any game\"}",Text4:"{\"text\":\"in progress)\"}"}""" (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8))
@@ -617,9 +605,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,-1).STR)) // z is -1, x changes
             yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,11).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // z is 11, x changes
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "This is version" "3.0 Beta" "of the map." ""
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "This is version" "3.0" "of the map." ""
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "Do you have" "the latest" "version?" "Find out!"
-            // TODO figure out best URL
             let downloadUrl = "https://twitter.com/MinecraftBINGO"
             let downloadCmd1 = escape2 <| sprintf """tellraw @a {"text":"Press 't' (chat), then click line below to visit the official download page for MinecraftBINGO"}"""
             let downloadCmd2 = escape2 <| sprintf """tellraw @a {"text":"%s","underlined":"true","clickEvent":{"action":"open_url","value":"%s"}}""" downloadUrl downloadUrl
@@ -978,7 +965,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         for x = 0 to 7 do
             for z = 0 to 7 do
                 yield U (sprintf "setblock %d %d %d stone" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))
+        // (also regen map of upper left that glitches out)
+        yield U "/fill 0 25 -1 16 25 16 stone"
         yield! nTicksLater(20)
+        yield U "/fill 0 25 -1 16 25 16 air"
         for x = 0 to 7 do
             for z = 0 to 7 do
                 yield U (sprintf "setblock %d %d %d air" (MAPX+x*16) (MAPY+17) (MAPZ+z*16))

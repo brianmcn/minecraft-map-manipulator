@@ -1300,20 +1300,21 @@ based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to
 
 
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
-'beta' on start platform  // scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   scoreboard players tag @a remove playerHasBeenSeen
-TODOS
-fix corner chunk error on map display
 
-
-https://bugs.mojang.com/browse/MC-11834 causes the impossible-item as smooth stone
-
-get in a state where can pass off beta2 to cone/obe/goth/etc
 
 prep map, e.g. 
+
+fix release date in versionInfoBookCmd
 /scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   
 /scoreboard players tag @a remove playerHasBeenSeen
 /scoreboard players reset Lorgon111
 click button to set night vision config
+
+--------------
+
+with release, pin tweet with video link, map link, subreddit
+update twitter profile to have link to map, donate, etc
+
 
 *)
 
@@ -1423,7 +1424,7 @@ click button to set night vision config
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
-    dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
+    //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it

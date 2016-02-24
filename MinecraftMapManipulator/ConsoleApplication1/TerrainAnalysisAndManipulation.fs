@@ -243,6 +243,12 @@ type MCTree(woodType) =
     member this.Leaves = leaves
     member this.LowestLeafY with get() = lly and set(y) = lly <- y
     member this.CanonicalStump with get() = cs and set(p) = cs <- p
+    member this.CouldClaimAsMyLeaf(nbi:BlockInfo) =
+        // leaf matches wood, or jungle stump with oak leaves  
+        let leafOption = WoodType.AsLeaves(nbi.BlockID,nbi.BlockData)
+        leafOption = Some(this.WoodType) || 
+            // most jungle stumps are one log, but sometimes two are right next to each other, so <= 2 is a good approximate heuristic
+            (this.Logs.Count<=2 && this.WoodType=WoodType.JUNGLE && leafOption=Some(WoodType.OAK))
     member this.Replace(map:MapFolder, logbid, logdmg, leafbid, leafdmg) =
         for x,y,z in this.Logs do
             map.SetBlockIDAndDamage(x,y,z,logbid,logdmg)
@@ -260,12 +266,49 @@ type MCTree(woodType) =
                     while map.GetBlockInfo(x,y,z).BlockID=106uy do
                         map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
                         y <- y - 1
+        let mutable lowestY = 256
+        let lowestLogs = ResizeArray()
         for x,y,z in this.Logs do
             map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
             nearby(x,y,z)
+            // keep track of lowest logs
+            if y < lowestY then
+                lowestY <- y
+                lowestLogs.Clear()
+                lowestLogs.Add((x,y,z))
+            if y = lowestY then
+                lowestLogs.Add((x,y,z))
         for x,y,z,_ in this.Leaves do
             map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
             nearby(x,y,z)
+        for x,y,z in lowestLogs do
+            // fixup any dirt below lowest logs
+            let y = y-1
+            let bi = map.GetBlockInfo(x,y,z)
+            // TODO, note that this will not replace snow in places where below-lowest-log was not dirt, nor in places leaves were above ground
+            if bi.BlockID=3uy && bi.BlockData=0uy then // dirt
+                let mutable grass,coarse,podzol,snow = false,false,false,false
+                for dx = -1 to 1 do
+                    for dy = -1 to 1 do
+                        for dz = -1 to 1 do
+                            let nbi = map.GetBlockInfo(x+dx, y+dy, z+dz)
+                            if nbi.BlockID = 2uy then
+                                grass <- true
+                            if nbi.BlockID = 3uy && nbi.BlockData=1uy then
+                                coarse <- true
+                            if nbi.BlockID = 3uy && nbi.BlockData=2uy then
+                                podzol <- true
+                            let nbi = map.GetBlockInfo(x+dx, y+dy+1, z+dz)
+                            if nbi.BlockID = 78uy then
+                                snow <- true
+                if grass then
+                    map.SetBlockIDAndDamage(x,y,z,2uy,0uy)
+                elif podzol then
+                    map.SetBlockIDAndDamage(x,y,z,3uy,2uy)
+                elif coarse then
+                    map.SetBlockIDAndDamage(x,y,z,3uy,1uy)
+                if snow then
+                    map.SetBlockIDAndDamage(x,y+1,z,78uy,0uy)
 
 type PriorityQueue() =
     let mutable pq = Set.empty 
@@ -290,7 +333,7 @@ let treeify(map:MapFolder, hm:_[,]) =
     let allTrees = ResizeArray()
     for wx in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ] do
         for wz in [MIN_XZ .. INTERIOR_WINDOW_SIZE .. MAX_XZ] do
-            printfn "%d %d is corner, %d %d is int corner" wx wz (wx+BORDER_SIZE) (wz+BORDER_SIZE)
+            //printfn "%d %d is corner, %d %d is int corner" wx wz (wx+BORDER_SIZE) (wz+BORDER_SIZE)
             let visitedLogs = new System.Collections.Generic.HashSet<_>()
             let treesInThisWindow = ResizeArray()
             let mutable maxh = 0
@@ -327,14 +370,24 @@ let treeify(map:MapFolder, hm:_[,]) =
                                                             visitedLogs.Add(nx,ny,nz) |> ignore
                                                             tree.Logs.Add(nx,ny,nz)
                                                             q.Enqueue(nx,ny,nz)
-                                if tree.Logs.Count > 2 then
-                                    treesInThisWindow.Add(tree)
-                                    if treeIsInInterior then
-                                        allTrees.Add(tree)
-                                        //printfn "found tree at %d %d %d" x y z
-                                else
-                                    //printfn "ignoring tiny tree (jungle floor? burned? diagonal across border? below ground poke above?) at %d %d %d" x y z
-                                    ()
+                                let mutable isTallPokingAbove = false  // does the tree start below TREE_MIN_Y and we're just seeing the top of it?
+                                if y = TREE_MIN_Y then
+                                    let bi = map.GetBlockInfo(x,y-1,z)
+                                    match WoodType.AsLog(bi.BlockID, bi.BlockData) with
+                                    | None -> ()
+                                    | Some(w) -> if w = woodType then isTallPokingAbove <- true
+                                if not isTallPokingAbove then
+                                    if tree.Logs.Count > 2 then
+                                        treesInThisWindow.Add(tree)
+                                        if treeIsInInterior then
+                                            allTrees.Add(tree)
+                                            //printfn "found tree at %d %d %d" x y z
+                                    else
+                                        printfn "NOT ignoring tiny tree (jungle floor? burned? diagonal across border?) at %d %d %d" x y z
+                                        treesInThisWindow.Add(tree)
+                                        if treeIsInInterior then
+                                            allTrees.Add(tree)
+                                        ()
             // now that we have all the tree wood in the large window, determine leaf ownership
             // first find lowest point where each tree can own a leaf
             for t in treesInThisWindow do
@@ -349,7 +402,7 @@ let treeify(map:MapFolder, hm:_[,]) =
                             // we may have wandered out of bounds, stay inside our outer window
                             if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
                                 let nbi = map.GetBlockInfo(nx,ny,nz)
-                                if WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                if t.CouldClaimAsMyLeaf(nbi) then
                                     numAdjacentLeaves <- numAdjacentLeaves + 1
                                     // large oaks can have low offshoot branches where leaves are below them in only one direction, try to kludge that case
                                     let nbi = map.GetBlockInfo(nx,ny+1,nz)
@@ -369,7 +422,7 @@ let treeify(map:MapFolder, hm:_[,]) =
                                                 let nx,ny,nz = cx-2*dx, cy, cz-2*dz
                                                 if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
                                                     nbi <- map.GetBlockInfo(nx,ny,nz)
-                                            if not(WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType)) then
+                                            if not(t.CouldClaimAsMyLeaf(nbi)) then
                                                 // we didn't find lower leaves on the opposite side, suggesting this may be a crashing-stem case
                                                 numAdjacentLeaves <- numAdjacentLeaves - 1
                         if numAdjacentLeaves >=2 then
@@ -412,10 +465,10 @@ let treeify(map:MapFolder, hm:_[,]) =
 //                        if (nx,ny,nz)=(514,75,328) then
 //                            printfn "hey"
                         // we may have wandered out of bounds, stay inside our outer window
-                        if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 && ny > TREE_MIN_Y then
+                        if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 && ny >= TREE_MIN_Y then
                             if not(claimedLeaves.Contains(nx,ny,nz)) then
                                 let nbi = map.GetBlockInfo(nx,ny,nz)
-                                if WoodType.AsLeaves(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                if t.CouldClaimAsMyLeaf(nbi) then
                                     let ni = if dy=0 then ci+2 else ci+3  // cost more 'points' to go vertically away from logs, so we claim horizontally faster than vertically
                                     // TODO manhattan distance here means that x+3 claims before x+2,z+2 even though latter is euclidian-better
                                     let mutable alreadyEnqueued = false
@@ -2063,6 +2116,7 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     I("gamerule doDaylightCycle false")
     I("gamerule logAdminCommands false")
     I("gamerule commandBlockOutput false")
+    I("gamerule disableElytraMovementCheck true")
     //I("gamerule keepInventory true")
     if UHC_MODE then
         I("gamerule naturalRegeneration false")  // TODO starting book info
@@ -2098,21 +2152,21 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
             if abs(x) < TREE_REMOVE_RADIUS && abs(z) < TREE_REMOVE_RADIUS then
                 t.Remove(map)
     // ...clear out any other blocks
-    for x = -2 to 4 do
-        for z = -2 to 4 do
+    for x = -3 to 5 do
+        for z = -3 to 5 do
             for dy = 1 to 20 do
                 map.SetBlockIDAndDamage(x,h+dy,z,0uy,0uy) // air
     // rest of monument
-    map.SetBlockIDAndDamage(2,h+1,4,7uy,0uy) // 7=bedrock
-    map.SetBlockIDAndDamage(1,h+1,4,7uy,0uy)
-    map.SetBlockIDAndDamage(0,h+1,4,7uy,0uy)
-    map.SetBlockIDAndDamage(2,h+1,3,68uy,2uy) // 68=wall_sign
-    map.SetBlockIDAndDamage(1,h+1,3,68uy,2uy)
-    map.SetBlockIDAndDamage(0,h+1,3,68uy,2uy)
+    map.SetBlockIDAndDamage(2,h+2,4,49uy,0uy) // 49=obsidian
+    map.SetBlockIDAndDamage(1,h+2,4,49uy,0uy)
+    map.SetBlockIDAndDamage(0,h+2,4,49uy,0uy)
+    map.SetBlockIDAndDamage(2,h+2,3,68uy,2uy) // 68=wall_sign
+    map.SetBlockIDAndDamage(1,h+2,3,68uy,2uy)
+    map.SetBlockIDAndDamage(0,h+2,3,68uy,2uy)
     map.AddOrReplaceTileEntities([|
-                                    [| Int("x",2); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.endBricks.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
-                                    [| Int("x",1); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.purpurBlock.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
-                                    [| Int("x",0); Int("y",h+1); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.sponge.dry.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",2); Int("y",h+2); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.endBricks.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",1); Int("y",h+2); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.purpurBlock.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                    [| Int("x",0); Int("y",h+2); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.sponge.dry.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
                                  |])
 
     let chestItems = 
@@ -2137,14 +2191,20 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
                 yield [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_FOOD_AND_COMBAT; End |]
                 yield [| Byte("Count", 1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_HINTS_AND_SPOILERS; End |]
             |]
-    putUntrappedChestWithItemsAt(1,h+1,-2,Strings.NAME_OF_STARTING_CHEST,chestItems,map,null)
-    map.SetBlockIDAndDamage(1,h+2,-2,130uy,3uy) // enderchest
+    putUntrappedChestWithItemsAt(1,h+2,-2,Strings.NAME_OF_STARTING_CHEST,chestItems,map,null)
+    map.SetBlockIDAndDamage(1,h+3,-2,130uy,3uy) // enderchest
     // the TP hub...
     // ...floor & ceiling
     for x = -2 to 4 do
         for z = -2 to 4 do
             map.SetBlockIDAndDamage(x,h-6,z,7uy,0uy)
             map.SetBlockIDAndDamage(x,h,z,7uy,0uy)
+    for x = -3 to 5 do
+        for z = -3 to 5 do
+            if x=1 && z=1 then
+                map.SetBlockIDAndDamage(x,h+1,z,7uy,0uy)
+            else
+                map.SetBlockIDAndDamage(x,h+1,z,159uy,3uy) // 159,3 is light blue stained clay
     // ...walls and room
     for x = -2 to 4 do
         for z = -2 to 4 do
@@ -2153,16 +2213,21 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
                     map.SetBlockIDAndDamage(x,y,z,7uy,0uy)
                 else
                     map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+    for x = -3 to 5 do
+        for z = -3 to 5 do
+            for y = h-5 to h do
+                if x = -3 || x = 5 || z = -3 || z = 5 then
+                    map.SetBlockIDAndDamage(x,y,z,159uy,3uy)
     // ...stuff in the room to start
     let chestItems = Compounds[| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.TELEPORTER_HUB_BOOK; End |] |]
     putUntrappedChestWithItemsAt(1,h-5,-1,Strings.NAME_OF_TELEPORT_ROOM_CHEST,chestItems,map,null)
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(3,h-11,0,137uy,0uy)
-    map.AddOrReplaceTileEntities([| [| Int("x",3); Int("y",h-11); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 h 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
+    map.AddOrReplaceTileEntities([| [| Int("x",3); Int("y",h-11); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 (h+1) 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
     let r = map.GetRegion(1,1)
     let cmds(x,tilename) = 
         [|
-            P (sprintf "testforblock %d %d 4 %s" x (h+2) tilename)
+            P (sprintf "testforblock %d %d 4 %s" x (h+3) tilename)
             C "scoreboard players add CTM hidden 1"
             C Strings.TELLRAW_PLACED_A_MONUMENT_BLOCK 
             C "fill ~ ~ ~ ~ ~ ~-3 air"
@@ -2482,12 +2547,12 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         )
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
@@ -2505,7 +2570,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
