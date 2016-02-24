@@ -685,6 +685,7 @@ let chatToVoiceDemo() =
 // TODO got red mush, said in chat, but no sound nor count++
 // TODO /gamerule logAdminCommands false
 // TODO skylinerw suggests /clear 0 may be cheaper than /testfor
+// TODO between the gold carrot and the carrot on stick, there should be 5 skulls, but they are not displaying properly
 
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
@@ -1293,14 +1294,11 @@ do
 (*
 
 TO TEST
-test multiplayer TP sounds
-isLockoutMode has no score at start, need to toggle for multiplayer to work at start? (no colors for first multiplayer game)
-on each map TP, was clipping down into block stood atop
+on each map TP, was clipping down into block stood atop (kinda, just usual lag bug)
 based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to reduce numbers
 
 
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
-
 
 prep map, e.g. 
 

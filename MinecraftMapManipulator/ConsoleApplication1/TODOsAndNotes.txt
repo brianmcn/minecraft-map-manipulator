@@ -123,6 +123,7 @@ below this line can probably do without for beta
 ------------------------------------------------
 interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs
 more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
+can have forest -> ice forest, with leaves as packed ice, and have snow golem spawners (which will interact naturally with creepers on occasion)
 some other block substitutions to make things interesting? cobble stairs/double-slabs to feign stone in caves?
  - glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...) idea: CC the lava/flowing_lava, convert all connected to level 10 to glowstone, if y>10, 50% air, if y <=10 obsidian?
  - biome change-up (to change grass colors)? to what purpose? (prefer to have a mechanic)

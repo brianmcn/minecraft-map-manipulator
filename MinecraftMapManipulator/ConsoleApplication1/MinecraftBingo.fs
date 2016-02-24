@@ -291,8 +291,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %d %d %d chest 5" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+1) (LOBBYY) (LOBBYZ+1)) // wool under chest
             // put heads
-            yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.1) (float (LOBBYZ+1) - 0.0))
-            yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.1) (float (LOBBYZ+14) - 0.0))
+            yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+1) - 0.0))
+            yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+14) - 0.0))
             yield! nTicksLater(1)
             yield U "tp @e[tag=asToReverse] ~ ~ ~-0.01 180 0"
             // put enabled signs
@@ -604,15 +604,16 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(11,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // x is 11, z changes
             yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,-1).STR)) // z is -1, x changes
             yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,11).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // z is 11, x changes
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "This is version" "3.0" "of the map." ""
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "Do you have" "the latest" "version?" "Find out!"
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+1) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "This is version" "3.0" "of the map." ""
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "Do you have" "the latest" "version?" ""
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "Find out by" "visiting the" "official site!" ""
             let downloadUrl = "https://twitter.com/MinecraftBINGO"
             let downloadCmd1 = escape2 <| sprintf """tellraw @a {"text":"Press 't' (chat), then click line below to visit the official download page for MinecraftBINGO"}"""
             let downloadCmd2 = escape2 <| sprintf """tellraw @a {"text":"%s","underlined":"true","clickEvent":{"action":"open_url","value":"%s"}}""" downloadUrl downloadUrl
-            yield U (sprintf "fill %d %d %d %d %d %d stone" (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+5) (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+6))
-            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+5) 4 "Right-click this" "sign to go to" "official site" "" downloadCmd1 downloadCmd2 true "black"
-            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+2) (NEW_MAP_PLATFORM_LO.Z+6) 4 "Or right-click" "me to begin" "playing!" "" (sprintf "tp @p %s -90 0" NEW_PLAYER_LOCATION.STR) "" true "black"
+            yield U (sprintf "fill %d %d %d %d %d %d stone" (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+5) (NEW_MAP_PLATFORM_LO.X+8) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+6))
+            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+5) 4 "Right-click this" "sign to go to" "official site" "" downloadCmd1 downloadCmd2 true "black"
+            yield! makeSignDo "wall_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+6) 4 "Or right-click" "me to begin" "playing!" "" (sprintf "tp @p %s -90 0" NEW_PLAYER_LOCATION.STR) "" true "black"
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+7) 4 "(In this map," "_wall_ signs" "can be" "right-clicked)"
             yield! makeSignBoldness "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+8) 4 "server" "true" "properties" "true" "enable-command-" "false" "block = true" "false"
             // new players go here:
