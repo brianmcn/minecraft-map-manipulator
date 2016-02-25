@@ -2157,6 +2157,7 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
             for dy = 1 to 20 do
                 map.SetBlockIDAndDamage(x,h+dy,z,0uy,0uy) // air
     // rest of monument
+    let ENABLE_DC,DISABLE_DC = Coords(1,h-13,1), Coords(2,h-13,1)
     map.SetBlockIDAndDamage(2,h+2,4,49uy,0uy) // 49=obsidian
     map.SetBlockIDAndDamage(1,h+2,4,49uy,0uy)
     map.SetBlockIDAndDamage(0,h+2,4,49uy,0uy)
@@ -2167,6 +2168,12 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
                                     [| Int("x",2); Int("y",h+2); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.endBricks.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
                                     [| Int("x",1); Int("y",h+2); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.purpurBlock.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
                                     [| Int("x",0); Int("y",h+2); Int("z",3); String("id","Sign"); String("Text1","""{"translate":"tile.sponge.dry.name"}"""); String("Text2","""{"text":""}"""); String("Text3","""{"text":""}"""); String("Text4","""{"text":""}"""); End |]
+                                 |])
+    map.SetBlockIDAndDamage(1,h+2,5,68uy,3uy)
+    map.SetBlockIDAndDamage(0,h+2,5,68uy,3uy)
+    map.AddOrReplaceTileEntities([|
+                                    [| Int("x",1); Int("y",h+2); Int("z",5); String("id","Sign"); String("Text1",sprintf """{"text":"%s"}""" Strings.SIGN_DC_ENABLE.[0]); String("Text2",sprintf """{"text":"%s"}""" Strings.SIGN_DC_ENABLE.[1]); String("Text3",sprintf """{"text":"%s"}""" Strings.SIGN_DC_ENABLE.[2]); String("Text4",sprintf """{"text":"%s","clickEvent":{"action":"run_command","value":"/blockdata %s {auto:1b}"}}""" Strings.SIGN_DC_ENABLE.[3] ENABLE_DC.STR); End |]
+                                    [| Int("x",0); Int("y",h+2); Int("z",5); String("id","Sign"); String("Text1",sprintf """{"text":"%s"}""" Strings.SIGN_DC_DISABLE.[0]); String("Text2",sprintf """{"text":"%s"}""" Strings.SIGN_DC_DISABLE.[1]); String("Text3",sprintf """{"text":"%s"}""" Strings.SIGN_DC_DISABLE.[2]); String("Text4",sprintf """{"text":"%s","clickEvent":{"action":"run_command","value":"/blockdata %s {auto:1b}"}}""" Strings.SIGN_DC_DISABLE.[3] DISABLE_DC.STR); End |]
                                  |])
 
     let chestItems = 
@@ -2266,6 +2273,14 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     // TODO nether still different
     // TODO loot tables still different
     // TODO message players about ability to keep playing
+    let x,y,z = ENABLE_DC.Tuple
+    placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
+    placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar Deaths",true) // TODO 'Deaths' should be a factored string
+    placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_ENABLED,true)
+    let x,y,z = DISABLE_DC.Tuple
+    placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
+    placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar",true)
+    placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED,true)
 
 let TELEPORT_PATH_OUT_DISTANCES = [|60;120;180;240;300|]
 let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
@@ -2547,12 +2562,12 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         )
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
@@ -2570,7 +2585,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

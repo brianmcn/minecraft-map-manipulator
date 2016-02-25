@@ -67,7 +67,6 @@ what if each of the 16 colors had a one-word name, and the 16 words spelled out 
 
 TODO: bugs & good ideas
 
-toggle death counter command in a starter book
 tunneled below red beacon - add feesh? obsidian? extend bedrock out 2 or 3?
 enderpearls as nice extra loot find
 longer jump boost time for pots? (can elytra give FFX?)
@@ -75,9 +74,10 @@ read starter books out loud (as in an LP), see if need to be shorter, etc
 consider TNT under one loot chest nearest spawn? then need no more traps :)
 give map stuff in one random loot box? e.g. compasses and paper?
 fireworks (for fun) could be another good random loot item
-item that when held or worn grants night vision? or trigger command can type, keep score how many you have left? thunder and then world bright for 5-10s?
+get rid of (some) trees on teleporter path to make even easier to find?
+no (certain kind) random lootz within N blocks of spawn (else up in a tree, then i remove tree...)
 
-ideas for 'harder' mobs: armored, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, ...
+ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, ...
 
 advantage of this style map - 'fresher' for YTers if diff than others
 
@@ -91,7 +91,7 @@ one-way-home teleport mechanic? something time consuming you can't use in battle
 LNG https://plus.google.com/b/116398726889585382877/102898606764462175242 said he's interested in beta-testing (but has not played 1.9 before)
 
 since dungeons can be done out of order, last book cannot be written to assume it is the last book.
-obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
+obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff (unbreakable leather/gold armor could be useful early and not OP)? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
 obe would like to 'continue with normal survival' after done
 need to have thank yous to obe/fix, and others who help (codewarrior?)
 obe did not know he could walk into black cube of teleporter, thought he needed enderpearl (how to teach? chat text? book?)
@@ -117,10 +117,12 @@ summon CTM {SpawnerCount:"High",NumPlayers:2,Seed:3456,Language:"English"}
 'seed the monument' (beetroots o plant e.g. are a goal?!?)
 Mapple cobbler
 
+just simple easy to spell words that SEO together? pink? bird? lazy? leg? arm? ...
 
 
 below this line can probably do without for beta
 ------------------------------------------------
+item that when held or worn grants night vision? or trigger command can type, keep score how many you have left? thunder and then world bright for 5-10s?
 interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs
 more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
 can have forest -> ice forest, with leaves as packed ice, and have snow golem spawners (which will interact naturally with creepers on occasion)
@@ -131,6 +133,7 @@ some other block substitutions to make things interesting? cobble stairs/double-
  - some snow biome changeup with snowmen/creeper spawners on surface (some utility item?)
  - forest or ice spikes are good places to 'hide spawners' (trees, spikes) in an area, but how/what to put in middle to find?
  - mushroom biome with no mobs and rainbow color stuff? (lit with glowstone etc?) brown wool troll chest, in a fleecy box? too OP for underground loot? ok if near far egde of map, after caving not useful.
+ - colored banners to decore an area and make it feel like it has a theme, or to mark a location, or something...
 diorite pillars at day/night go down into some caves, was kind a cool effect, other ways to use? circle around some box/chest for another mini set piece?
 seemd like there may still be some skylight bugs, do more checks versus MC
 ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot

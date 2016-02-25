@@ -17,6 +17,7 @@ type Coords(x:int,y:int,z:int) =
     member this.X = x
     member this.Y = y
     member this.Z = z
+    member this.Tuple = x,y,z
     member this.STR = sprintf "%d %d %d" x y z
     member this.Offset(dx,dy,dz) = new Coords(x+dx, y+dy, z+dz)
 

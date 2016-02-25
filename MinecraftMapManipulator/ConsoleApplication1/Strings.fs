@@ -82,7 +82,8 @@ let STARTING_BOOK_RULES =
                                 Utilities.wrapInJSONTextContinued "RULES\n\nMy personal belief is that in Minecraft there are no rules; you should play whatever way you find most fun."
                                 Utilities.wrapInJSONTextContinued "That said, I have created a map designed to help you have fun, and the next pages have some suggestions that I think will make it the most fun for most players."
                                 Utilities.wrapInJSONTextContinued (sprintf "Suggestions\n\n%s\n\nSurvive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn." (if CustomizationKnobs.SINGLEPLAYER then "This map's loot is suitable for single-player." else "This map's loot is suitable for multi-player."))
-                                Utilities.wrapInJSONText "Use normal difficulty.\n\nYou CAN use/move/craft enderchests.\n\nDon't go to Nether or leave the worldborder.\n\nYou can use beds to set spawn, but they don't affect the daylight cycle."
+                                Utilities.wrapInJSONTextContinued "Use normal difficulty.\n\nYou CAN use AND move enderchests.\n\nDon't go to Nether or leave the worldborder."
+                                Utilities.wrapInJSONText "You can use beds to set spawn, but they don't affect the daylight cycle.\n\nThere are right-clickable signs on the back of the monument to toggle the death-counter display."
                             |]) |> ResizeArray)
 let STARTING_BOOK_OVERVIEW =
     Compound("tag", Utilities.makeWrittenBookTags(
@@ -166,6 +167,11 @@ let POTION_LORE2 = TranslatableString "or drink milk"
 
 let TELLRAW_PLACED_A_MONUMENT_BLOCK = """tellraw @a ["You placed ",{"score":{"name":"CTM","objective":"hidden"}}," of 3 objective blocks so far!"]"""
 let TELLRAW_TELEPORTER_UNLOCKED = """tellraw @a [{"text":"A two-way teleporter to/from spawn has been unlocked nearby"}]"""
+let TELLRAW_DEATH_COUNTER_DISPLAY_ENABLED = """tellraw @a [{"text":"Death counter display has been enabled"}]"""
+let TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED = """tellraw @a [{"text":"Death counter display has been disabled"}]"""
+
+let SIGN_DC_ENABLE = [|"Enable";"death";"counter";"display"|]
+let SIGN_DC_DISABLE = [|"Disable";"death";"counter";"display"|]
 
 let NBT_LUCKY_GAPPLE = """{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}"""
 let NBT_FISHING = 
