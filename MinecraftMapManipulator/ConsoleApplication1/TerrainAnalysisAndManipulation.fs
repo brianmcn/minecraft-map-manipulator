@@ -5,6 +5,9 @@ open NBT_Manipulation
 open RegionFiles
 open CustomizationKnobs
 
+let HM_IGNORING_LEAVES_SKIPPABLE_DOWN_BLOCKS = 
+    new System.Collections.Generic.HashSet<_>( [|0uy; 18uy; 161uy; 78uy; 31uy; 175uy; 32uy; 37uy; 38uy; 39uy; 40uy; 106uy |] ) // air, leaves, leaves2, snow_layer, tallgrass, double_plant, deadbush, yellow_flower, red_flower, brown_mushroom, red_mushroom, vine
+
 let repopulateAsAnotherBiome() =
     //let user = "brianmcn"
     let user = "Admin1"
@@ -1340,7 +1343,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                     t.Remove(map)
         let mutable h = hmIgnoringLeaves.[bx,bz]
         // we just removed trees, so hm may be wrong (atop tree logs), recompute
-        while map.GetBlockInfo(bx,h,bz).BlockID = 0uy do
+        while HM_IGNORING_LEAVES_SKIPPABLE_DOWN_BLOCKS.Contains(map.GetBlockInfo(bx,h,bz).BlockID) do
             h <- h - 1
         map.SetBlockIDAndDamage(bx,h+0,bz,3uy,0uy) // 3=dirt
         map.SetBlockIDAndDamage(bx,h+1,bz,38uy,1uy) // 38,1=blue orchid
@@ -2284,7 +2287,19 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED,true)
 
 let TELEPORT_PATH_OUT_DISTANCES = [|60;120;180;240;300|]
-let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>, allTrees : MCTree seq) =
+    // preprocess trees
+    let treeByXZ = new System.Collections.Generic.Dictionary<_,_>()
+    if allTrees = null then
+        printfn "allTrees WAS NULL, SKIPPING TREE REDO"
+    else
+        for t in allTrees do
+            let x,_,z = t.CanonicalStump
+            if not(treeByXZ.ContainsKey(x,z)) then
+                treeByXZ.Add((x,z),ResizeArray[t])
+            else
+                treeByXZ.[x,z].Add(t)
+    // TODO code above is repeated elsewhere, is it expensive? if so, factor
     let placeCommand(x,y,z,command,bid,auto,_name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
         map.AddOrReplaceTileEntities([| [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",auto); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
@@ -2359,6 +2374,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             placeChain(x+2,h+15,z+2,"fill ~ ~ ~ ~ ~9 ~ air") // erase us
                             // place an 8-way path out to make these more findable
                             let DIRS = [|-1,-1; -1,0; -1,+1; 0,+1; +1,+1; +1,0; +1,-1; 0,-1|]  // dx, dz
+                            let TREEWIDE = [| -4; -3; -2; -1; 0; 1; 2; 3; 4 |]
                             let WIDE = [| -2; -1; 0; 1; 2 |]
                             let cx, cz = x+2, z+2
                             let TABLE = 
@@ -2407,15 +2423,31 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                 let ax,az = DIRS.[(i+2)%8]  // right angle
                                 let mutable ix,iz = cx+dx*4, cz+dz*4
                                 let A = TELEPORT_PATH_OUT_DISTANCES
+                                let isDiagonal = abs(dx)+abs(dz) = 2 
                                 for dist = 0 to A.[A.Length-1] do
                                     ix <- ix + dx
                                     iz <- iz + dz
+                                    // remove trees
+                                    for w in TREEWIDE do
+                                        let x,z = ix+w*ax, iz+w*az
+                                        if treeByXZ.ContainsKey(x,z) then
+                                            for t in treeByXZ.[(x,z)] do
+                                                t.Remove(map)
+                                        // if we're on a diagonal, we only cover every other block, so kludge it thusly (x+1)
+                                        if isDiagonal && treeByXZ.ContainsKey(x+1,z) then
+                                            for t in treeByXZ.[(x+1,z)] do
+                                                t.Remove(map)
+                                    // make path
                                     let w = rng.Next(WIDE.Length)
                                     if dist > 5 && dist % A.[1] > 5 then
                                         if dist<A.[0] && dist%2=0 || dist<A.[1] && dist%3=0 || dist<A.[2] && dist%4=0 || dist<A.[3] && dist%5=0 || dist<A.[4] && dist%6=0 then
                                             subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az, WIDE.[w])
+                                    // occasional lit chests to see from afar
                                     elif dist > 5 && dist % A.[1] = 2 then
-                                        let y = hmIgnoringLeaves.[ix,iz]
+                                        let mutable y = hmIgnoringLeaves.[ix,iz]
+                                        // just removed some trees, so this may be atop a stump that's no longer there, so move down until ground
+                                        while HM_IGNORING_LEAVES_SKIPPABLE_DOWN_BLOCKS.Contains(map.GetBlockInfo(ix,y,iz).BlockID) do
+                                            y <- y - 1
                                         let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                         putTrappedChestWithItemsAt(ix,y,iz,Strings.NAME_OF_TELEPORTER_BREADCRUMBS_CHEST,chestItems,map,null)
                                         map.SetBlockIDAndDamage(ix,y-1,iz,0uy,0uy) // 0=air
@@ -2557,14 +2589,14 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
                 let h = map.GetHeightMap(x,z)
                 hm.[x,z] <- h
                 let mutable y = h
-                while (let bid = map.MaybeGetBlockInfo(x,y,z).BlockID in bid=0uy || bid=18uy || bid=161uy || bid=78uy || bid=31uy || bid=175uy || bid=32uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=106uy) do // air, leaves, leaves2, snow_layer, tallgrass, double_plant, deadbush, yellow_flower, red_flower, brown_mushroom, red_mushroom, vine
+                while HM_IGNORING_LEAVES_SKIPPABLE_DOWN_BLOCKS.Contains(map.MaybeGetBlockInfo(x,y,z).BlockID) do
                     y <- y - 1
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
@@ -2579,7 +2611,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees, mapTimeInHours))
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->

@@ -73,7 +73,6 @@ read starter books out loud (as in an LP), see if need to be shorter, etc
 consider TNT under one loot chest nearest spawn? then need no more traps :)
 give map stuff in one random loot box? e.g. compasses and paper?
 fireworks (for fun) could be another good random loot item
-get rid of (some) trees on teleporter path to make even easier to find?
 no (certain kind) random lootz within N blocks of spawn (else up in a tree, then i remove tree...)
 
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, ...
