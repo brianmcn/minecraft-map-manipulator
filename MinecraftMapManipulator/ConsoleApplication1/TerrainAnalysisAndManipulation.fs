@@ -1314,12 +1314,13 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
     let chestItems = 
         Compounds[| 
                 for slot in [12uy..14uy] do
-                    yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:elytra"); End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:elytra"); Compound("tag",[|
+                                List("ench",Compounds[|[|Short("id",2s);Short("lvl",10s);End|]|]);End|]|>ResizeArray); End |]
                 // jump boost pots
                 for slot in [3uy;4uy;5uy] do
                     yield [| Byte("Count",24uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|
                                 Strings.NameAndLore.SUPER_JUMP_BOOST
-                                List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",100);End|]|]);End|]|>ResizeArray); End |]
+                                List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",300);End|]|]);End|]|>ResizeArray); End |]
                 yield [| Byte("Count",1uy); Byte("Slot",21uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                          Strings.BOOK_IN_HIDING_SPOT(quadrant); End |]
                 yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
@@ -2562,12 +2563,12 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         )
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> allTrees := treeify(map, hm))
     xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
@@ -2585,7 +2586,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
