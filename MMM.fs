@@ -682,10 +682,13 @@ let chatToVoiceDemo() =
 // xTODO should chat the display name rather than item name, should add display names currently only in comments
 // obe can beta test
 
+// xTODO between the gold carrot and the carrot on stick, there should be 5 skulls, but they are not displaying properly (I think fixed by moving itemName before name)
+
+// xTODO /gamerule logAdminCommands false
+// xTODO nicer dye names (351)
+
 // TODO got red mush, said in chat, but no sound nor count++
-// TODO /gamerule logAdminCommands false
 // TODO skylinerw suggests /clear 0 may be cheaper than /testfor
-// TODO between the gold carrot and the carrot on stick, there should be 5 skulls, but they are not displaying properly
 
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
@@ -723,6 +726,7 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
             map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,3uy)
             if i < survivalObtainableItems.Length then
                 let bid,dmg,name = survivalObtainableItems.[i]
+                let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,_y) -> x=bid) |> snd else sprintf "minecraft:%s" name
                 // minor name fixup stuff
                 let name = System.Text.RegularExpressions.Regex.Replace(name, """\s+""", " ")  // condense multiple spaces to one space
                 let name = match bid,dmg with
@@ -732,13 +736,28 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                            | 349,2 -> "clownfish"
                            | 349,3 -> "pufferfish"
                            | 350,1 -> "cooked salmon"
+                           | 351,15 -> "bone meal"
+                           | 351,14 -> "orange dye"
+                           | 351,13 -> "magenta dye"
+                           | 351,12 -> "light blue dye"
+                           | 351,11 -> "dandelion yellow"
+                           | 351,10 -> "lime dye"
+                           | 351,9 -> "pink dye"
+                           | 351,8 -> "light gray dye"
+                           | 351,7 -> "dark gray dye"
+                           | 351,6 -> "cyan dye"
+                           | 351,5 -> "purple dye"
+                           | 351,4 -> "lapis lazuli"
+                           | 351,3 -> "cocoa bean"
+                           | 351,2 -> "cactus green"
+                           | 351,1 -> "rose red"
+                           | 351,0 -> "inc sac"
                            | 397,0 -> "skeleton head"
                            | 397,1 -> "wither skeleton head"
                            | 397,2 -> "zombie head"
                            | 397,4 -> "creeper head"
                            | 397,5 -> "dragon head"
                            | _ -> name
-                let itemName = if bid <= 255 then blockIdToMinecraftName |> Array.find (fun (x,_y) -> x=bid) |> snd else sprintf "minecraft:%s" name
 //                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%d"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg i
                 let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%s"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg name
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
@@ -792,75 +811,29 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
         tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","Control"); 
                     Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                     String("Command",cmd); End |]
-    // ICBs to put redstone to start the checkers
     let cx,cy,cz = minxRoom+10, minyRoom, minzRoom+10
-    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom) (minyRoom) (minzRoom+Q+1) (minxRoom) (minyRoom+4) (minzRoom+2)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+2) (minyRoom) (minzRoom) (minxRoom+Q+1) (minyRoom+4) (minzRoom)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+3) (minyRoom) (minzRoom+3) (minxRoom+Q+3) (minyRoom+4) (minzRoom+Q+2)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+3) (minxRoom+2) (minyRoom+4) (minzRoom+Q+3)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    // ICBs to put barriers to enclose room
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+2)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+2) (minxRoom+Q+1) (minyRoom+4) (minzRoom+2)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+3) (minxRoom+Q+1) (minyRoom+4) (minzRoom+Q+1)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+Q+1)
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    // ICBs to set up scoreboard
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = "scoreboard objectives add Items dummy"
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = sprintf "scoreboard players set Goal Items %d" survivalObtainableItems.Length 
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
-    let cx,cy,cz = cx,cy,cz+1
-    let cmd = "scoreboard players set Have Items 0"
-    map.EnsureSetBlockIDAndDamage(cx,cy,cz,137uy,3uy)
-    tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
-                Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                String("Command",cmd); End |]
+    let r = map.GetRegion(cx,cz)
+    r.PlaceCommandBlocksStartingAt(cx,cy,cz,
+        [|
+        // put redstone to start the checkers
+        O(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom) (minyRoom) (minzRoom+Q+1) (minxRoom) (minyRoom+4) (minzRoom+2))
+        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+2) (minyRoom) (minzRoom) (minxRoom+Q+1) (minyRoom+4) (minzRoom))
+        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+3) (minyRoom) (minzRoom+3) (minxRoom+Q+3) (minyRoom+4) (minzRoom+Q+2))
+        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+3) (minxRoom+2) (minyRoom+4) (minzRoom+Q+3))
+        // put barriers to enclose room
+        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+2))
+        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+2) (minxRoom+Q+1) (minyRoom+4) (minzRoom+2))
+        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+3) (minxRoom+Q+1) (minyRoom+4) (minzRoom+Q+1))
+        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+Q+1))
+        // set up scoreboard
+        U("scoreboard objectives add Items dummy")
+        U(sprintf "scoreboard players set Goal Items %d" survivalObtainableItems.Length)
+        U("scoreboard players set Have Items 0")
+        U("scoreboard objectives setdisplay sidebar Items")
+        U("gamerule logAdminCommands false")
+        // erase item frame makers
+        U(sprintf "fill %d %d %d %d %d %d air" (minxCmds) (minyCmds) (minzCmds) (minxCmds) (minyCmds+4) (minzCmds+4*Q+2))
+        |],"",false,false)
     // write it all out
     map.AddOrReplaceTileEntities(tes)
     printfn "%d wall spots, %d items" count survivalObtainableItems.Length 
@@ -1294,6 +1267,7 @@ do
 (*
 
 TO TEST
+
 on each map TP, was clipping down into block stood atop (kinda, just usual lag bug)
 based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to reduce numbers
 
@@ -1302,16 +1276,32 @@ obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on'
 
 prep map, e.g. 
 
-fix release date in versionInfoBookCmd
 /scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   
 /scoreboard players tag @a remove playerHasBeenSeen
 /scoreboard players reset Lorgon111
+/scoreboard teams leave
 click button to set night vision config
 
 --------------
 
 with release, pin tweet with video link, map link, subreddit
 update twitter profile to have link to map, donate, etc
+
+--------------
+
+feature list:
+vanilla survival mini game
+random card generation of 25 of 61 items 
+each item get: sound, score update, chat msg
+throw map on ground to update card viz
+auto-detect bingo/blackout wins, keeps time
+show 25-min score
+tiny biomes, many dungeons, no -ite
+up to 4 teams in SMP, collab or compete
+lockout mode
+seeded cards & spawns (90000 possible)
+automatic game start configs (night vision, starting items), customizable
+
 
 
 *)
@@ -1403,7 +1393,7 @@ update twitter profile to have link to map, donate, etc
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w07a.zip""","""C:\Users\Admin1\Desktop\16w07b.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w07b.zip""","""C:\Users\Admin1\Desktop\1.9-pre4.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\54\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
@@ -1423,7 +1413,7 @@ update twitter profile to have link to map, donate, etc
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1431,20 +1421,20 @@ update twitter profile to have link to map, donate, etc
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //printfn "%d" survivalObtainableItems.Length  // 516
-    (*
     do
-        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Obesity\region\""")
+        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\FixxxerQFE\region\""")
         //let X,Y,Z = 8,90,8
         //makeGetAllItemsGame(map,X,Y,Z,0,Y,0)
-        let X,Y,Z = 200,85,-50
+        let X,Y,Z = 260,74,-695
         makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
         for x = X to 29+X do
             for z = Z to 29+Z do
                 map.EnsureSetBlockIDAndDamage(x,Y-1,z,20uy,0uy) // glass
                 map.EnsureSetBlockIDAndDamage(x,Y+5,z,20uy,0uy) // glass
         //RecomputeLighting.relightTheWorld(map)
-        RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-1..0], false)
+        RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-2..-1], false)
         map.WriteAll()
+    (*
     *)
 
     //testCompass4()

@@ -396,7 +396,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             |] )
     let versionInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Versions", [|
             """{"text":"You're playing MinecraftBINGO\n\nVersion ","extra":[{"text":"3.0",color:"red"},{"text":"\n\nTo get the latest version, click\n\n"},{"text":"@MinecraftBINGO","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
-            """{"text":"Version History\n\n3.0 - TODO/MM/DD\n\nRewrote everything from scratch using new Minecraft 1.9 command blocks. So much more efficient!"}"""
+            """{"text":"Version History\n\n3.0 - 2016/02/29\n\nRewrote everything from scratch using new Minecraft 1.9 command blocks. So much more efficient!"}"""
             """{"text":"Version History\n\n2.5 - 2014/11/27\n\nUpdate for Minecraft 1.8.1, which changed map colors.\n\n2.4 - 2014/09/12\n\nAdded 'seed' game mode to specify card and spawn point via a seed number."}"""
             """{"text":"Version History\n\n2.3 - 2014/06/17\n\nAdded more items and lockout mode.\n\n2.2 - 2014/05/29\n\nAdded multiplayer team gameplay."}"""
             """{"text":"Version History\n\n2.1 - 2014/05/12\n\nCustomized terrain with tiny biomes and many dungeons.\n\n2.0 - 2014/04/09\n\nRandomize the 25 items on the card."}"""
@@ -874,6 +874,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let cmdsInit1 =
         [|
         yield O ""
+        yield U "scoreboard players reset *"
         yield U "effect @a night_vision 9999 0 true"
         // world init
         yield U "setworldspawn 3 4 12"
@@ -1389,13 +1390,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
             yield U "clear @a"
             yield! nTicksLater(2)
-            // turn on check-for-item-checkers
-            for t = 0 to 3 do
-                let lo = ITEM_CHECKERS_REDSTONE_LOW(t)
-                yield U (sprintf "fill %d %d %d %s redstone_block" lo.X lo.Y (lo.Z-1) (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
             // do tutorial start stuff
             yield U "scoreboard teams join red @a"
             yield U "scoreboard players tag @a add InTutorial"
+            yield U "scoreboard players set teamCount S 1"
             yield U "gamemode 0 @a"
             yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(1,0,18).STR))
             yield U (sprintf "setblock %s stone" (TUTORIAL_LOCATION.Offset(0,-1,18).STR))
@@ -1408,6 +1406,11 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "blockdata %s {auto:1b}" MAKE_SEEDED_CARD.STR)
             yield U (sprintf "blockdata %s {auto:0b}" MAKE_SEEDED_CARD.STR)
             yield! nTicksLater(55)
+            // turn on check-for-item-checkers
+            for t = 0 to 3 do
+                let lo = ITEM_CHECKERS_REDSTONE_LOW(t)
+                yield U (sprintf "fill %d %d %d %s redstone_block" lo.X lo.Y (lo.Z-1) (ITEM_CHECKERS_REDSTONE_HIGH t).STR)
+            yield! nTicksLater(2)
             yield! ensureCardUpdated(TUTORIAL_PLAYER_START)
             yield U (sprintf "tp @a %s -90 0" TUTORIAL_PLAYER_START.STR) 
         |]

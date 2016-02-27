@@ -64,9 +64,11 @@ possibly have each 'type' of random loot chest have a different collectible, so 
 a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
 secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
 what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
+'loot appropriate for single player' say also if uhc mode
 
 TODO: bugs & good ideas
 
+Hint book is wrong (2nd block in progression), fix
 tunneled below red beacon - add feesh? obsidian? extend bedrock out 2 or 3?
 enderpearls as nice extra loot find
 read starter books out loud (as in an LP), see if need to be shorter, etc
@@ -74,6 +76,7 @@ consider TNT under one loot chest nearest spawn? then need no more traps :)
 give map stuff in one random loot box? e.g. compasses and paper?
 fireworks (for fun) could be another good random loot item
 no (certain kind) random lootz within N blocks of spawn (else up in a tree, then i remove tree...)
+not removing trees from allTrees after .Remove(), what may go wrong?
 
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, ...
 
@@ -120,6 +123,7 @@ just simple easy to spell words that SEO together? pink? bird? lazy? leg? arm? .
 
 below this line can probably do without for beta
 ------------------------------------------------
+a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
 item that when held or worn grants night vision? or trigger command can type, keep score how many you have left? thunder and then world bright for 5-10s?
 interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs
 more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?

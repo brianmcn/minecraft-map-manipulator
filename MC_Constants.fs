@@ -1261,7 +1261,7 @@ let survivalObtainableItems =
         349,3,"fish" // pufferfish
         350,0,"cooked_fish"
         350,1,"cooked_fish" // salmon
-        351,0,"dye"
+        351,0,"dye" // nicer names (backwards color order)
         351,1,"dye"
         351,2,"dye"
         351,3,"dye"
