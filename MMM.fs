@@ -690,6 +690,8 @@ let chatToVoiceDemo() =
 // TODO got red mush, said in chat, but no sound nor count++
 // TODO skylinerw suggests /clear 0 may be cheaper than /testfor
 
+// could be nice to print name of player who got the item (but needs more cmds/lag, yes?)
+
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
     // discover when damage value matters
@@ -794,7 +796,7 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
-                            String("Command","""execute @p ~ ~ ~ playsound entity.firework.launch voice @p ~ ~ ~"""); End |]
+                            String("Command","""execute @a ~ ~ ~ playsound entity.firework.launch voice @p ~ ~ ~"""); End |]
             else 
                 // empty command, just to ensure overwriting blocks
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
@@ -836,6 +838,21 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
         |],"",false,false)
     // write it all out
     map.AddOrReplaceTileEntities(tes)
+    for x = minxRoom to minxRoom+Q+3  do
+        for z = minzRoom to minzRoom+Q+3 do
+            map.EnsureSetBlockIDAndDamage(x,minyRoom-1,z,20uy,0uy) // glass floor
+            map.EnsureSetBlockIDAndDamage(x,minyRoom+5,z,20uy,0uy) // glass ceiling
+    let x = minxRoom+(Q+5)/2
+    let z = minzRoom+(Q+4)/2
+    let mutable y = minyRoom-1
+    map.SetBlockIDAndDamage(x,y,z,65uy,2uy) // 65=ladder
+    map.SetBlockIDAndDamage(x,y,z+1,1uy,0uy) // 1=stone
+    map.SetBlockIDAndDamage(x,y+1,z+1,50uy,5uy) // 50=torch
+    y <- y - 1
+    while map.GetBlockInfo(x,y,z).BlockID = 0uy do
+        map.SetBlockIDAndDamage(x,y,z,65uy,2uy) // 65=ladder
+        map.SetBlockIDAndDamage(x,y,z+1,1uy,0uy) // 1=stone
+        y <- y - 1
     printfn "%d wall spots, %d items" count survivalObtainableItems.Length 
 
 ////////////////////////////////////////
@@ -1273,6 +1290,7 @@ based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to
 
 
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
+ - happened to me once in singleplayer too!  /blockdata 104 3 13 {auto:0b} fixes, but how!
 
 prep map, e.g. 
 
@@ -1286,6 +1304,9 @@ click button to set night vision config
 
 with release, pin tweet with video link, map link, subreddit
 update twitter profile to have link to map, donate, etc
+
+http://www.minecraftworldmap.com/worlds/MgmI_
+http://www.minecraftforum.net/forums/mapping-and-modding/maps/1557706-14w11b-mini-game-surv-minecraft-bingo-vanilla
 
 --------------
 
@@ -1427,10 +1448,6 @@ automatic game start configs (night vision, starting items), customizable
         //makeGetAllItemsGame(map,X,Y,Z,0,Y,0)
         let X,Y,Z = 260,74,-695
         makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
-        for x = X to 29+X do
-            for z = Z to 29+Z do
-                map.EnsureSetBlockIDAndDamage(x,Y-1,z,20uy,0uy) // glass
-                map.EnsureSetBlockIDAndDamage(x,Y+5,z,20uy,0uy) // glass
         //RecomputeLighting.relightTheWorld(map)
         RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-2..-1], false)
         map.WriteAll()
