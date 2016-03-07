@@ -66,19 +66,23 @@ secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc i
 what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
 'loot appropriate for single player' say also if uhc mode
 
+NOW TEST
+
+
 TODO: bugs & good ideas
 
-Hint book is wrong (2nd block in progression), fix
-tunneled below red beacon - add feesh? obsidian? extend bedrock out 2 or 3?
-enderpearls as nice extra loot find
 read starter books out loud (as in an LP), see if need to be shorter, etc
 consider TNT under one loot chest nearest spawn? then need no more traps :)
-give map stuff in one random loot box? e.g. compasses and paper?
 fireworks (for fun) could be another good random loot item
-no (certain kind) random lootz within N blocks of spawn (else up in a tree, then i remove tree...)
 not removing trees from allTrees after .Remove(), what may go wrong?
+(should i remove ice spikes at spawn like I remove trees?)
+(can you make own subtitles?)
 
-ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, ...
+ice spikes seed: 1440595613939009001  or   442832462593546
+variety: 35267400
+
+
+ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)...
 
 advantage of this style map - 'fresher' for YTers if diff than others
 
@@ -108,21 +112,13 @@ end dimension with other biomes allows other things to spawn (useful for lightin
 
 naming
 ------
+Vanilla Swirl CTMs
 need to 'version' it by date, to be clear for future releases (if NLC took 5 hours with commentary, that's be like 10-12 episodes? = about a month?)
-just anything catchy and SEO-able could be a good name
-
-"retro"/"throwback"? seed-ed? roguelike? customized? randomized? play on spelunky/BoI? made-to-order? ___-crafted? rand-crafted, like hand-crafted?
-procedural? programmed? custom-built?
-alternate-universe? multiplicity? variety? replay?
-summon CTM {SpawnerCount:"High",NumPlayers:2,Seed:3456,Language:"English"}
-'seed the monument' (beetroots o plant e.g. are a goal?!?)
-Mapple cobbler
-
-just simple easy to spell words that SEO together? pink? bird? lazy? leg? arm? ...
 
 
 below this line can probably do without for beta
 ------------------------------------------------
+cool proc: walking on path blocks grants a speed buff
 a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
 item that when held or worn grants night vision? or trigger command can type, keep score how many you have left? thunder and then world bright for 5-10s?
 interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs

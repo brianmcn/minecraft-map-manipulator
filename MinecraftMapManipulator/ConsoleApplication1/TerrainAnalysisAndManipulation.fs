@@ -1400,7 +1400,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
         spawners.AddToMapAndLog(map,log)
     ()
 
-let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:_[,],log:EventAndProgressLog, decorations:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
     // then treat 'goodness' as 'height', and the existing 'find mountain peaks' algorithm may work
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -1490,6 +1490,16 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],log:EventAndProgr
                     elif rng.Next(60) = 0 then
                         map.SetBlockIDAndDamage(i,hm.[i,j],j,76uy,5uy) // 76=redstone_torch
                         map.SetBlockIDAndDamage(i,hm.[i,j]-1,j,1uy,5uy) // 1,5=andesite
+        // place some obsidian below ground to make it harder to tunnel underneath
+        for i = x-RADIUS to x+RADIUS do
+            for j = z-RADIUS to z+RADIUS do
+                let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
+                let pct = float (RADIUS-dist) / (float RADIUS)
+                let belowGround = hmIgnoringLeaves.[i,j] - 2
+                for y = belowGround downto belowGround-7 do
+                    if (i+y+j)%2 = 0 then
+                        if rng.NextDouble() < pct then
+                            map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
         spawners.AddToMapAndLog(map,log)
         for i = x-CR to x+CR do
             for j = z-CR to z+CR do
@@ -1615,7 +1625,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
             for _,dx,dz in decorations do
                 if (x-dx)*(x-dx) + (z-dz)*(z-dz) < RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION*RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION then
                     nearDecoration <- true
-            if not nearDecoration then
+            if not nearDecoration && (abs(x) > 25 || abs(z) > 25) then  // don't put near other things or right near spawn
                 for y = 90 downto 59 do
                     let bi = map.GetBlockInfo(x,y,z)
                     let bid = bi.BlockID 
@@ -1848,21 +1858,13 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     let mkArmorStandAt(x,y,z) = 
                                         let y = y + 1  // place AS above the water, so no bubbles
                                         [|
-                                            // ArmorStand versus mob - players can move through AS without collision, though both block attacks
                                             NBT.String("id","ArmorStand")
-                                            //NBT.String("id","Silverfish")
-                                            NBT.List("Pos",Doubles([|float x + 0.5; float y + 0.9; float z + 0.5|]))  // high Y to try to prevent them from preventing people from digging...
+                                            NBT.List("Pos",Doubles([|float x + 0.5; float y + 0.9; float z + 0.5|]))
                                             NBT.List("Motion",Doubles([|0.0; 0.0; 0.0|]))
                                             NBT.List("Rotation",Doubles([|0.0; 0.0|]))
                                             NBT.Byte("Marker",1uy) // need hitbox to work with FW, so we command it instead below
-                                            NBT.Byte("Small",1uy) // small hitbox to avoid interfering much with world
                                             NBT.Byte("Invisible",1uy)
                                             NBT.Byte("NoGravity",1uy)
-                                            //NBT.Byte("Silent",1uy)
-                                            //NBT.Byte("Invulnerable",1uy)
-                                            //NBT.Byte("NoAI",1uy)
-                                            //NBT.Byte("PersistenceRequired",1uy)
-                                            //NBT.List("ActiveEffects",Compounds([|[|Byte("Id",14uy);Byte("Amplifier",0uy);Int("Duration",999999);Byte("ShowParticles",0uy);End|]|]))
                                             NBT.End
                                         |]
                                     let ents = ResizeArray()
@@ -1880,7 +1882,12 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                         with _ -> () // sloppily deal with array index out of bounds rather than using sentinels or checks
                                     map.AddEntities(ents)
                                     // place hidden trapped chest
-                                    let x,y,z = x+9,y-5,z+6  // below the 'X'
+                                    let x,y,z = x+9,y-2,z+6  // below the 'X'
+                                    let mutable y = y
+                                    let isWater bid = bid = 8uy || bid = 9uy
+                                    while isWater(map.GetBlockInfo(x,y,z).BlockID) do
+                                        y <- y - 1
+                                    y <- y - 2
                                     putTrappedChestWithLoot(x,y,z,3)
                                     points.[14].Add( (x,y,z) )
                                     names.[14] <- "swamp hidden"
@@ -1893,7 +1900,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         let command = sprintf """execute @p[r=%d,x=%d,y=65,z=%d] ~ ~ ~ entitydata @e[r=%d,type=%s,tag=!seen] {Tags:["seen"],ArmorItems:[{id:iron_boots,tag:{ench:[{id:9s,lvl:2s}]},Count:1b}],ArmorDropChances:[1.0F]}""" RAD x z RAD mob
                                         tileEntities.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
                                         map.AddTileTick("minecraft:repeating_command_block",1,0,x,y,z)
-                                    // use commands to undo frost-walker on the AS, since Marker:0b causes problems
+                                    // use commands to undo frost-walker positioned below the AS (since AS _in_ the water caused problems)
                                     let x = x + 2
                                     map.SetBlockIDAndDamage(x,y,z,210uy,0uy)  // repeating command block
                                     let command = sprintf """execute @p[r=%d,x=%d,y=65,z=%d] ~ ~ ~ execute @e[type=ArmorStand] ~ ~-1 ~ detect ~ ~ ~ frosted_ice -1 setblock ~ ~ ~ water""" RAD x z // -1 because AS 1 above water
@@ -2597,15 +2604,15 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)

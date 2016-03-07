@@ -997,7 +997,6 @@ let survivalObtainableItems =
         88,0,"soul sand"
         89,0,"glowstone"
         91,0,"jack o' lantern"
-        92,0,"cake"
         95, 0,"white      stained glass"
         95, 1,"orange     stained glass"
         95, 2,"magenta    stained glass"

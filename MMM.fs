@@ -1283,6 +1283,7 @@ do
 
 (*
 
+
 TO TEST
 
 on each map TP, was clipping down into block stood atop (kinda, just usual lag bug)
@@ -1291,6 +1292,7 @@ based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to
 
 obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
  - happened to me once in singleplayer too!  /blockdata 104 3 13 {auto:0b} fixes, but how!
+ - shook, timer stopped, /blockdata 3 6 48 {auto:0b}
 
 prep map, e.g. 
 
@@ -1307,6 +1309,22 @@ update twitter profile to have link to map, donate, etc
 
 http://www.minecraftworldmap.com/worlds/MgmI_
 http://www.minecraftforum.net/forums/mapping-and-modding/maps/1557706-14w11b-mini-game-surv-minecraft-bingo-vanilla
+https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXRZS
+https://youtu.be/3V3nDkAuMQ0
+
+https://gfycat.com/EcstaticTerribleAngelwingmussel
+
+
+(Fifteen seconds doesn't quite do it justice, so here's a little more info.)
+
+MinecraftBINGO is the vanilla survival scavenger hunt mini-game for Minecraft 1.9.  You get a BINGO Card (map) picturing 25 items, spawn out in the world, and play vanilla survival with the goal of collecting/crafting items on the card in order to get 5 in a row/column/diagonal as fast as possible.  Your progress is tracked on your BINGO card map.
+
+Multi-player supports any number of players on up to 4 teams to race against each other for BINGO (or to collaborate for the best time).  Single-player has 'seeded' cards, so you can race a friend as they play the same card in their own single-player world.
+
+There are other game modes and customization options; if you want to learn more, check out this (ad-free) [4-minute video](https://youtu.be/3V3nDkAuMQ0).
+
+You can [download the map here](http://www.minecraftworldmap.com/worlds/MgmI_) - MinecraftBINGO runs on vanilla 1.9 command blocks (no mods or resource packs required).
+
 
 --------------
 
@@ -1414,7 +1432,7 @@ automatic game start configs (night vision, starting items), customizable
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\16w07b.zip""","""C:\Users\Admin1\Desktop\1.9-pre4.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9-pre4.zip""","""C:\Users\Admin1\Desktop\1.9.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\54\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
@@ -1434,7 +1452,7 @@ automatic game start configs (night vision, starting items), customizable
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1442,6 +1460,7 @@ automatic game start configs (night vision, starting items), customizable
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
     //printfn "%d" survivalObtainableItems.Length  // 516
+    (*
     do
         let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\FixxxerQFE\region\""")
         //let X,Y,Z = 8,90,8
@@ -1451,7 +1470,6 @@ automatic game start configs (night vision, starting items), customizable
         //RecomputeLighting.relightTheWorld(map)
         RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-2..-1], false)
         map.WriteAll()
-    (*
     *)
 
     //testCompass4()

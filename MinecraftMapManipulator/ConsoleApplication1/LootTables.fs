@@ -537,11 +537,17 @@ let NEWaestheticTier1Chest(rng:System.Random) =
                 makeItem(rng,"log2",64,64,0s) // acacia
                 makeItem(rng,"log2",64,64,1s) // dark oak
                 ])
+            // map-like stuff
+            if rng.Next(3)=0 then
+                yield makeItem(rng,"compass",2,2,0s)
+                yield makeItem(rng,"paper",64,64,0s)
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
             // useful
             yield makeMultiBook(rng)
             yield makeItem(rng,"anvil",F 2,F 2,2s)
+            if rng.Next(5)=0 then
+                yield makeItem(rng,"ender_pearl",1,F 1,0s)
         |]
     addSlotTags items 
 
@@ -585,6 +591,8 @@ let NEWaestheticTier2Chest(rng:System.Random) =
             // useful
             yield makeMultiBook(rng)
             yield makeItem(rng,"anvil",F 2,F 2,2s)
+            if rng.Next(4)=0 then
+                yield makeItem(rng,"ender_pearl",1,F 1,0s)
         |]
     addSlotTags items 
 
