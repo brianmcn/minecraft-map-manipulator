@@ -813,7 +813,7 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
         tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","Control"); 
                     Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                     String("Command",cmd); End |]
-    let cx,cy,cz = minxRoom+10, minyRoom, minzRoom+10
+    let cx,cy,cz = minxRoom+10, minyRoom, minzRoom+5
     let r = map.GetRegion(cx,cz)
     r.PlaceCommandBlocksStartingAt(cx,cy,cz,
         [|
@@ -833,8 +833,13 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
         U("scoreboard players set Have Items 0")
         U("scoreboard objectives setdisplay sidebar Items")
         U("gamerule logAdminCommands false")
+        U("gamerule commandBlockOutput false")
+        U("gamerule disableElytraMovementCheck true")
+        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxCmds) (minyCmds) (minzCmds-1) (minxCmds) (minyCmds+4) (minzCmds-1))
+        U("blockdata ~ ~ ~1 {auto:1b}")
         // erase item frame makers
-        U(sprintf "fill %d %d %d %d %d %d air" (minxCmds) (minyCmds) (minzCmds) (minxCmds) (minyCmds+4) (minzCmds+4*Q+2))
+        O(sprintf "fill %d %d %d %d %d %d air" (minxCmds) (minyCmds) (minzCmds-1) (minxCmds) (minyCmds+4) (minzCmds+4*Q+2))
+        U("fill ~ ~ ~ ~ ~ ~-19 air")
         |],"",false,false)
     // write it all out
     map.AddOrReplaceTileEntities(tes)
@@ -1274,6 +1279,35 @@ let uuidToTwoLongsThingy() =
 
 ////////////////////////////////////////
 
+let generateSuperLongSnakingCommandBlockChain() =
+    let worldSaveFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\ReproCmds\region\"""
+    let map = new MapFolder(worldSaveFolder)
+    let tes = ResizeArray()
+    let x,y,z = 100,100,100
+    let command = "scoreboard players add Long Score 1"
+    for dx = 0 to 11 do
+        let x = x + dx
+        if x % 2 = 0 then
+            for dz = 0 to 99 do
+                let z = z + dz
+                map.EnsureSetBlockIDAndDamage(x,y,z,211uy,3uy)
+                tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+            let z = z + 100
+            map.EnsureSetBlockIDAndDamage(x,y,z,211uy,5uy)
+            tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+        else
+            for dz = 100 downto 1 do
+                let z = z + dz
+                map.EnsureSetBlockIDAndDamage(x,y,z,211uy,2uy)
+                tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+            let z = z + 0
+            map.EnsureSetBlockIDAndDamage(x,y,z,211uy,5uy)
+            tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+    map.AddOrReplaceTileEntities(tes)
+    map.WriteAll()
+
+////////////////////////////////////////
+
 [<System.STAThread()>]  
 do   
     let user = "Admin1"
@@ -1452,15 +1486,15 @@ automatic game start configs (night vision, starting items), customizable
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
 
-    //printfn "%d" survivalObtainableItems.Length  // 516
-    (*
+
+    
     do
         let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\FixxxerQFE\region\""")
         //let X,Y,Z = 8,90,8
@@ -1470,6 +1504,7 @@ automatic game start configs (night vision, starting items), customizable
         //RecomputeLighting.relightTheWorld(map)
         RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-2..-1], false)
         map.WriteAll()
+    (*
     *)
 
     //testCompass4()

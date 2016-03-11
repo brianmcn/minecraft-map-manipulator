@@ -78,11 +78,14 @@ not removing trees from allTrees after .Remove(), what may go wrong?
 (should i remove ice spikes at spawn like I remove trees?)
 (can you make own subtitles?)
 
+my chunk-relighter will cause all chunks in region to think they're terrain populated
+
 ice spikes seed: 1440595613939009001  or   442832462593546
-variety: 35267400
+variety: 35267400 or 604443340930998
 
 
-ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)...
+ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
+
 
 advantage of this style map - 'fresher' for YTers if diff than others
 
@@ -109,6 +112,8 @@ treasure maps (actual maps) are neat, a la https://www.youtube.com/watch?v=YMhSt
 	another (missing tall grass/flowers for X): https://www.youtube.com/watch?v=fbtlLfEDsFk&t=9m
 end dimension with other biomes allows other things to spawn (useful for lighting? no beds, bedrock fire, lava speed, what other mechanics in end dimension?)
 'red maze' of goliath, but permanently give fire resist -> explosions make terrain awful, but lava does not kill player? would 'underwater' work just as well though?
+when I do start adding any 'structures', they should all have randomness too (e.g. saw a cool big 'candle' whose fire was floating lava blocks, that could be neat to proc generate; more 'organic' stuff)
+what about a mob that can place blocks? like leaves a trail of obsidian as it walks, maybe blocking you in? or something?
 
 naming
 ------

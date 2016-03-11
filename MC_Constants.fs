@@ -1139,6 +1139,8 @@ let survivalObtainableItems =
         175,4,"rose bush"
         175,5,"peony"
         179,0,"red sandstone"
+        179,1,"chiseled red sandstone"
+        179,2,"smooth red sandstone"
         180,0,"red sandstone stairs"
         182,0,"red sandstone slab"
         183,0,"spruce fence gate"

@@ -1,4 +1,16 @@
-﻿module MinecraftBingo
+﻿// STATS:
+//
+// after 1 week:
+//  - 2000 downloads
+//  - subreddit went 334 to 341 subscribers
+//
+// FUTURE SUGGESTIONS:
+//
+// Question: is there a way to print in the chat only the name of the person who got each item, rather than all of the team members? 
+// Would be a cool way to see which specific member was responsible for each item.
+//  - possible, but challenging to not create more perf overhead, and also may spam chat e.g. if break open dungeon chest... consider
+
+module MinecraftBingo
 
 module AA = ArtAssets
 
