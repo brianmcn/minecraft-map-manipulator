@@ -382,8 +382,9 @@ let INF(lvls) = 51, Seq.toArray lvls
 
 open NBT_Manipulation
 
-let makeItem(rng:System.Random,name,min,max,dmg) =
-    [| String("id","minecraft:"+name); Byte("Count", byte(min+rng.Next(max-min+1))); Short("Damage",dmg); End |]
+let makeItemCore(rng:System.Random,name,min,max,dmg,extraNbt) =
+    [| yield String("id","minecraft:"+name); yield Byte("Count", byte(min+rng.Next(max-min+1))); yield Short("Damage",dmg); yield! extraNbt; yield End |]
+let makeItem(rng:System.Random,name,min,max,dmg) = makeItemCore(rng,name,min,max,dmg,[])
 let makeChestItemWithNBTItems(name,items) =
     [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:chest"); Compound("tag", [
                 Strings.NameAndLore.INNER_CHEST_WITH_NAME(name);
@@ -575,6 +576,17 @@ let NEWaestheticTier2Chest(rng:System.Random) =
                     makeItem(rng,"record_ward",1,1,0s)
                     makeItem(rng,"record_11",1,1,0s)
                     makeItem(rng,"record_wait",1,1,0s)
+                    ])
+            yield! Algorithms.pickNnonindependently(rng,1,[
+                    makeItemCore(rng,"fireworks",16,16,0s,[|Compound("tag",[|Compound("Fireworks",[|List("Explosions",Compounds([|
+                                    [|Byte("Type",2uy);Byte("Flicker",1uy);Byte("Trail",1uy);IntArray("Colors",[|56831|]);IntArray("FadeColors",[|16715263|]);End|]
+                                |]));End|]|>ResizeArray);End|]|>ResizeArray)|])
+                    makeItemCore(rng,"fireworks",16,16,0s,[|Compound("tag",[|Compound("Fireworks",[|List("Explosions",Compounds([|
+                                    [|Byte("Type",1uy);Byte("Flicker",1uy);Byte("Trail",1uy);IntArray("Colors",[|3849770|]);IntArray("FadeColors",[|14500508|]);End|]
+                                |]));End|]|>ResizeArray);End|]|>ResizeArray)|])
+                    makeItemCore(rng,"fireworks",16,16,0s,[|Compound("tag",[|Compound("Fireworks",[|List("Explosions",Compounds([|
+                                    [|Byte("Type",4uy);Byte("Flicker",1uy);Byte("Trail",1uy);IntArray("Colors",[|8592414|]);IntArray("FadeColors",[|13942014|]);End|]
+                                |]));End|]|>ResizeArray);End|]|>ResizeArray)|])
                     ])
             // rail & redstone
             yield makeItem(rng,"rail",64,64,0s)

@@ -73,7 +73,6 @@ TODO: bugs & good ideas
 start combat book - need to revisit combat section once 1.9.1 settles, re: clicking
 
 consider TNT under one loot chest nearest spawn? then need no more traps :)
-fireworks (for fun) are another good random loot item, definitely add
 not removing trees from allTrees after .Remove(), what may go wrong?
 (should i remove ice spikes at spawn like I remove trees?)
 need to have thank yous to obe/fix, and others who help (codewarrior?) (nlc, thungon, ...)
