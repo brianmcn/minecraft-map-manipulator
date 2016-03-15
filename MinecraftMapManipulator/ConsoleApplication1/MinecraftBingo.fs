@@ -3,6 +3,9 @@
 // after 1 week:
 //  - 2000 downloads
 //  - subreddit went 334 to 341 subscribers
+// after 2 weeks:
+//  - 3200 downloads
+//  - subreddit up to 345
 //
 // FUTURE SUGGESTIONS:
 //

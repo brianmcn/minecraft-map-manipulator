@@ -2136,7 +2136,7 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     I("weather clear 999999")
     I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 outline" (h-30) (h-10))  // command room, cmds start at h-11
     I("scoreboard objectives add hidden dummy")
-    I("scoreboard objectives add Deaths stat.deaths")
+    I(sprintf "scoreboard objectives add Deaths stat.deaths %s" Strings.NAME_OF_DEATHCOUNTER_SIDEBAR.Text)
     I("scoreboard objectives setdisplay sidebar Deaths")
     I(sprintf "scoreboard players set X hidden %d" hiddenX)
     I(sprintf "scoreboard players set Z hidden %d" hiddenZ)
@@ -2203,11 +2203,12 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
                         yield [| Byte("Count", 1uy); Byte("Slot", byte(18*i)+5uy); Short("Damage",0s); String("id","minecraft:bow"); End |]
                         yield [| Byte("Count",24uy); Byte("Slot", byte(18*i)+6uy); Short("Damage",0s); String("id","minecraft:arrow"); End |]
                         yield [| Byte("Count", 3uy); Byte("Slot", byte(18*i)+7uy); Short("Damage",0s); String("id","minecraft:golden_apple"); End |]
-                yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_RULES; End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_OVERVIEW; End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_GETTING_STARTED; End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_FOOD_AND_COMBAT; End |]
-                yield [| Byte("Count", 1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_HINTS_AND_SPOILERS; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_META; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_RULES; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_OVERVIEW; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_GETTING_STARTED; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_FOOD_AND_COMBAT; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.STARTING_BOOK_HINTS_AND_SPOILERS; End |]
             |]
     putUntrappedChestWithItemsAt(1,h+2,-2,Strings.NAME_OF_STARTING_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(1,h+3,-2,130uy,3uy) // enderchest
@@ -2286,8 +2287,9 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     // TODO message players about ability to keep playing
     let x,y,z = ENABLE_DC.Tuple
     placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
-    placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar Deaths",true) // TODO 'Deaths' should be a factored string
+    placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar Deaths",true)
     placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_ENABLED,true)
+    placeChain(x,y-3,z,"scoreboard players add @a Deaths 0",true)
     let x,y,z = DISABLE_DC.Tuple
     placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
     placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar",true)
@@ -2603,16 +2605,16 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
@@ -2625,7 +2627,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

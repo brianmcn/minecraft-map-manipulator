@@ -1486,7 +1486,7 @@ automatic game start configs (night vision, starting items), customizable
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
-    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
+    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1495,16 +1495,13 @@ automatic game start configs (night vision, starting items), customizable
 
 
     
-    do
-        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\FixxxerQFE\region\""")
-        //let X,Y,Z = 8,90,8
-        //makeGetAllItemsGame(map,X,Y,Z,0,Y,0)
-        let X,Y,Z = 260,74,-695
-        makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
-        //RecomputeLighting.relightTheWorld(map)
-        RecomputeLighting.relightTheWorldHelper(map, [-1..0], [-2..-1], false)
-        map.WriteAll()
     (*
+    do
+        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Lorgon111's Quest For Everything\region\""")
+        let X,Y,Z = -300,80,60
+        makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
+        RecomputeLighting.relightTheWorldHelper(map, [-1..-1], [0..0], false)
+        map.WriteAll()
     *)
 
     //testCompass4()

@@ -58,34 +58,35 @@ even a tiny floating island of like 40 blocks with one tree and a waterfall can 
 noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)
 could even have a block in the starter chest to suggest the hunt
 deal with "// TODO these probabilities can cause wild swings in variance"
-glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what?
+glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what? (can't due to https://bugs.mojang.com/browse/MC-97094)
 out-of-place lilypads on oceans/lakes?
 possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
 a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
 secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
 what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
-'loot appropriate for single player' say also if uhc mode
 
 NOW TEST
 
 
 TODO: bugs & good ideas
 
-read starter books out loud (as in an LP), see if need to be shorter, etc
+start combat book - need to revisit combat section once 1.9.1 settles, re: clicking
+
 consider TNT under one loot chest nearest spawn? then need no more traps :)
-fireworks (for fun) could be another good random loot item
+fireworks (for fun) are another good random loot item, definitely add
 not removing trees from allTrees after .Remove(), what may go wrong?
 (should i remove ice spikes at spawn like I remove trees?)
-(can you make own subtitles?)
+need to have thank yous to obe/fix, and others who help (codewarrior?) (nlc, thungon, ...)
+'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
+
+---
 
 my chunk-relighter will cause all chunks in region to think they're terrain populated
 
 ice spikes seed: 1440595613939009001  or   442832462593546
 variety: 35267400 or 604443340930998
 
-
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
-
 
 advantage of this style map - 'fresher' for YTers if diff than others
 
@@ -101,19 +102,17 @@ LNG https://plus.google.com/b/116398726889585382877/102898606764462175242 said h
 since dungeons can be done out of order, last book cannot be written to assume it is the last book.
 obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff (unbreakable leather/gold armor could be useful early and not OP)? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
 obe would like to 'continue with normal survival' after done
-need to have thank yous to obe/fix, and others who help (codewarrior?)
 obe did not know he could walk into black cube of teleporter, thought he needed enderpearl (how to teach? chat text? book?)
 more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
 (the obeslisks in Eventide were effectively 'set pieces', can I think of others? wide area spawners did wonders for them; witch area (light) or guardian area (no water) may be good too?)
-'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
 empty chest (with a name?) can be good troll
 snow layers could be an interesting aesthetic or terrain feature?
 treasure maps (actual maps) are neat, a la https://www.youtube.com/watch?v=YMhSt75or2U&t=9m45s or https://www.youtube.com/watch?v=ae2YKOAHtZY&t=1m55s (savanna flat grass, ring of lilypads (on ocean?)) but how make area recognizable/findable? CTM sub-area is smaller, find map in area... for me?
 	another (missing tall grass/flowers for X): https://www.youtube.com/watch?v=fbtlLfEDsFk&t=9m
-end dimension with other biomes allows other things to spawn (useful for lighting? no beds, bedrock fire, lava speed, what other mechanics in end dimension?)
-'red maze' of goliath, but permanently give fire resist -> explosions make terrain awful, but lava does not kill player? would 'underwater' work just as well though?
+end dimension with other biomes allows other things to spawn (useful for lighting? no beds, bedrock fire, has water, lava speed?, what other mechanics in end dimension?)
 when I do start adding any 'structures', they should all have randomness too (e.g. saw a cool big 'candle' whose fire was floating lava blocks, that could be neat to proc generate; more 'organic' stuff)
 what about a mob that can place blocks? like leaves a trail of obsidian as it walks, maybe blocking you in? or something?
+throwable light source (a la arcane bomb, splash pot -> tnt -> fire) is cool
 
 naming
 ------

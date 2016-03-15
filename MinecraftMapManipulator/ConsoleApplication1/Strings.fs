@@ -75,14 +75,21 @@ let BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST =
         sprintf """[{"text":"You can leave feeback about the map here:\n\n"},{"text":"Leave feedback","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}},{"text":"\n\nIf you enjoyed the map and would like to leave me a donation, I'd very much appreciate that!\n\n"},{"text":"Click to donate","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" feedbackLink donationLink
      |])|> ResizeArray)
 
+let STARTING_BOOK_META =
+    Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","Reading books",
+                            [|
+                                Utilities.wrapInJSONText "There is a bit to read in this chest.  Please read it now.  The daylight cycle is NOT running, so you're in no rush, and after this, there will be little to read for the rest of the map."
+                            |]) |> ResizeArray)
 let STARTING_BOOK_RULES =
     Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Rules",
                             [|
                                 Utilities.wrapInJSONTextContinued "RULES\n\nMy personal belief is that in Minecraft there are no rules; you should play whatever way you find most fun."
                                 Utilities.wrapInJSONTextContinued "That said, I have created a map designed to help you have fun, and the next pages have some suggestions that I think will make it the most fun for most players."
-                                Utilities.wrapInJSONTextContinued (sprintf "Suggestions\n\n%s\n\nSurvive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn." (if CustomizationKnobs.SINGLEPLAYER then "This map's loot is suitable for single-player." else "This map's loot is suitable for multi-player."))
-                                Utilities.wrapInJSONTextContinued "Use normal difficulty.\n\nYou CAN use AND move enderchests.\n\nDon't go to Nether or leave the worldborder."
+                                Utilities.wrapInJSONTextContinued (sprintf "Suggestions\n\n%s%s\n\n" (if CustomizationKnobs.SINGLEPLAYER then "This map's loot is suitable for a single player, " else "This map's loot is suitable for multi-player, ") (if CustomizationKnobs.UHC_MODE then "with natural health regeneration turned OFF." else "with natural health regeneration turned ON."))
+                                Utilities.wrapInJSONTextContinued (sprintf "Survive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn." )
+                                Utilities.wrapInJSONTextContinued "Use normal difficulty.\n\nYou CAN both use and move enderchests.\n\nDon't go to Nether or leave the worldborder."
                                 Utilities.wrapInJSONText "You can use beds to set spawn, but they don't affect the daylight cycle.\n\nThere are right-clickable signs on the back of the monument to toggle the death-counter display."
                             |]) |> ResizeArray)
 let STARTING_BOOK_OVERVIEW =
@@ -92,12 +99,12 @@ let STARTING_BOOK_OVERVIEW =
                                 Utilities.wrapInJSONTextContinued "OVERVIEW\n\nCTM Maps are often most fun to play blind, but there are a few things you ought to know about this map before getting started."
                                 Utilities.wrapInJSONTextContinued "Note: if you have not played Minecraft 1.9 before, I do not recommend playing this map as your first 1.9 map. Get used to 1.9 first."
                                 Utilities.wrapInJSONTextContinued "CTM\n\nThis is a three objective Complete The Monument (CTM) map.  The goal/objective blocks you need are hidden in chests in various dungeons in the world."
-                                Utilities.wrapInJSONTextContinued "OPEN WORLD\n\nThis is an open-world map that takes place on a 2048x2048 piece of (heavily modified) Minecraft terrain. Spawn is 0,0 and there's a worldborder 1024 blocks out."
-                                Utilities.wrapInJSONTextContinued "...\nThere are multiple versions of most dungeons, and you'll find many just by wandering around. You'll find more books that suggest the best thing to do next after completing each dungeon."
+                                Utilities.wrapInJSONTextContinued "OPEN WORLD\n\nThis is an open-world map that takes place on a 2048x2048 piece of (heavily modified) Minecraft terrain. Spawn is at 0,0 and there's a worldborder 1024 blocks out."
+                                Utilities.wrapInJSONTextContinued "...\nThere are multiple versions of most dungeons, and you'll find many just by wandering around. After completing each dungeon, you'll typically find a book that suggests what to do next."
                                 Utilities.wrapInJSONTextContinued "DAYLIGHT CYCLE\n\nThe sun is not moving in the sky. Near spawn it's permanently daytime, and the rest you can discover for yourself."
                                 Utilities.wrapInJSONTextContinued "MOBS\n\nMob loot drops are heavily modified in this map, but the mobs themselves are completely vanilla. There are many spawners in the map; both to guard loot, and to surprise you."
                                 Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
-                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you do not have to farm xp/drops, mine for diamonds, or make an enchanting table, but you can if you want."
+                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you ought NOT need to farm xp/drops, mine for diamonds, nor make an enchanting table, but you can if you want."
                                 Utilities.wrapInJSONTextContinued "...\nThere will be emeralds in some loot chests. You should save them, as eventually you may unlock the ability to trade emeralds for some very useful buffs."
                                 Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
                                 Utilities.wrapInJSONText "...\nIf you encounter something especially weird, don't over-think the map-maker rationale; it's possible my code had a bug and did something silly."
@@ -106,7 +113,7 @@ let STARTING_BOOK_GETTING_STARTED =
     Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Getting started",
                             [|
-                                Utilities.wrapInJSONTextContinued "You have some starting items, but you'll still want to gather some wood and do some caving near spawn to get more supplies."
+                                Utilities.wrapInJSONTextContinued "You have some starting items, but you'll still want to gather wood and do some caving near spawn to get more supplies. Glowstone pillars help mark some cave entrances."
                                 Utilities.wrapInJSONText "Explore! If you travel too far from spawn, things will get scarier, so I recommend caving near spawn to improve your gear until you are strong enough to venture further and you discover suggestions of what to try next."
                             |]) |> ResizeArray)
 
@@ -132,7 +139,7 @@ let STARTING_BOOK_HINTS_AND_SPOILERS =
                                 Utilities.wrapInJSONTextContinued "2. GREEN BEACONS\n\nNext explore the world for GREEN beacons ('B' on spoiler map image), which lead to underground dungeons. You'll find a marked path through a cave and spawners guarding a good loot box."
                                 Utilities.wrapInJSONTextContinued "3. RED BEACONS\n\nNext explore the world for RED beacons ('F' on spoiler map image): cobwebbed dungeons on the surface.  The loot box at the center has the first monument block and more gear upgrades."
                                 Utilities.wrapInJSONTextContinued "4. MOUNTAIN PEAKS\n\nNext explore the world for dangerous looking mountain peaks ('P' on spoiler map image), lit by redstone torches. You'll find the second monument block, and a tool to locate buried treasure!"
-                                Utilities.wrapInJSONTextContinued "5. SECRET TREASURE\n\nNext use the tool to locate where to dig for treasure ('H' on the spoiler map image). You'll uncover a method of faster travel, and know which way to explore for the final dungeon."
+                                Utilities.wrapInJSONTextContinued "5. SECRET TREASURE\n\nNext use the tool to locate where to dig for treasure ('H' on the spoiler map image). You'll uncover a method of faster travel, and learn which way to explore for the final dungeon."
                                 Utilities.wrapInJSONText "6. FINAL DUNGEON\n\nFinally explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), the final dungeon. It's like the first dungeon, but harder, and has the final monument block."
                             |]) |> ResizeArray)
 let TELEPORTER_HUB_BOOK =
@@ -143,6 +150,7 @@ let TELEPORTER_HUB_BOOK =
                                 Utilities.wrapInJSONText "If you can't see a villager in this room, exit/disconnect from the world, then reload/rejoin, and the villager should appear above the teleporter (Minecraft rendering bug)."
                             |]) |> ResizeArray)
 
+let NAME_OF_DEATHCOUNTER_SIDEBAR = TranslatableString "Deaths"
 let NAME_OF_FINAL_PURPLE_DUNGEON_CHEST = TranslatableString "Winner!"
 let NAME_OF_GENERIC_TREASURE_BOX = TranslatableString "Lootz!"
 let NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON = TranslatableString "Dead end, turn back & try again"
