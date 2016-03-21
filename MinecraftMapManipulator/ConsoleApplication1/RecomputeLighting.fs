@@ -178,6 +178,7 @@ let relightTheWorldHelper(map:MapFolder, rxs, rzs, trustTheHeightMap) =
                         if r <> null then
                             let bi = r.MaybeGetBlockInfo(x,0,z)
                             if bi <> null then
+                                r.GetOrCreateChunk(x,z) |> ignore // create underlying heightmapcache structure // TODO should GetHeightMap/SetHeightMap do this?
                                 if trustTheHeightMap then
                                     heightMapCache.[x,z] <- r.GetHeightMap(x,z)
                                 else

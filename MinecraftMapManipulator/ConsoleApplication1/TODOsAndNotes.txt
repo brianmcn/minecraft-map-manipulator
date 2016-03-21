@@ -72,20 +72,19 @@ TODO: bugs & good ideas
 
 start combat book - need to revisit combat section once 1.9.1 settles, re: clicking
 
+read other books from various dungeons (make a debug thing to put all in a chest?)
 consider TNT under one loot chest nearest spawn? then need no more traps :)
 not removing trees from allTrees after .Remove(), what may go wrong?
-(should i remove ice spikes at spawn like I remove trees?)
 need to have thank yous to obe/fix, and others who help (codewarrior?) (nlc, thungon, ...)
 'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
 
 ---
 
-my chunk-relighter will cause all chunks in region to think they're terrain populated
-
 ice spikes seed: 1440595613939009001  or   442832462593546
 variety: 35267400 or 604443340930998
 
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
+ - mobs that spawn at diff light levels/conditions (e.g. riding invisible silversifh with 0.5 health and withered)
 
 advantage of this style map - 'fresher' for YTers if diff than others
 

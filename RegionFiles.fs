@@ -79,12 +79,12 @@ type RegionFile(filename) =
 #else
     let ensureCorrectRegion(_x,_z) = ()
 #endif
-    let getOrCreateChunk(cx,cz) =
+    let getOrCreateChunk(cx,cz,wcx,wcz) =  // cx/cz in 0..31, whereas wcx/wcz are world x/z div 16
         let chunk = 
             match chunks.[cx,cz] with
             | End ->
                 let newChunk = Compound("",[|NBT.Compound("Level", [|
-                                                                    NBT.Int("xPos",cx); NBT.Int("zPos",cz); NBT.Long("LastUpdate", 0L);
+                                                                    NBT.Int("xPos",wcx); NBT.Int("zPos",wcz); NBT.Long("LastUpdate", 0L);
                                                                     NBT.Byte("LightPopulated",0uy); NBT.Byte("TerrainPopulated",1uy); // TODO best TerrainPopulated value?
                                                                     NBT.Byte("V",1uy); NBT.Long("InhabitedTime",0L);
                                                                     NBT.IntArray("HeightMap", Array.zeroCreate 256)
@@ -218,10 +218,15 @@ type RegionFile(filename) =
                             nbts.[i] <- NBT.Byte("LightPopulated", 1uy)
                     else 
                         assert( isChunkDirty.[cx,cz] = UNCHANGED )
+                    let uncompressedStream = new System.IO.MemoryStream()
+                    chunks.[cx,cz].Write(new BinaryWriter2(uncompressedStream))
+                    uncompressedStream.Close()
+                    let uncompressedBytes = uncompressedStream.ToArray()
                     let ms = new System.IO.MemoryStream()
-                    //use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionMode.Compress, true)
-                    use s = new System.IO.Compression.DeflateStream(ms, System.IO.Compression.CompressionLevel.Fastest, true)  // This is about 2.2x faster, but files are about 15% larger. (MC opens them fine.)
-                    chunks.[cx,cz].Write(new BinaryWriter2(s))
+                    //let fLevel, compressionLevel = 3, System.IO.Compression.CompressionLevel.Optimal
+                    let fLevel, compressionLevel = 0, System.IO.Compression.CompressionLevel.Fastest   // This is about 2.2x faster, but files are about 15% larger. (MC opens them fine.)
+                    use s = new System.IO.Compression.DeflateStream(ms, compressionLevel, true)
+                    s.Write(uncompressedBytes, 0, uncompressedBytes.Length)
                     s.Close()
                     let numBytes = int ms.Length
                     let numSectionsNeeded = 1 + ((numBytes + 11) / 4096)
@@ -229,13 +234,25 @@ type RegionFile(filename) =
                     timeStampInfo.[cx+cz*32] <- chunkTimestampInfos.[cx,cz]  // no-op, not updating them
                     bw.Seek(nextFreeSection * 4096, System.IO.SeekOrigin.Begin) |> ignore
                     nextFreeSection <- nextFreeSection + numSectionsNeeded 
-                    bw.Write(numBytes + 6) // length
+                    bw.Write(numBytes + 7) // length (1 byte ver, 1 byte cmf, 1 byte flg, data, 4 bytes adler)
                     bw.Write(2uy) // version (must be 2)
-                    bw.Write(120uy) // CMF
-                    bw.Write(156uy) // FLG
+                    // CM = 8 = deflate
+                    // CMINFO = ?? = log2(window size)-8   (7 may be good?)
+                    // CMF = CINFO <<< 4 + CM
+                    let cmf = 120uy
+                    bw.Write(cmf) // CMF
+                    // FCHECK = N such that CMF*256+FLG is a multiple of 31
+                    // FDICT = 0 (no preset dict)
+                    // FLEVEL = compress level (0=fastest, 1=fast, 2=default, 3=max compress)
+                    // FLG = FLEVEL <<< 5 + FDICT <<< 4 + FCHECK
+                    let mutable flg = (fLevel <<< 5) + (0 <<< 4)
+                    while (256 * (int cmf) + flg) % 31 <> 0 do
+                        flg <- flg + 1
+                    bw.Write(byte flg) // FLG
                     let temp = ms.ToArray()
+                    assert(temp.Length = numBytes)
                     bw.Write(temp, 0, numBytes)  // stream
-                    bw.Write(RegionFile.ComputeAdler(temp)) // adler checksum
+                    bw.Write(RegionFile.ComputeAdler(uncompressedBytes)) // adler checksum
                     let paddingLengthNeeded = 4096 - ((numBytes+11)%4096)
                     bw.Write(zeros, 0, paddingLengthNeeded) // zero padding out to 4K
         bw.Seek(0, System.IO.SeekOrigin.Begin) |> ignore
@@ -270,14 +287,23 @@ type RegionFile(filename) =
     member this.GetOrCreateChunk(x,z) =  // x,z are world coordinates
         let xx = ((x+51200)%512)/16
         let zz = ((z+51200)%512)/16
-        let theChunk = getOrCreateChunk(xx,zz)
+        let theChunk = getOrCreateChunk(xx,zz,x/16,z/16)
         theChunk
     member this.GetSection(x,y,z) =  // x,y,z are world coordinates - will return (null,null,null,null,null) for unrepresented sections
         this.GetOrCreateSectionCore(x,y,z,false)
     member private this.GetOrCreateSectionCore(x,y,z,createIfUnrepresented) =  // x,y,z are world coordinates
         let xx = ((x+51200)%512)/16
         let zz = ((z+51200)%512)/16
-        let theChunk = getOrCreateChunk(xx,zz) // do this even though we don't "need" it, to avoid having sections without parent chunks
+        let theChunk = 
+            if createIfUnrepresented then
+                getOrCreateChunk(xx,zz,x/16,z/16) // do this even though we don't "need" it, to avoid having sections without parent chunks
+            else
+                chunks.[xx,zz]
+        match theChunk with
+        | End ->
+            assert(not createIfUnrepresented)
+            null,null,null,null,null
+        | _ ->
         let sy = y/16
         match chunkSectionsCache.[xx,zz].[sy] with
         | nbtCacheProxy,null,null,null,null -> 
@@ -513,11 +539,10 @@ type RegionFile(filename) =
                    for i = 0 to txt.Length-1 do
                        yield NBT.String(sprintf "Text%d" (i+1), sprintf "{\"text\":\"%s\"}" txt.[i])
                    yield NBT.End |]
-        let mutable prevcx = -1
-        let mutable prevcz = -1
+        let mutable prevcx,prevcz,prevwcx,prevwcz = -1, -1, -1, -1
         let mutable tepayload = ResizeArray<NBT[]>()
-        let storeIt(prevcx,prevcz,tepayload) =
-            let a = match getOrCreateChunk(prevcx, prevcz) with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
+        let storeIt(prevcx,prevcz,prevwcx,prevwcz,tepayload) =
+            let a = match getOrCreateChunk(prevcx, prevcz, prevwcx, prevwcz) with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
             let mutable found = false
             let mutable i = 0
             while not found && i < a.Count-1 do
@@ -546,13 +571,15 @@ type RegionFile(filename) =
             if xx <> prevcx || zz <> prevcz then
                 // store out old TE as we move out of this chunk
                 if prevcx <> -1 then
-                    storeIt(prevcx,prevcz,tepayload)
+                    storeIt(prevcx,prevcz,prevwcx,prevwcz,tepayload)
                 // load in initial TE as we move into next chunk
-                let newChunk = match getOrCreateChunk(xx,zz) with 
+                let newChunk = match getOrCreateChunk(xx,zz,x/16,z/16) with 
                                | Compound(_,rsa) -> rsa.[0]
                 tepayload <- match newChunk.TryGetFromCompound("TileEntities") with | Some (List(_,Compounds(cs))) -> ResizeArray(cs) | None -> ResizeArray()
                 prevcx <- xx
                 prevcz <- zz
+                prevwcx <- x/16
+                prevwcz <- z/16
             // accumulate payload in this chunk
             let thisz = z
             if checkForOverwrites then
@@ -568,7 +595,7 @@ type RegionFile(filename) =
             else
                 tepayload.AddRange(nbts)
             z <- z + 1
-        storeIt(prevcx,prevcz,tepayload)
+        storeIt(prevcx,prevcz,prevwcx,prevwcz,tepayload)
     member this.NumCommandBlocksPlaced = numCommandBlocksPlaced
     member this.DumpChunkDebug(cx,cz) =
         let nbt = chunks.[cx,cz]

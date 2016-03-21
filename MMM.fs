@@ -694,6 +694,8 @@ let chatToVoiceDemo() =
 
 open MC_Constants
 let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, minyCmds, minzCmds) =    
+    // absolute to relative coords
+    let AR goal curr = goal-curr
     // discover when damage value matters
     let hasNonZeroDamage = Array.zeroCreate 3000
     for bid,dmg,_ in survivalObtainableItems do
@@ -760,13 +762,11 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                            | 397,4 -> "creeper head"
                            | 397,5 -> "dragon head"
                            | _ -> name
-//                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%d"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg i
-                let cmd = sprintf """summon ItemFrame %d %d %d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%s"}}}}""" (x+2*dx) y (z+0*dz) facing itemName dmg name
+                let cmd = sprintf """summon ItemFrame ~%d ~%d ~%d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%s"}}}}""" (AR (x+2*dx) cx) (AR y cy) (AR (z+0*dz) cz) facing itemName dmg name
                 tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",cmd); End |]
                 // backing commands
-                // testfor @a {Inventory:[{id:"minecraft:%s",Damage:%ds}]}
                 let cmdFacing = [| 2uy; 5uy; 3uy; 4uy |].[facing]  // convert item-frame-facing to opposite command-block-facing
                 let cx,cy,cz = x+0*dx, y, z+2*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,210uy,cmdFacing) // 210=repeating
@@ -818,15 +818,19 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
     r.PlaceCommandBlocksStartingAt(cx,cy,cz,
         [|
         // put redstone to start the checkers
-        O(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom) (minyRoom) (minzRoom+Q+1) (minxRoom) (minyRoom+4) (minzRoom+2))
-        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+2) (minyRoom) (minzRoom) (minxRoom+Q+1) (minyRoom+4) (minzRoom))
-        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+3) (minyRoom) (minzRoom+3) (minxRoom+Q+3) (minyRoom+4) (minzRoom+Q+2))
-        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+3) (minxRoom+2) (minyRoom+4) (minzRoom+Q+3))
+        O(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d redstone_block" (AR minxRoom cx)       (AR minyRoom cy) (AR (minzRoom+Q+1) (cz+0)) (AR minxRoom cx)       (AR (minyRoom+4) cy) (AR (minzRoom+2)   (cz+0)))
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d redstone_block" (AR (minxRoom+2) cx)   (AR minyRoom cy) (AR (minzRoom)     (cz+1)) (AR (minxRoom+Q+1) cx) (AR (minyRoom+4) cy) (AR (minzRoom)     (cz+1)))
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d redstone_block" (AR (minxRoom+Q+3) cx) (AR minyRoom cy) (AR (minzRoom+3)   (cz+2)) (AR (minxRoom+Q+3) cx) (AR (minyRoom+4) cy) (AR (minzRoom+Q+2) (cz+2)))
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d redstone_block" (AR (minxRoom+Q+1) cx) (AR minyRoom cy) (AR (minzRoom+Q+3) (cz+3)) (AR (minxRoom+2) cx)   (AR (minyRoom+4) cy) (AR (minzRoom+Q+3) (cz+3)))
         // put barriers to enclose room
-        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+2))
-        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+2) (minyRoom) (minzRoom+2) (minxRoom+Q+1) (minyRoom+4) (minzRoom+2))
-        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+3) (minxRoom+Q+1) (minyRoom+4) (minzRoom+Q+1))
-        U(sprintf "fill %d %d %d %d %d %d barrier" (minxRoom+Q+1) (minyRoom) (minzRoom+Q+1) (minxRoom+2) (minyRoom+4) (minzRoom+Q+1))
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d barrier" (AR (minxRoom+2)   cx) (AR minyRoom cy) (AR (minzRoom+Q+1) (cz+4)) (AR (minxRoom+2)   cx) (AR (minyRoom+4) cy) (AR (minzRoom+2)   (cz+4)))
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d barrier" (AR (minxRoom+2)   cx) (AR minyRoom cy) (AR (minzRoom+2)   (cz+5)) (AR (minxRoom+Q+1) cx) (AR (minyRoom+4) cy) (AR (minzRoom+2)   (cz+5)))
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d barrier" (AR (minxRoom+Q+1) cx) (AR minyRoom cy) (AR (minzRoom+3)   (cz+6)) (AR (minxRoom+Q+1) cx) (AR (minyRoom+4) cy) (AR (minzRoom+Q+1) (cz+6)))
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d barrier" (AR (minxRoom+Q+1) cx) (AR minyRoom cy) (AR (minzRoom+Q+1) (cz+7)) (AR (minxRoom+2)   cx) (AR (minyRoom+4) cy) (AR (minzRoom+Q+1) (cz+7)))
+        // activate item frames
+        U(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d redstone_block" (AR minxCmds cx) (AR minyCmds cy) (AR (minzCmds-1) (cz+8)) (AR minxCmds cx) (AR (minyCmds+4) cy) (AR (minzCmds-1) (cz+8)))
+        // set world spawn here
+        U("setworldspawn ~ ~ ~")
         // set up scoreboard
         U("scoreboard objectives add Items dummy")
         U(sprintf "scoreboard players set Goal Items %d" survivalObtainableItems.Length)
@@ -835,16 +839,15 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
         U("gamerule logAdminCommands false")
         U("gamerule commandBlockOutput false")
         U("gamerule disableElytraMovementCheck true")
-        U(sprintf "fill %d %d %d %d %d %d redstone_block" (minxCmds) (minyCmds) (minzCmds-1) (minxCmds) (minyCmds+4) (minzCmds-1))
         U("blockdata ~ ~ ~1 {auto:1b}")
         // erase item frame makers
-        O(sprintf "fill %d %d %d %d %d %d air" (minxCmds) (minyCmds) (minzCmds-1) (minxCmds) (minyCmds+4) (minzCmds+4*Q+2))
+        O(sprintf "fill ~%d ~%d ~%d ~%d ~%d ~%d air" (AR minxCmds cx) (AR minyCmds cy) (AR (minzCmds-1) (cz+18)) (AR minxCmds cx) (AR (minyCmds+4) cy) (AR (minzCmds+4*Q+2) (cz+18)))
         U("fill ~ ~ ~ ~ ~ ~-19 air")
         |],"",false,false)
     // write it all out
     map.AddOrReplaceTileEntities(tes)
-    for x = minxRoom to minxRoom+Q+3  do
-        for z = minzRoom to minzRoom+Q+3 do
+    for x = minxRoom-5 to minxRoom+Q+8  do
+        for z = minzRoom-5 to minzRoom+Q+8 do
             map.EnsureSetBlockIDAndDamage(x,minyRoom-1,z,20uy,0uy) // glass floor
             map.EnsureSetBlockIDAndDamage(x,minyRoom+5,z,20uy,0uy) // glass ceiling
     let x = minxRoom+(Q+5)/2
@@ -1486,7 +1489,7 @@ automatic game start configs (night vision, starting items), customizable
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
+    //TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1495,13 +1498,31 @@ automatic game start configs (night vision, starting items), customizable
 
 
     
-    (*
+    let countRepresentedChunks(r:RegionFile) =
+        let mutable rep, no = 0,0
+        for cx = 0 to 31 do
+            for cz = 0 to 31 do
+                let x = r.RX*512 + cx*16
+                let z = r.RZ*512 + cz*16
+                let bi = r.MaybeGetBlockInfo(x,0,z)
+                if bi = null then
+                    no <- no + 1
+                else
+                    rep <- rep + 1
+        printfn "%4d rep, %4d not" rep no
     do
-        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Lorgon111's Quest For Everything\region\""")
-        let X,Y,Z = -300,80,60
-        makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
-        RecomputeLighting.relightTheWorldHelper(map, [-1..-1], [0..0], false)
-        map.WriteAll()
+        let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\QFETest\region\""")
+        let r = map.MaybeGetRegion(520,0)
+        countRepresentedChunks(r)
+        if true then
+            let X,Y,Z = -300,80,60
+            makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
+            //RecomputeLighting.relightTheWorldHelper(map, [-1..-1], [0..0], false)
+            RecomputeLighting.relightTheWorld(map)
+            let r = map.MaybeGetRegion(520,0)
+            countRepresentedChunks(r)
+            map.WriteAll()
+    (*
     *)
 
     //testCompass4()
