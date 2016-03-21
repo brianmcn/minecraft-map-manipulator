@@ -181,9 +181,11 @@ let TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED = """tellraw @a [{"text":"Death count
 let SIGN_DC_ENABLE = [|"Enable";"death";"counter";"display"|]
 let SIGN_DC_DISABLE = [|"Disable";"death";"counter";"display"|]
 
-let NBT_LUCKY_GAPPLE = """{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}"""
-let NBT_FISHING = 
-    Utilities.escape <| Utilities.writtenBookNBTString("Lorgon111","Nope!",[|
+let FISHING_DATA = ("Lorgon111","Nope!",[|
         sprintf """[{"text":"Fishing is over-powered, so I have disabled it.\n\nYour map-maker,\nDr. Brian Lorgon111\n\nP.S. If you like the map, feel free to "},{"text":"donate!","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
     |])
+
+let NBT_LUCKY_GAPPLE = """{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}"""
+let NBT_FISHING = 
+    Utilities.escape <| Utilities.writtenBookNBTString(FISHING_DATA)
 

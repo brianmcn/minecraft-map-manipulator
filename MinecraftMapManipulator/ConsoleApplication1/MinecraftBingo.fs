@@ -6,6 +6,9 @@
 // after 2 weeks:
 //  - 3200 downloads
 //  - subreddit up to 345
+// after 3 weeks: (3/21)
+//  - 6267 downloads
+//  - subreddit up to 350
 //
 // FUTURE SUGGESTIONS:
 //

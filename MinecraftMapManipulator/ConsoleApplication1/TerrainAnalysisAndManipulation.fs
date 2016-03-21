@@ -262,7 +262,9 @@ type MCTree(woodType) =
             for dx,dy,dz in [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0] do
                 let x,y,z = x+dx,y+dy,z+dz
                 let bid = map.GetBlockInfo(x,y,z).BlockID 
-                if bid=127uy || bid=39uy || bid=40uy then // cocoa, mushrooms are possible "tree accessories"
+                if dy=1 && bid=78uy || bid=39uy || bid=40uy then // snow_layer, mushrooms are possible "above-tree-block accessories"
+                    map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+                if bid=127uy then // cocoa beans anywhere connected
                     map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
                 if bid=106uy then // vine, extra attention needed, can hang down
                     let mutable y = y
@@ -313,6 +315,36 @@ type MCTree(woodType) =
                 if snow then
                     map.SetBlockIDAndDamage(x,y+1,z,78uy,0uy)
 
+[<AllowNullLiteral>]
+type ContainerOfMCTrees(allTrees:MCTree seq) =
+    // preprocess trees
+    let treeByXZ = new System.Collections.Generic.Dictionary<_,_>()
+    do
+        for t in allTrees do
+            let x,_,z = t.CanonicalStump
+            if not(treeByXZ.ContainsKey(x,z)) then
+                treeByXZ.Add((x,z),ResizeArray[t])
+            else
+                treeByXZ.[x,z].Add(t)
+    member this.Remove(x,z,map:MapFolder) =
+        if treeByXZ.ContainsKey(x,z) then
+            for t in treeByXZ.[(x,z)] do
+                t.Remove(map)
+            treeByXZ.[(x,z)].Clear()
+    member this.Replace(x,z,logbid,logdmg,leafbid,leafdmg,map:MapFolder) =
+        let mutable count = 0
+        if treeByXZ.ContainsKey(x,z) then
+            for t in treeByXZ.[(x,z)] do
+                t.Replace(map,logbid,logdmg,leafbid,leafdmg)
+                count <- count + 1
+        count
+    member this.All() =
+        seq {
+            for vs in treeByXZ.Values do
+                for t in vs do
+                    yield t
+        }
+
 type PriorityQueue() =
     let mutable pq = Set.empty 
     let mutable count = 0
@@ -327,7 +359,7 @@ type PriorityQueue() =
     member this.Count = count
 
 let treeify(map:MapFolder, hm:_[,]) =
-    let TREE_MIN_Y = 63
+    let TREE_MIN_Y = 60  // why not 63? swamp trees often start below water surface, and end up removing leaves of a swamp tree but not stump, when neighbor tree above water gets assigned all leaves of tree below water.  Lower values are 'better' but 'more expensive to compute'
     let INTERIOR_WINDOW_SIZE = 126 // (so that windows fit snugly in 2048x2048 with 8 border)
     let BORDER_SIZE = 8
     let WINDOW_SIZE = INTERIOR_WINDOW_SIZE + 2*BORDER_SIZE
@@ -507,7 +539,7 @@ let treeify(map:MapFolder, hm:_[,]) =
             color <- 0uy
     map.WriteAll()
 *)
-    allTrees
+    new ContainerOfMCTrees(allTrees)
 
 /////////////////////////////////////////////////////////////////
 
@@ -1024,7 +1056,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                         i <- i + 1
     printfn "...done!"
 
-let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLog, biome:_[,], allTrees:ResizeArray<MCTree>) =
+let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLog, biome:_[,], allTrees:ContainerOfMCTrees) =
     let plains = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let desert = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let OKR = DAYLIGHT_RADIUS + 32  // want to give buffer to reduce chance standing in daylight and spawning ghasts in nearby hell biome
@@ -1078,16 +1110,8 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
     log.LogInfo(sprintf "found %d decent-sized plains biomes outside OKR" plainsCCs.Count)
     log.LogInfo(sprintf "found %d decent-sized desert biomes outside OKR" desertCCs.Count)
     // preprocess trees
-    let treeByXZ = new System.Collections.Generic.Dictionary<_,_>()
     if allTrees = null then
         printfn "allTrees WAS NULL, SKIPPING TREE REDO"
-    else
-        for t in allTrees do
-            let x,_,z = t.CanonicalStump
-            if not(treeByXZ.ContainsKey(x,z)) then
-                treeByXZ.Add((x,z),ResizeArray[t])
-            else
-                treeByXZ.[x,z].Add(t)
     let mutable hellBiomePlainsCount, skyBiomePlainsCount, hellPlainsTreeCount, skyPlainsTreeCount = 0,0,0,0
     let mutable hellBiomeDesertCount, hellDesertTreeCount = 0,0
     for KeyValue(_k,v) in plainsCCs do
@@ -1095,29 +1119,23 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
             for x,z in v do
                 map.SetBiome(x,z,8uy) // 8 = Hell
                 biome.[x,z] <- 8uy
-                if treeByXZ.ContainsKey(x,z) then
-                    for t in treeByXZ.[x,z] do
-                        t.Replace(map,112uy,0uy,87uy,0uy)// 112=nether_brick, 87=netherrack
-                        hellPlainsTreeCount <- hellPlainsTreeCount + 1
+                if allTrees <> null then
+                    hellPlainsTreeCount <- hellPlainsTreeCount + allTrees.Replace(x,z,112uy,0uy,87uy,0uy,map)// 112=nether_brick, 87=netherrack
             hellBiomePlainsCount <- hellBiomePlainsCount + 1
         elif rng.NextDouble() < BIOME_SKY_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,9uy) // 9 = Sky
                 biome.[x,z] <- 9uy
-                if treeByXZ.ContainsKey(x,z) then
-                    for t in treeByXZ.[x,z] do
-                        t.Replace(map,49uy,0uy,120uy,0uy)// 49=obsidian, 120=end_portal_frame
-                        skyPlainsTreeCount <- skyPlainsTreeCount + 1
+                if allTrees <> null then
+                    skyPlainsTreeCount <- skyPlainsTreeCount + allTrees.Replace(x,z,49uy,0uy,120uy,0uy,map)// 49=obsidian, 120=end_portal_frame
             skyBiomePlainsCount <- skyBiomePlainsCount + 1
     for KeyValue(_k,v) in desertCCs do
         if rng.NextDouble() < BIOME_HELL_PERCENTAGE then
             for x,z in v do
                 map.SetBiome(x,z,8uy) // 8 = Hell
                 biome.[x,z] <- 8uy
-                if treeByXZ.ContainsKey(x,z) then
-                    for t in treeByXZ.[x,z] do
-                        t.Replace(map,112uy,0uy,87uy,0uy)// 112=nether_brick, 87=netherrack
-                        hellDesertTreeCount <- hellDesertTreeCount + 1
+                if allTrees <> null then
+                    hellDesertTreeCount <- hellDesertTreeCount + allTrees.Replace(x,z,112uy,0uy,87uy,0uy,map)// 112=nether_brick, 87=netherrack
                 for y = 128 downto 56 do
                     let bi = map.GetBlockInfo(x,y,z)
                     if bi.BlockID = 12uy then // 12=sand
@@ -1267,7 +1285,7 @@ let findHidingSpot(map:MapFolder,hmIgnoringLeaves:_[,],((highx,highz),(minx,minz
 let mutable hiddenX = 0
 let mutable hiddenZ = 0
 
-let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves, log:EventAndProgressLog, biome:_[,], decorations:ResizeArray<_>, allTrees:MCTree seq) =
+let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves, log:EventAndProgressLog, biome:_[,], decorations:ResizeArray<_>, allTrees:ContainerOfMCTrees) =
     let RADIUS = MOUNTAIN_PEAK_DANGER_RADIUS
     let isMegaTaigaOrJungle(b) =  // tall trees in these biomes confuse the 'peak' finding algorithm, so avoid them
         b = 32uy || b = 33uy || b = 160uy || b = 161uy || 
@@ -1337,10 +1355,9 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
         if allTrees = null then
             printfn "allTrees WAS NULL, SKIPPING TREE REDO"
         else
-            for t in allTrees do
-                let x,_,z = t.CanonicalStump 
-                if abs(x-bx) < 10 && abs(z-bz) < 10 then
-                    t.Remove(map)
+            for x = bx-10 to bx+10 do
+                for z = bz-10 to bz+10 do
+                    allTrees.Remove(x,z,map)
         let mutable h = hmIgnoringLeaves.[bx,bz]
         // we just removed trees, so hm may be wrong (atop tree logs), recompute
         while HM_IGNORING_LEAVES_SKIPPABLE_DOWN_BLOCKS.Contains(map.GetBlockInfo(bx,h,bz).BlockID) do
@@ -1576,7 +1593,7 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
-let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>,allTrees:MCTree seq) =
+let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>,allTrees:ContainerOfMCTrees) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
     let lootLocations = ResizeArray()
@@ -1932,7 +1949,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
             // end if not near deco
         // end for z
     // end for x
-    let allTrees = allTrees |> Seq.toArray 
+    let allTrees = allTrees.All() |> Seq.toArray 
     Algorithms.shuffle(allTrees,rng)
     for t in allTrees do
         let x,y,z = t.CanonicalStump
@@ -2095,7 +2112,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(1,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArray<MCTree>, mapTimeInHours) =
+let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ContainerOfMCTrees, mapTimeInHours, debugChests) =
     let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
         let auto = if name = "minecraft:command_block" then 0uy else 1uy
@@ -2158,10 +2175,9 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
         printfn "allTrees WAS NULL, SKIPPING TREE REDO"
     else
         let TREE_REMOVE_RADIUS = 15
-        for t in allTrees do
-            let x,_,z = t.CanonicalStump 
-            if abs(x) < TREE_REMOVE_RADIUS && abs(z) < TREE_REMOVE_RADIUS then
-                t.Remove(map)
+        for x = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
+            for z = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
+                allTrees.Remove(x,z,map)
     // ...clear out any other blocks
     for x = -3 to 5 do
         for z = -3 to 5 do
@@ -2212,6 +2228,32 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
             |]
     putUntrappedChestWithItemsAt(1,h+2,-2,Strings.NAME_OF_STARTING_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(1,h+3,-2,130uy,3uy) // enderchest
+    if debugChests then
+        let chestItems = 
+            Compounds[| 
+                    yield [| Byte("Count",1uy); Byte("Slot",1uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_IN_HIDING_SPOT(Strings.TranslatableString"DUMMYNW"); End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",2uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_WITH_ELYTRA; End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot",3uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.TELEPORTER_HUB_BOOK; End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",4uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",4uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
+
+                    yield [| Byte("Count",1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Compound("tag", Utilities.makeWrittenBookTags(Strings.FISHING_DATA)|>ResizeArray); End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_IN_GREEN_BEACON_CHEST; End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
+                    yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                             Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
+                |]
+        putUntrappedChestWithItemsAt(3,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
     // the TP hub...
     // ...floor & ceiling
     for x = -2 to 4 do
@@ -2296,18 +2338,10 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ResizeArr
     placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED,true)
 
 let TELEPORT_PATH_OUT_DISTANCES = [|60;120;180;240;300|]
-let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>, allTrees : MCTree seq) =
+let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>, allTrees : ContainerOfMCTrees) =
     // preprocess trees
-    let treeByXZ = new System.Collections.Generic.Dictionary<_,_>()
     if allTrees = null then
         printfn "allTrees WAS NULL, SKIPPING TREE REDO"
-    else
-        for t in allTrees do
-            let x,_,z = t.CanonicalStump
-            if not(treeByXZ.ContainsKey(x,z)) then
-                treeByXZ.Add((x,z),ResizeArray[t])
-            else
-                treeByXZ.[x,z].Add(t)
     // TODO code above is repeated elsewhere, is it expensive? if so, factor
     let placeCommand(x,y,z,command,bid,auto,_name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
@@ -2439,13 +2473,11 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     // remove trees
                                     for w in TREEWIDE do
                                         let x,z = ix+w*ax, iz+w*az
-                                        if treeByXZ.ContainsKey(x,z) then
-                                            for t in treeByXZ.[(x,z)] do
-                                                t.Remove(map)
+                                        if allTrees <> null then
+                                            allTrees.Remove(x,z,map)
                                         // if we're on a diagonal, we only cover every other block, so kludge it thusly (x+1)
-                                        if isDiagonal && treeByXZ.ContainsKey(x+1,z) then
-                                            for t in treeByXZ.[(x+1,z)] do
-                                                t.Remove(map)
+                                        if isDiagonal && allTrees <> null then
+                                            allTrees.Remove(x+1,z,map)
                                     // make path
                                     let w = rng.Next(WIDE.Length)
                                     if dist > 5 && dist % A.[1] > 5 then
@@ -2605,21 +2637,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() ->   // after hiding spots figured
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
-        placeStartingCommands(map,hmIgnoringLeaves,!allTrees, mapTimeInHours))
+        let DEBUG_CHESTS = false
+        placeStartingCommands(map,hmIgnoringLeaves,!allTrees, mapTimeInHours, DEBUG_CHESTS))
     time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
@@ -2627,7 +2660,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

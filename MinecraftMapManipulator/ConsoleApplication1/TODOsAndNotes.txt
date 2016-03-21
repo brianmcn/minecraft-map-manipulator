@@ -70,11 +70,11 @@ NOW TEST
 
 TODO: bugs & good ideas
 
+feedback link in final congrats book (update url, make a thread on https://www.reddit.com/r/VanillaSwirlCTM asking for map info etc...)
+
 start combat book - need to revisit combat section once 1.9.1 settles, re: clicking
 
-read other books from various dungeons (make a debug thing to put all in a chest?)
 consider TNT under one loot chest nearest spawn? then need no more traps :)
-not removing trees from allTrees after .Remove(), what may go wrong?
 need to have thank yous to obe/fix, and others who help (codewarrior?) (nlc, thungon, ...)
 'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
 
