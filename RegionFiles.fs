@@ -244,8 +244,8 @@ type RegionFile(filename) =
                     // FCHECK = N such that CMF*256+FLG is a multiple of 31
                     // FDICT = 0 (no preset dict)
                     // FLEVEL = compress level (0=fastest, 1=fast, 2=default, 3=max compress)
-                    // FLG = FLEVEL <<< 5 + FDICT <<< 4 + FCHECK
-                    let mutable flg = (fLevel <<< 5) + (0 <<< 4)
+                    // FLG = FLEVEL <<< 6 + FDICT <<< 5 + FCHECK
+                    let mutable flg = (fLevel <<< 6) + (0 <<< 5)
                     while (256 * (int cmf) + flg) % 31 <> 0 do
                         flg <- flg + 1
                     bw.Write(byte flg) // FLG
