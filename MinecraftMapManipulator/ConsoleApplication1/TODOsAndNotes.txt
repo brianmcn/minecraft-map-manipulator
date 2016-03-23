@@ -68,13 +68,12 @@ what if each of the 16 colors had a one-word name, and the 16 words spelled out 
 NOW TEST
 
 
+
 TODO: bugs & good ideas
 
 feedback link in final congrats book (update url, make a thread on https://www.reddit.com/r/VanillaSwirlCTM asking for map info etc...)
+ - map name on menu screen: Vanilla Swirl CTM Mar 2016 A (with 'A' a bright color, date a dark color)
 
-start combat book - need to revisit combat section once 1.9.1 settles, re: clicking
-
-consider TNT under one loot chest nearest spawn? then need no more traps :)
 need to have thank yous to obe/fix, and others who help (codewarrior?) (nlc, thungon, ...)
 'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
 
@@ -83,6 +82,7 @@ need to have thank yous to obe/fix, and others who help (codewarrior?) (nlc, thu
 ice spikes seed: 1440595613939009001  or   442832462593546
 variety: 35267400 or 604443340930998
 
+consider TNT under one loot chest nearest spawn? then need no more traps :)
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
  - mobs that spawn at diff light levels/conditions (e.g. riding invisible silversifh with 0.5 health and withered)
 

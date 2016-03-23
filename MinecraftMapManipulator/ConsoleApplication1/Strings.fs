@@ -97,7 +97,6 @@ let STARTING_BOOK_OVERVIEW =
                             "Lorgon111","Map Overview",
                             [|
                                 Utilities.wrapInJSONTextContinued "OVERVIEW\n\nCTM Maps are often most fun to play blind, but there are a few things you ought to know about this map before getting started."
-                                Utilities.wrapInJSONTextContinued "Note: if you have not played Minecraft 1.9 before, I do not recommend playing this map as your first 1.9 map. Get used to 1.9 first."
                                 Utilities.wrapInJSONTextContinued "CTM\n\nThis is a three objective Complete The Monument (CTM) map.  The goal/objective blocks you need are hidden in chests in various dungeons in the world."
                                 Utilities.wrapInJSONTextContinued "OPEN WORLD\n\nThis is an open-world map that takes place on a 2048x2048 piece of (heavily modified) Minecraft terrain. Spawn is at 0,0 and there's a worldborder 1024 blocks out."
                                 Utilities.wrapInJSONTextContinued "...\nThere are multiple versions of most dungeons, and you'll find many just by wandering around. After completing each dungeon, you'll typically find a book that suggests what to do next."
@@ -106,8 +105,7 @@ let STARTING_BOOK_OVERVIEW =
                                 Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
                                 Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you ought NOT need to farm xp/drops, mine for diamonds, nor make an enchanting table, but you can if you want."
                                 Utilities.wrapInJSONTextContinued "...\nThere will be emeralds in some loot chests. You should save them, as eventually you may unlock the ability to trade emeralds for some very useful buffs."
-                                Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
-                                Utilities.wrapInJSONText "...\nIf you encounter something especially weird, don't over-think the map-maker rationale; it's possible my code had a bug and did something silly."
+                                Utilities.wrapInJSONText "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
                             |]) |> ResizeArray)
 let STARTING_BOOK_GETTING_STARTED = 
     Compound("tag", Utilities.makeWrittenBookTags(
@@ -124,7 +122,7 @@ let STARTING_BOOK_FOOD_AND_COMBAT =
                                 Utilities.wrapInJSONTextContinued "For those new to 1.9: Minecraft 1.9 changed the food and combat systems a lot. Here are some quick tips."
                                 Utilities.wrapInJSONTextContinued "FOOD\n\nFood is no longer merely a survival mechanism. It's now also a combat mechanic, as over-feeding with high-saturation food will replenish life very quickly."
                                 Utilities.wrapInJSONTextContinued "It helps to manage food carefully, preferring lower saturation foods (cookies, apples, ...) when you're 'safe', and save higher saturation foods (bread, steak, ...) for combat where rapid healing is valuable."
-                                Utilities.wrapInJSONTextContinued "COMBAT\n\nClicking your weapons too quickly (to use them repeatedly) will cause them to deal less damage. Weapons now have cooldowns, which means you need to wait a half-second or more between attacks for maximal damage."
+                                Utilities.wrapInJSONTextContinued "COMBAT\n\nWeapons now have cooldowns, which means you may need to wait a half-second or more between attacks for maximum damage."
                                 Utilities.wrapInJSONText "Stone, iron, and diamond axes are strong weapons, but they have long cooldowns. Swords deal less damage, but have shorter cooldowns, so you can swing them more often with no damage decrease."
                             |]) |> ResizeArray)
 
@@ -132,7 +130,7 @@ let STARTING_BOOK_HINTS_AND_SPOILERS =
     Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Hints and Spoilers",
                             [|
-                                Utilities.wrapInJSONTextContinued "The following pages outline the simplest 'progression order' of the map. You can refer to this if you get stuck, but DON'T READ THIS UNLESS YOU NEED TO BECAUSE YOU'RE STUCK."
+                                Utilities.wrapInJSONTextContinued "DON'T READ THIS UNLESS YOU NEED TO BECAUSE YOU'RE STUCK.\n\nThe following pages outline the simplest 'progression order' of the map. Refer to this if you get stuck."
                                 Utilities.wrapInJSONTextContinued "Note: In the map folder on disk, there are two pictures of the terrain, one has locations of major dungeons labeled (spoilers), the other does not."
                                 Utilities.wrapInJSONTextContinued "1. GEARING UP\n\nGetting your first cobblestone is not so easy, though there are at least 5 different ways you can obtain it."
                                 Utilities.wrapInJSONTextContinued "...\nCaving near spawn to find dungeons (which are somewhat common) or abandoned mineshafts is the best way to find initial loot to gear up. You can also mine iron and gold (or even diamonds) for early gear."
@@ -177,6 +175,10 @@ let TELLRAW_PLACED_A_MONUMENT_BLOCK = """tellraw @a ["You placed ",{"score":{"na
 let TELLRAW_TELEPORTER_UNLOCKED = """tellraw @a [{"text":"A two-way teleporter to/from spawn has been unlocked nearby"}]"""
 let TELLRAW_DEATH_COUNTER_DISPLAY_ENABLED = """tellraw @a [{"text":"Death counter display has been enabled"}]"""
 let TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED = """tellraw @a [{"text":"Death counter display has been disabled"}]"""
+let TELLRAW_FINAL_1 = """tellraw @a ["You've completed the monument, congratulations! I'd love to hear what you thought of the map!"]"""
+let TELLRAW_FINAL_2 = sprintf """tellraw @a [{"text":"Click to leave feedback about the map","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" feedbackLink
+let TELLRAW_FINAL_3 = """tellraw @a ["I hope you enjoyed the map. If you did, and would like to leave a donation, I'd appreciate it very much."]"""
+let TELLRAW_FINAL_4 = sprintf """tellraw @a [{"text":"Donation link","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
 
 let SIGN_DC_ENABLE = [|"Enable";"death";"counter";"display"|]
 let SIGN_DC_DISABLE = [|"Disable";"death";"counter";"display"|]

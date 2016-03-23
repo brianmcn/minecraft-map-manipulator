@@ -1510,13 +1510,14 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
         // place some obsidian below ground to make it harder to tunnel underneath
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
-                let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
-                let pct = float (RADIUS-dist) / (float RADIUS)
-                let belowGround = hmIgnoringLeaves.[i,j] - 2
-                for y = belowGround downto belowGround-7 do
-                    if (i+y+j)%2 = 0 then
-                        if rng.NextDouble() < pct then
-                            map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
+                if abs(x-i) > 3 || abs(z-j) > 3 then  // don't overwrite the beacon/bedrock!
+                    let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
+                    let pct = float (RADIUS-dist) / (float RADIUS)
+                    let belowGround = hmIgnoringLeaves.[i,j] - 2
+                    for y = belowGround downto belowGround-7 do
+                        if (i+y+j)%2 = 0 then
+                            if rng.NextDouble() < pct then
+                                map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
         spawners.AddToMapAndLog(map,log)
         for i = x-CR to x+CR do
             for j = z-CR to z+CR do
@@ -2317,10 +2318,12 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:Container
     I(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:14,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:1,Colors:[56831],FadeColors:[16715263]}]}}}}" 0 (h+3) 4)
     U(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:24,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:1,Trail:1,Colors:[3849770],FadeColors:[14500508]}]}}}}" 1 (h+3) 4)
     U(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:34,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:4,Flicker:1,Trail:1,Colors:[8592414],FadeColors:[13942014]}]}}}}" 2 (h+3) 4)
-    U(sprintf """tellraw @a ["You've completed the monument, congratulations! I'd love to hear what you thought of the map!"]""")
-    U(sprintf """tellraw @a [{"text":"Click to leave feedback about the map","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" Strings.feedbackLink)
-    U(sprintf """tellraw @a ["I hope you enjoyed the map. If you did, and would like to leave a donation, I'd appreciate it very much."]""")
-    U(sprintf """tellraw @a [{"text":"Donation link","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" Strings.donationLink)
+    U(sprintf """tellraw @a [""]""")
+    U(Strings.TELLRAW_FINAL_1)
+    U(Strings.TELLRAW_FINAL_2)
+    U(sprintf """tellraw @a [""]""")
+    U(Strings.TELLRAW_FINAL_3)
+    U(Strings.TELLRAW_FINAL_4)
     U("gamerule doDaylightCycle true")
     U("worldborder set 30000000")
     // TODO embed in normal world terrain
@@ -2636,31 +2639,31 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         )
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
         let DEBUG_CHESTS = false
         placeStartingCommands(map,hmIgnoringLeaves,!allTrees, mapTimeInHours, DEBUG_CHESTS))
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
