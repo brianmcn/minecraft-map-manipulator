@@ -755,7 +755,7 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                            | 351,3 -> "cocoa bean"
                            | 351,2 -> "cactus green"
                            | 351,1 -> "rose red"
-                           | 351,0 -> "inc sac"
+                           | 351,0 -> "ink sac"
                            | 397,0 -> "skeleton head"
                            | 397,1 -> "wither skeleton head"
                            | 397,2 -> "zombie head"
@@ -1469,7 +1469,7 @@ automatic game start configs (night vision, starting items), customizable
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9-pre4.zip""","""C:\Users\Admin1\Desktop\1.9.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.1-pre3.jar""","""C:\Users\Admin1\Desktop\1.9.1.jar""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\54\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
@@ -1483,10 +1483,12 @@ automatic game start configs (night vision, starting items), customizable
     *)
 
 
+    let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
+    let levelDat = System.IO.Path.Combine(worldSaveFolder, "level.dat")
+    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - Mar 2016 \u00A7aE\u00A7r ")
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,35,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
-    let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
     TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
@@ -1495,8 +1497,10 @@ automatic game start configs (night vision, starting items), customizable
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
     System.IO.Directory.CreateDirectory(sprintf """%s\DIM-1\region\""" worldSaveFolder) |> ignore
     for x in [-1..0] do for z in [-1..0] do System.IO.File.Copy(sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\Void\region\r.%d.%d.mca""" user x z,sprintf """%s\DIM-1\region\r.%d.%d.mca""" worldSaveFolder x z, true)
-
-
+    try 
+        System.IO.Directory.Delete(System.IO.Path.Combine(worldSaveFolder,"stats"),true) // delete stats folder
+        System.IO.Directory.Delete(System.IO.Path.Combine(worldSaveFolder,"playerdata"),true) // delete playerdata folder
+    with _ -> ()
     
     (*
     let countRepresentedChunks(r:RegionFile) =
@@ -1529,7 +1533,7 @@ automatic game start configs (night vision, starting items), customizable
 
 
 
-    //System.Windows.Clipboard.SetText(custom)
+//    System.Windows.Clipboard.SetText(custom)
     //let worldSeed = 14 
     //genTerrainWithMCServer(worldSeed,custom)
 #endif

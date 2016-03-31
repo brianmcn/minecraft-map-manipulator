@@ -523,7 +523,9 @@ let renamer(levelDatFilename,newWorldName) =
                 Compound("",[|Compound("Data",a|>ResizeArray);End|]|>ResizeArray)
         | _ -> failwith "bummer"
     printfn "%s" (newNbt.ToString())
-    writeDatFile(file + ".new", newNbt)
+    System.IO.File.Delete(file+".old")
+    System.IO.File.Move(file, file+".old")
+    writeDatFile(file, newNbt)
 
 let ALPHABET5 = 
     [|

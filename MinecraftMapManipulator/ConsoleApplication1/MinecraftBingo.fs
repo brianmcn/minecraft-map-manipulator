@@ -1,4 +1,11 @@
-﻿// STATS:
+﻿// BUGS
+// "choosing random seed... got N in 25 mins... generating card..."   // when gen card after a 25+ min card game
+// in resetScoresLogic, turns off timekeeper, but if at right moment in cycle, timekeeper_25 goes off just after
+// this means that both (a) it beeps and prints msg during cardgen, and (b) 25 min stuff will not work in directly subsequent game
+// ----------------------------------------------------
+
+
+// STATS:
 //
 // after 1 week:
 //  - 2000 downloads
@@ -9,6 +16,9 @@
 // after 3 weeks: (3/21)
 //  - 6267 downloads
 //  - subreddit up to 350
+// after 4 weeks (3/29)
+//  - 8700 downloads
+//  - 354 subreddit
 //
 // FUTURE SUGGESTIONS:
 //

@@ -24,8 +24,7 @@ module NameAndLore =
     let DIVINING_ROD = displayNameAndLore(DIVINING_ROD_NAME,[|DIVINING_ROD_LORE|])
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
-// TODO proper forum? (need map name)
-let feedbackLink = """https://www.reddit.com/r/Lorgon111/comments/468ohj/ctm_beta_testing_feedback/"""
+let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4bt5h0/map_feedback_thread/"""
 
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
@@ -86,8 +85,8 @@ let STARTING_BOOK_RULES =
                             "Lorgon111","Rules",
                             [|
                                 Utilities.wrapInJSONTextContinued "RULES\n\nMy personal belief is that in Minecraft there are no rules; you should play whatever way you find most fun."
-                                Utilities.wrapInJSONTextContinued "That said, I have created a map designed to help you have fun, and the next pages have some suggestions that I think will make it the most fun for most players."
-                                Utilities.wrapInJSONTextContinued (sprintf "Suggestions\n\n%s%s\n\n" (if CustomizationKnobs.SINGLEPLAYER then "This map's loot is suitable for a single player, " else "This map's loot is suitable for multi-player, ") (if CustomizationKnobs.UHC_MODE then "with natural health regeneration turned OFF." else "with natural health regeneration turned ON."))
+                                Utilities.wrapInJSONTextContinued "That said, here are my suggestions on how to have the most fun with this map."
+                                Utilities.wrapInJSONTextContinued (sprintf "SUGGESTIONS\n\n%s%s\n\n" (if CustomizationKnobs.SINGLEPLAYER then "This map's loot is suitable for a SINGLE player, " else "This map's loot is suitable for MULTI-player, ") (if CustomizationKnobs.UHC_MODE then "with natural health regeneration turned OFF." else "with natural health regeneration turned ON."))
                                 Utilities.wrapInJSONTextContinued (sprintf "Survive in any way you can think of, and try to find the 3 monument blocks to place atop the monument at spawn." )
                                 Utilities.wrapInJSONTextContinued "Use normal difficulty.\n\nYou CAN both use and move enderchests.\n\nDon't go to Nether or leave the worldborder."
                                 Utilities.wrapInJSONText "You can use beds to set spawn, but they don't affect the daylight cycle.\n\nThere are right-clickable signs on the back of the monument to toggle the death-counter display."
@@ -96,23 +95,24 @@ let STARTING_BOOK_OVERVIEW =
     Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Map Overview",
                             [|
-                                Utilities.wrapInJSONTextContinued "OVERVIEW\n\nCTM Maps are often most fun to play blind, but there are a few things you ought to know about this map before getting started."
+                                Utilities.wrapInJSONTextContinued "OVERVIEW\n\nThere are a few things you ought to know about this map before getting started."
                                 Utilities.wrapInJSONTextContinued "CTM\n\nThis is a three objective Complete The Monument (CTM) map.  The goal/objective blocks you need are hidden in chests in various dungeons in the world."
                                 Utilities.wrapInJSONTextContinued "OPEN WORLD\n\nThis is an open-world map that takes place on a 2048x2048 piece of (heavily modified) Minecraft terrain. Spawn is at 0,0 and there's a worldborder 1024 blocks out."
                                 Utilities.wrapInJSONTextContinued "...\nThere are multiple versions of most dungeons, and you'll find many just by wandering around. After completing each dungeon, you'll typically find a book that suggests what to do next."
                                 Utilities.wrapInJSONTextContinued "DAYLIGHT CYCLE\n\nThe sun is not moving in the sky. Near spawn it's permanently daytime, and the rest you can discover for yourself."
                                 Utilities.wrapInJSONTextContinued "MOBS\n\nMob loot drops are heavily modified in this map, but the mobs themselves are completely vanilla. There are many spawners in the map; both to guard loot, and to surprise you."
                                 Utilities.wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
-                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you ought NOT need to farm xp/drops, mine for diamonds, nor make an enchanting table, but you can if you want."
+                                Utilities.wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you ought NOT need to farm xp/drops, mine for diamonds, nor make an enchanting table, but you CAN if you want."
                                 Utilities.wrapInJSONTextContinued "...\nThere will be emeralds in some loot chests. You should save them, as eventually you may unlock the ability to trade emeralds for some very useful buffs."
-                                Utilities.wrapInJSONText "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
+                                Utilities.wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
+                                Utilities.wrapInJSONText "THANKS\n\nThanks to my beta testers: obesity84, FixxxerTV, no_leaf_clover, and Thungon217 for providing useful feedback and entertainment :)"
                             |]) |> ResizeArray)
 let STARTING_BOOK_GETTING_STARTED = 
     Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Getting started",
                             [|
-                                Utilities.wrapInJSONTextContinued "You have some starting items, but you'll still want to gather wood and do some caving near spawn to get more supplies. Glowstone pillars help mark some cave entrances."
-                                Utilities.wrapInJSONText "Explore! If you travel too far from spawn, things will get scarier, so I recommend caving near spawn to improve your gear until you are strong enough to venture further and you discover suggestions of what to try next."
+                                Utilities.wrapInJSONTextContinued "You have some starting items, but you'll need to gather wood and do some caving near spawn to get more supplies. Glowstone pillars mark some cave entrances."
+                                Utilities.wrapInJSONText "Explore! If you travel too far from spawn, things will get scarier, so I recommend caving near spawn to improve your gear until you are strong enough to venture further or you discover suggestions of what to try next."
                             |]) |> ResizeArray)
 
 let STARTING_BOOK_FOOD_AND_COMBAT =

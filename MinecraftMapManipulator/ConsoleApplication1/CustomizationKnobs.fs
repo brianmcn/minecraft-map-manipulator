@@ -6,7 +6,7 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = true
+let SINGLEPLAYER = false
 
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty

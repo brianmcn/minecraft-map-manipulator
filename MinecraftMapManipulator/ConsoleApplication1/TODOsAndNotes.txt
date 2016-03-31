@@ -67,15 +67,30 @@ what if each of the 16 colors had a one-word name, and the 16 words spelled out 
 
 NOW TEST
 
+1.9.1 note
+Mar2016A - seed 231, single, normal
+Mar2016B - seed 129, multi, normal
+Mar2016C - seed  17, multi, normal   (tougher?)
+Mar2016D - seed  20, single, normal
+
+Mar2016E - seed 357, multi, normal
+
+
+multiplayer div rod
+SP and multiplayer portal unlock sounds
+
+
+
+CHECKLIST (automate?)
+publish checklist: map date/name, check spawn, teleporters, orchid, fix icon, /gamemode 0 /defaultgamemode 0, remove stats/playerdata
 
 
 TODO: bugs & good ideas
 
-feedback link in final congrats book (update url, make a thread on https://www.reddit.com/r/VanillaSwirlCTM asking for map info etc...)
- - map name on menu screen: Vanilla Swirl CTM Mar 2016 A (with 'A' a bright color, date a dark color)
+have some stone bricks as 'escape blocks' for silverfish, so they can hide again?
 
-need to have thank yous to obe/fix, and others who help (codewarrior?) (nlc, thungon, ...)
-'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
+
+post to minecraftmaps, forum?
 
 ---
 
@@ -87,6 +102,8 @@ ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellie
  - mobs that spawn at diff light levels/conditions (e.g. riding invisible silversifh with 0.5 health and withered)
 
 advantage of this style map - 'fresher' for YTers if diff than others
+
+more underground flora (ferns, flowers, etc) are usually fun... underground grass? ...
 
 ender crystals?
 herobrine? something with armor stands?
@@ -120,6 +137,8 @@ need to 'version' it by date, to be clear for future releases (if NLC took 5 hou
 
 below this line can probably do without for beta
 ------------------------------------------------
+'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
+
 cool proc: walking on path blocks grants a speed buff
 a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
 item that when held or worn grants night vision? or trigger command can type, keep score how many you have left? thunder and then world bright for 5-10s?
@@ -157,6 +176,7 @@ spawner underneath dead-end chest?
 ***primed tnt buried in walls
 trap where enderman grabs sand/whatever and update lava somehow (floating lava?)
 an area made out of chests/furnaces/etc where you want to use your bow is a nice 'trap' as right-clicking opens the chest
+trap where lava encased in wood/leaves etc with no air space to start fire, once player breaks blocks, fire may ignite (tnt?)
 legendary: seeing x from afar leads to seeing y up close... (telporter path, ...)
 have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
