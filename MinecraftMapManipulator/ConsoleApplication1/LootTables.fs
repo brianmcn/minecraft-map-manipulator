@@ -308,7 +308,17 @@ let LOOT_FROM_DEFAULT_MOBS =
         "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
         "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB); OneOfAtNPercent(HEALS,15,MOB)]
         "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 2 2 [FOOD] 10; OneOfAtNPercent([ironPile],5,MOB); OneOfAtNPercent(HEALS,15,MOB)]
-        "minecraft:entities/zombie", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
+        "minecraft:entities/zombie", Pools [yield tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6
+                                            yield tierxyLootPct MOB 1 2 [FOOD] 12
+                                            yield OneOfAtNPercent([cobblePile],8,MOB)
+                                            yield OneOfAtNPercent(HEALS,8,MOB)
+                                            if CustomizationKnobs.KURT_SPECIAL then
+                                                yield OneOfAtNPercent(
+                                                    [
+                                                    Item("minecraft:skull",[SetData(3);SetNbt("{SkullOwner:Lorgon111}")])
+                                                    Item("minecraft:skull",[SetData(3);SetNbt("{SkullOwner:kurtmac}")])
+                                                    ],3,MOB)
+                                            ]
 //        "minecraft:entities/zombie_horse
         "minecraft:entities/zombie_pigman", Pools [Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(0,1)]),1,0,[]]);tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 3 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB); OneOfAtNPercent(HEALS,8,MOB)]
     |]
@@ -516,7 +526,7 @@ let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
         |]
     addSlotTags tier5Items 
 
-let NEWaestheticTier1Chest(rng:System.Random) =
+let NEWaestheticTier1Chest(rng:System.Random, color) =
     let F = CustomizationKnobs.LOOT_FUNCTION
     let items =
         [|  // blocks
@@ -549,10 +559,13 @@ let NEWaestheticTier1Chest(rng:System.Random) =
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(5)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)
+            if CustomizationKnobs.KURT_SPECIAL then
+                if color <> -1 then
+                    yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
     addSlotTags items 
 
-let NEWaestheticTier2Chest(rng:System.Random) =
+let NEWaestheticTier2Chest(rng:System.Random, color) =
     let F = CustomizationKnobs.LOOT_FUNCTION
     let items =
         [|  // blocks
@@ -605,11 +618,14 @@ let NEWaestheticTier2Chest(rng:System.Random) =
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(4)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)
+            if CustomizationKnobs.KURT_SPECIAL then
+                if color <> -1 then
+                    yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
     addSlotTags items 
 
 // TODO 16 dyes? (would also be lapis)
-let NEWaestheticTier3Chest(rng:System.Random) =
+let NEWaestheticTier3Chest(rng:System.Random, color) =
     let items =
         [|  // blocks
             yield! Algorithms.pickNnonindependently(rng,3,[
@@ -619,7 +635,10 @@ let NEWaestheticTier3Chest(rng:System.Random) =
                 makeItem(rng,"hay_block",64,64,0s)
                 ])
             // other chests
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng))
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng,-1))
+            if CustomizationKnobs.KURT_SPECIAL then
+                if color <> -1 then
+                    yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
     addSlotTags items 

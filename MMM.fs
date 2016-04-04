@@ -747,8 +747,8 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                            | 351,11 -> "dandelion yellow"
                            | 351,10 -> "lime dye"
                            | 351,9 -> "pink dye"
-                           | 351,8 -> "light gray dye"
-                           | 351,7 -> "dark gray dye"
+                           | 351,8 -> "dark gray dye"
+                           | 351,7 -> "light gray dye"
                            | 351,6 -> "cyan dye"
                            | 351,5 -> "purple dye"
                            | 351,4 -> "lapis lazuli"
@@ -1485,12 +1485,17 @@ automatic game start configs (night vision, starting items), customizable
 
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let levelDat = System.IO.Path.Combine(worldSaveFolder, "level.dat")
-    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - Mar 2016 \u00A7aE\u00A7r ")
+//    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - Apr 2016 \u00A7aA\u00A7r ")
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,35,25,80,false,false,false,false,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
+    // TODO make .dat files better
+    let dummyMapDatFolder = """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\"""
+    System.IO.File.Copy(dummyMapDatFolder+"map_1.dat", worldSaveFolder+"""\data\map_0.dat""", true)
+    System.IO.File.Copy(dummyMapDatFolder+"idcounts.dat", worldSaveFolder+"""\data\idcounts.dat""", true)
+
     TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
@@ -1501,7 +1506,7 @@ automatic game start configs (night vision, starting items), customizable
         System.IO.Directory.Delete(System.IO.Path.Combine(worldSaveFolder,"stats"),true) // delete stats folder
         System.IO.Directory.Delete(System.IO.Path.Combine(worldSaveFolder,"playerdata"),true) // delete playerdata folder
     with _ -> ()
-    
+
     (*
     let countRepresentedChunks(r:RegionFile) =
         let mutable rep, no = 0,0
@@ -1533,7 +1538,7 @@ automatic game start configs (night vision, starting items), customizable
 
 
 
-//    System.Windows.Clipboard.SetText(custom)
+//    System.Windows.Clipboard.SetText(custom)   // AFK pregen: http://pastebin.com/uq09kFNW
     //let worldSeed = 14 
     //genTerrainWithMCServer(worldSeed,custom)
 #endif

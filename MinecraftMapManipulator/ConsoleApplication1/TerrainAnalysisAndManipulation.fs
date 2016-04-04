@@ -105,8 +105,10 @@ let putUntrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,ma
 let putTrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
     putChestCore("Chest",x,y,z,146uy,3uy,items,customName,null,0L,map,tileEntities)  // 146=trapped chest
 
+let putUntrappedChestWithItemsAndOrientationAt(x,y,z,customName,items,orientation,map,tileEntities) =
+    putChestCore("Chest",x,y,z,54uy,orientation,items,customName,null,0L,map,tileEntities)  // 54=(non-trapped) chest
 let putUntrappedChestWithItemsAt(x,y,z,customName,items,map,tileEntities) =
-    putChestCore("Chest",x,y,z,54uy,3uy,items,customName,null,0L,map,tileEntities)  // 54=(non-trapped) chest
+    putUntrappedChestWithItemsAndOrientationAt(x,y,z,customName,items,3uy,map,tileEntities)
 
 let putFurnaceWithItemsAt(x,y,z,customName,items,map,tileEntities) =
     putChestCore("Furnace",x,y,z,61uy,3uy,items,customName,null,0L,map,tileEntities)  // 61,3=furnace facing south (just has slots 0/1/2)
@@ -1594,12 +1596,12 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     map.AddOrReplaceTileEntities(spawnerTileEntities)
     log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
 
-let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>,allTrees:ContainerOfMCTrees) =
+let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>,allTrees:ContainerOfMCTrees,colorCount:_[]) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
     let lootLocations = ResizeArray()
-    let names = Array.create 20 ""
-    let points = Array.init 20 (fun _x -> ResizeArray())
+    let names = Array.create 16 ""
+    let points = Array.init 16 (fun _x -> ResizeArray())
     let noneWithin(r,points,x,_y,z) =
         let mutable ok = true
         for px,_,pz in points do
@@ -1617,17 +1619,20 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         map.GetBlockInfo(x,y,z-1).BlockID = plus
     let isFlowingWater(nbi:BlockInfo) = 
         nbi.BlockID = 9uy && nbi.BlockData <> 0uy || nbi.BlockID = 8uy // flowing water
-    let putTrappedChestWithLoot(x,y,z,tier) =
-        let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng)
-                    elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng)
-                    elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng)
+    let putTrappedChestWithLoot(color,x,y,z,tier) =
+        let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng,color)
+                    elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng,color)
+                    elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng,color)
                     else failwith "bad aesthetic tier"
         putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z)
-    let putFurnaceWithLoot(x,y,z) =
+    let putFurnaceWithLoot(color,x,y,z) =
         // can hold up to 3 items
-        let items = [|  [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
-                        LootTables.makeMultiBook(rng)
+        let items = [|  yield [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
+                        yield LootTables.makeMultiBook(rng)
+                        if CustomizationKnobs.KURT_SPECIAL then
+                            if color <> -1 then
+                                yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
                     |] |> LootTables.addSlotTags
         putFurnaceWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z)
@@ -1653,7 +1658,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             if noneWithin(50,points.[0],x,y,z) then
                                 let x = if rng.Next(2) = 0 then x-1 else x+1
                                 let z = if rng.Next(2) = 0 then z-1 else z+1
-                                putTrappedChestWithLoot(x,y,z,1)
+                                putTrappedChestWithLoot(0,x,y,z,1)
                                 points.[0].Add( (x,y,z) )
                                 names.[0] <- "moss stone boulder"
                     elif bid = 18uy && checkForPlus(x,y,z,0uy,18uy) 
@@ -1664,7 +1669,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
                                 if noneWithin(150,points.[1],x,y,z) && noneWithin(150,points.[7],x,y,z) then
-                                    putTrappedChestWithLoot(x,y,z,1)
+                                    putTrappedChestWithLoot(1,x,y,z,1)
                                     points.[1].Add( (x,y,z) )
                                     names.[1] <- "tree top leaves"
                     elif bid = 86uy then // 86 = pumpkin
@@ -1675,7 +1680,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                 map.SetBlockIDAndDamage(x,y,z,91uy,dmg) // 91=lit_pumpkin  // TODO found one, was not giving off light, hm
                                 // chest below
                                 let y = y - 1
-                                putTrappedChestWithLoot(x,y,z,2)
+                                putTrappedChestWithLoot(2,x,y,z,2)
                                 points.[2].Add( (x,y,z) )
                                 names.[2] <- "pumpkin patch"
                     elif y>63 && bid = 9uy && bi.BlockData = 0uy then  // water falling straight down has different damage value, only want sources
@@ -1694,7 +1699,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         // TODO where put? bottom? any light cue? ...
                                         // for now just under water
                                         let y = y - 1
-                                        putTrappedChestWithLoot(x,y,z,2)
+                                        putTrappedChestWithLoot(3,x,y,z,2)
                                         points.[3].Add( (x,y,z) )
                                         names.[3] <- "surface lake"
                     elif bid = 12uy then // 12=sand
@@ -1718,7 +1723,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z-1,81uy,0uy)  // cactus
                                                 map.SetBlockIDAndDamage(x-1,y+dy,z+1,81uy,0uy)  // cactus
                                             // put chest
-                                            putTrappedChestWithLoot(x,y,z,1)
+                                            putTrappedChestWithLoot(4,x,y,z,1)
                                             points.[4].Add( (x,y,z) )
                                             names.[4] <- "desert cactus"
                                             // TODO sometimes be a trap
@@ -1766,7 +1771,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                                     map.SetBlockIDAndDamage(nx+i*dx,ny-1,nz+i*dz,0uy,0uy) // air
                                                                 map.SetBlockIDAndDamage(nx+4*dx,ny-1,nz+4*dz,50uy,5uy) // 50,5=torch attached at bottom
                                                                 // chest below
-                                                                putTrappedChestWithLoot(nx,ny-1,nz,2)
+                                                                putTrappedChestWithLoot(5,nx,ny-1,nz,2)
                                                                 points.[5].Add( (nx,ny-1,nz) )
                                                                 names.[5] <- "waterfall top"
                                                             else
@@ -1780,7 +1785,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     elif bid = 100uy && bi.BlockData = 5uy then  // 100=red_mushroom_block, 5=red only on top-center
                         if rng.Next(3) = 0 then // TODO probability, so don't place on all
                             if noneWithin(120,points.[6],x,y,z) then
-                                putTrappedChestWithLoot(x,y,z,1)
+                                putTrappedChestWithLoot(6,x,y,z,1)
                                 points.[6].Add( (x,y,z) )
                                 names.[6] <- "red mushroom top"
                     elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 0uy && checkForPlus(x,y,z,2uy,2uy) && checkForPlus(x,y+1,z,0uy,0uy) then
@@ -1795,14 +1800,13 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     for dx in [-1..1] do
                                         for dz in [-1..1] do
                                             map.SetBlockIDAndDamage(x+dx,y,z+dz,3uy,1uy) //3,1=coarse dirt
-                                    putTrappedChestWithLoot(x,y-1,z,1)
+                                    putTrappedChestWithLoot(7,x,y-1,z,1)
                                     points.[7].Add( (x,y-1,z) )
                                     names.[7] <- "forest buried"
                     elif bid = 24uy && checkForPlus(x,y,z,44uy,44uy) then // 24=sandstone, 44=slab - top of desert well
                         printfn "DESERT WELL %d %d %d" x y z
                         // do 100% of them, they're very rare
                         // 5 down chest, 4 more down torch
-                        putTrappedChestWithLoot(x,y-5,z,2)
                         for i = 1 to 4 do
                             map.SetBlockIDAndDamage(x+1,y-5-i,z,24uy,0uy)
                             map.SetBlockIDAndDamage(x-1,y-5-i,z,24uy,0uy)
@@ -1811,6 +1815,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             map.SetBlockIDAndDamage(x,y-5-i,z,0uy,0uy)
                         map.SetBlockIDAndDamage(x,y-5-4,z,50uy,5uy)
                         map.SetBlockIDAndDamage(x,y-5-5,z,24uy,0uy)
+                        putTrappedChestWithLoot(8,x,y-5,z,2)
                         points.[8].Add( (x,y-5,z) )
                         names.[8] <- "rare desert well"
                     elif bid = 11uy && hm.[x,z] <= y+1 then // 11=lava at surface
@@ -1832,7 +1837,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         ok <- false
                                 if ok then
                                     let x,z = x-dx, z-dz
-                                    putFurnaceWithLoot(x,y,z)
+                                    putFurnaceWithLoot(9,x,y,z)
                                     points.[9].Add( (x,y,z) )
                                     names.[9] <- "surface lava pool"
                                     printfn "lava %d %d %d" x y z
@@ -1906,7 +1911,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     while isWater(map.GetBlockInfo(x,y,z).BlockID) do
                                         y <- y - 1
                                     y <- y - 2
-                                    putTrappedChestWithLoot(x,y,z,3)
+                                    putTrappedChestWithLoot(14,x,y,z,3)
                                     points.[14].Add( (x,y,z) )
                                     names.[14] <- "swamp hidden"
                                     // in order to make more discoverable, have nearby undeads 'help' by having FW boots they often drop
@@ -1945,7 +1950,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         let ny = hmIgnoringLeaves.[nx,nz]
                                         map.SetBlockIDAndDamage(nx, ny, nz, 87uy, 0uy) // 87=netherrack
                                         map.SetBlockIDAndDamage(nx, ny+1, nz, 51uy, 0uy) // 51=fire
-                                    putTrappedChestWithLoot(x,y-1,z,2)
+                                    putTrappedChestWithLoot(10,x,y-1,z,2)
                                     points.[10].Add( (x,y-1,z) )
                                     names.[10] <- "mountain fire spire"
             // end if not near deco
@@ -1979,7 +1984,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     map.SetBlockIDAndDamage(x,y,z,nbid,ndmg)
                     printfn "%d %d %d" x y z
                     let x,y,z = x,y-1,z
-                    putTrappedChestWithLoot(x,y,z,1)
+                    putTrappedChestWithLoot(15,x,y,z,1)
                     points.[15].Add( (x,y,z) )
                     names.[15] <- "tree stump"
     map.AddOrReplaceTileEntities(tileEntities)
@@ -1987,6 +1992,11 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     for i = 0 to names.Length-1 do
         if names.[i] <> "" then
             log.LogInfo(sprintf "%3d: %s" points.[i].Count names.[i])
+            colorCount.[i] <- points.[i].Count
+            if points.[i].Count > 64 then
+                failwithf "more than 64 random loots of type %s added" names.[i]
+        else
+            colorCount.[i] <- 0
     for x,_,z in lootLocations do
         decorations.Add('*',x,z)
 
@@ -2114,7 +2124,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(1,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ContainerOfMCTrees, mapTimeInHours, debugChests) =
+let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ContainerOfMCTrees, mapTimeInHours, debugChests, colorCount:_[]) =
     let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
         let auto = if name = "minecraft:command_block" then 0uy else 1uy
@@ -2256,6 +2266,53 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:Container
                              Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
                 |]
         putUntrappedChestWithItemsAt(3,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
+    // bonus monument
+    if CustomizationKnobs.KURT_SPECIAL then
+        let chestItems = 
+            Compounds[| 
+                    for i = 1 to 8 do
+                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BONUS_MONUMENT_BOOK; End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    for i = 10 to 17 do
+                        let color = i-10
+                        let count = colorCount.[color]
+                        if count = 0 then
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    for i = 19 to 26 do
+                        let color = i-11
+                        let count = colorCount.[color]
+                        if count = 0 then
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                |]
+        putUntrappedChestWithItemsAndOrientationAt(-3,h+2,1,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
+        let chestItems = 
+            Compounds[| 
+                    for i = 1 to 8 do
+                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    yield [| Byte("Count", 16uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:filled_map"); Compound("tag", [|Strings.NameAndLore.WORLD_MAP; End|]|>ResizeArray); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    for i = 10 to 17 do
+                        let color = i-10
+                        let count = colorCount.[color]
+                        if count <> 0 then
+                            assert(count > 0 && count <= 64)
+                            yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
+                        else
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    for i = 19 to 26 do
+                        let color = i-11
+                        let count = colorCount.[color]
+                        if count <> 0 then
+                            assert(count > 0 && count <= 64)
+                            yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
+                        else
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                |]
+        putUntrappedChestWithItemsAndOrientationAt(-3,h+2,2,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
+        Utilities.editMapDat(worldSaveFolder+"""\data\map_0.dat""",4uy,0,0)
     // the TP hub...
     // ...floor & ceiling
     for x = -2 to 4 do
@@ -2284,6 +2341,25 @@ let placeStartingCommands(map:MapFolder,hmIgnoringLeaves:_[,],allTrees:Container
     // ...stuff in the room to start
     let chestItems = Compounds[| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.TELEPORTER_HUB_BOOK; End |] |]
     putUntrappedChestWithItemsAt(1,h-5,-1,Strings.NAME_OF_TELEPORT_ROOM_CHEST,chestItems,map,null)
+    // pink sheep
+    if CustomizationKnobs.KURT_SPECIAL then
+        for rx in [-2 .. 1] do
+            for rz in [-2 .. 1] do
+                let r = map.GetRegion(512*rx, 512*rz)
+                for cx = 0 to 31 do
+                    for cz = 0 to 31 do
+                        let theChunk = r.GetChunk(cx,cz)
+                        let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                        match theChunkLevel.["Entities"] with 
+                        | List(_,Compounds(cs)) ->
+                            for e in cs do
+                                // make all sheep pink
+                                if e |> Array.exists (fun x -> x = String("id","Sheep")) then
+                                    for i = 0 to e.Length-1 do
+                                        match e.[i] with
+                                        | Byte("Color",_) -> e.[i] <- Byte("Color",6uy)
+                                        | _ -> ()
+                        | _ -> ()
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(3,h-11,0,137uy,0uy)
     map.AddOrReplaceTileEntities([| [| Int("x",3); Int("y",h-11); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 (h+1) 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
@@ -2581,6 +2657,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let map = new MapFolder(worldSaveFolder + """\region\""")
     let log = EventAndProgressLog()
     let decorations = ResizeArray()
+    let colorCount = Array.zeroCreate 16
     let hm = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let hmIgnoringLeaves = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     let biome = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -2648,14 +2725,14 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
     time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
         let DEBUG_CHESTS = false
-        placeStartingCommands(map,hmIgnoringLeaves,!allTrees, mapTimeInHours, DEBUG_CHESTS))
+        placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,!allTrees, mapTimeInHours, DEBUG_CHESTS, colorCount))
     time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save

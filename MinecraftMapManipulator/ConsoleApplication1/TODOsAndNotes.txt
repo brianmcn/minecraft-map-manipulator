@@ -1,19 +1,4 @@
-﻿Feedback from Thungon:
- - spawn is ugly (add a layer of nice blocks above bedrock)
-http://pastebin.com/krkNdJzH
- - doesn't like death counter on screen (command in book at start to toggle?)
- - silverfish hard to hit
- - dug to diamonds looking for stone (ended up with natural cobblegn on surface)
- - liked coal block
- - farmed a skellie spawner for init loot
- - loot chests found: side-green-cave, cactus, lava furnace, fire mountain, coarse dirt
- - tunneled a bit, red was very easy that way, mountain was harder
-
- NLC:
- - loot chests found: moss boulders, tree tops, lake bottoms, side-green-cave, lava furnace
-lorgon111 reddit and http://pastebin.com/qzyH2EzH
- - I did see some path blocks relatively early, it didn't occur to me to follow them though 
-
+﻿
 MOJANG BUGS
 
 beacon at spawn sometimes not render
@@ -21,14 +6,10 @@ absorbtion/HB hearts sometimes not show (client reset 4ixes)
 teleporter does not work in SMP, got glitched into bedrock.  figure that out.  (maybe now fixed? i also tp one block higher now)
 
 
-TEST
+TO TEST
 
-to test
 uhc balance; made lots of changes to food/heals/start items/spawners
 made some changes to cave-side-paths, see if ok... they are decent, main issue is still that not always at dead ends, due to imperfect skeleton
-test new food balance
-test new flat set piece...
-test SMP lighting
 test if teleporters get discovered (barely so far, now tried making farther and less spread out marks)
 test if peaks (hmDiffPerCC value) look ok
 test new STRUCTURE_SPACING to spread out peaks/flats (flats not as flat, also overlap problems uncovered)...
@@ -39,17 +20,13 @@ cobweb flat would make good screenshot, half slice of hollowed-out mountain (if 
 playtest note: Fixxxer didn't use silk touch for feesh->cobble, nor think of picking up enderchest with it
 playtest note: Fixxxer didn't think to mine cobble walls of dungeon
 playtest note: Fixxxer went for red before green (forgot book info), got close
-playtest note: can cheat the day/night boundary in SMP (but no known fix)
 playtest note: Fix and I completed red after 3.2 hours; (another red and) mountain after 4.7 hours, whole map after 6 hours (did purple before secret)
 playtest note: Fix & I did a second red, got more loot, was much easier 2nd time (better gear)
-playtest note: Fix missed 2 desert chests before seeing one, missed a tree chest before seeing one
 playtest note: Fix rarely read the name of chests the first time
-playtest note: Fix found teleporter only after all monument blocks and flying elytra
 playtest note: Obe used elytra to zoom in & out of 2nd mountain peak for extra loot.  i don't mind.
 playtest note: Obe finished in 14 hours (6 hours on camera, 8 farming, exploring, etc) with 13 deaths
 playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
 playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
-get use to clicking for invincibility frames, think about mob balance with viable spam clicking\
 
 COLLECTABLES:
 
@@ -65,9 +42,8 @@ a finite set of collectable items could be good long-term for completionists - l
 secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
 what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
 
-NOW TEST
+PUBLISHED MAPS
 
-1.9.1 note
 Mar2016A - seed 231, single, normal
 Mar2016B - seed 129, multi, normal
 Mar2016C - seed  17, multi, normal   (tougher?)
@@ -75,19 +51,35 @@ Mar2016D - seed  20, single, normal
 
 Mar2016E - seed 357, multi, normal
 
-
-multiplayer div rod
-SP and multiplayer portal unlock sounds
+Apr2016A - seed ice-spikes, single, normal   // LNG request
 
 
 
 CHECKLIST (automate?)
-publish checklist: map date/name, check spawn, teleporters, orchid, fix icon, /gamemode 0 /defaultgamemode 0, remove stats/playerdata
+publish checklist: 
+	fix icon
+	do any manual customization
+	run /gamemode 0 /defaultgamemode 0
+	remove stats/playerdata
+	change folder name map date/name
+	make a copy
+	go in and check spawn, teleporters, orchid, 
 
 
 TODO: bugs & good ideas
 
+more variability of random aesth. chests
+profile the silverfish (consider some limiter where if num feesh > BIG, then tp farthest 10 to void)
+ - have two thresholds A and B, say 10 and 20 (or perhaps 20 and 35 for multiplayer)
+ - if numFeesh > B then turn on cap (tag all feesh, tp any untagged to void), announce in chat
+ - when cap on and numFeesh < A, turn off cap, announce in chat
+test zombie head drop rate 
+under-ocean chest: at least 80 radius of ocean, has certain depth, no lootz within 120, no ocean chests within 250
+ - make array of all ok, foreach point, if ok: if not ocean, black out all in square/diamond radius, see what remain ok region looks like?
+collectibles is kinda like WW exploration, give map ingredients
+
 have some stone bricks as 'escape blocks' for silverfish, so they can hide again?
+NLC assumes loot is better outside daylight area, could be better to improve random loot chests outside (or generally vary more)... his map had 354 chests, percentages suggest about 9 in the daylight area
 
 
 post to minecraftmaps, forum?
@@ -101,7 +93,6 @@ consider TNT under one loot chest nearest spawn? then need no more traps :)
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
  - mobs that spawn at diff light levels/conditions (e.g. riding invisible silversifh with 0.5 health and withered)
 
-advantage of this style map - 'fresher' for YTers if diff than others
 
 more underground flora (ferns, flowers, etc) are usually fun... underground grass? ...
 
@@ -112,9 +103,6 @@ soulsand (over ice?) as challenging terrain/substiution somewhere? v podzol in m
 
 one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
 
-LNG https://plus.google.com/b/116398726889585382877/102898606764462175242 said he's interested in beta-testing (but has not played 1.9 before)
-
-since dungeons can be done out of order, last book cannot be written to assume it is the last book.
 obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff (unbreakable leather/gold armor could be useful early and not OP)? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
 obe would like to 'continue with normal survival' after done
 obe did not know he could walk into black cube of teleporter, thought he needed enderpearl (how to teach? chat text? book?)
@@ -129,10 +117,6 @@ when I do start adding any 'structures', they should all have randomness too (e.
 what about a mob that can place blocks? like leaves a trail of obsidian as it walks, maybe blocking you in? or something?
 throwable light source (a la arcane bomb, splash pot -> tnt -> fire) is cool
 
-naming
-------
-Vanilla Swirl CTMs
-need to 'version' it by date, to be clear for future releases (if NLC took 5 hours with commentary, that's be like 10-12 episodes? = about a month?)
 
 
 below this line can probably do without for beta

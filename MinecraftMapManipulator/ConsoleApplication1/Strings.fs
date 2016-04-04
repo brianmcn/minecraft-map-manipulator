@@ -7,10 +7,11 @@ type TranslatableString(s:string) =
 
 open NBT_Manipulation
 
-let private displayNameAndLore(name, lore:_[]) = // lore can be null
-    Compound("display",[|yield String("Name",name);
+let private displayNameAndLore(name, lore:_[]) = // name or lore can be null
+    Compound("display",[|if name <> null then 
+                             yield String("Name",name)
                          if lore <> null && lore.Length > 0 then
-                             yield List("Lore",Strings(lore));
+                             yield List("Lore",Strings(lore))
                          yield End|] |> ResizeArray)
 
 module NameAndLore =
@@ -22,6 +23,9 @@ module NameAndLore =
     let DIVINING_ROD_LORE = "Hold me to locate loot!" //must be one-line
     let DIVINING_ROD_NAME = "Mysterious Divining Rod"
     let DIVINING_ROD = displayNameAndLore(DIVINING_ROD_NAME,[|DIVINING_ROD_LORE|])
+    let BONUS_SAMPLE = displayNameAndLore(null,[|"Number of items";"in the stack";"equals how many";"chests in the world";"contain this item"|])
+    let BONUS_ACTUAL = displayNameAndLore(null,[|"Bonus Monument Item"|])
+    let WORLD_MAP = displayNameAndLore("Map of the entire world",null)
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
 let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4bt5h0/map_feedback_thread/"""
@@ -147,6 +151,18 @@ let TELEPORTER_HUB_BOOK =
                                 Utilities.wrapInJSONTextContinued "This teleporter hub allows for faster travel to unlocked corners of the map. Each unlocked teleporter also provides a villager who trades emeralds for potion buffs."
                                 Utilities.wrapInJSONText "If you can't see a villager in this room, exit/disconnect from the world, then reload/rejoin, and the villager should appear above the teleporter (Minecraft rendering bug)."
                             |]) |> ResizeArray)
+let BONUS_MONUMENT_BOOK =
+    Compound("tag", Utilities.makeWrittenBookTags(
+                            "Lorgon111","Explorer Bonus Monument",
+                            [|
+                                Utilities.wrapInJSONTextContinued "As you explore the surface of this world, you may find various chests with fun and useful loot. As an extra challenge, try to find every kind of hidden bonus surface loot!"
+                                Utilities.wrapInJSONTextContinued "Each kind of loot chest has a corresponding stained glass block of a certain color. The goal of this challenge is to fill the empty slots in the top half of this chest with found blocks."
+                                Utilities.wrapInJSONTextContinued "The bottom half of the chest has sample blocks, where the number of stained glass in the stack equals the number of loot chests in the world that contain that color."
+                                Utilities.wrapInJSONTextContinued "For example, a stack of 25 lime stained glass means there are 25 instances of a certain kind of loot box; your goal is to find at least one of those and bring back the lime glass."
+                                Utilities.wrapInJSONTextContinued "(The black stained glass panes are just filler/border to help you keep track of remaining empty slots.)"
+                                Utilities.wrapInJSONText "It will be very difficult to find all the colors, but how many can you find?\n\nMaps given in the chest here may help you track where you've been.\n\nGood luck!"
+                            |]) |> ResizeArray)
+
 
 let NAME_OF_DEATHCOUNTER_SIDEBAR = TranslatableString "Deaths"
 let NAME_OF_FINAL_PURPLE_DUNGEON_CHEST = TranslatableString "Winner!"
@@ -155,6 +171,7 @@ let NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON = TranslatableString "Dead end, turn
 let NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST = TranslatableString "Spooky dungeon loot"
 let NAME_OF_HIDDEN_TREASURE_CHEST = TranslatableString "Hidden treasure!"
 let NAME_OF_STARTING_CHEST = TranslatableString "Welcome!"
+let NAME_OF_BONUS_MONUMENT_CHEST = TranslatableString "Explorer Bonus Monument"
 let NAME_OF_TELEPORT_ROOM_CHEST = TranslatableString "Teleporter hub"
 let NAME_OF_TELEPORTER_BREADCRUMBS_CHEST = TranslatableString "Keep your eyes open"
 let NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT = TranslatableString "Mountain Peak Loot"

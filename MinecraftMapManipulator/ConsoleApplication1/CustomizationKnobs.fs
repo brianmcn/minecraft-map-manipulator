@@ -6,8 +6,10 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = false
+let SINGLEPLAYER = true
 
+
+let KURT_SPECIAL = true
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)

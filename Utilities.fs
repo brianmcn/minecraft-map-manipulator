@@ -655,24 +655,24 @@ let removeAllTileTicks(fil) =
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
 
-let editMapDat(file) =
+let editMapDat(file,scale,xCenter,zCenter) =
     let nbt = readDatFile(file)
-    printfn "%s" (nbt.ToString())
     let nbt = cataNBT (fun _pl nbt -> 
         match nbt with 
         |NBT.Compound("data",_) ->  Compound("data",[|
-                                                    Byte("scale",0uy)
+                                                    Byte("scale",scale)
                                                     Byte("dimension",0uy)
                                                     Short("height",128s)
                                                     Short("width",128s)
-                                                    Int("xCenter",64+128)
-                                                    Int("zCenter",64)
+                                                    Int("xCenter",xCenter)
+                                                    Int("zCenter",zCenter)
                                                     ByteArray("colors",Array.zeroCreate 16384)
                                                     End
                                                     |] |> ResizeArray)
         | _ -> nbt) (fun _pl nbt -> nbt) [] nbt
-    printfn "%s" (nbt.ToString())
     writeDatFile(file+".new", nbt)
+    System.IO.File.Delete(file)
+    System.IO.File.Move(file+".new",file)
 
 let mapDatToPng(mapDatFile:string, newPngFilename:string) =
     let nbt = readDatFile(mapDatFile)
