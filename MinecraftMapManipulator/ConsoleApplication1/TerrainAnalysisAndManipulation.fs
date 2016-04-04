@@ -990,7 +990,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
     let spawners1 = SpawnerAccumulator("rand spawners from granite")
     let spawners2 = SpawnerAccumulator("rand spawners from redstone")
     let chestTEs = ResizeArray()
-    printf "SUBST"
+    log.LogInfo("SUBST: substituting blocks...")
     for y = LOY to HIY do
         printf "."
         for x = LOX to LOX+LENGTH-1 do
@@ -1000,7 +1000,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     let bid = bi.BlockID 
                     let dmg = bi.BlockData 
                     if bid = 1uy && dmg = 3uy then // diorite ->
-                        map.SetBlockIDAndDamage(x,y,z,97uy,0uy) // silverfish
+                        map.SetBlockIDAndDamage(x,y,z,97uy,0uy) // silverfish monster egg
                     elif bid = 1uy && dmg = 0uy then // stone ->
                         map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 1uy && dmg = 1uy then // granite ->
@@ -1025,6 +1025,47 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     elif bid = 17uy || bid = 162uy then // log/log2
                         map.SetBlockIDAndDamage(x,y,z,bid,dmg ||| 12uy) // setting bits 4&8 yields 6-sided bark texture, which looks cool
     log.LogSummary("added random spawners underground")
+    if CustomizationKnobs.SILVERFISH_LIMITS then
+        log.LogInfo("replacing silverfish pockets not exposed to air...")
+        for y = LOY to HIY do
+            printf "."
+            let visited = new System.Collections.Generic.HashSet<_>()  // new foreach Y so set does not get too big
+            for x = LOX to LOX+LENGTH-1 do
+                for z = LOZ to LOZ+LENGTH-1 do
+                    let bi = map.MaybeGetBlockInfo(x,y,z)
+                    if bi <> null then
+                        let bid = bi.BlockID 
+                        if bid = 97uy then // silverfish monster egg
+                            let ok(x,y,z) = 
+                                x >= LOX && x <= LOX+LENGTH-1 && y >= LOY && y <= HIY && z >= LOZ && z <= LOZ+LENGTH-1 &&
+                                not(visited.Contains(x*LENGTH+z))
+                            let thisPatch = ResizeArray()
+                            let q = new System.Collections.Generic.Queue<_>()
+                            q.Enqueue( (x,y,z) )
+                            thisPatch.Add( (x,y,z) )
+                            visited.Add( x*LENGTH + z ) |> ignore
+                            let ALLDIRS = [| 0,0,1; 0,1,0; 1,0,0; 0,0,-1; (* 0,-1,0; *) -1,0,0 |]  // outermost loop is ascending Y, so never need to go down
+                            let mutable nearbyAir = false
+                            while not (q.Count=0) do
+                                let cx,cy,cz = q.Dequeue()
+                                for dx,dy,dz in ALLDIRS do
+                                    let nx,ny,nz = cx+dx, cy+dy, cz+dz
+                                    if ok(nx,ny,nz) then
+                                        let bi = map.MaybeGetBlockInfo(nx,ny,nz)
+                                        if bi = null then
+                                            nearbyAir <- true
+                                        else
+                                            let bid = bi.BlockID 
+                                            if bid = 0uy then
+                                                nearbyAir <- true
+                                            elif bid = 97uy then
+                                                q.Enqueue( (nx,ny,nz) )
+                                                thisPatch.Add( (nx,ny,nz) )
+                                                visited.Add( nx*LENGTH + nz ) |> ignore
+                            if not nearbyAir then
+                                for x,y,z in thisPatch do
+                                    map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
+        log.LogInfo("done replacing airless silverfish pockets!")
     spawners1.AddToMapAndLog(map,log)
     spawners2.AddToMapAndLog(map,log)
     map.AddOrReplaceTileEntities(chestTEs)
@@ -2163,7 +2204,6 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     I(sprintf "setworldspawn 1 %d 1" h)
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
-    I(sprintf "fill -2 %d -2 4 %d 4 bedrock 0 outline" (h-30) (h-10))  // command room, cmds start at h-11
     I("scoreboard objectives add hidden dummy")
     I(sprintf "scoreboard objectives add Deaths stat.deaths %s" Strings.NAME_OF_DEATHCOUNTER_SIDEBAR.Text)
     I("scoreboard objectives setdisplay sidebar Deaths")
@@ -2180,7 +2220,6 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     
 
 
-    putBeaconAt(map,1,h-6,1,0uy,false)  // beacon at spawn for convenience
     // clear space above spawn platform...
     // ..remove entirety of nearby trees
     if allTrees = null then
@@ -2314,21 +2353,10 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
         putUntrappedChestWithItemsAndOrientationAt(-3,h+2,2,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
         Utilities.editMapDat(worldSaveFolder+"""\data\map_0.dat""",4uy,0,0)
     // the TP hub...
-    // ...floor & ceiling
-    for x = -2 to 4 do
-        for z = -2 to 4 do
-            map.SetBlockIDAndDamage(x,h-6,z,7uy,0uy)
-            map.SetBlockIDAndDamage(x,h,z,7uy,0uy)
-    for x = -3 to 5 do
-        for z = -3 to 5 do
-            if x=1 && z=1 then
-                map.SetBlockIDAndDamage(x,h+1,z,7uy,0uy)
-            else
-                map.SetBlockIDAndDamage(x,h+1,z,159uy,3uy) // 159,3 is light blue stained clay
     // ...walls and room
     for x = -2 to 4 do
         for z = -2 to 4 do
-            for y = h-5 to h-1 do
+            for y = h-50 to h-1 do
                 if x = -2 || x = 4 || z = -2 || z = 4 then
                     map.SetBlockIDAndDamage(x,y,z,7uy,0uy)
                 else
@@ -2337,7 +2365,21 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
         for z = -3 to 5 do
             for y = h-5 to h do
                 if x = -3 || x = 5 || z = -3 || z = 5 then
-                    map.SetBlockIDAndDamage(x,y,z,159uy,3uy)
+                    map.SetBlockIDAndDamage(x,y,z,159uy,3uy) // 159,3 is light blue stained clay, on walls of tp hub in case exposed on surface
+    // beacon at spawn for convenience
+    putBeaconAt(map,1,h-6,1,0uy,false)
+    // ...floor & ceiling
+    for x = -2 to 4 do
+        for z = -2 to 4 do
+            map.SetBlockIDAndDamage(x,h-51,z,7uy,0uy) // floor of commands box
+            map.SetBlockIDAndDamage(x,h-6,z,7uy,0uy)  // floor of teleporter hub
+            map.SetBlockIDAndDamage(x,h,z,7uy,0uy)
+    for x = -3 to 5 do
+        for z = -3 to 5 do
+            if x=1 && z=1 then
+                map.SetBlockIDAndDamage(x,h+1,z,7uy,0uy)
+            else
+                map.SetBlockIDAndDamage(x,h+1,z,159uy,3uy) // 159,3 is light blue stained clay
     // ...stuff in the room to start
     let chestItems = Compounds[| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.TELEPORTER_HUB_BOOK; End |] |]
     putUntrappedChestWithItemsAt(1,h-5,-1,Strings.NAME_OF_TELEPORT_ROOM_CHEST,chestItems,map,null)
@@ -2407,6 +2449,32 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // TODO nether still different
     // TODO loot tables still different
     // TODO message players about ability to keep playing
+    if CustomizationKnobs.SILVERFISH_LIMITS then
+        let y = ref (h-13)
+        let R(c) = placeRepeating(1,!y,0,c,true); decr y
+        let C(c) = placeChain(1,!y,0,c,true); decr y
+        let U(c) = placeChain(1,!y,0,c,false); decr y
+        let I(c) = placeImpulse(1,!y,0,c,false); decr y
+        // cap currently off
+        R("""scoreboard players set Feesh hidden 0""")
+        U("""execute @e[type=Silverfish] ~ ~ ~ scoreboard players add Feesh hidden 1""")
+        U(sprintf """scoreboard players test Feesh hidden %d""" CustomizationKnobs.SILVERFISH_BIG)
+        C("""blockdata ~ ~3 ~ {auto:0b}""") // turn self off
+        C("""blockdata ~ ~-1 ~ {auto:1b}""")
+        I("""blockdata ~ ~ ~ {auto:0b}""")   // tick delay to deal with extra repeat
+        U(Strings.TELLRAW_SILVERFISH_LIMIT_ON)
+        U("""scoreboard players tag @e[type=Silverfish] add Old""")
+        U("""blockdata ~ ~-1 ~ {auto:1b}""")
+        // cap currently on
+        R("""tp @e[type=Silverfish,tag=!Old] ~ ~-200 ~""") // kill all new feesh
+        U("""scoreboard players set Feesh hidden 0""")
+        U("""execute @e[type=Silverfish] ~ ~ ~ scoreboard players add Feesh hidden 1""")
+        U(sprintf """scoreboard players test Feesh hidden 0 %d""" CustomizationKnobs.SILVERFISH_SMALL)
+        C("""blockdata ~ ~4 ~ {auto:0b}""") // turn self off
+        C("""blockdata ~ ~-1 ~ {auto:1b}""")
+        I("""blockdata ~ ~ ~ {auto:0b}""")   // tick delay to deal with extra repeat
+        U(Strings.TELLRAW_SILVERFISH_LIMIT_OFF)
+        U("""blockdata ~ ~17 ~ {auto:1b}""")
     let x,y,z = ENABLE_DC.Tuple
     placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
     placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar Deaths",true)
@@ -2677,6 +2745,20 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     log.LogSummary("-------------------")
     log.LogSummary("Terrain generation options:")
     log.LogSummary(customTerrainGenerationOptions)
+    // verify matches level.dat
+    let levelDatFilename = System.IO.Path.Combine(worldSaveFolder, "level.dat")
+    let nbt = Utilities.readDatFile(levelDatFilename)
+    let f _pl nbt =
+        match nbt with 
+        | NBT.String("generatorOptions",oldgo) -> 
+            if oldgo <> customTerrainGenerationOptions then
+                let goal = customTerrainGenerationOptions.Split(',')
+                let actual = oldgo.Split(',')
+                Utilities.diffStringArrays(goal, actual) |> ignore
+                failwith "gen options no match"
+            nbt
+        | _ -> nbt
+    cataNBT f (fun _pl nbt -> nbt) [] nbt |> ignore
     log.LogSummary("-------------------")
     time (fun () ->
         let LOX, LOY, LOZ = MINIMUM, 1, MINIMUM

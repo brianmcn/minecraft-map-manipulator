@@ -10,6 +10,9 @@ let SINGLEPLAYER = true
 
 
 let KURT_SPECIAL = true
+let SILVERFISH_LIMITS = true
+let SILVERFISH_BIG = if SINGLEPLAYER then 20 else 30
+let SILVERFISH_SMALL = if SINGLEPLAYER then 10 else 20
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)

@@ -196,6 +196,9 @@ let TELLRAW_FINAL_1 = """tellraw @a ["You've completed the monument, congratulat
 let TELLRAW_FINAL_2 = sprintf """tellraw @a [{"text":"Click to leave feedback about the map","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" feedbackLink
 let TELLRAW_FINAL_3 = """tellraw @a ["I hope you enjoyed the map. If you did, and would like to leave a donation, I'd appreciate it very much."]"""
 let TELLRAW_FINAL_4 = sprintf """tellraw @a [{"text":"Donation link","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
+let TELLRAW_SILVERFISH_LIMIT_ON = sprintf """tellraw @a ["At least %d silverfish detected, turning ON silverfish limiter"]""" CustomizationKnobs.SILVERFISH_BIG
+let TELLRAW_SILVERFISH_LIMIT_OFF = sprintf """tellraw @a ["At most %d silverfish detected, turning OFF silverfish limiter"]""" CustomizationKnobs.SILVERFISH_SMALL
+
 
 let SIGN_DC_ENABLE = [|"Enable";"death";"counter";"display"|]
 let SIGN_DC_DISABLE = [|"Disable";"death";"counter";"display"|]
