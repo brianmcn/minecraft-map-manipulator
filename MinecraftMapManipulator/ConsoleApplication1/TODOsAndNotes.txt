@@ -68,17 +68,9 @@ publish checklist:
 
 TODO: bugs & good ideas
 
-more variability of random aesth. chests
-profile the silverfish (consider some limiter where if num feesh > BIG, then tp farthest 10 to void)
- - have two thresholds A and B, say 10 and 20 (or perhaps 20 and 35 for multiplayer)
- - if numFeesh > B then turn on cap (tag all feesh, tp any untagged to void), announce in chat
- - when cap on and numFeesh < A, turn off cap, announce in chat
-test zombie head drop rate 
 under-ocean chest: at least 80 radius of ocean, has certain depth, no lootz within 120, no ocean chests within 250
  - make array of all ok, foreach point, if ok: if not ocean, black out all in square/diamond radius, see what remain ok region looks like?
-collectibles is kinda like WW exploration, give map ingredients
 
-have some stone bricks as 'escape blocks' for silverfish, so they can hide again?
 NLC assumes loot is better outside daylight area, could be better to improve random loot chests outside (or generally vary more)... his map had 354 chests, percentages suggest about 9 in the daylight area
 
 

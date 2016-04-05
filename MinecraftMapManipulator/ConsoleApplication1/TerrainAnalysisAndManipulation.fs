@@ -991,6 +991,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
     let spawners2 = SpawnerAccumulator("rand spawners from redstone")
     let chestTEs = ResizeArray()
     log.LogInfo("SUBST: substituting blocks...")
+    let mutable numFeesh = 0
     for y = LOY to HIY do
         printf "."
         for x = LOX to LOX+LENGTH-1 do
@@ -1001,6 +1002,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     let dmg = bi.BlockData 
                     if bid = 1uy && dmg = 3uy then // diorite ->
                         map.SetBlockIDAndDamage(x,y,z,97uy,0uy) // silverfish monster egg
+                        numFeesh <- numFeesh + 1
                     elif bid = 1uy && dmg = 0uy then // stone ->
                         map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 1uy && dmg = 1uy then // granite ->
@@ -1062,10 +1064,20 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                                                 q.Enqueue( (nx,ny,nz) )
                                                 thisPatch.Add( (nx,ny,nz) )
                                                 visited.Add( nx*LENGTH + nz ) |> ignore
+                                            else
+                                                // reached edge, look one block further in same direction to see if air is just behind next wall, so can have feesh just behind surface
+                                                // This changed it from 247K to 398K in one example
+                                                let nx,ny,nz = nx+dx, ny+dy, nz+dz
+                                                if ok(nx,ny,nz) then
+                                                    let bi = map.MaybeGetBlockInfo(nx,ny,nz)
+                                                    if bi = null || bi.BlockID=0uy then
+                                                        nearbyAir <- true
                             if not nearbyAir then
                                 for x,y,z in thisPatch do
                                     map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
+                                numFeesh <- numFeesh - thisPatch.Count
         log.LogInfo("done replacing airless silverfish pockets!")
+    log.LogInfo(sprintf "There are %d silverfish monster egg blocks" numFeesh) 
     spawners1.AddToMapAndLog(map,log)
     spawners2.AddToMapAndLog(map,log)
     map.AddOrReplaceTileEntities(chestTEs)
@@ -2165,7 +2177,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(1,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ContainerOfMCTrees, mapTimeInHours, debugChests, colorCount:_[]) =
+let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[]) =
     let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
         let auto = if name = "minecraft:command_block" then 0uy else 1uy
@@ -2279,7 +2291,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             |]
     putUntrappedChestWithItemsAt(1,h+2,-2,Strings.NAME_OF_STARTING_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(1,h+3,-2,130uy,3uy) // enderchest
-    if debugChests then
+    if CustomizationKnobs.DEBUG_CHESTS then
         let chestItems = 
             Compounds[| 
                     yield [| Byte("Count",1uy); Byte("Slot",1uy); Short("Damage",0s); String("id","minecraft:written_book"); 
@@ -2288,8 +2300,6 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                              Strings.BOOK_WITH_ELYTRA; End |]
                     yield [| Byte("Count", 1uy); Byte("Slot",3uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.TELEPORTER_HUB_BOOK; End |]
-                    yield [| Byte("Count",1uy); Byte("Slot",4uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                             Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
                     yield [| Byte("Count",1uy); Byte("Slot",4uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
 
@@ -2813,8 +2823,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
-        let DEBUG_CHESTS = false
-        placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,!allTrees, mapTimeInHours, DEBUG_CHESTS, colorCount))
+        placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,!allTrees, mapTimeInHours, colorCount))
     time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save

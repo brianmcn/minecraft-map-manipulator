@@ -530,17 +530,19 @@ let NEWaestheticTier1Chest(rng:System.Random, color) =
     let F = CustomizationKnobs.LOOT_FUNCTION
     let items =
         [|  // blocks
-            yield! Algorithms.pickNnonindependently(rng,3,[
+            yield! Algorithms.pickNnonindependently(rng,2,[
                 makeItem(rng,"stone",64,64,1s) // granite
-                makeItem(rng,"stone",64,64,3s) // diorite
                 makeItem(rng,"brick_block",64,64,0s)
                 makeItem(rng,"hardened_clay",64,64,0s)
                 makeItem(rng,"netherrack",64,64,0s)
+                makeItem(rng,"grass",64,64,0s)
+                makeItem(rng,"mossy_cobblestone",64,64,0s)
+                makeItem(rng,"obsidian",64,64,0s)
                 ])
             // fun
             yield makeItem(rng,"name_tag",3,10,0s)
             // utility blocks
-            yield! Algorithms.pickNnonindependently(rng,3,[
+            yield! Algorithms.pickNnonindependently(rng,2,[
                 makeItem(rng,"log",64,64,0s) // oak
                 makeItem(rng,"log",64,64,1s) // spruce
                 makeItem(rng,"log",64,64,2s) // birch
@@ -549,8 +551,8 @@ let NEWaestheticTier1Chest(rng:System.Random, color) =
                 makeItem(rng,"log2",64,64,1s) // dark oak
                 ])
             // map-like stuff
-            if rng.Next(3)=0 then
-                yield makeItem(rng,"compass",2,2,0s)
+            if rng.Next(2)=0 then
+                yield makeItem(rng,"compass",4,4,0s)
                 yield makeItem(rng,"paper",64,64,0s)
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
@@ -569,10 +571,21 @@ let NEWaestheticTier2Chest(rng:System.Random, color) =
     let F = CustomizationKnobs.LOOT_FUNCTION
     let items =
         [|  // blocks
-            yield! Algorithms.pickNnonindependently(rng,4,[
+            yield! Algorithms.pickNnonindependently(rng,3,[
                 makeItem(rng,"bookshelf",64,64,0s)
                 makeItem(rng,"glass",64,64,0s)
                 makeItem(rng,"glowstone",64,64,0s)
+                makeItem(rng,"stone",64,64,3s) // diorite
+                makeItem(rng,"mycelium",64,64,0s)
+                ])
+            // utility blocks
+            yield! Algorithms.pickNnonindependently(rng,1,[
+                makeItem(rng,"log",64,64,0s) // oak
+                makeItem(rng,"log",64,64,1s) // spruce
+                makeItem(rng,"log",64,64,2s) // birch
+                makeItem(rng,"log",64,64,3s) // jungle
+                makeItem(rng,"log2",64,64,0s) // acacia
+                makeItem(rng,"log2",64,64,1s) // dark oak
                 ])
             // fun
             yield makeItem(rng,"jukebox",1,1,0s)
@@ -590,7 +603,7 @@ let NEWaestheticTier2Chest(rng:System.Random, color) =
                     makeItem(rng,"record_11",1,1,0s)
                     makeItem(rng,"record_wait",1,1,0s)
                     ])
-            yield! Algorithms.pickNnonindependently(rng,1,[
+            yield! Algorithms.pickNnonindependently(rng,2,[
                     makeItemCore(rng,"fireworks",16,16,0s,[|Compound("tag",[|Compound("Fireworks",[|List("Explosions",Compounds([|
                                     [|Byte("Type",2uy);Byte("Flicker",1uy);Byte("Trail",1uy);IntArray("Colors",[|56831|]);IntArray("FadeColors",[|16715263|]);End|]
                                 |]));End|]|>ResizeArray);End|]|>ResizeArray)|])
@@ -602,10 +615,11 @@ let NEWaestheticTier2Chest(rng:System.Random, color) =
                                 |]));End|]|>ResizeArray);End|]|>ResizeArray)|])
                     ])
             // rail & redstone
-            yield makeItem(rng,"rail",64,64,0s)
-            yield makeItem(rng,"rail",64,64,0s)
-            yield makeItem(rng,"golden_rail",64,64,0s)
-            yield makeItem(rng,"redstone_block",64,64,0s)
+            if rng.Next(3)<>0 then
+                yield makeItem(rng,"rail",64,64,0s)
+                yield makeItem(rng,"rail",64,64,0s)
+                yield makeItem(rng,"golden_rail",64,64,0s)
+                yield makeItem(rng,"redstone_block",64,64,0s)
             yield! Algorithms.pickNnonindependently(rng,2,[
                     makeItem(rng,"comparator",64,64,0s)
                     makeItem(rng,"piston",64,64,0s)

@@ -19,6 +19,8 @@
 // after 4 weeks (3/29)
 //  - 8700 downloads
 //  - 354 subreddit
+// (4/4)
+//  - 9827 downloads, 353 subreddit
 //
 // FUTURE SUGGESTIONS:
 //

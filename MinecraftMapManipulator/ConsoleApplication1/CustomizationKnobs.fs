@@ -6,13 +6,14 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = true
+let SINGLEPLAYER = false
 
 
 let KURT_SPECIAL = true
-let SILVERFISH_LIMITS = true
+let SILVERFISH_LIMITS = false
 let SILVERFISH_BIG = if SINGLEPLAYER then 20 else 30
 let SILVERFISH_SMALL = if SINGLEPLAYER then 10 else 20
+let DEBUG_CHESTS = false
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)

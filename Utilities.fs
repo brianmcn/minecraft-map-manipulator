@@ -1302,7 +1302,7 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
     sprintf "/give @p minecraft:written_book 1 0 %s" (writtenBookNBTString(author, title, pages))
 
 let wrapInJSONText(s) = sprintf """{"text":"%s"}""" s
-let wrapInJSONTextContinued(s) = sprintf """{"text":"%s\n\n(continued...)"}""" s
+let wrapInJSONTextContinued(s,continuedText) = sprintf """{"text":"%s\n\n%s"}""" s continuedText
 
 let placeCommandBlocksInTheWorldTemp(fil) =
     let region = new RegionFile(fil)
