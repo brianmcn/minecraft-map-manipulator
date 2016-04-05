@@ -2040,6 +2040,82 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     putTrappedChestWithLoot(15,x,y,z,1)
                     points.[15].Add( (x,y,z) )
                     names.[15] <- "tree stump"
+    let PORTION_SIZE = 32
+    let mostlyOceanPortions = Array2D.zeroCreate (LENGTH/PORTION_SIZE) (LENGTH/PORTION_SIZE)
+    let mostlyOceanPortionsBool = Array2D.zeroCreate (LENGTH/PORTION_SIZE) (LENGTH/PORTION_SIZE)
+    for x = MINIMUM to MINIMUM+LENGTH-1 do
+        for z = MINIMUM to MINIMUM+LENGTH-1 do
+            let i = (x-MINIMUM)/PORTION_SIZE
+            let j = (z-MINIMUM)/PORTION_SIZE
+            if biome.[x,z] = 0uy || biome.[x,z] = 24uy then  // ocean, deep ocean
+                mostlyOceanPortions.[i,j] <- mostlyOceanPortions.[i,j] + 1
+    let threshold = PORTION_SIZE * PORTION_SIZE * 3 / 4
+    for i = 0 to mostlyOceanPortionsBool.GetLength(0)-1 do
+        for j = 0 to mostlyOceanPortionsBool.GetLength(1)-1 do
+            if mostlyOceanPortions.[i,j] > threshold then
+                mostlyOceanPortionsBool.[i,j] <- true
+    let goodPortionCoords = System.Collections.Generic.HashSet<_>()
+    for i = 0 to mostlyOceanPortionsBool.GetLength(0)-5 do
+        for j = 0 to mostlyOceanPortionsBool.GetLength(1)-5 do
+            let mutable ok,di = true,0
+            while ok && di <= 4 do
+                for dj = 0 to 4 do
+                    if not mostlyOceanPortionsBool.[i+di,j+dj] then
+                        ok <- false
+                di <- di + 1
+            if ok then
+                goodPortionCoords.Add( (i+2,j+2) ) |> ignore
+    while goodPortionCoords.Count <> 0 do
+        let i,j = Seq.head goodPortionCoords
+        let x,z = (i*PORTION_SIZE)+(PORTION_SIZE/2)+MINIMUM, (j*PORTION_SIZE)+(PORTION_SIZE/2)+MINIMUM
+        let mutable ok = true
+        let H = hmIgnoringLeaves.[x,z]
+        assert(H=62)  // ocean always this height
+        for dx = -3 to 3 do
+            for dz = -3 to 3 do
+                let x,z = (x+dx),(z+dz)
+                let topIsWater = map.GetBlockInfo(x,H,z).BlockID = 9uy
+                if not topIsWater then
+                    ok <- false
+        for dy = -6 to -1 do
+            if not(map.GetBlockInfo(x,H+dy,z).BlockID = 9uy) then
+                ok <- false
+        if not ok then
+            printfn "SKIPPING OCEAN at %d %d" x z
+            goodPortionCoords.Remove(i,j) |> ignore
+        else
+            printfn "PUTTING OCEAN at %d %d" x z
+            // place lilypads in 'circle' 111uy
+            let PIXELS = 
+                [|
+                    "..XXX.."
+                    ".X...X."
+                    "X.....X"
+                    "X.....X"
+                    "X.....X"
+                    ".X...X."
+                    "..XXX.."
+                |]
+            for dx = 0 to 6 do
+                for dz = 0 to 6 do
+                    if PIXELS.[dx].Chars(dz) = 'X' then
+                        map.SetBlockIDAndDamage(x-3+dx,H+1,z-3+dz,111uy,0uy) // 111=waterlily aka lilypad
+            // make 3x3x4 glass with red torch and chest in interior on ground
+            let mutable gy = H-6 // ground y
+            while map.GetBlockInfo(x,gy,z).BlockID = 9uy do
+                gy <- gy - 1
+            for y = gy-2 to gy+1 do
+                for dx = -1 to 1 do
+                    for dz = -1 to 1 do
+                        map.SetBlockIDAndDamage(x+dx,y,z+dz,20uy,0uy) // 20=glass
+            map.SetBlockIDAndDamage(x,gy-1,z,76uy,5uy) // 76=redstone_torch
+            putTrappedChestWithLoot(11,x,gy,z,3)
+            points.[11].Add( (x,gy,z) )
+            names.[11] <- "deep ocean"
+            // remove nearby portions, so won't place two too close to each other
+            for di = -5 to 5 do
+                for dj = -5 to 5 do
+                    goodPortionCoords.Remove(i+di,j+dj) |> ignore
     map.AddOrReplaceTileEntities(tileEntities)
     log.LogSummary(sprintf "added %d extra loot chests" tileEntities.Count)
     for i = 0 to names.Length-1 do
@@ -2809,22 +2885,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    time (fun() ->   // after hiding spots figured
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
-    time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    xtime (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
         placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,!allTrees, mapTimeInHours, colorCount))
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
