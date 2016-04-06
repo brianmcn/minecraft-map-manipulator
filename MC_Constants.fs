@@ -338,6 +338,7 @@ let BLOCKIDS_THAT_EMIT_LIGHT =
     [|  // block id, light level
         138,15 // beacon
         119,15 // end portal block
+        209,15 // end gateway
         51, 15 // fire
         89, 15 // glowstone
         91, 15 // jack o' lantern

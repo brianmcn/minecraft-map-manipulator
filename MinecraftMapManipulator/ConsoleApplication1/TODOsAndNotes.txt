@@ -1,10 +1,9 @@
 ﻿
 MOJANG BUGS
 
-beacon at spawn sometimes not render
+beacon at spawn sometimes not render, villager in hub sometimes not render
 absorbtion/HB hearts sometimes not show (client reset 4ixes)
-teleporter does not work in SMP, got glitched into bedrock.  figure that out.  (maybe now fixed? i also tp one block higher now)
-
+go thru gateway on horse 91628
 
 TO TEST
 
@@ -68,6 +67,7 @@ publish checklist:
 
 TODO: bugs & good ideas
 
+
 NLC assumes loot is better outside daylight area, could be better to improve random loot chests outside (or generally vary more)... his map had 354 chests, percentages suggest about 9 in the daylight area
 
 
@@ -96,6 +96,7 @@ obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pic
 obe would like to 'continue with normal survival' after done
 obe did not know he could walk into black cube of teleporter, thought he needed enderpearl (how to teach? chat text? book?)
 more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
+ - unrepairable: you can set the RepairCost to a high value (though will also prevent any other usage with an anvil): /give @p minecraft:diamond_shovel 1 40 {display:{Name:"Custom Tool"},RepairCost:1000}
 (the obeslisks in Eventide were effectively 'set pieces', can I think of others? wide area spawners did wonders for them; witch area (light) or guardian area (no water) may be good too?)
 empty chest (with a name?) can be good troll
 snow layers could be an interesting aesthetic or terrain feature?

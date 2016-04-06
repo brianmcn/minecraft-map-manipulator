@@ -2629,9 +2629,19 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             for i = 0 to 4 do
                                 for j = 0 to 4 do
                                     map.SetBlockIDAndDamage(x+i,h+0,z+j,7uy,0uy)  // 7=bedrock
-                                    map.SetBlockIDAndDamage(x+i,h+1,z+j,0uy,0uy)  // 0=air
-                                    map.SetBlockIDAndDamage(x+i,h+2,z+j,0uy,0uy)  // 0=air
-                                    map.SetBlockIDAndDamage(x+i,h+3,z+j,0uy,0uy)  // 0=air
+                                    // make a '+' shaped entrance, so players (but not horses) can enter (avoid horse teleport bug)
+                                    if ((i=0 || i=4) && j<>2) || ((j=0 || j=4) && i<>2) then
+                                        map.SetBlockIDAndDamage(x+i,h+1,z+j,7uy,0uy)  // 7=bedrock
+                                    else
+                                        map.SetBlockIDAndDamage(x+i,h+1,z+j,0uy,0uy)  // 0=air
+                                    if (i=0 || i=4) && (j=0 || j=4) then
+                                        map.SetBlockIDAndDamage(x+i,h+2,z+j,7uy,0uy)  // 7=bedrock
+                                    else
+                                        map.SetBlockIDAndDamage(x+i,h+2,z+j,0uy,0uy)  // 0=air
+                                    if ((i=0 || i=4) && j<>2) || ((j=0 || j=4) && i<>2) then
+                                        map.SetBlockIDAndDamage(x+i,h+3,z+j,7uy,0uy)  // 7=bedrock
+                                    else
+                                        map.SetBlockIDAndDamage(x+i,h+3,z+j,0uy,0uy)  // 0=air
                                     map.SetBlockIDAndDamage(x+i,h+4,z+j,7uy,0uy)  // 7=bedrock
                                     map.SetBlockIDAndDamage(x+i,h+5,z+j,0uy,0uy)  // 0=air
                                     map.SetBlockIDAndDamage(x+i,h+6,z+j,0uy,0uy)  // 0=air
