@@ -68,9 +68,6 @@ publish checklist:
 
 TODO: bugs & good ideas
 
-under-ocean chest: at least 80 radius of ocean, has certain depth, no lootz within 120, no ocean chests within 250
- - make array of all ok, foreach point, if ok: if not ocean, black out all in square/diamond radius, see what remain ok region looks like?
-
 NLC assumes loot is better outside daylight area, could be better to improve random loot chests outside (or generally vary more)... his map had 354 chests, percentages suggest about 9 in the daylight area
 
 
@@ -118,6 +115,8 @@ below this line can probably do without for beta
 cool proc: walking on path blocks grants a speed buff
 a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
 item that when held or worn grants night vision? or trigger command can type, keep score how many you have left? thunder and then world bright for 5-10s?
+can give effects when in water (execute detect) or lava
+can have in-ground arrows or in-flight arrows have area effects (brief fire?)
 interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs
 more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
 can have forest -> ice forest, with leaves as packed ice, and have snow golem spawners (which will interact naturally with creepers on occasion)

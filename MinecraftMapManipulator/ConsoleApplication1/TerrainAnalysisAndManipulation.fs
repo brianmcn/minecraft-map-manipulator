@@ -1568,7 +1568,10 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
                 if abs(x-i) > 3 || abs(z-j) > 3 then  // don't overwrite the beacon/bedrock!
                     let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
                     let pct = float (RADIUS-dist) / (float RADIUS)
-                    let belowGround = hmIgnoringLeaves.[i,j] - 2
+                    let mutable belowGround = hmIgnoringLeaves.[i,j] - 2
+                    // there might be a tree trunk here, get past it to actual ground
+                    while (let bid = map.GetBlockInfo(i,belowGround,j).BlockID in (bid=17uy || bid=162uy)) do // 17/162=log/log2
+                        belowGround <- belowGround - 1
                     for y = belowGround downto belowGround-7 do
                         if (i+y+j)%2 = 0 then
                             if rng.NextDouble() < pct then
@@ -2885,22 +2888,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    xtime (fun () -> doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() ->   // after hiding spots figured
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
-    xtime (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
         log.LogSummary("START CMDS")
         placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,!allTrees, mapTimeInHours, colorCount))
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
