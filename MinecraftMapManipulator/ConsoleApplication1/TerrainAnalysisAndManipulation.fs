@@ -633,10 +633,12 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
 let mutable finalEX = 0
 let mutable finalEZ = 0
 
-let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>) =
+let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolder, hm:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>, vanillaDungeonsInDaylightRing:ResizeArray<_>) =
     let YMIN = 10
-    let YLEN = 50
+    let YLEN = 60
     let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
+    let MAXIMUM = MINIMUM+LENGTH-1
+    let YMAX = YMIN+YLEN-1
     let PT(x,y,z) = 
         let i = x-MINIMUM
         let j = y-YMIN
@@ -653,8 +655,8 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
     printf "FIND"
     for y = YMIN+1 to YMIN+YLEN do
         printf "."
-        for x = MINIMUM+1 to MINIMUM+LENGTH-1 do
-            for z = MINIMUM+1 to MINIMUM+LENGTH-1 do
+        for x = MINIMUM+1 to MAXIMUM do
+            for z = MINIMUM+1 to MAXIMUM do
                 if not(DIV(x,16) = DIV(curx,16) && DIV(y,16) = DIV(cury,16) && DIV(z,16) = DIV(curz,16)) then
                     currentSectionBlocks <- map.GetOrCreateSection(x,y,z) |> (fun (_sect,blocks,_bd,_bl,_sl) -> blocks)
                     curx <- x
@@ -671,14 +673,47 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
     // connected-components them
     for y = YMIN+1 to YMIN+YLEN-1 do
         printf "."
-        for x = MINIMUM+1 to MINIMUM+LENGTH-1 do
-            for z = MINIMUM+1 to MINIMUM+LENGTH-1 do
+        for x = MINIMUM+1 to MAXIMUM-1 do
+            for z = MINIMUM+1 to MAXIMUM-1 do
+                (* todo, other way better, right? once above HM, disconnect, so no 'above ground' connections?
                 if a.[x,y,z]<>null && a.[x+1,y,z]<>null then
                     a.[x,y,z].Union(a.[x+1,y,z])
                 if a.[x,y,z]<>null && a.[x,y+1,z]<>null then
                     a.[x,y,z].Union(a.[x,y+1,z])
                 if a.[x,y,z]<>null && a.[x,y,z+1]<>null then
                     a.[x,y,z].Union(a.[x,y,z+1])
+                *)
+                if a.[x,y,z]<>null && a.[x+1,y,z]<>null && (y < hm.[x,z] || y < hm.[x+1,z]) then
+                    a.[x,y,z].Union(a.[x+1,y,z])
+                if a.[x,y,z]<>null && a.[x,y+1,z]<>null && (y < hm.[x,z]) then
+                    a.[x,y,z].Union(a.[x,y+1,z])
+                if a.[x,y,z]<>null && a.[x,y,z+1]<>null && (y < hm.[x,z] || y < hm.[x,z+1]) then
+                    a.[x,y,z].Union(a.[x,y,z+1])
+
+    printfn ""
+    printfn "DAYLIGHT METRIC"
+    if vanillaDungeonsInDaylightRing <> null then
+        let mutable connectedCount = 0
+        for sx,sy,sz in vanillaDungeonsInDaylightRing do
+            // explore to see if dungeon connects to surface (check nearby air, since exposed wall in cave is good enough to find)
+            let mutable surfaceConnected = false
+            for x = sx-6 to sx+6 do
+                if not surfaceConnected then
+                    for y = sy-1 to sy+1 do
+                        if not surfaceConnected && y>=YMIN && y<=YMAX then // check Y boundaries, but not X/Z because DAYLIGHT_RADIUS ensures we're in center for those
+                            for z = sz-6 to sz+6 do
+                                if not surfaceConnected then
+                                    if a.[x,y,z]<>null then
+                                        let v = a.[x,y,z].Find().Value 
+                                        if v.IsRight then
+                                            let canMove(x,y,z) = x>MINIMUM && z>MINIMUM && x<MAXIMUM && z < MAXIMUM && y>=YMIN && y<=YMAX && a.[x,y,z]<>null
+                                            match Algorithms.findShortestPath(x,y,z,canMove,(fun(x,y,z)->y>=hm.[x,z]),DIFFERENCES) with
+                                            | None -> printf "FAILED to find path" // TODO why ever?
+                                            | Some((tsx,tsy,tsz),path,_moves) ->
+                                                log.LogInfo(sprintf "dungeon somehow connected to surface: %4d %4d %4d up to %4d %4d %4d in a distance of %4d" sx sy sz tsx tsy tsz path.Count)
+                                                connectedCount <- connectedCount + 1
+                                                surfaceConnected <- true
+        log.LogSummary(sprintf "in DAYLIGHT_RADIUS, of %d dungeons, %d are connected to surface via caves" vanillaDungeonsInDaylightRing.Count connectedCount)
     printfn ""
     printf "ANALYZE"
     // look for 'good' ones
@@ -705,6 +740,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
     let mutable hasDoneFinal, thisIsFinal = false, false
+    let beaconXZs = ResizeArray()
     for s in goodCCs.Values do
         let mutable topX,topY,topZ = 0,0,0
         let sk = System.Array.CreateInstance(typeof<sbyte>, [|LENGTH+2; YLEN+2; LENGTH+2|], [|MINIMUM; YMIN; MINIMUM|]) :?> sbyte[,,] // +2: don't need sentinels here, but easier to keep indexes in lock-step with other array
@@ -723,8 +759,6 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 atHeightMap.Add(x,y,z) |> ignore
         let skel,endp,epwl = Algorithms.skeletonize(sk, ignore, ones) // map.SetBlockIDAndDamage(x,y,z,95uy,byte iter))) // 95 = stained_glass
         skel.UnionWith(endp)
-        let MAXIMUM = MINIMUM+LENGTH-1
-        let YMAX = YMIN+YLEN-1
         let canMove(x,y,z) = x>MINIMUM && z>MINIMUM && x<MAXIMUM && z < MAXIMUM && y>=YMIN && y<=YMAX && a.[x,y,z]<>null
         match Algorithms.findShortestPath(topX,topY,topZ,canMove,(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
         | None -> printf "FAILED to get to skeleton" // TODO why ever?
@@ -733,7 +767,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
         match Algorithms.findLongestPath(tsx,tsy,tsz,(fun (x,y,z)->skel.Contains(x,y,z)),(fun (_x,y,_z)->y<YMIN+4),DIFFERENCES) with
         | None -> // if didn't reach low point, nothing else to do
             printfn "FAILED to get near bottom (skeleton too far away?)" // TODO ok?
-        | Some((sx,sy,sz),_,_) ->
+        | Some((sx,sy,sz),_,_) ->  // sx is near bottom of map
             let pointsToAddBetweenHMAndSkeleton = new System.Collections.Generic.HashSet<_>()
             for x,y,z in atHeightMap do
                 match Algorithms.findShortestPath(x,y,z,canMove,(fun(x,y,z)->skel.Contains(x,y,z)),DIFFERENCES) with
@@ -744,25 +778,51 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
             skel.UnionWith(pointsToAddBetweenHMAndSkeleton)
             match Algorithms.findShortestPath(sx,sy,sz,(fun (x,y,z)->skel.Contains(x,y,z)),(fun (x,y,z)->y>=hm.[x,z]),DIFFERENCES) with
             | None -> printfn "FAILED to get back up to HM at top" // TODO now impossible, right?
-            | Some((ex,ey,ez), path, moves) ->
+            | Some((ex,ey,ez), path, moves) -> // ex is near HM
             printfn "ALL find-paths succeeded, yay"
             // ensure beacon in decent bounds
             let tooClose(x,_y,z) =
                 let DB = 60
                 x < MINIMUM+DB || z < MINIMUM+DB || x > MINIMUM+LENGTH-DB || z > MINIMUM+LENGTH-DB || 
-                    (x > -SPAWN_PROTECTION_DISTANCE_GREEN && x < SPAWN_PROTECTION_DISTANCE_GREEN && z > -SPAWN_PROTECTION_DISTANCE_GREEN && z < SPAWN_PROTECTION_DISTANCE_GREEN)
+                    (x*x+z*z < SPAWN_PROTECTION_DISTANCE_GREEN*SPAWN_PROTECTION_DISTANCE_GREEN)
             if tooClose(sx,sy,sz) || tooClose(ex,ey,ez) then
                 () // skip if too close to 0,0 or to map bounds
             else
+            let mutable anyOtherBeaconTooClose = false
+            for bx,bz in beaconXZs do
+                let sqr x = x*x
+                let distSq = sqr(ex-bx)+sqr(ez-bz)
+                if distSq < sqr(STRUCTURE_SPACING) then
+                    anyOtherBeaconTooClose <- true
+            if anyOtherBeaconTooClose then
+                ()
+            else
             let fullDist = path.Count
-            log.LogInfo(sprintf "(%d,%d,%d) is %d blocks from (%d,%d,%d)" sx sy sz fullDist ex ey ez)
-            if fullDist > 100 && fullDist < 500 then  // only keep mid-sized ones...
+            if fullDist > 150 then
                 if not hasDoneFinal && fullDist > 300 && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
                     thisIsFinal <- true
-                if thisIsFinal || not (ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE) then
-                    // don't bother with green beacons near edge of map
+                if thisIsFinal || 
+                            // don't bother with green beacons near edge of map
+                            not (ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE) then
+                    // if the path is too long, just truncate it
+                    let sx,sy,sz,path,moves,fullDist =
+                        if thisIsFinal && fullDist > 500 then  // purple 300-500
+                            let numTruncate = fullDist - 500
+                            path.RemoveRange(0,numTruncate)
+                            moves.RemoveRange(0,numTruncate)
+                            let sx,sy,sz = path.[0]
+                            sx,sy,sz,path,moves,path.Count
+                        elif not thisIsFinal && fullDist > 350 then  // greens 150-350
+                            let numTruncate = fullDist - 350
+                            path.RemoveRange(0,numTruncate)
+                            moves.RemoveRange(0,numTruncate)
+                            let sx,sy,sz = path.[0]
+                            sx,sy,sz,path,moves,path.Count
+                        else
+                            sx,sy,sz,path,moves,path.Count
                     log.LogSummary(sprintf "added %sbeacon at %d %d %d which travels %d" (if thisIsFinal then "FINAL " else "") ex ey ez fullDist)
                     decorations.Add((if thisIsFinal then 'X' else 'B'),ex,ez)
+                    beaconXZs.Add( (ex,ez) ) 
                     let mutable i,j,k = ex,ey,ez
                     let mutable count = 0
                     let spawners = SpawnerAccumulator("spawners along path")
@@ -845,7 +905,9 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     else // no reason for side paths in final dungeon
                         // make side paths with extra loot
                         printfn "computing paths endpoints -> redstone"
-                        let path = new System.Collections.Generic.HashSet<_>(path)
+                        let pathExceptNearLootBox = ResizeArray(path)
+                        pathExceptNearLootBox.RemoveRange(0,path.Count/12) // don't have side paths right at end by the loot box
+                        let path = new System.Collections.Generic.HashSet<_>(pathExceptNearLootBox)
                         let sidePaths = ResizeArray()
                         for distToSkelX,_distToSkelY,distToSkelZ,(ex,ey,ez) in epwl do
                             if distToSkelX+distToSkelZ > 5 then
@@ -865,7 +927,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         let tes = ResizeArray()
                         for sidePath in sidePaths do
                             let _,spy,_ = sidePath.[0]
-                            if spy <= 56 then // an apparent endpoint at a height near 60 may just be where there was a cave opening but the analysis cut off at high y and saw it as endpoint, so ignore high-y endpoints
+                            if spy <= YMAX-4 then // an apparent endpoint at a height near top may just be where there was a cave opening but the analysis cut off at high y and saw it as endpoint, so ignore high-y endpoints
                                 let l = sidePath.Count 
                                 if l >= 15 && l <= 40 then
                                     for x,y,z in sidePath do
@@ -1389,11 +1451,11 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                 Strings.QUADRANT_SOUTHEAST 
     let chestItems = 
         Compounds[| 
-                for slot in [12uy..14uy] do
+                for slot in [11uy..15uy] do
                     yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:elytra"); Compound("tag",[|
-                                List("ench",Compounds[|[|Short("id",2s);Short("lvl",10s);End|]|]);End|]|>ResizeArray); End |]
+                                List("ench",Compounds[|[|Short("id",2s);Short("lvl",10s);End|];[|Short("id",34s);Short("lvl",3s);End|]|]);End|]|>ResizeArray); End |] // FFX,U3
                 // jump boost pots
-                for slot in [3uy;4uy;5uy] do
+                for slot in [2uy..6uy] do
                     yield [| Byte("Count",24uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|
                                 Strings.NameAndLore.SUPER_JUMP_BOOST
                                 List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",300);End|]|]);End|]|>ResizeArray); End |]
@@ -1631,6 +1693,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
 
 let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     printfn "double spawners..."
+    let topSpawnerCoords = ResizeArray()
     let spawnerTileEntities = ResizeArray()
     for x = MINIMUM to MINIMUM+LENGTH-1 do
         if x%200 = 0 then
@@ -1646,11 +1709,14 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
                         | Compound(_,cs) ->
                             match cs |> Seq.find (fun x -> x.Name = "SpawnData") with
                             | Compound(_,sd) -> sd |> Seq.find (fun x -> x.Name = "id") |> (fun (String("id",k)) -> k)
+                    if x*x+z*z < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
+                        topSpawnerCoords.Add( (x,y+1,z) )
                     map.SetBlockIDAndDamage(x, y+1, z, 52uy, 0uy) // 52 = monster spawner
                     let ms = VANILLA_DUNGEON_EXTRA(x,y+1,z,originalKind)
                     spawnerTileEntities.Add(ms.AsNbtTileEntity())
     map.AddOrReplaceTileEntities(spawnerTileEntities)
-    log.LogSummary(sprintf "added %d extra dungeon spawners underground" spawnerTileEntities.Count)
+    log.LogSummary(sprintf "added %d extra dungeon spawners underground, with %d inside DAYLIGHT_RADIUS" spawnerTileEntities.Count topSpawnerCoords.Count)
+    topSpawnerCoords
 
 let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>,allTrees:ContainerOfMCTrees,colorCount:_[]) =
     printfn "add random loot chests..."
@@ -2012,7 +2078,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
             // end if not near deco
         // end for z
     // end for x
-    let allTrees = allTrees.All() |> Seq.toArray 
+    let allTrees = if allTrees = null then [||] else allTrees.All() |> Seq.toArray 
     Algorithms.shuffle(allTrees,rng)
     for t in allTrees do
         let x,y,z = t.CanonicalStump
@@ -2129,8 +2195,13 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 failwithf "more than 64 random loots of type %s added" names.[i]
         else
             colorCount.[i] <- 0
+    let mutable withinDaylightCount = 0
     for x,_,z in lootLocations do
         decorations.Add('*',x,z)
+        if x*x+z*z < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
+            withinDaylightCount <- withinDaylightCount + 1
+    log.LogSummary(sprintf "There are %d lootz within DAYLIGHT_RADIUS" withinDaylightCount)
+
 
 let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     // place a data block at every square of the map (y=0) and protect it (y=1)
@@ -2256,7 +2327,8 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(1,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[]) =
+let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[]) =
+    log.LogSummary("START CMDS")
     let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
         let auto = if name = "minecraft:command_block" then 0uy else 1uy
@@ -2472,25 +2544,47 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // ...stuff in the room to start
     let chestItems = Compounds[| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.TELEPORTER_HUB_BOOK; End |] |]
     putUntrappedChestWithItemsAt(1,h-5,-1,Strings.NAME_OF_TELEPORT_ROOM_CHEST,chestItems,map,null)
-    // pink sheep
-    if CustomizationKnobs.KURT_SPECIAL then
-        for rx in [-2 .. 1] do
-            for rz in [-2 .. 1] do
-                let r = map.GetRegion(512*rx, 512*rz)
-                for cx = 0 to 31 do
-                    for cz = 0 to 31 do
-                        let theChunk = r.GetChunk(cx,cz)
-                        let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
-                        match theChunkLevel.["Entities"] with 
-                        | List(_,Compounds(cs)) ->
-                            for e in cs do
-                                // make all sheep pink
-                                if e |> Array.exists (fun x -> x = String("id","Sheep")) then
-                                    for i = 0 to e.Length-1 do
-                                        match e.[i] with
-                                        | Byte("Color",_) -> e.[i] <- Byte("Color",6uy)
-                                        | _ -> ()
-                        | _ -> ()
+    let mutable cowC, sheepC, pigC, chickenC, rabbitC = 0,0,0,0,0
+    for rx in [-2 .. 1] do
+        for rz in [-2 .. 1] do
+            let r = map.GetRegion(512*rx, 512*rz)
+            for cx = 0 to 31 do
+                for cz = 0 to 31 do
+                    let theChunk = r.GetChunk(cx,cz)
+                    let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+                    match theChunkLevel.["Entities"] with 
+                    | List(_,Compounds(cs)) ->
+                        for e in cs do
+                            for i = 0 to e.Length-1 do
+                                // everywhere...
+                                if CustomizationKnobs.KURT_SPECIAL then
+                                    // ...make all sheep pink
+                                    if e |> Array.exists (fun x -> x = String("id","Sheep")) then
+                                        for i = 0 to e.Length-1 do
+                                            match e.[i] with
+                                            | Byte("Color",_) -> e.[i] <- Byte("Color",6uy)
+                                            | _ -> ()
+                                // just in the inner ring...
+                                match e.[i] with
+                                | List("Pos",Doubles[|x;_y;z|]) -> 
+                                    if int(x*x+z*z) < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
+                                        // ...keep count of mobs to know food situation
+                                        for i = 0 to e.Length-1 do
+                                            match e.[i] with
+                                            | String("id","Cow")     -> cowC <- cowC + 1
+                                            | String("id","Sheep")   -> sheepC <- sheepC + 1
+                                            | String("id","Pig")     -> pigC <- pigC + 1
+                                            | String("id","Chicken") -> chickenC <- chickenC + 1
+                                            | String("id","Rabbit")  -> rabbitC <- rabbitC + 1
+                                            | _ -> ()
+                                | _ -> ()
+                    | _ -> ()
+    log.LogSummary(sprintf "DAYLIGHT_RADIUS food animals:")
+    log.LogSummary(sprintf "   %3d cow" cowC)
+    log.LogSummary(sprintf "   %3d sheep" sheepC)
+    log.LogSummary(sprintf "   %3d pig" pigC)
+    log.LogSummary(sprintf "   %3d chicken" chickenC)
+    log.LogSummary(sprintf "   %3d rabbit" rabbitC)
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(3,h-11,0,137uy,0uy)
     map.AddOrReplaceTileEntities([| [| Int("x",3); Int("y",h-11); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 (h+1) 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
@@ -2896,12 +2990,13 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
                 hmIgnoringLeaves.[x,z] <- y
         )
     let allTrees = ref null
+    let vanillaDungeonsInDaylightRing = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> doubleSpawners(map, log))
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
@@ -2911,8 +3006,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() ->   // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-        log.LogSummary("START CMDS")
-        placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,!allTrees, mapTimeInHours, colorCount))
+        placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount))
     time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save

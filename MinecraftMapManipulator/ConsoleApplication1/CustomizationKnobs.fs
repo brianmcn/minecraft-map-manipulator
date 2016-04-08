@@ -135,14 +135,14 @@ let DAYLIGHT_BEDROCK_BUFFER_RADIUS = 7
 let MOUNTAIN_PEAK_DANGER_RADIUS = 20
 let FLAT_COBWEB_DANGER_RADIUS = 40
 
-let SPAWN_PROTECTION_DISTANCE_GREEN = 200
-let SPAWN_PROTECTION_DISTANCE_FLAT = 350
-let SPAWN_PROTECTION_DISTANCE_PEAK = 500
-let SPAWN_PROTECTION_DISTANCE_PURPLE = 700
-let STRUCTURE_SPACING = 250  // no two of same structure within this dist of each other (currently used by peaks and flats)
+let SPAWN_PROTECTION_DISTANCE_GREEN = 210
+let SPAWN_PROTECTION_DISTANCE_FLAT = 375
+let SPAWN_PROTECTION_DISTANCE_PEAK = 550
+let SPAWN_PROTECTION_DISTANCE_PURPLE = 750
+let STRUCTURE_SPACING = 250  // no two of same structure within this dist of each other (currently used by beacons, peaks and flats)
 let DECORATION_SPACING = float(MOUNTAIN_PEAK_DANGER_RADIUS+FLAT_COBWEB_DANGER_RADIUS+2*DAYLIGHT_BEDROCK_BUFFER_RADIUS)*sqrt(2.0)|>int  // no two decos this close together (used by peaks and flats)
 let RANDOM_LOOT_SPACING_FROM_PRIOR_DECORATION = 50 // no rand loot chests near dungeons, for example
-let DAYLIGHT_RADIUS = 180
+let DAYLIGHT_RADIUS = 200
 
 /////////////////////////////////
 // regional difficulty settings

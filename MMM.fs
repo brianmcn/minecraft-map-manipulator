@@ -1507,6 +1507,7 @@ automatic game start configs (night vision, starting items), customizable
         System.IO.Directory.Delete(System.IO.Path.Combine(worldSaveFolder,"playerdata"),true) // delete playerdata folder
     with _ -> ()
 
+   
     (*
     let countRepresentedChunks(r:RegionFile) =
         let mutable rep, no = 0,0

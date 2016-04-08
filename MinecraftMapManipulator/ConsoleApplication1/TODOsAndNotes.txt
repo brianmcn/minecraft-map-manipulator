@@ -64,12 +64,18 @@ publish checklist:
 	make a copy
 	go in and check spawn, teleporters, orchid, 
 
+TEST
 
 TODO: bugs & good ideas
 
+savannah for kurt
+add other way to get enderchest?
+for cthulhu - maybe obe's seed (decide about food), other features...? cthulhu stuff (ink?)
+cow spawn eggs (too op?) rationing friendly mobs? ...
+is mountain peak too easy? can you assault it with green gear? (add more ghast/blaze spawners farther out (light not matter) and possibly more spawners in general)
 
 NLC assumes loot is better outside daylight area, could be better to improve random loot chests outside (or generally vary more)... his map had 354 chests, percentages suggest about 9 in the daylight area
-
+plains/flower forest/sunflowers hide chest under weird flower formation
 
 post to minecraftmaps, forum?
 
@@ -77,6 +83,9 @@ post to minecraftmaps, forum?
 
 ice spikes seed: 1440595613939009001  or   442832462593546
 variety: 35267400 or 604443340930998
+mesa: 2347792175013291886 (poor caves nearspawn, poor green beacons)
+   -3200857569343076362 (looks cool, adjust alg. a bit to deal with caves/flats decently)
+   3316589309694287545
 
 consider TNT under one loot chest nearest spawn? then need no more traps :)
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
