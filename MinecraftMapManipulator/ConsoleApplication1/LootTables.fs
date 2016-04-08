@@ -432,7 +432,7 @@ let addSlotTags(items) =
             slot := !slot + 1uy
     |]
 
-let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
+let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // dungeons and mineshafts
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier2ArmorBooks = [PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier2MeleeBooks = [SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]]
@@ -457,11 +457,12 @@ let NEWsampleTier2Chest(rng:System.Random) = // dungeons and mineshafts
             if rng.Next(2)=0 then
                 yield makeItem(rng,"saddle",1,1,0s)
                 yield makeItem(rng,"iron_horse_armor",1,1,0s)
-            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
+            if haveInnerChestsAndInstructions then
+                yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
         |]
     addSlotTags tier2Items 
 
-let NEWsampleTier3Chest(rng:System.Random) = // green beacon
+let NEWsampleTier3Chest(rng:System.Random,haveInnerChestsAndInstructions) = // green beacon
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier3ArmorBooks = [PROT[1..3]; FF[1..4]; BP[1..3]; PROJ[1..3]]
     let tier3MeleeBooks = [SHARP[1..3]; SMITE[2..4]; BOA[2..4]; KNOCK[2]]
@@ -475,19 +476,21 @@ let NEWsampleTier3Chest(rng:System.Random) = // green beacon
             yield! chooseNbooks(rng,F 3,tier3MeleeBooks)
             yield! chooseNbooks(rng,F 2,tier3UtilBooks)
             yield! chooseNbooks(rng,F 2,tier3BowBooks)
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng))
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng))
+            if haveInnerChestsAndInstructions then
+                yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
+                yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
             yield makeItem(rng,"experience_bottle",64,64,0s)
             yield makeItem(rng,"diamond_pickaxe",1,1,0s)
             yield makeItem(rng,"diamond_sword",1,1,0s)
             yield makeItem(rng,"iron_ingot",F 15,F 20,0s)
             yield makeItem(rng,"gold_ingot",F 15,F 20,0s)
             yield makeItem(rng,"cooked_beef",F 10,F 20,0s)
-            yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_GREEN_BEACON_CHEST; End |]
+            if haveInnerChestsAndInstructions then
+                yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_GREEN_BEACON_CHEST; End |]
         |]
     addSlotTags tier3Items 
 
-let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
+let NEWsampleTier4Chest(rng:System.Random,haveInnerChestsAndInstructions) = // flat dungeon
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier4ArmorBooks = [PROT[3..4]; BP[3..4]; PROJ[3..4]]
     let tier4MeleeBooks = [SHARP[4..5]; SMITE[5]; BOA[5]]
@@ -500,7 +503,9 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
             yield! chooseNbooks(rng,F 3,tier4UtilBooks)
             yield! chooseNbooks(rng,F 3,tier4BowBooks)
             yield makeItem(rng,"anvil",F 3,F 5,2s)
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng))
+            if haveInnerChestsAndInstructions then
+                yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng,false))
+                yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
             yield makeItem(rng,"diamond",F 10,F 16,0s)
             yield makeItem(rng,"golden_apple",F 4,F 7,0s)
             for _i = 1 to 2 do
@@ -508,7 +513,8 @@ let NEWsampleTier4Chest(rng:System.Random) = // flat dungeon
                     //String("Potion","minecraft:luck"); // make Ambient:1b
                     List("CustomPotionEffects",Compounds[|[|Byte("Id",26uy);Byte("Amplifier",0uy);Int("Duration",6000);Byte("Ambient",1uy); End|]|])
                     Compound("display", Strings.NameAndLore.LUCK_POTION_DISPLAY |> ResizeArray); End] |> ResizeArray); End |]
-            yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
+            if haveInnerChestsAndInstructions then
+                yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
         |]
     addSlotTags tier4Items 
 
@@ -516,12 +522,13 @@ let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier5Items =
         [|
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng))
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng,false))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng,false))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
             yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
             yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:golden_hoe"); Compound("tag",[
                         Int("Unbreakable",1); Strings.NameAndLore.DIVINING_ROD; End] |> ResizeArray); End |]
-            for _i = 1 to F 2 do
+            for _i = 1 to F 3 do
                 yield makeItem(rng,"experience_bottle",64,64,0s)
         |]
     addSlotTags tier5Items 
