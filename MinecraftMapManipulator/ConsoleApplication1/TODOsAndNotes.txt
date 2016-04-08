@@ -70,13 +70,13 @@ TODO: bugs & good ideas
 
 could make the gold hoe a shovel, and have column of dirt?
 savannah for kurt
-add other way to get enderchest?
 for cthulhu - maybe obe's seed (decide about food), other features...? cthulhu stuff (ink?)
 cow spawn eggs (too op?) rationing friendly mobs? ...
 is mountain peak too easy? can you assault it with green gear? (add more ghast/blaze spawners farther out (light not matter) and possibly more spawners in general; do they spin up immediately?  longer range?)
 should peak algorithm prefer extreme hills to savanna variants?
 
 NLC assumes loot is better outside daylight area, could be better to improve random loot chests outside (or generally vary more)... his map had 354 chests, percentages suggest about 9 in the daylight area
+ - maybe daylight ones only have like half-loot and half-stacks or something?
 plains/flower forest/sunflowers hide chest under weird flower formation
 any kind of 'progress meter' in cave dungeons? 
 

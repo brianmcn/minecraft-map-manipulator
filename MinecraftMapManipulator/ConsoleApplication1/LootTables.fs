@@ -457,6 +457,12 @@ let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // d
             if rng.Next(2)=0 then
                 yield makeItem(rng,"saddle",1,1,0s)
                 yield makeItem(rng,"iron_horse_armor",1,1,0s)
+            if rng.Next(3)=0 then
+                yield makeItem(rng,"ender_chest",1,1,0s)
+                yield [| Byte("Count",1uy); Short("Damage",59s); String("id","minecraft:wooden_pickaxe"); Compound("tag",[|
+                            Strings.NameAndLore.ONE_USE_PICK;
+                            List("ench",Compounds[|[|Short("id",32s);Short("lvl",5s);End|];[|Short("id",33s);Short("lvl",1s);End|]|]);  // EFF V, SILK
+                            End|]|>ResizeArray); End |]
             if haveInnerChestsAndInstructions then
                 yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
         |]

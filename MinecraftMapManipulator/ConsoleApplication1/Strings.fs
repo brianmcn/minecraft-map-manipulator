@@ -17,7 +17,7 @@ let private displayNameAndLore(name, lore:_[]) = // name or lore can be null
 let wrapInJSONTextContinued(s) = Utilities.wrapInJSONTextContinued(s,"(continued...)")
 
 module NameAndLore =
-    let SUPER_JUMP_BOOST = displayNameAndLore("Super jump boost",[|"Don't use without";"your elytra wings on!"|]) // TODO note 'elytra' here too
+    let SUPER_JUMP_BOOST = displayNameAndLore("Super jump boost",[|"Don't use without";"your elytra wings on!"|])
     let MONUMENT_BLOCK_PURPUR = displayNameAndLore("Monument Block: Purpur Block",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let MONUMENT_BLOCK_END_STONE_BRICK = displayNameAndLore("Monument Block: End Stone Brick",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let INNER_CHEST_WITH_NAME(name:TranslatableString) = displayNameAndLore(name.Text, [|"Place this chest"; "and open it"; "for more loot"|])
@@ -28,6 +28,7 @@ module NameAndLore =
     let BONUS_SAMPLE = displayNameAndLore(null,[|"Number of items";"in the stack";"equals how many";"chests in the world";"contain this item"|])
     let BONUS_ACTUAL = displayNameAndLore(null,[|"Bonus Monument Item"|])
     let WORLD_MAP = displayNameAndLore("Map of the entire world",null)
+    let ONE_USE_PICK = displayNameAndLore("One-use pickaxe",[|"Did you know that";"even wood can mine";"an enderchest if it";"has Silk Touch?"|])
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
 let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4bt5h0/map_feedback_thread/"""
