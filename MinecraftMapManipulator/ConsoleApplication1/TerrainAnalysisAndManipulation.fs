@@ -925,6 +925,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                         sidePaths.Add(sidePath)
                         //sideLengths.Sort()
                         let tes = ResizeArray()
+                        let addedSidePathLengths = ResizeArray()
                         for sidePath in sidePaths do
                             let _,spy,_ = sidePath.[0]
                             if spy <= YMAX-4 then // an apparent endpoint at a height near top may just be where there was a cave opening but the analysis cut off at high y and saw it as endpoint, so ignore high-y endpoints
@@ -946,7 +947,8 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                     let numEmeralds = 1 + rng.Next(F 2)
                                     let chestItems = Compounds[| [| Byte("Count",byte numEmeralds); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                     putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON, chestItems, map, tes)
-                        log.LogInfo(sprintf "added side paths with lengths: %A" (sidePaths |> Array.ofSeq |> Array.map (fun x -> x.Count)))
+                                    addedSidePathLengths.Add(l)
+                        log.LogInfo(sprintf "added side paths with lengths: %A" (addedSidePathLengths |> Array.ofSeq))
                         map.AddOrReplaceTileEntities(tes)
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
@@ -1409,10 +1411,10 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
         b = 21uy || b = 22uy || b = 23uy || b = 149uy || b = 151uy
     let computeBestHighPoints(minH) =
         let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,minH,minH+20,10,6,decorations)
-        let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 0)  // negative scores often mean tall spike with no nearby same-height ground, get rid of them
+        let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 5000)  // low scores often mean tall spike with no nearby same-height ground, get rid of them
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_PEAK*SPAWN_PROTECTION_DISTANCE_PEAK)
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x > MINIMUM+RADIUS && z > MINIMUM+RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
-        let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> not(isMegaTaigaOrJungle(biome.[x,z])))
+        let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> not(isMegaTaigaOrJungle(biome.[x,z])))  // we suck at dealing with tall trees
         bestHighPoints
     let bestHighPoints = 
         let mutable r = computeBestHighPoints(90)
@@ -1559,6 +1561,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
     let RADIUS = FLAT_COBWEB_DANGER_RADIUS
     let CR = RADIUS+DAYLIGHT_BEDROCK_BUFFER_RADIUS // ceiling radius
     let BEDROCK_HEIGHT = 127
+    let bestFlatPoints = bestFlatPoints |> Seq.filter (fun (_,_,_,s) -> s > -2000000)  // ad-hoc threshold for where the terrain starts being a lousy 'flat'
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_FLAT*SPAWN_PROTECTION_DISTANCE_FLAT)
     let bestFlatPoints = bestFlatPoints |> Seq.filter (fun ((x,z),_,_,_s) -> x > MINIMUM+CR && z > MINIMUM+CR && x < MINIMUM+LENGTH-CR-1 && z < MINIMUM+LENGTH-CR-1)
     let allFlatPoints = bestFlatPoints |> Seq.toArray 
@@ -1643,6 +1646,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
             for j = z-CR to z+CR do
                 map.SetBlockIDAndDamage(i,BEDROCK_HEIGHT,j,7uy,0uy) // 7 = bedrock
                 hm.[i,j] <- BEDROCK_HEIGHT
+    (*
     // decorate map with set piece
     let nextBestFlatPoints = [] // TODO these are not ready for primetime. bedrock ceiling not big enough, area not flat enough, loot/mobs not engaging enough, just not good.
     for (cx,cz),_,_,s in nextBestFlatPoints do
@@ -1689,7 +1693,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
             for z = cz-ROUT to cz+ROUT do
                 map.SetBlockIDAndDamage(x,BEDROCK_HEIGHT,z,7uy,0uy) // 7 = bedrock
                 hm.[x,z] <- BEDROCK_HEIGHT
-    ()
+    *)
 
 let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     printfn "double spawners..."
@@ -1843,8 +1847,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         for zz = z-2 to z+2 do
                                             if map.GetBlockInfo(xx,y+1,zz).BlockID <> 0uy || map.GetBlockInfo(xx,y+2,zz).BlockID <> 0uy then
                                                 ok <- false
-                                    if ok && rng.Next(20) = 0 then // TODO probability, so don't place on all
-                                        if noneWithin(150,points.[4],x,y,z) then
+                                    if ok && rng.Next(30) = 0 then // TODO probability, so don't place on all
+                                        if noneWithin(180,points.[4],x,y,z) then
                                             let y = y + 1
                                             // put cactus
                                             for dy = 0 to 1 do
@@ -3010,28 +3014,28 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() ->   // after hiding spots figured
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
+    time (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
         log.LogSummary("SAVING FILES")
         map.WriteAll()
         printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_) -> c='T') |> Seq.map(fun (_,x,z) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

@@ -36,13 +36,13 @@ let forumLink = """https://www.reddit.com/r/VanillaSwirlCTM/"""
 
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
-        wrapInJSONTextContinued """Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"""
-        Utilities.wrapInJSONText """(Note that these dungeon/mineshaft chests generate throughout the entire map, so if you need more gear like this, you can go caving most anywhere to find more.)"""
+        wrapInJSONTextContinued """Once you've geared up and are wearing metal armor, venture out into the night looking for one of the GREEN beacons. Each green beacon has a challenging path that leads to riches!"""
+        Utilities.wrapInJSONText """(Note that the dungeon/mineshaft chests that held this book generate throughout the entire map, so if you need more gear like this, you can go caving most anywhere to find more.)"""
      |]) |> ResizeArray)
 
 let BOOK_IN_GREEN_BEACON_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","2. After green beacon cave",[|
-         id """{"text":"If you feel protected enough, look for a RED beacon and try attacking a surface area filled with cobwebs... terrific rewards await you!"}"""
+         id """{"text":"If you feel protected enough, look for one of the RED beacons; conquer a surface area filled with cobwebs to earn the first monument block and some great loot!"}"""
      |]) |> ResizeArray)
 
 let BOOK_IN_FLAT_DUNGEON_CHEST = 
