@@ -36,7 +36,8 @@ let forumLink = """https://www.reddit.com/r/VanillaSwirlCTM/"""
 
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
-         id """{"text":"Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"}"""
+        wrapInJSONTextContinued """Once you've geared up and are wearing metal armor, you should venture out into the night looking for GREEN beacon light. A challenging path will lead to riches!"""
+        Utilities.wrapInJSONText """(Note that these dungeon/mineshaft chests generate throughout the entire map, so if you need more gear like this, you can go caving most anywhere to find more.)"""
      |]) |> ResizeArray)
 
 let BOOK_IN_GREEN_BEACON_CHEST = 
@@ -46,7 +47,7 @@ let BOOK_IN_GREEN_BEACON_CHEST =
 
 let BOOK_IN_FLAT_DUNGEON_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","3. After red beacon webs",[|
-         id """{"text":"Once strong enough, attack dangerous-looking bedrock-roofed mountain peaks to get a mysterious item that can locate the best treasure!"}"""
+         id """{"text":"Next attack dangerous-looking mountain peaks (high elevation terrain with a low bedrock roof) to get a mysterious item that can locate the best treasure!"}"""
      |]) |> ResizeArray)
 
 let BOOK_IN_MOUNTAIN_PEAK_CHEST =

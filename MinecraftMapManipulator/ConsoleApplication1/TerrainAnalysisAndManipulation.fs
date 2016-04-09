@@ -946,7 +946,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                     let numEmeralds = 1 + rng.Next(F 2)
                                     let chestItems = Compounds[| [| Byte("Count",byte numEmeralds); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
                                     putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON, chestItems, map, tes)
-                                    log.LogInfo(sprintf "added side path length %d" l)
+                        log.LogInfo(sprintf "added side paths with lengths: %A" (sidePaths |> Array.ofSeq |> Array.map (fun x -> x.Count)))
                         map.AddOrReplaceTileEntities(tes)
     // end foreach CC
     if finalEX = 0 && finalEZ = 0 then
@@ -1411,7 +1411,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
         let bestHighPoints = findBestPeaksAlgorithm(hmIgnoringLeaves,minH,minH+20,10,6,decorations)
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((_x,_z),_,_,s) -> s > 0)  // negative scores often mean tall spike with no nearby same-height ground, get rid of them
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x*x+z*z > SPAWN_PROTECTION_DISTANCE_PEAK*SPAWN_PROTECTION_DISTANCE_PEAK)
-        let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x > MINIMUM+RADIUS && z > MINIMUM + RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
+        let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> x > MINIMUM+RADIUS && z > MINIMUM+RADIUS && x < MINIMUM+LENGTH-RADIUS-1 && z < MINIMUM+LENGTH-RADIUS-1)
         let bestHighPoints = bestHighPoints |> Seq.filter (fun ((x,z),_,_,_) -> not(isMegaTaigaOrJungle(biome.[x,z])))
         bestHighPoints
     let bestHighPoints = 
@@ -1742,9 +1742,17 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     let isFlowingWater(nbi:BlockInfo) = 
         nbi.BlockID = 9uy && nbi.BlockData <> 0uy || nbi.BlockID = 8uy // flowing water
     let putTrappedChestWithLoot(color,x,y,z,tier) =
-        let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng,color)
-                    elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng,color)
-                    elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng,color)
+        let level = 
+            let dsq = x*x+z*z
+            if dsq < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
+                1
+            elif dsq < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS*5/2 then
+                2
+            else 
+                3
+        let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng,color,level)
+                    elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng,color,level)
+                    elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng,color,level)
                     else failwith "bad aesthetic tier"
         putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z)
@@ -2446,30 +2454,34 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
         let rng = new System.Random(0)  // separate generator for debug
         let chestItems = 
             Compounds[| 
-                    yield [| Byte("Count",1uy); Byte("Slot",1uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",0uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_HIDING_SPOT(Strings.TranslatableString"DUMMYNW"); End |]
-                    yield [| Byte("Count",1uy); Byte("Slot",2uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",1uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_WITH_ELYTRA; End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot",3uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count", 1uy); Byte("Slot",2uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.TELEPORTER_HUB_BOOK; End |]
-                    yield [| Byte("Count",1uy); Byte("Slot",4uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",3uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
 
-                    yield [| Byte("Count",1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",9uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Compound("tag", Utilities.makeWrittenBookTags(Strings.FISHING_DATA)|>ResizeArray); End |]
-                    yield [| Byte("Count",1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
-                    yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",11uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_GREEN_BEACON_CHEST; End |]
-                    yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_FLAT_DUNGEON_CHEST; End |]
-                    yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                    yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
 
                     yield [| yield Byte("Slot",19uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG mountain chest",LootTables.NEWsampleTier5Chest(rng)) |]
                     yield [| yield Byte("Slot",20uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,LootTables.NEWsampleTier4Chest(rng,true)) |]
                     yield [| yield Byte("Slot",21uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,LootTables.NEWsampleTier3Chest(rng,true)) |]
                     yield [| yield Byte("Slot",22uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,LootTables.NEWsampleTier2Chest(rng,true)) |]
+
+                    yield [| yield Byte("Slot",24uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG aesthetic 1",LootTables.NEWaestheticTier1Chest(rng,-1,1)) |]
+                    yield [| yield Byte("Slot",25uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG aesthetic 2",LootTables.NEWaestheticTier2Chest(rng,-1,1)) |]
+                    yield [| yield Byte("Slot",26uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG aesthetic 3",LootTables.NEWaestheticTier3Chest(rng,-1,1)) |]
                 |]
         putUntrappedChestWithItemsAt(3,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
     // bonus monument

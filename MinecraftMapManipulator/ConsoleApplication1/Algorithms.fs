@@ -22,7 +22,7 @@ let pickNnonindependently(rng:System.Random,n,a) =
             () // choose again
         else
             r.Add(a.[i])
-            counts.[i] <- counts.[i] + 1
+            counts.[i] <- counts.[i] + 2   // after chosen once, then 2/3 times would re-pick rather than dup, then 4/5 would re-pick rather than 3-dup, ...
     r.ToArray()
 
 

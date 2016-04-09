@@ -131,8 +131,8 @@ let BIOME_HELL_PERCENTAGE = 0.1
 let BIOME_SKY_PERCENTAGE = 0.2
 
 
-let DAYLIGHT_BEDROCK_BUFFER_RADIUS = 7
-let MOUNTAIN_PEAK_DANGER_RADIUS = 20
+let DAYLIGHT_BEDROCK_BUFFER_RADIUS = 7 // with luck potion, sunlight at 15 means bedrock needs to hang out farther over spawners to ensure low light to spawn
+let MOUNTAIN_PEAK_DANGER_RADIUS = 25
 let FLAT_COBWEB_DANGER_RADIUS = 40
 
 let SPAWN_PROTECTION_DISTANCE_GREEN = 210

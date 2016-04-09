@@ -539,29 +539,37 @@ let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
         |]
     addSlotTags tier5Items 
 
-let NEWaestheticTier1Chest(rng:System.Random, color) =
+let stackSize(level) =
+    match level with
+    | 1 -> 16
+    | 2 -> 32
+    | 3 -> 64
+    | _ -> failwith "bad level"
+
+let NEWaestheticTier1Chest(rng:System.Random, color, level) =
     let F = CustomizationKnobs.LOOT_FUNCTION
+    let SS = stackSize(level)
     let items =
         [|  // blocks
             yield! Algorithms.pickNnonindependently(rng,2,[
-                makeItem(rng,"stone",64,64,1s) // granite
-                makeItem(rng,"brick_block",64,64,0s)
-                makeItem(rng,"hardened_clay",64,64,0s)
-                makeItem(rng,"netherrack",64,64,0s)
-                makeItem(rng,"grass",64,64,0s)
-                makeItem(rng,"mossy_cobblestone",64,64,0s)
-                makeItem(rng,"obsidian",64,64,0s)
+                makeItem(rng,"stone",SS,SS,1s) // granite
+                makeItem(rng,"brick_block",SS,SS,0s)
+                makeItem(rng,"hardened_clay",SS,SS,0s)
+                makeItem(rng,"netherrack",SS,SS,0s)
+                makeItem(rng,"grass",SS,SS,0s)
+                makeItem(rng,"mossy_cobblestone",SS,SS,0s)
+                makeItem(rng,"obsidian",SS,SS,0s)
                 ])
             // fun
             yield makeItem(rng,"name_tag",3,10,0s)
             // utility blocks
             yield! Algorithms.pickNnonindependently(rng,2,[
-                makeItem(rng,"log",64,64,0s) // oak
-                makeItem(rng,"log",64,64,1s) // spruce
-                makeItem(rng,"log",64,64,2s) // birch
-                makeItem(rng,"log",64,64,3s) // jungle
-                makeItem(rng,"log2",64,64,0s) // acacia
-                makeItem(rng,"log2",64,64,1s) // dark oak
+                makeItem(rng,"log",SS,SS,0s) // oak
+                makeItem(rng,"log",SS,SS,1s) // spruce
+                makeItem(rng,"log",SS,SS,2s) // birch
+                makeItem(rng,"log",SS,SS,3s) // jungle
+                makeItem(rng,"log2",SS,SS,0s) // acacia
+                makeItem(rng,"log2",SS,SS,1s) // dark oak
                 ])
             // map-like stuff
             if rng.Next(2)=0 then
@@ -580,29 +588,30 @@ let NEWaestheticTier1Chest(rng:System.Random, color) =
         |]
     addSlotTags items 
 
-let NEWaestheticTier2Chest(rng:System.Random, color) =
+let NEWaestheticTier2Chest(rng:System.Random, color, level) =
     let F = CustomizationKnobs.LOOT_FUNCTION
+    let SS = stackSize(level)
     let items =
         [|  // blocks
             yield! Algorithms.pickNnonindependently(rng,3,[
-                makeItem(rng,"bookshelf",64,64,0s)
-                makeItem(rng,"glass",64,64,0s)
-                makeItem(rng,"glowstone",64,64,0s)
-                makeItem(rng,"stone",64,64,3s) // diorite
-                makeItem(rng,"mycelium",64,64,0s)
+                makeItem(rng,"bookshelf",SS,SS,0s)
+                makeItem(rng,"glass",SS,SS,0s)
+                makeItem(rng,"glowstone",SS,SS,0s)
+                makeItem(rng,"stone",SS,SS,3s) // diorite
+                makeItem(rng,"mycelium",SS,SS,0s)
                 ])
             // utility blocks
             yield! Algorithms.pickNnonindependently(rng,1,[
-                makeItem(rng,"log",64,64,0s) // oak
-                makeItem(rng,"log",64,64,1s) // spruce
-                makeItem(rng,"log",64,64,2s) // birch
-                makeItem(rng,"log",64,64,3s) // jungle
-                makeItem(rng,"log2",64,64,0s) // acacia
-                makeItem(rng,"log2",64,64,1s) // dark oak
+                makeItem(rng,"log",SS,SS,0s) // oak
+                makeItem(rng,"log",SS,SS,1s) // spruce
+                makeItem(rng,"log",SS,SS,2s) // birch
+                makeItem(rng,"log",SS,SS,3s) // jungle
+                makeItem(rng,"log2",SS,SS,0s) // acacia
+                makeItem(rng,"log2",SS,SS,1s) // dark oak
                 ])
             // fun
             yield makeItem(rng,"jukebox",1,1,0s)
-            yield! Algorithms.pickNnonindependently(rng,4,[
+            yield! Algorithms.pickNnonindependently(rng,level+1,[
                     makeItem(rng,"record_13",1,1,0s)
                     makeItem(rng,"record_cat",1,1,0s)
                     makeItem(rng,"record_blocks",1,1,0s)
@@ -616,7 +625,7 @@ let NEWaestheticTier2Chest(rng:System.Random, color) =
                     makeItem(rng,"record_11",1,1,0s)
                     makeItem(rng,"record_wait",1,1,0s)
                     ])
-            yield! Algorithms.pickNnonindependently(rng,2,[
+            yield! Algorithms.pickNnonindependently(rng,level,[
                     makeItemCore(rng,"fireworks",16,16,0s,[|Compound("tag",[|Compound("Fireworks",[|List("Explosions",Compounds([|
                                     [|Byte("Type",2uy);Byte("Flicker",1uy);Byte("Trail",1uy);IntArray("Colors",[|56831|]);IntArray("FadeColors",[|16715263|]);End|]
                                 |]));End|]|>ResizeArray);End|]|>ResizeArray)|])
@@ -629,14 +638,14 @@ let NEWaestheticTier2Chest(rng:System.Random, color) =
                     ])
             // rail & redstone
             if rng.Next(3)<>0 then
-                yield makeItem(rng,"rail",64,64,0s)
+                yield makeItem(rng,"rail",64,64,0s)  // keep rail at 64-stacks regardless of level
                 yield makeItem(rng,"rail",64,64,0s)
                 yield makeItem(rng,"golden_rail",64,64,0s)
-                yield makeItem(rng,"redstone_block",64,64,0s)
+                yield makeItem(rng,"redstone_block",SS,SS,0s)
             yield! Algorithms.pickNnonindependently(rng,2,[
-                    makeItem(rng,"comparator",64,64,0s)
-                    makeItem(rng,"piston",64,64,0s)
-                    makeItem(rng,"slime",64,64,0s)
+                    makeItem(rng,"comparator",SS,SS,0s)
+                    makeItem(rng,"piston",SS,SS,0s)
+                    makeItem(rng,"slime",SS,SS,0s)
                     ])
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
@@ -652,18 +661,19 @@ let NEWaestheticTier2Chest(rng:System.Random, color) =
     addSlotTags items 
 
 // TODO 16 dyes? (would also be lapis)
-let NEWaestheticTier3Chest(rng:System.Random, color) =
+let NEWaestheticTier3Chest(rng:System.Random, color, level) =
+    let SS = stackSize(level)
     let items =
         [|  // blocks
             yield! Algorithms.pickNnonindependently(rng,3,[
-                makeItem(rng,"quartz_block",64,64,0s)
-                makeItem(rng,"prismarine",64,64,0s)
-                makeItem(rng,"sea_lantern",64,64,0s)
-                makeItem(rng,"hay_block",64,64,0s)
+                makeItem(rng,"quartz_block",SS,SS,0s)
+                makeItem(rng,"prismarine",SS,SS,0s)
+                makeItem(rng,"sea_lantern",SS,SS,0s)
+                makeItem(rng,"hay_block",SS,SS,0s)
                 ])
             // other chests
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1))
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng,-1))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1,level))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng,-1,level))
             if CustomizationKnobs.KURT_SPECIAL then
                 if color <> -1 then
                     yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
