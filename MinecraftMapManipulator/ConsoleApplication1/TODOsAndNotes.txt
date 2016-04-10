@@ -74,14 +74,21 @@ TODO: bugs & good ideas
 savannah for kurt... found seed 528
 for cthulhu - seed 'mesa2'? mesa3? other features...? cthulhu stuff (ink?)
 cow spawn eggs (too op?) rationing friendly mobs? ...
-could make the gold hoe a shovel, and have column of dirt?
+(pacing: map has two halves, kinda)
+
+
+maybe-consider with more feedback:
 are there too many webs in the red?
-green - slightly less creepers?
-thank ChaosC for actionable feedback?
+could make the gold hoe a shovel, and have column of dirt?
+
+
+future features/map request:
 thunderstorm rather than night outside the ring?
 plains/flower forest/sunflowers hide chest under weird flower formation
 any kind of 'progress meter' in cave dungeons? 
-(pacing: map has two halves, kinda)
+what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
+
+
 
 post to minecraftmaps, forum?
 

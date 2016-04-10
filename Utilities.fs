@@ -1454,7 +1454,7 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
     let mapFolder = System.IO.Path.GetDirectoryName(regionFolder)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverview.png"))
 
-    let placeRedLetterAt(letter, centerX, centerZ) =
+    let placeRedLetterAt(letter, centerX, centerZ, color) =
         let D = 9
         let ix = centerX - 4*(D+1)/2  // letters 4 wide
         let iy = centerZ - 5*(D+1)/2  // letters 5 tall
@@ -1463,16 +1463,45 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
             for j = 0 to 4 do
                 for k = 0 to 4 do
                     if ALPHABET5.[j].[5*i+k] = 'X' then
-                        for dx = 0 to D do
-                            for dy = 0 to D do
-                                try
-                                    image.SetPixel(ix+k*D+dx-xmin, iy+j*D+dy-zmin, System.Drawing.Color.FromArgb(255,0,0))
-                                with _ -> () // if goes off edge, just don't draw
+                        if letter = '*' then // special case inside of '*' decorations for random loot chests to show color glass inside
+                            for dx = -2 to D+2 do
+                                for dy = -2 to D+2 do
+                                    let c =
+                                        if color <> -1 && dx>=0 && dx<=D && dy>=0 && dy<D then
+                                            match color with
+                                            |  0 -> System.Drawing.Color.FromArgb(221,221,221)
+                                            |  1 -> System.Drawing.Color.FromArgb(219,125, 62)
+                                            |  2 -> System.Drawing.Color.FromArgb(179, 80,188)
+                                            |  3 -> System.Drawing.Color.FromArgb(107,138,201)
+                                            |  4 -> System.Drawing.Color.FromArgb(177,166, 39)
+                                            |  5 -> System.Drawing.Color.FromArgb( 65,174, 56)
+                                            |  6 -> System.Drawing.Color.FromArgb(208,132,153)
+                                            |  7 -> System.Drawing.Color.FromArgb( 64, 64, 64)
+                                            |  8 -> System.Drawing.Color.FromArgb(154,161,161)
+                                            |  9 -> System.Drawing.Color.FromArgb( 46,110,137)
+                                            | 10 -> System.Drawing.Color.FromArgb(126, 61,181)
+                                            | 11 -> System.Drawing.Color.FromArgb( 46, 56,141)
+                                            | 12 -> System.Drawing.Color.FromArgb( 79, 50, 31)
+                                            | 13 -> System.Drawing.Color.FromArgb( 53, 70, 27)
+                                            | 14 -> System.Drawing.Color.FromArgb(150, 52, 48)
+                                            | 15 -> System.Drawing.Color.FromArgb( 25, 22, 22)
+                                            | _ -> failwith "unknown color"
+                                        else
+                                            System.Drawing.Color.FromArgb(255,0,0)
+                                    try
+                                        image.SetPixel(ix+k*D+dx-xmin, iy+j*D+dy-zmin, c)
+                                    with _ -> () // if goes off edge, just don't draw
+                        else
+                            for dx = 0 to D do
+                                for dy = 0 to D do
+                                    try
+                                        image.SetPixel(ix+k*D+dx-xmin, iy+j*D+dy-zmin, System.Drawing.Color.FromArgb(255,0,0))
+                                    with _ -> () // if goes off edge, just don't draw
         | None -> failwith "bad letter"
         //image.SetPixel(centerX-xmin, centerZ-zmin, System.Drawing.Color.FromArgb(0,255,255)) // remove this, just for debugging
     draw(biome,true)
-    for (c,x,z) in decorations do
-        placeRedLetterAt(c,x,z)
+    for (c,x,z,color) in decorations do
+        placeRedLetterAt(c,x,z,color)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
 
