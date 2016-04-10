@@ -1168,7 +1168,7 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                                         | String("LootTable",_) ->
                                             ent.[k] <- List("Items", Compounds(LootTables.NEWsampleTier2Chest(rng,true)))
                                         | Long("LootTableSeed",_) ->
-                                            ent.[k] <- String("DummyTag","unused")
+                                            ent.[k] <- String("CustomName",Strings.NAME_OF_DEFAULT_MINECRAFT_MINECART_CHEST.Text)
                                         | _ -> ()
                                     //printfn "found MC near %d %d" (rx*512+cx*16) (rz*512+cz*16)
                         | _ -> ()
@@ -2387,13 +2387,16 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     I(sprintf "scoreboard players set fX hidden %d" finalEX)
     I(sprintf "scoreboard players set fZ hidden %d" finalEZ)
     I("scoreboard players set CTM hidden 0")
+    // map/logo
+    I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10000s},Facing:3b}""" -2 (h+4) 2) // damage values from Utilities.makeInGameOverviewMap
+    I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10001s},Facing:3b}""" -2 (h+4) 1) // damage values from Utilities.makeInGameOverviewMap
+    I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10002s},Facing:3b}""" -2 (h+3) 2) // damage values from Utilities.makeInGameOverviewMap
+    I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10003s},Facing:3b}""" -2 (h+3) 1) // damage values from Utilities.makeInGameOverviewMap
     // repeat blocks to check for CTM completion
     I(sprintf "blockdata 0 %d 0 {auto:1b}" (h-11))
     I(sprintf "blockdata 1 %d 0 {auto:1b}" (h-11))
     I(sprintf "blockdata 2 %d 0 {auto:1b}" (h-11))
     I(sprintf "fill 0 %d 0 0 255 0 air" !y) // remove all the ICBs
-    
-
 
     // clear space above spawn platform...
     // ..remove entirety of nearby trees
@@ -2513,7 +2516,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             Compounds[| 
                     for i = 1 to 8 do
                         yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
-                    yield [| Byte("Count", 16uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:filled_map"); Compound("tag", [|Strings.NameAndLore.WORLD_MAP; End|]|>ResizeArray); End |]
+                    yield [| Byte("Count", 32uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:filled_map"); Compound("tag", [|Strings.NameAndLore.WORLD_MAP; End|]|>ResizeArray); End |]
                     yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
                     yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
                     for i = 10 to 17 do
@@ -2535,6 +2538,11 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                 |]
         putUntrappedChestWithItemsAndOrientationAt(-3,h+2,2,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
         Utilities.editMapDat(worldSaveFolder+"""\data\map_0.dat""",4uy,0,0)
+    // map/logo backing
+    map.SetBlockIDAndDamage(-3,h+3,1,156uy,4uy) //156,4=quartz_stairs, facing east, upside down
+    map.SetBlockIDAndDamage(-3,h+3,2,156uy,4uy) //156,4=quartz_stairs, facing east, upside down
+    map.SetBlockIDAndDamage(-3,h+4,1,156uy,0uy) //156,0=quartz_stairs, facing east, right side up
+    map.SetBlockIDAndDamage(-3,h+4,2,156uy,0uy) //156,0=quartz_stairs, facing east, right side up
     // the TP hub...
     // ...walls and room
     for x = -2 to 4 do
@@ -3014,21 +3022,21 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    time (fun() ->   // after hiding spots figured
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() ->   // after hiding spots figured
         log.LogSummary("COMPASS CMDS")
         placeCompassCommands(map,log))
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("RELIGHTING THE WORLD")
         RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() ->
@@ -3041,6 +3049,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], 
                                 teleporterCenters, decorations)
+        Utilities.makeInGameOverviewMap(worldSaveFolder+"""\region""", origBiome, MINIMUM, LENGTH, MINIMUM, LENGTH)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
     let now = System.DateTime.Now.ToString()

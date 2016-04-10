@@ -1476,3 +1476,87 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
 
 
+let makeMapDat(filename,scale,xCenter,zCenter,colors) =
+    let nbt = NBT.Compound("",[NBT.Compound("data",[
+        Byte("scale",scale)
+        Byte("dimension",0uy)
+        Short("height",128s)
+        Short("width",128s)
+        Int("xCenter",xCenter)
+        Int("zCenter",zCenter)
+        ByteArray("colors",colors)
+        End
+        ]|>ResizeArray);End]|>ResizeArray)
+    writeDatFile(filename+".new", nbt)
+    System.IO.File.Delete(filename)
+    System.IO.File.Move(filename+".new",filename)
+
+let REDDITURLVANILLASWIRLCTM = 
+    [|
+    ".........................................................................................................................................................................."
+    ".........................................................................................................................................................................."
+    ".....................X......X....X................................X...........X.X.....X.................X.X.........XXXX.....................X...XXXXX.XXXXXXX.XX.....XX.."
+    ".....................X......X.X..X................................X...........X.X.....X...............X.X.X........X................X........X..X.........X....XXX...XXX.."
+    "..X.XXX...XXXX...XXXXX..XXXXX...XXXX.....XXXX..XXXX..X.XX.XXX....X..X.XXX....X...X...X...XXXX..X.XXX....X.X..XXXX..X......X.......x...X.XXX..X.X..........X....X.XX.XX.X.."
+    "..XX...X.X....X.X....X.X....X.X..X......X.....X....X.XX..X...X...X..XX...X...X...X...X.......X.XX...X.X.X.X......X..XX....X...X...X.X.XX...X.X.X..........X....X..XXX..X.."
+    "..X......XXXXXX.X....X.X....X.X..X......X.....X....X.X...X...X..X...X.......X.....X.X....XXXXX.X....X.X.X.X..XXXXX....XX...X.X.X.X..X.X......X.X..........X....X...X...X.."
+    "..X......X......X....X.X....X.X..X......X.....X....X.X...X...X..X...X.......X.....X.X...X....X.X....X.X.X.X.X....X......X..X.X.X.X..X.X......X.X..........X....X.......X.."
+    "..X......X......X....X.X....X.X..X...XX.X.....X....X.X...X...X.X....X......X.......X....X....X.X....X.X.X.X.X....X......X...X...X...X.X......X..X.........X....X.......X.."
+    "..X.......XXXX...XXXXX..XXXXX.X...XX.XX..XXXX..XXXX..X...X...X.X....X......X.......X.....XXXXX.X....X.X.X.X..XXXXX.XXXXX....X...X...X.X......X...XXXXX....X....X.......X.."
+    ".........................................................................................................................................................................."
+    ".........................................................................................................................................................................."
+    |]
+
+let makeInGameOverviewMap(regionFolder, origBiome:byte[,], xmin, xlen:int, zmin, zlen:int) =
+    let size = 256
+    let image = new System.Drawing.Bitmap(size,size)
+    assert(xlen=zlen)
+    assert(xlen%size=0)
+    let SCALE = xlen/size
+    let bigColors = Array2D.zeroCreate size size
+    // for exach pixel on scaled-down image
+    for i = 0 to size-1 do
+        for j = 0 to size-1 do
+            // compute representative biome for this square portion
+            let scores = Array.zeroCreate 256
+            let x,z = i*SCALE+xmin, j*SCALE+zmin
+            for dx = 0 to SCALE-1 do
+                for dz = 0 to SCALE-1 do
+                    let b = int origBiome.[x+dx,z+dz]
+                    let penalty = [| 16; 8; 4; 0; 1; 5; 9; 17 |]  // ad-hoc center weighting
+                    let score = 100 - penalty.[dx] - penalty.[dz]
+                    scores.[b] <- scores.[b] + score
+            let maxScore = Array.max scores
+            let representativeBiome = scores |> Array.findIndex (fun x -> x = maxScore)
+            // draw it
+            let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=representativeBiome) |> (fun (_,_,color) -> color)
+            bigColors.[i,j] <- byte mapColorIndex 
+            let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
+            assert(mci = mapColorIndex)
+            image.SetPixel(i, j, System.Drawing.Color.FromArgb(r,g,b))
+    // add the URL
+    let height = REDDITURLVANILLASWIRLCTM.Length 
+    let width = REDDITURLVANILLASWIRLCTM.[0].Length 
+    let left = (size-width)/2
+    let top = size-height-5
+    for i = 0 to width-1 do
+        for j = 0 to height-1 do
+            let x = left+i
+            let y = top+j
+            if REDDITURLVANILLASWIRLCTM.[j].[i] = 'X' then
+                image.SetPixel(x, y, System.Drawing.Color.Black)
+                bigColors.[x,y] <- 119uy // black-ish
+            else
+                image.SetPixel(x, y, System.Drawing.Color.White)
+                bigColors.[x,y] <- 34uy  // white-ish
+    let mapFolder = System.IO.Path.GetDirectoryName(regionFolder)
+    image.Save(System.IO.Path.Combine(mapFolder,"mapInGame.png"))
+    // write map.dat files for imaginary maps    
+    let topLeft = Array.init 16384 (fun i -> bigColors.[i%128,i/128])
+    makeMapDat(System.IO.Path.Combine(mapFolder,"""data\map_10000.dat"""),0uy,999999,999999,topLeft)
+    let topRight = Array.init 16384 (fun i -> bigColors.[128+i%128,i/128])
+    makeMapDat(System.IO.Path.Combine(mapFolder,"""data\map_10001.dat"""),0uy,999999,999999,topRight)
+    let bottomLeft = Array.init 16384 (fun i -> bigColors.[i%128,128+i/128])
+    makeMapDat(System.IO.Path.Combine(mapFolder,"""data\map_10002.dat"""),0uy,999999,999999,bottomLeft)
+    let bottomRight = Array.init 16384 (fun i -> bigColors.[128+i%128,128+i/128])
+    makeMapDat(System.IO.Path.Combine(mapFolder,"""data\map_10003.dat"""),0uy,999999,999999,bottomRight)

@@ -67,6 +67,7 @@ publish checklist:
 TEST
 books 123 for multiple dungeon clairty
 playthru to see if chest-nest-rebalance ok (ideally not all diamond gear at end)
+NAME_OF_DEFAULT_MINECRAFT_MINECART_CHEST
 
 TODO: bugs & good ideas
 
