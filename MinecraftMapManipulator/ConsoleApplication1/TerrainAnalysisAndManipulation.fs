@@ -1974,7 +1974,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     putFurnaceWithLoot(9,x,y,z)
                                     points.[9].Add( (x,y,z) )
                                     names.[9] <- "surface lava pool"
-                                    printfn "lava %d %d %d" x y z
+                                    //printfn "lava %d %d %d" x y z
                     elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 78uy && checkForPlus(x,y,z,2uy,2uy) && checkForPlus(x,y+1,z,78uy,78uy) then
                         // 3x3 of grass with snow above
                         let b = biome.[x,z]
@@ -2080,12 +2080,19 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     map.AddTileTick("minecraft:repeating_command_block",1,0,x,y,z)
                 // end for y
                 if hmIgnoringLeaves.[x,z] > 100 then
-                    if noneWithin(120,points.[10],x,y,z) then
+                    if noneWithin(160,points.[10],x,y,z) then
                         let h = hmIgnoringLeaves.[x,z]
                         // if a local maximum
-                        if h>hmIgnoringLeaves.[x-1,z-1]+1 && h>hmIgnoringLeaves.[x+0,z-1]+1 && h>hmIgnoringLeaves.[x+1,z-1]+1 && 
-                            h>hmIgnoringLeaves.[x-1,z+0]+1 &&                                   h>hmIgnoringLeaves.[x+1,z+0]+1 && 
-                            h>hmIgnoringLeaves.[x-1,z+1]+1 && h>hmIgnoringLeaves.[x+0,z+1]+1 && h>hmIgnoringLeaves.[x+1,z+1]+1 then
+                        let D = 10
+                        let isValid(coord) = coord >= MINIMUM+D && coord <= MINIMUM+LENGTH-1-D
+                        let mutable isMax = isValid(x) && isValid(z) // only work with ones we can properly check without going out of bounds
+                        for dx = -D to D do
+                            if isMax then
+                                for dz = -D to D do
+                                    if isMax then
+                                        if not(dx=0&&dz=0) && h <= hmIgnoringLeaves.[x+dx,z+dz] then
+                                            isMax <- false
+                        if isMax then
                             // if not a log
                             let y = hmIgnoringLeaves.[x,z]
                             let bid = map.GetBlockInfo(x,y,z).BlockID
@@ -2102,6 +2109,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     putTrappedChestWithLoot(10,x,y-1,z,2)
                                     points.[10].Add( (x,y-1,z) )
                                     names.[10] <- "mountain fire spire"
+                                    printfn "CRAZY SPIRE %d %d %d" x y z
             // end if not near deco
         // end for z
     // end for x

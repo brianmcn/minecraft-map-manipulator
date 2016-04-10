@@ -76,7 +76,6 @@ for cthulhu - seed 'mesa2'? mesa3? other features...? cthulhu stuff (ink?)
 cow spawn eggs (too op?) rationing friendly mobs? ...
 (pacing: map has two halves, kinda)
 
-
 maybe-consider with more feedback:
 are there too many webs in the red?
 could make the gold hoe a shovel, and have column of dirt?
