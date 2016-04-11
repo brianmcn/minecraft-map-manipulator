@@ -112,7 +112,7 @@ let STARTING_BOOK_OVERVIEW =
                                 wrapInJSONTextContinued "TECH PROGRESSION\n\nThere's no netherwart in the map and no potions given in chests.\n\nYou'll probably spend a little time with wood tools before managing to acquire some stone/gold/iron upgrades."
                                 wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you ought NOT need to farm xp/drops, mine for diamonds, nor make an enchanting table, but you CAN if you want."
                                 wrapInJSONTextContinued "...\nThere will be emeralds in some loot chests. You should save them, as eventually you may unlock the ability to trade emeralds for some very useful buffs."
-                                wrapInJSONTextContinued "RANDOMLY GENERATED\n\nThis map was created entirely via algorithms. The Minecraft terrain generator made the original terrain, and my program added dungeons, loot, monument, & secrets automatically."
+                                wrapInJSONTextContinued "RANDOMLY GENERATED\n\nAlgorithms created this entire map. The VANILLA Minecraft generator made the original terrain; my program added a SWIRL of dungeons, loot, monument, & secrets automatically."
                                 wrapInJSONTextContinued "THANKS\n\nThanks to obesity84, FixxxerTV, no_leaf_clover, Thungon217, and ChaosC for providing useful feedback and entertainment in previous playthroughs!"
                                 sprintf """[{"text":"MORE INFO\n\nYou can learn more about the map, request features, give feedback, etc. on the map forum here:\n\n"},{"text":"Vanilla Swirl CTM subreddit","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}},{"text":"\n\n(continued...)"}]""" forumLink
                                 sprintf """[{"text":"If you enjoyed the map and would like to leave me a donation, I'd very much appreciate that!\n\n"},{"text":"Click to donate","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
@@ -165,8 +165,8 @@ let BONUS_MONUMENT_BOOK =
                                 wrapInJSONTextContinued "Each kind of loot chest has a corresponding stained glass block of a certain color. The goal of this challenge is to fill the empty slots in the top half of this chest with found blocks."
                                 wrapInJSONTextContinued "The bottom half of the chest has sample blocks, where the number of stained glass in the stack equals the number of loot chests in the world that contain that color."
                                 wrapInJSONTextContinued "For example, a stack of 25 lime stained glass means there are 25 instances of a certain kind of loot box; your goal is to find at least one of those and bring back the lime glass."
-                                wrapInJSONTextContinued "(The black stained glass panes are just filler/border to help you keep track of remaining empty slots.)"
-                                Utilities.wrapInJSONText "It will be very difficult to find all the colors, but how many can you find?\n\nMaps given in the chest here may help you track where you've been.\n\nGood luck!"
+                                wrapInJSONTextContinued "(The black stained glass panes are just filler/border to help you keep track of remaining empty slots.)\n\nIt will be very difficult to find all the colors, but how many can you find?"
+                                Utilities.wrapInJSONText "Maps given in the chest here may help you track where you've been.\n\nOverview map of the world above this chest suggests the world layout, pre-swirl.\n\nGood luck!"
                             |]) |> ResizeArray)
 
 

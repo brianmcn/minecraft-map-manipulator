@@ -4,6 +4,7 @@ MOJANG BUGS
 beacon at spawn sometimes not render, villager in hub sometimes not render
 absorbtion/HB hearts sometimes not show (client reset 4ixes)
 go thru gateway on horse 91628
+elytra no work after tp https://bugs.mojang.com/browse/MC-92916
 
 TO TEST
 
@@ -65,14 +66,23 @@ publish checklist:
 	go in and check spawn, teleporters, orchid, 
 
 TEST
-books 123 for multiple dungeon clairty
 playthru to see if chest-nest-rebalance ok (ideally not all diamond gear at end)
 NAME_OF_DEFAULT_MINECRAFT_MINECART_CHEST
 
 TODO: bugs & good ideas
 
+elytra-thru-gateway bug - add note to tp hub book!
+
+had 100 silverfish in final, do turn on limiter by default (and refine the text it prints)
+add more XP bottles to red (can take one out of peak then too? peaks are still easy-ish with good armor)
+
+did a play: 1.5 hours to finish green, 1 more for red, 0.5 for peak, 1.5 to finish, quite hard, got 9/12 bonus blocks
+brutal: shorten green/purple max by 50 each
+
+spawners/freq/type 'too near' spawn, e.g. https://www.reddit.com/r/VanillaSwirlCTM/comments/4e7cpc/an_update_on_the_evolution_of_the_map/d1yo65v
+
 savannah for kurt... found seed 528
-for cthulhu - seed 'mesa2'? mesa3? other features...? cthulhu stuff (ink?)
+for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
 cow spawn eggs (too op?) rationing friendly mobs? ...
 (pacing: map has two halves, kinda)
 
@@ -218,3 +228,5 @@ idea: five lives: each time you die, your default max hearts decreases 2 (discou
 -2 -3 -4 -5 valid amplifiers for 8 6 4 2 hearts
 but the drinkable health pot would override completely... might be nice to 'buy back' hearts at a time, dunno, kinda tedious...
 overall, not too compelling; those who would avoid suicide don't need the extra challenge, they'll challenge selves; just creating busy work for those who would suicide
+
+

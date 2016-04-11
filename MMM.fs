@@ -1509,35 +1509,14 @@ automatic game start configs (night vision, starting items), customizable
 
    
     (*
-    let countRepresentedChunks(r:RegionFile) =
-        let mutable rep, no = 0,0
-        for cx = 0 to 31 do
-            for cz = 0 to 31 do
-                let x = r.RX*512 + cx*16
-                let z = r.RZ*512 + cz*16
-                let bi = r.MaybeGetBlockInfo(x,0,z)
-                if bi = null then
-                    no <- no + 1
-                else
-                    rep <- rep + 1
-        printfn "%4d rep, %4d not" rep no
     do
         let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\QFETest\region\""")
-        let r = map.MaybeGetRegion(520,0)
-        countRepresentedChunks(r)
-        if true then
-            let X,Y,Z = -300,80,60
-            makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
-            //RecomputeLighting.relightTheWorldHelper(map, [-1..-1], [0..0], false)
-            RecomputeLighting.relightTheWorld(map)
-            let r = map.MaybeGetRegion(520,0)
-            countRepresentedChunks(r)
-            map.WriteAll()
+        let X,Y,Z = -300,80,60
+        makeGetAllItemsGame(map,X,Y,Z,X-10,Y,Z-10)
+        RecomputeLighting.relightTheWorld(map)
+        map.WriteAll()
     *)
-
     //testCompass4()
-
-
 
 //    System.Windows.Clipboard.SetText(custom)   // AFK pregen: http://pastebin.com/uq09kFNW
     //let worldSeed = 14 
