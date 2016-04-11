@@ -27,6 +27,7 @@ playtest note: Obe used elytra to zoom in & out of 2nd mountain peak for extra l
 playtest note: Obe finished in 14 hours (6 hours on camera, 8 farming, exploring, etc) with 13 deaths
 playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
 playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
+playtest note: did a play: 1.5 hours to finish green, 1 more for red, 0.5 for peak, 1.5 to finish, quite hard, got 9/12 bonus blocks
 
 COLLECTABLES:
 
@@ -56,6 +57,11 @@ Apr2016A - seed ice-spikes, single, normal   // LNG request
 
 
 CHECKLIST (automate?)
+make world checklist:
+    tweak customization knobs
+	(ensure RCTM world has right ore settings)
+	set up world name
+	run it
 publish checklist: 
 	fix icon
 	do any manual customization
@@ -66,20 +72,9 @@ publish checklist:
 	go in and check spawn, teleporters, orchid, 
 
 TEST
-playthru to see if chest-nest-rebalance ok (ideally not all diamond gear at end)
-NAME_OF_DEFAULT_MINECRAFT_MINECART_CHEST
+see how feesh warning message and limiter itself work in practice
 
 TODO: bugs & good ideas
-
-elytra-thru-gateway bug - add note to tp hub book!
-
-had 100 silverfish in final, do turn on limiter by default (and refine the text it prints)
-add more XP bottles to red (can take one out of peak then too? peaks are still easy-ish with good armor)
-
-did a play: 1.5 hours to finish green, 1 more for red, 0.5 for peak, 1.5 to finish, quite hard, got 9/12 bonus blocks
-brutal: shorten green/purple max by 50 each
-
-spawners/freq/type 'too near' spawn, e.g. https://www.reddit.com/r/VanillaSwirlCTM/comments/4e7cpc/an_update_on_the_evolution_of_the_map/d1yo65v
 
 savannah for kurt... found seed 528
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)

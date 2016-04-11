@@ -6,13 +6,13 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = true
+let SINGLEPLAYER = false
 
 
 let KURT_SPECIAL = true
-let SILVERFISH_LIMITS = false
-let SILVERFISH_BIG = if SINGLEPLAYER then 20 else 30
-let SILVERFISH_SMALL = if SINGLEPLAYER then 10 else 20
+let SILVERFISH_LIMITS = true
+let SILVERFISH_BIG = if SINGLEPLAYER then 20 else 25
+let SILVERFISH_SMALL = if SINGLEPLAYER then 10 else 15
 let DEBUG_CHESTS = false
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
@@ -112,11 +112,14 @@ let FLAT_SET_PIECE_SPAWNER_DATA =
     SpawnerData([|(4,"Zombie"); (1,"Skeleton") |],                                              UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s))
 
 // terrain ore substitutes
+let NEAR_SPAWN_SPAWNER_DATA = // in daylight radius, be kinder underground
+    SpawnerData([|(3,"Zombie"); (1,"Skeleton")|],     0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
+
 let GRANITE_COUNT = int(UHC_MULT_A*12.0)
 let GRANITE_SPAWNER_DATA = 
     SpawnerData([|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (2,"Creeper")|],     0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
 let REDSTONE_COUNT = int(UHC_MULT_A*4.0)
-let REDTSONE_SPAWNER_DATA = 
+let REDSTONE_SPAWNER_DATA = 
     SpawnerData([|(1,"Zombie"); (1,"Skeleton"); (1,"Spider"); (1,"Blaze"); (1,"Creeper"); (1,"CaveSpider")|], 0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
 
 // vanilla dungeon additions

@@ -155,7 +155,8 @@ let TELEPORTER_HUB_BOOK =
                             "Lorgon111","Teleport hub",
                             [|
                                 wrapInJSONTextContinued "This teleporter hub allows for faster travel to unlocked corners of the map. Each unlocked teleporter also provides a villager who trades emeralds for potion buffs."
-                                Utilities.wrapInJSONText "If you can't see a villager in this room, exit/disconnect from the world, then reload/rejoin, and the villager should appear above the teleporter (Minecraft rendering bug)."
+                                wrapInJSONTextContinued "If you can't see a villager in this room, exit/disconnect from the world, then reload/rejoin, and the villager should appear above the teleporter (Minecraft rendering bug)."
+                                Utilities.wrapInJSONText "WARNING: After going through a teleporter, a lot of other bugs occur in this version of Minecraft :( Example: elytra glider wings may no longer deploy.\n\nYOU SHOULD RE-LOG EACH TIME YOU TELELPORT!"
                             |]) |> ResizeArray)
 let BONUS_MONUMENT_BOOK =
     Compound("tag", Utilities.makeWrittenBookTags(
@@ -203,7 +204,7 @@ let TELLRAW_FINAL_1 = """tellraw @a ["You've completed the monument, congratulat
 let TELLRAW_FINAL_2 = sprintf """tellraw @a [{"text":"Click to leave feedback about the map","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" feedbackLink
 let TELLRAW_FINAL_3 = """tellraw @a ["I hope you enjoyed the map. If you did, and would like to leave a donation, I'd appreciate it very much."]"""
 let TELLRAW_FINAL_4 = sprintf """tellraw @a [{"text":"Donation link","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
-let TELLRAW_SILVERFISH_LIMIT_ON = sprintf """tellraw @a ["At least %d silverfish detected, turning ON silverfish limiter"]""" CustomizationKnobs.SILVERFISH_BIG
+let TELLRAW_SILVERFISH_LIMIT_ON = sprintf """tellraw @a ["At least %d silverfish detected, turning ON silverfish limiter: newly spawned silverfish will be automatically removed"]""" CustomizationKnobs.SILVERFISH_BIG
 let TELLRAW_SILVERFISH_LIMIT_OFF = sprintf """tellraw @a ["At most %d silverfish detected, turning OFF silverfish limiter"]""" CustomizationKnobs.SILVERFISH_SMALL
 
 

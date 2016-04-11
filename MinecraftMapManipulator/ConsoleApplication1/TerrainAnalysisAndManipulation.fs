@@ -806,14 +806,14 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                             not (ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE) then
                     // if the path is too long, just truncate it
                     let sx,sy,sz,path,moves,fullDist =
-                        if thisIsFinal && fullDist > 500 then  // purple 300-500
-                            let numTruncate = fullDist - 500
+                        if thisIsFinal && fullDist > 450 then  // purple 300-450
+                            let numTruncate = fullDist - 450
                             path.RemoveRange(0,numTruncate)
                             moves.RemoveRange(0,numTruncate)
                             let sx,sy,sz = path.[0]
                             sx,sy,sz,path,moves,path.Count
-                        elif not thisIsFinal && fullDist > 350 then  // greens 150-350
-                            let numTruncate = fullDist - 350
+                        elif not thisIsFinal && fullDist > 300 then  // greens 150-300
+                            let numTruncate = fullDist - 300
                             path.RemoveRange(0,numTruncate)
                             moves.RemoveRange(0,numTruncate)
                             let sx,sy,sz = path.[0]
@@ -1072,14 +1072,22 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     elif bid = 1uy && dmg = 1uy then // granite ->
                         if canPlaceSpawner(map,x,y,z) then
                             map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
-                            let ms = GRANITE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                            let ms = 
+                                if x*x+z*z > DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
+                                    GRANITE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                                else
+                                    NEAR_SPAWN_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
                             spawners1.Add(ms)
                         else
                             map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 73uy && dmg = 0uy then // redstone ore ->
                         if canPlaceSpawner(map,x,y,z) then
                             map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
-                            let ms = REDTSONE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                            let ms = 
+                                if x*x+z*z > DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
+                                    REDSTONE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                                else
+                                    NEAR_SPAWN_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
                             spawners2.Add(ms)
                         else
                             map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
