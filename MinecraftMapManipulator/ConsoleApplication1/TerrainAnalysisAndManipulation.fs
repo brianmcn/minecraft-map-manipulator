@@ -903,10 +903,12 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                 |]
                         putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_FINAL_PURPLE_DUNGEON_CHEST,chestItems,map,null)
                     else // no reason for side paths in final dungeon
+                        let SIDE_PATH_MIN, SIDE_PATH_MAX = 15,40
                         // make side paths with extra loot
                         printfn "computing paths endpoints -> redstone"
                         let pathExceptNearLootBox = ResizeArray(path)
                         pathExceptNearLootBox.RemoveRange(0,path.Count/12) // don't have side paths right at end by the loot box
+                        pathExceptNearLootBox.RemoveRange(pathExceptNearLootBox.Count-SIDE_PATH_MAX, SIDE_PATH_MAX) // don't have side paths right at start, as they may overwrite the beacon itself
                         let path = new System.Collections.Generic.HashSet<_>(pathExceptNearLootBox)
                         let sidePaths = ResizeArray()
                         for distToSkelX,_distToSkelY,distToSkelZ,(ex,ey,ez) in epwl do
@@ -930,7 +932,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                             let _,spy,_ = sidePath.[0]
                             if spy <= YMAX-4 then // an apparent endpoint at a height near top may just be where there was a cave opening but the analysis cut off at high y and saw it as endpoint, so ignore high-y endpoints
                                 let l = sidePath.Count 
-                                if l >= 15 && l <= 40 then
+                                if l >= SIDE_PATH_MIN && l <= SIDE_PATH_MAX then
                                     for x,y,z in sidePath do
                                         if debugSkeleton then
                                             map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane

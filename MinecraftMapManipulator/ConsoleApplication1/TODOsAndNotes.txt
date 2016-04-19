@@ -69,32 +69,55 @@ publish checklist:
 	remove stats/playerdata
 	change folder name map date/name
 	make a copy
-	go in and check spawn, teleporters, orchid, 
+	go in and check spawn, teleporters, orchid, map_0
 
 TEST
-see how feesh warning message and limiter itself work in practice
+what if enable-command-block=false on server? what fails first? (death counter?) need reminder in book?
 
 TODO: bugs & good ideas
 
-savannah for kurt... found seed 528
+still maybe too much diamonds or prot at end; final a little too short now? maybe 475?
+green can be in render dist of spawn (square versus round), change that?
+consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
+cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs), can also give stone/cobble in chests far from spawn
+fix map.dat stuff
+break 'kurt special' out into explorer monument plus kurt stuff
+
+there is still an overwhelming amount of book loot; more 'given items' (reduce choice, but also reduce paralysis)
+also, give more BoA axes maybe along the way, since so useful throughout? or at least BoA 5, who would ever use 2?
+
+add kurt? cthulhu? ... to testers?
+
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
-cow spawn eggs (too op?) rationing friendly mobs? ...
-(pacing: map has two halves, kinda)
+food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles?
+could put time later (local diff) if farther from spawn?
 
 maybe-consider with more feedback:
 are there too many webs in the red?
-could make the gold hoe a shovel, and have column of dirt?
 
 
 future features/map request:
-thunderstorm rather than night outside the ring?
+get rid of all grass/tallgrass?
+(possibly some spellbook that lets you pull up all the 'quest text' to refer back to in chat or something, so don't need to carry/forget books?)
+cow spawn eggs (too op?) rationing friendly mobs? ...
+thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
 plains/flower forest/sunflowers hide chest under weird flower formation
+could do like divining rod, but with voronoi and find nearest but only if within a certain radius or something... 
+ - could even only track the colors you've not got yet? beeping frequency/tone suggest when getting close, but not direction/exact? 
+   but also need scoreboard way to track which colors found and placed in monument...
+   consider different implementation strategeis, e.g. again blocks underground versus entities at chests, really think thru trade-offs
+ - with entity at chest, could track stat.trappedChestTriggered, when increase, note nearest marker entity within 6 blocks or so (system will trigger and fail a lot when opening storage chests at spawn)
+   also maybe execute-detect for chest of any marker entity that wants to beep
+ - or maybe use the monument chest as the source of truth, when player holds the sensor, check the chest for empty slots to know colors missing, and only beep those entities
+    - will still beep chest looted but item lost/not returned; this desync is part of core issue... maybe also E-D for the loot? probably, since e.g.
+	  on a finding mission after getting one you want to keep searching for another but not have this one still ping? though other same color would ping until return to monument...
 any kind of 'progress meter' in cave dungeons? 
 what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
+bats with a trail of fire particles look cool :)
+something with pushable blocks or moving platforms using shulkers?
 
 
-
-post to minecraftmaps, forum?
+post to /r/minecraftmaps, /r/ctm, forum?
 
 ---
 
@@ -135,8 +158,8 @@ treasure maps (actual maps) are neat, a la https://www.youtube.com/watch?v=YMhSt
 end dimension with other biomes allows other things to spawn (useful for lighting? no beds, bedrock fire, has water, lava speed?, what other mechanics in end dimension?)
 when I do start adding any 'structures', they should all have randomness too (e.g. saw a cool big 'candle' whose fire was floating lava blocks, that could be neat to proc generate; more 'organic' stuff)
 what about a mob that can place blocks? like leaves a trail of obsidian as it walks, maybe blocking you in? or something?
-throwable light source (a la arcane bomb, splash pot -> tnt -> fire) is cool
-
+throwable light source (a la arcane bomb, splash pot -> tnt -> fire) is cool; arrows with pot effects for limited ammo special ranged something
+rather than paintings, custom maps/design/info on walls, maybe with traps or secrets behind them
 
 
 below this line can probably do without for beta
@@ -144,6 +167,7 @@ below this line can probably do without for beta
 'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
 
 cool proc: walking on path blocks grants a speed buff
+weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
 a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
 item that when held or worn grants night vision? or trigger command can type, keep score how many you have left? thunder and then world bright for 5-10s?
 can give effects when in water (execute detect) or lava
@@ -183,7 +207,9 @@ spawner underneath dead-end chest?
 trap where enderman grabs sand/whatever and update lava somehow (floating lava?)
 an area made out of chests/furnaces/etc where you want to use your bow is a nice 'trap' as right-clicking opens the chest
 trap where lava encased in wood/leaves etc with no air space to start fire, once player breaks blocks, fire may ignite (tnt?)
+anvils sitting on decaying leaf blocks in the sky?
 legendary: seeing x from afar leads to seeing y up close... (telporter path, ...)
+(secret rooms behind walls that look solid (e.g. array of armor stand with hardened clay on head looks like wall))
 have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
    small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
    what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)

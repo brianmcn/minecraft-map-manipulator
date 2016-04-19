@@ -167,7 +167,7 @@ let BONUS_MONUMENT_BOOK =
                                 wrapInJSONTextContinued "The bottom half of the chest has sample blocks, where the number of stained glass in the stack equals the number of loot chests in the world that contain that color."
                                 wrapInJSONTextContinued "For example, a stack of 25 lime stained glass means there are 25 instances of a certain kind of loot box; your goal is to find at least one of those and bring back the lime glass."
                                 wrapInJSONTextContinued "(The black stained glass panes are just filler/border to help you keep track of remaining empty slots.)\n\nIt will be very difficult to find all the colors, but how many can you find?"
-                                Utilities.wrapInJSONText "Maps given in the chest here may help you track where you've been.\n\nOverview map of the world above this chest suggests the world layout, pre-swirl.\n\nGood luck!"
+                                Utilities.wrapInJSONText "Maps given in the chest here may help you track where you've been.\n\nOverview biome map of the world above this chest suggests the world biome layout, pre-swirl.\n\nGood luck!"
                             |]) |> ResizeArray)
 
 
