@@ -784,7 +784,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
             let tooClose(x,_y,z) =
                 let DB = 60
                 x < MINIMUM+DB || z < MINIMUM+DB || x > MINIMUM+LENGTH-DB || z > MINIMUM+LENGTH-DB || 
-                    (x*x+z*z < SPAWN_PROTECTION_DISTANCE_GREEN*SPAWN_PROTECTION_DISTANCE_GREEN)
+                    ((abs(x) < SPAWN_PROTECTION_DISTANCE_GREEN) && (abs(z) < SPAWN_PROTECTION_DISTANCE_GREEN))  // square radius
             if tooClose(sx,sy,sz) || tooClose(ex,ey,ez) then
                 () // skip if too close to 0,0 or to map bounds
             else
@@ -798,22 +798,26 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 ()
             else
             let fullDist = path.Count
-            if fullDist > 150 then
-                if not hasDoneFinal && fullDist > 300 && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
+            let GREEN_MIN = 150
+            let GREEN_MAX = 300
+            if fullDist > GREEN_MIN then
+                let PURPLE_MIN = 400
+                let PURPLE_MAX = 480
+                if not hasDoneFinal && fullDist > PURPLE_MIN && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
                     thisIsFinal <- true
                 if thisIsFinal || 
                             // don't bother with green beacons near edge of map
                             not (ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE) then
                     // if the path is too long, just truncate it
                     let sx,sy,sz,path,moves,fullDist =
-                        if thisIsFinal && fullDist > 450 then  // purple 300-450
-                            let numTruncate = fullDist - 450
+                        if thisIsFinal && fullDist > PURPLE_MAX then  // purple PURPLE_MIN to PURPLE_MAX
+                            let numTruncate = fullDist - PURPLE_MAX
                             path.RemoveRange(0,numTruncate)
                             moves.RemoveRange(0,numTruncate)
                             let sx,sy,sz = path.[0]
                             sx,sy,sz,path,moves,path.Count
-                        elif not thisIsFinal && fullDist > 300 then  // greens 150-300
-                            let numTruncate = fullDist - 300
+                        elif not thisIsFinal && fullDist > GREEN_MAX then  // greens GREEN_MIN to GREEN_MAX
+                            let numTruncate = fullDist - GREEN_MAX
                             path.RemoveRange(0,numTruncate)
                             moves.RemoveRange(0,numTruncate)
                             let sx,sy,sz = path.[0]
@@ -3087,11 +3091,11 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
     xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
@@ -3101,12 +3105,12 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
-                                [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_GREEN; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], 
-                                teleporterCenters, decorations)
+                                [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], 
+                                Seq.append [0,0,SPAWN_PROTECTION_DISTANCE_GREEN] teleporterCenters, decorations)
         Utilities.makeInGameOverviewMap(worldSaveFolder+"""\region""", origBiome, MINIMUM, LENGTH, MINIMUM, LENGTH)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)

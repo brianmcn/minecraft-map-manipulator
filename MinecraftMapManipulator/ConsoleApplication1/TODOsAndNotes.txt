@@ -76,8 +76,7 @@ TEST
 
 TODO: bugs & good ideas
 
-still maybe too much diamonds or prot at end; final a little too short now? maybe 475?
-green can be in render dist of spawn (square versus round), change that?
+still maybe too much diamonds or prot at end
 consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs), can also give stone/cobble in chests far from spawn
 fix map.dat stuff
