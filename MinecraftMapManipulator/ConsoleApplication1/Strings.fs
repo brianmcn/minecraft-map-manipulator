@@ -207,6 +207,43 @@ let TELLRAW_FINAL_4 = sprintf """tellraw @a [{"text":"Donation link","underlined
 let TELLRAW_SILVERFISH_LIMIT_ON = sprintf """tellraw @a ["At least %d silverfish detected, turning ON silverfish limiter: newly spawned silverfish will be automatically removed"]""" CustomizationKnobs.SILVERFISH_BIG
 let TELLRAW_SILVERFISH_LIMIT_OFF = sprintf """tellraw @a ["At most %d silverfish detected, turning OFF silverfish limiter"]""" CustomizationKnobs.SILVERFISH_SMALL
 
+let CB_TEST_SIGN1 = 
+    [|
+        ""
+        "This map uses"
+        "command blocks."
+        ""
+    |]
+let CB_TEST_SIGN2 = 
+    [|
+        "Verify they are"
+        "enabled by"
+        "pressing button"
+        "here -->"
+    |]
+let CB_TEST_SIGN3 = 
+    [|
+        "If not working"
+        "check server"
+        "properties."
+        "You want:"
+    |]
+let CB_TEST_SIGN4 = 
+    [|
+        "enable-command-"
+        "block=true"
+        ""
+        ""
+    |]
+let TELLRAW_CB_TEST_WORKED = """tellraw @a ["Commands are correctly enabled!"]"""
+let makeTextSignTE(x,y,z,a:_[]) =
+    [| Int("x",x); Int("y",y); Int("z",z); String("id","Sign"); 
+       String("Text1",sprintf """{"text":"%s"}""" a.[0]);
+       String("Text2",sprintf """{"text":"%s"}""" a.[1]);
+       String("Text3",sprintf """{"text":"%s"}""" a.[2]);
+       String("Text4",sprintf """{"text":"%s"}""" a.[3]);
+       End |]
+
 
 let SIGN_DC_ENABLE = [|"Enable";"death";"counter";"display"|]
 let SIGN_DC_DISABLE = [|"Disable";"death";"counter";"display"|]

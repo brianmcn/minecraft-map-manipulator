@@ -2607,6 +2607,38 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // ...stuff in the room to start
     let chestItems = Compounds[| [| Byte("Count", 1uy); Byte("Slot", 13uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.TELEPORTER_HUB_BOOK; End |] |]
     putUntrappedChestWithItemsAt(1,h-5,-1,Strings.NAME_OF_TELEPORT_ROOM_CHEST,chestItems,map,null)
+    // make the command block tester start room
+    // floor
+    for x = -1 to 3 do
+        for z = -1 to 3 do
+            map.SetBlockIDAndDamage(x,h+6,z,20uy,0uy) // 20=glass
+    // walls
+    for x = -2 to 4 do
+        for z = -2 to 4 do
+            if x= -2 || z= -2 || x=4 || z=4 then
+                map.SetBlockIDAndDamage(x,h+7,z,20uy,0uy) // 20=glass
+                map.SetBlockIDAndDamage(x,h+8,z,20uy,0uy) // 20=glass
+    // signs
+    map.SetBlockIDAndDamage(0,h+8,-1,68uy,3uy)
+    map.SetBlockIDAndDamage(0,h+7,-1,68uy,3uy)
+    map.AddOrReplaceTileEntities([|
+                                    Strings.makeTextSignTE(0,h+8,-1,Strings.CB_TEST_SIGN1)
+                                    Strings.makeTextSignTE(0,h+7,-1,Strings.CB_TEST_SIGN2)
+                                |])
+    map.SetBlockIDAndDamage(2,h+8,-1,68uy,3uy)
+    map.SetBlockIDAndDamage(2,h+7,-1,68uy,3uy)
+    map.AddOrReplaceTileEntities([|
+                                    Strings.makeTextSignTE(2,h+8,-1,Strings.CB_TEST_SIGN3)
+                                    Strings.makeTextSignTE(2,h+7,-1,Strings.CB_TEST_SIGN4)
+                                |])
+    // button
+    map.SetBlockIDAndDamage(1,h+7,-2,1uy,0uy)
+    map.SetBlockIDAndDamage(1,h+7,-1,143uy,3uy) //143=wooden_button
+    // commands
+    placeCommand(1,h+6,-1,Strings.TELLRAW_CB_TEST_WORKED,137uy,3uy,"minecraft:command_block",false)
+    placeCommand(1,h+6,0,sprintf "fill -1 %d -1 3 %d 3 air 0" (h+7) (h+8),211uy,3uy,"minecraft:chain_command_block",false) // two-phase clear, remove signs/button first, or else they pop off when glass removed
+    placeCommand(1,h+6,1,sprintf "fill -2 %d -2 4 %d 4 air 0" (h+6) (h+8),211uy,3uy,"minecraft:chain_command_block",false)
+    // passive mob initialization and counting
     let mutable cowC, sheepC, pigC, chickenC, rabbitC = 0,0,0,0,0
     for rx in [-2 .. 1] do
         for rz in [-2 .. 1] do
@@ -3055,28 +3087,21 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    time (fun() ->   // after hiding spots figured
-        log.LogSummary("COMPASS CMDS")
-        placeCompassCommands(map,log))
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    time (fun () -> 
-        log.LogSummary("RELIGHTING THE WORLD")
-        RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
-    time (fun() ->
-        log.LogSummary("SAVING FILES")
-        map.WriteAll()
-        printfn "...done!")
-    time (fun() -> 
+    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

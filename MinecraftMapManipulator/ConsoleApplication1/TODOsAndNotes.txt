@@ -66,13 +66,13 @@ publish checklist:
 	fix icon
 	do any manual customization
 	run /gamemode 0 /defaultgamemode 0
+	put player in starting box
 	remove stats/playerdata
 	change folder name map date/name
 	make a copy
 	go in and check spawn, teleporters, orchid, map_0
 
 TEST
-what if enable-command-block=false on server? what fails first? (death counter?) need reminder in book?
 
 TODO: bugs & good ideas
 
@@ -111,6 +111,7 @@ could do like divining rod, but with voronoi and find nearest but only if within
  - or maybe use the monument chest as the source of truth, when player holds the sensor, check the chest for empty slots to know colors missing, and only beep those entities
     - will still beep chest looted but item lost/not returned; this desync is part of core issue... maybe also E-D for the loot? probably, since e.g.
 	  on a finding mission after getting one you want to keep searching for another but not have this one still ping? though other same color would ping until return to monument...
+ - system described here https://www.reddit.com/r/MinecraftCommands/comments/4fhbbw/best_way_to_track_which_chests_a_player_has/d2a5gbo and kill AS for already-looted, should work
 any kind of 'progress meter' in cave dungeons? 
 what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
 bats with a trail of fire particles look cool :)
