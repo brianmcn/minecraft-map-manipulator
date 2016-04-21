@@ -22,13 +22,22 @@ module NameAndLore =
     let MONUMENT_BLOCK_END_STONE_BRICK = displayNameAndLore("Monument Block: End Stone Brick",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let INNER_CHEST_WITH_NAME(name:TranslatableString) = displayNameAndLore(name.Text, [|"Place this chest"; "and open it"; "for more loot"|])
     let LUCK_POTION_DISPLAY = [String("Name","Your lucky DAY"); List("Lore", Strings[|"While this luck"; "potion is active"; "it will remain"; "daylight, even"; "away from spawn"|]); End]
-    let DIVINING_ROD_LORE = "Hold me to locate loot!" //must be one-line
+    let PROXIMITY_DETECTOR_NAME = "Bonus Glass Proximity Detector"
+    let PROXIMITY_DETECTOR_LORE = "Hold me to detect loot!" //must be one-line, different from below
+    let DIVINING_ROD_LORE = "Hold me to locate loot!" //must be one-line, different from above
     let DIVINING_ROD_NAME = "Mysterious Divining Rod"
     let DIVINING_ROD = displayNameAndLore(DIVINING_ROD_NAME,[|DIVINING_ROD_LORE|])
+    let PROXIMITY_DETECTOR = displayNameAndLore(PROXIMITY_DETECTOR_NAME,[|PROXIMITY_DETECTOR_LORE|])
     let BONUS_SAMPLE = displayNameAndLore(null,[|"Number of items";"in the stack";"equals how many";"chests in the world";"contain this item"|])
-    let BONUS_ACTUAL = displayNameAndLore(null,[|"Bonus Monument Item"|])
+    let BONUS_ACTUAL_LORE = "Bonus Monument Item"
+    let BONUS_ACTUAL = displayNameAndLore(null,[|BONUS_ACTUAL_LORE|])
     let WORLD_MAP = displayNameAndLore("Map of the entire world",null)
     let ONE_USE_PICK = displayNameAndLore("One-use pickaxe",[|"Did you know that";"even wood can mine";"an enderchest if it";"has Silk Touch?"|])
+
+let PROXIMITY_HOT = "HOT!!!"
+let PROXIMITY_WARMER = "VERY WARM!"
+let PROXIMITY_WARM = "WARM"
+let PROXIMITY_COLD = "COLD"
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
 let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4bt5h0/map_feedback_thread/"""

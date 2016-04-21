@@ -1742,12 +1742,42 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
     log.LogSummary(sprintf "added %d extra dungeon spawners underground, with %d inside DAYLIGHT_RADIUS" spawnerTileEntities.Count topSpawnerCoords.Count)
     topSpawnerCoords
 
-let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],decorations:ResizeArray<_>,allTrees:ContainerOfMCTrees,colorCount:_[]) =
+let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeaves:_[,],biome:_[,],
+                   decorations:ResizeArray<_>,allTrees:ContainerOfMCTrees,colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
+    let entities = ResizeArray()
     let lootLocations = ResizeArray()
     let names = Array.create 16 ""
     let points = Array.init 16 (fun _x -> ResizeArray())
+    let mkUuidArmorStandAt(x,y,z,isFurnace,color) = 
+        let rndUuid = System.Guid.NewGuid()
+        let bytes = rndUuid.ToByteArray()
+        let i,j,k,a = bytes.[0..3], bytes.[4..5], bytes.[6..7], bytes.[8..15]
+        let least = System.BitConverter.ToInt64(a |> Array.rev, 0)
+        let most = System.BitConverter.ToInt64(Array.concat [i |> Array.rev; j |> Array.rev; k |> Array.rev] |> Array.rev, 0)
+        entities.Add [|
+            // basic armor stand stuff
+            NBT.String("id","ArmorStand")
+            NBT.List("Pos",Doubles([|float x + 0.5; float y + 0.5; float z + 0.5|]))
+            NBT.List("Motion",Doubles([|0.0; 0.0; 0.0|]))
+            NBT.List("Rotation",Doubles([|0.0; 0.0|]))
+            NBT.Byte("Marker",1uy)
+            NBT.Byte("Invisible",1uy)
+            NBT.Byte("NoGravity",1uy)
+            // uuid for scoreboard
+            NBT.Long("UUIDLeast",least)
+            NBT.Long("UUIDMost",most)
+            // tags
+            NBT.List("Tags",Strings[|(if isFurnace then"unlootedFurnace"else"unlootedChest");sprintf"color%d"color|])
+            // stats
+            NBT.Compound("CommandStats",[
+                NBT.String("SuccessCountName","@e[type=ArmorStand,c=1]")
+                NBT.String("SuccessCountObjective","ChestHasLoot")
+                End]|>ResizeArray)
+            NBT.End
+        |]
+        scoreboard.AddScore(rndUuid.ToString(),"ChestHasLoot",1)
     let noneWithin(r,points,x,_y,z) =
         let mutable ok = true
         for px,_,pz in points do
@@ -1782,6 +1812,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
         tierCounts.[tier] <- tierCounts.[tier] + 1
+        mkUuidArmorStandAt(x,y,z,false,color)
     let putFurnaceWithLoot(color,x,y,z) =
         // can hold up to 3 items
         let items = [|  yield [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
@@ -1793,6 +1824,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         putFurnaceWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
         tierCounts.[0] <- tierCounts.[0] + 1
+        mkUuidArmorStandAt(x,y,z,true,color)
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
     // TODO consider fun names for each kind of chest (a la /help command)
@@ -2062,11 +2094,10 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                             NBT.Byte("NoGravity",1uy)
                                             NBT.End
                                         |]
-                                    let ents = ResizeArray()
                                     for dx = 0 to DIGMAX-1 do
                                         for dz = 0 to DIGMAX-1 do
                                             if PIXELS.[dx].[DIGMAX-1-dz] = 'X' then
-                                                ents.Add(mkArmorStandAt(x+dx,y,z+dz))
+                                                entities.Add(mkArmorStandAt(x+dx,y,z+dz))
                                             else
                                                 for ddx in [-1;0;1] do
                                                     for ddz in [-1;0;1] do
@@ -2075,7 +2106,6 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                                                 // any space next to X but non-X, ensure no lily-pad by setting to air
                                                                 map.SetBlockIDAndDamage(x+dx,y+1,z+dz,0uy,0uy)
                                                         with _ -> () // sloppily deal with array index out of bounds rather than using sentinels or checks
-                                    map.AddEntities(ents)
                                     // place hidden trapped chest
                                     let x,y,z = x+9,y-2,z+6  // below the 'X'
                                     let mutable y = y
@@ -2244,6 +2274,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 for dj = -5 to 5 do
                     goodPortionCoords.Remove(i+di,j+dj) |> ignore
     map.AddOrReplaceTileEntities(tileEntities)
+    map.AddEntities(entities)
     log.LogSummary(sprintf "added %d extra loot chests (tier counts: %A)" lootLocations.Count tierCounts)
     for i = 0 to names.Length-1 do
         if names.[i] <> "" then
@@ -2385,7 +2416,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(1,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[]) =
+let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
     log.LogSummary("START CMDS")
     let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
@@ -2409,7 +2440,6 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             for y = 60 to h do
                 map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
             map.SetBlockIDAndDamage(x,h+1,z,89uy,0uy) // 89=glowstone
-    let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
     // compass initialization
     scoreboard.AddDummyObjective("Rot")
     scoreboard.AddScore("#ThreeSixty","Rot",360)
@@ -2434,6 +2464,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     scoreboard.AddScore("fX","hidden",finalEX)
     scoreboard.AddScore("fZ","hidden",finalEZ)
     scoreboard.AddScore("CTM","hidden",0)
+    scoreboard.AddDummyObjective("ChestHasLoot")
+    scoreboard.AddDummyObjective("EBM")
     // map/logo
     I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10000s},Facing:3b}""" -2 (h+4) 2) // damage values from Utilities.makeInGameOverviewMap
     I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10001s},Facing:3b}""" -2 (h+4) 1) // damage values from Utilities.makeInGameOverviewMap
@@ -2516,6 +2548,10 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                              Strings.TELEPORTER_HUB_BOOK; End |]
                     yield [| Byte("Count",1uy); Byte("Slot",3uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
+
+                    // TODO move to green chest with accompany book
+                    yield [| Byte("Count",1uy); Byte("Slot",4uy); Short("Damage",0s); String("id","minecraft:diamond_hoe"); Compound("tag",[
+                                Int("Unbreakable",1); Strings.NameAndLore.PROXIMITY_DETECTOR; End] |> ResizeArray); End |]
 
                     yield [| Byte("Count",1uy); Byte("Slot",9uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Compound("tag", Utilities.makeWrittenBookTags(Strings.FISHING_DATA)|>ResizeArray); End |]
@@ -2717,6 +2753,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // h-11, monument block detectors
     for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
         r.PlaceCommandBlocksStartingAt(x,h-11,0,cmds(x,tilename),"check ctm block")
+    // 0,h-13,0: daylight and CTM completion logic
     let y = ref (h-13)
     let R(c) = placeRepeating(0,!y,0,c,true); decr y
     let C(c) = placeChain(0,!y,0,c,true); decr y
@@ -2744,13 +2781,15 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     U(sprintf """tellraw @a [""]""")
     U(Strings.TELLRAW_FINAL_3)
     U(Strings.TELLRAW_FINAL_4)
-    U("gamerule doDaylightCycle true")
-    U("worldborder set 30000000")
+    // TODO maybe do these when do other todos below
+    //U("gamerule doDaylightCycle true")
+    //U("worldborder set 30000000")
     // TODO embed in normal world terrain
     // TODO nether still different
     // TODO loot tables still different
     // TODO message players about ability to keep playing
     if CustomizationKnobs.SILVERFISH_LIMITS then
+        // 1,h-13,0: silverfish limiter
         let y = ref (h-13)
         let R(c) = placeRepeating(1,!y,0,c,true); decr y
         let C(c) = placeChain(1,!y,0,c,true); decr y
@@ -2785,6 +2824,110 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
     placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar",true)
     placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED,true)
+    // 2,h-13,0: EBM and random loot chest testers
+    let y = ref (h-13)
+    let R(c) = placeRepeating(2,!y,0,c,true); decr y
+    let C(c) = placeChain(2,!y,0,c,true); decr y
+    let U(c) = placeChain(2,!y,0,c,false); decr y
+    let I(c) = placeImpulse(2,!y,0,c,false); decr y
+    R("scoreboard players add Time hidden 1")
+    U("scoreboard players test Time hidden 20 *")  // 20 = every 1 second
+    C("scoreboard players set Time hidden 0")
+    C("blockdata ~ ~-2 ~ {auto:1b}")
+    C("blockdata ~ ~-1 ~ {auto:0b}")
+    I("""execute @a ~ ~ ~ execute @e[type=ArmorStand,tag=unlootedChest,r=9] ~ ~ ~ testforblock ~ ~ ~ trapped_chest -1 {Items:[{id:"minecraft:stained_glass"}]}""")
+    U("kill @e[type=ArmorStand,tag=unlootedChest,score_ChestHasLoot=0]")
+    U("""execute @a ~ ~ ~ execute @e[type=ArmorStand,tag=unlootedFurnace,r=9] ~ ~ ~ testforblock ~ ~ ~ furnace -1 {Items:[{id:"minecraft:stained_glass"}]}""")
+    U("kill @e[type=ArmorStand,tag=unlootedFurnace,score_ChestHasLoot=0]")
+    U(sprintf """scoreboard players tag @a add Detecting {SelectedItem:{tag:{display:{Lore:["%s"]}}}}""" Strings.NameAndLore.PROXIMITY_DETECTOR_LORE)
+    U("testfor @p[tag=Detecting]")
+    C("blockdata ~ ~-2 ~ {auto:1b}")
+    C("blockdata ~ ~-1 ~ {auto:0b}")
+    I("")
+    for color = 0 to 7 do
+        if colorCount.[color]<>0 then
+            U(sprintf """testforblock -3 %d 1 chest -1 {Items:[{Damage:%ds,tag:{display:{Lore:["%s"]}}}]}""" (h+2) color Strings.NameAndLore.BONUS_ACTUAL_LORE)
+            C(sprintf "scoreboard players set has%d EBM 1" color)
+            U("testforblock ~ ~2 ~ chain_command_block -1 {SuccessCount:0}")
+            C(sprintf "scoreboard players set has%d EBM 0" color)
+    U(sprintf "blockdata 3 %d 0 {auto:1b}" (h-13))
+    U(sprintf "blockdata 3 %d 0 {auto:0b}" (h-13))
+    // 3,h-13,0: more EBM chest testers
+    let y = ref (h-13)
+    let R(c) = placeRepeating(3,!y,0,c,true); decr y
+    let C(c) = placeChain(3,!y,0,c,true); decr y
+    let U(c) = placeChain(3,!y,0,c,false); decr y
+    let I(c) = placeImpulse(3,!y,0,c,false); decr y
+    I("")
+    for color = 8 to 15 do
+        if colorCount.[color]<>0 then
+            U(sprintf """testforblock -3 %d 1 chest -1 {Items:[{Damage:%ds,tag:{display:{Lore:["%s"]}}}]}""" (h+2) color Strings.NameAndLore.BONUS_ACTUAL_LORE)
+            C(sprintf "scoreboard players set has%d EBM 1" color)
+            U("testforblock ~ ~2 ~ chain_command_block -1 {SuccessCount:0}")
+            C(sprintf "scoreboard players set has%d EBM 0" color)
+    U(sprintf "blockdata 3 %d 3 {auto:1b}" (h-13))
+    U(sprintf "blockdata 3 %d 3 {auto:0b}" (h-13))
+    // 3,h-13,3: nearness pingers
+    scoreboard.AddDummyObjective("NEARNESS")
+    let y = ref (h-13)
+    let R(c) = placeRepeating(3,!y,3,c,true); decr y
+    let C(c) = placeChain(3,!y,3,c,true); decr y
+    let U(c) = placeChain(3,!y,3,c,false); decr y
+    let I(c) = placeImpulse(3,!y,3,c,false); decr y
+    I("scoreboard players set @a NEARNESS 0")
+    let DIST = 30
+    for color = 0 to 15 do
+        if colorCount.[color]<>0 then
+            U(sprintf "scoreboard players test has%d EBM 0 0" color)
+            C(sprintf "execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=color%d,r=%d] ~ ~ ~ scoreboard players set @a NEARNESS 3" color DIST)
+    U(sprintf "blockdata 2 %d 3 {auto:1b}" (h-13))
+    U(sprintf "blockdata 2 %d 3 {auto:0b}" (h-13))
+    // 2,h-13,3: nearness pingers
+    let y = ref (h-13)
+    let R(c) = placeRepeating(2,!y,3,c,true); decr y
+    let C(c) = placeChain(2,!y,3,c,true); decr y
+    let U(c) = placeChain(2,!y,3,c,false); decr y
+    let I(c) = placeImpulse(2,!y,3,c,false); decr y
+    I("")
+    let DIST = 60
+    for color = 0 to 15 do
+        if colorCount.[color]<>0 then
+            U(sprintf "scoreboard players test has%d EBM 0 0" color)
+            C(sprintf "execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=color%d,r=%d] ~ ~ ~ scoreboard players set @a NEARNESS 2" color DIST)
+    U(sprintf "blockdata 1 %d 3 {auto:1b}" (h-13))
+    U(sprintf "blockdata 1 %d 3 {auto:0b}" (h-13))
+    // 1,h-13,3: nearness pingers
+    let y = ref (h-13)
+    let R(c) = placeRepeating(1,!y,3,c,true); decr y
+    let C(c) = placeChain(1,!y,3,c,true); decr y
+    let U(c) = placeChain(1,!y,3,c,false); decr y
+    let I(c) = placeImpulse(1,!y,3,c,false); decr y
+    I("")
+    let DIST = 120
+    for color = 0 to 15 do
+        if colorCount.[color]<>0 then
+            U(sprintf "scoreboard players test has%d EBM 0 0" color)
+            C(sprintf "execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=color%d,r=%d] ~ ~ ~ scoreboard players set @a NEARNESS 1" color DIST)
+    U(sprintf "blockdata 0 %d 3 {auto:1b}" (h-13))
+    U(sprintf "blockdata 0 %d 3 {auto:0b}" (h-13))
+    // 0,h-13,3: HUD/tone
+    let y = ref (h-13)
+    let R(c) = placeRepeating(0,!y,3,c,true); decr y
+    let C(c) = placeChain(0,!y,3,c,true); decr y
+    let U(c) = placeChain(0,!y,3,c,false); decr y
+    let I(c) = placeImpulse(0,!y,3,c,false); decr y
+    I("")
+    U("execute @p[tag=Detecting,score_NEARNESS_min=3] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 1.2")
+    U("execute @p[tag=Detecting,score_NEARNESS=2,score_NEARNESS_min=2] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 1.0")
+    U("execute @p[tag=Detecting,score_NEARNESS=1,score_NEARNESS_min=1] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 0.8")
+    U("execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 0.6")
+    U("title @p[tag=Detecting] times 0 10 0") // is not saved with the world, so has to be re-executed to ensure run after restart client
+    U(sprintf """title @p[tag=Detecting,score_NEARNESS=3] subtitle {"text":"%s"}""" Strings.PROXIMITY_HOT)
+    U(sprintf """title @p[tag=Detecting,score_NEARNESS=2] subtitle {"text":"%s"}""" Strings.PROXIMITY_WARMER)
+    U(sprintf """title @p[tag=Detecting,score_NEARNESS=1] subtitle {"text":"%s"}""" Strings.PROXIMITY_WARM)
+    U(sprintf """title @p[tag=Detecting,score_NEARNESS=0] subtitle {"text":"%s"}""" Strings.PROXIMITY_COLD)
+    U("""title @p[tag=Detecting] title {"text":""}""")
+    U("""scoreboard players tag @a remove Detecting""")
     // write out scoreboard
     scoreboard.Write()
 
@@ -3111,22 +3254,23 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         )
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
+    let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
     xtime (fun () -> allTrees := treeify(map, hm))
     xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
     xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    time (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

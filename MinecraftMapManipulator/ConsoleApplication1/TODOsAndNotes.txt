@@ -81,6 +81,7 @@ OK what if green has first mon block, red has 2nd, mountain has none... fix the 
 OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
 OK cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs)
 OK food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles? - be sure to add more debug chests
+multiplayer proximity (and prox & divining at once)
 
 TODO: bugs & good ideas
 
