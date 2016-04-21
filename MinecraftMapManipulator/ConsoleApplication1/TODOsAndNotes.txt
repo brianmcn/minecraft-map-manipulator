@@ -78,13 +78,13 @@ OK break 'kurt special' out into explorer monument plus kurt stuff
 OK "I couldn't tell which spawners were where" - what if red torches atop each spawner, in addition to random? looks kinda good
 OK obsidian not a strong deterrant under red, add some feesh too?
 OK what if green has first mon block, red has 2nd, mountain has none... fix the pace? (would need to reword books, and ensure 1st not lost among treasure, e.g. remention got it in 2.aftergreen, or work it like flat with just 2 items)
-OK? slightly fewer reds (ad-hoc to -1000000)
+OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
+OK cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs)
+OK food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles? - be sure to add more debug chests
 
 TODO: bugs & good ideas
 
 still maybe too much diamonds or prot at end
-cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs), can also give stone/cobble in chests far from spawn
-food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles? - be sure to add more debug chests
 'keep eyes open', can have multiple chest names, vary
 consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 have new thread for feedback on april maps, link it for feedback

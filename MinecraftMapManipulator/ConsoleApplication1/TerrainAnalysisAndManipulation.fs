@@ -1765,6 +1765,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         map.GetBlockInfo(x,y,z-1).BlockID = plus
     let isFlowingWater(nbi:BlockInfo) = 
         nbi.BlockID = 9uy && nbi.BlockData <> 0uy || nbi.BlockID = 8uy // flowing water
+    let tierCounts = Array.zeroCreate 4
     let putTrappedChestWithLoot(color,x,y,z,tier) =
         let level = 
             let dsq = x*x+z*z
@@ -1780,6 +1781,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     else failwith "bad aesthetic tier"
         putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
+        tierCounts.[tier] <- tierCounts.[tier] + 1
     let putFurnaceWithLoot(color,x,y,z) =
         // can hold up to 3 items
         let items = [|  yield [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
@@ -1790,6 +1792,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     |] |> LootTables.addSlotTags
         putFurnaceWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
+        tierCounts.[0] <- tierCounts.[0] + 1
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
     // TODO consider fun names for each kind of chest (a la /help command)
@@ -2241,7 +2244,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 for dj = -5 to 5 do
                     goodPortionCoords.Remove(i+di,j+dj) |> ignore
     map.AddOrReplaceTileEntities(tileEntities)
-    log.LogSummary(sprintf "added %d extra loot chests" tileEntities.Count)
+    log.LogSummary(sprintf "added %d extra loot chests (tier counts: %A)" lootLocations.Count tierCounts)
     for i = 0 to names.Length-1 do
         if names.[i] <> "" then
             log.LogInfo(sprintf "%3d: %s (%d %s)" points.[i].Count names.[i] i (snd MC_Constants.WOOL_COLORS.[i]))
@@ -2524,16 +2527,21 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                     yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
 
-                    yield [| yield Byte("Slot",19uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG mountain chest",LootTables.NEWsampleTier5Chest(rng)) |]
-                    yield [| yield Byte("Slot",20uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,LootTables.NEWsampleTier4Chest(rng,true)) |]
-                    yield [| yield Byte("Slot",21uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,LootTables.NEWsampleTier3Chest(rng,true)) |]
-                    yield [| yield Byte("Slot",22uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,LootTables.NEWsampleTier2Chest(rng,true)) |]
-
-                    yield [| yield Byte("Slot",24uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG aesthetic 1",LootTables.NEWaestheticTier1Chest(rng,-1,1)) |]
-                    yield [| yield Byte("Slot",25uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG aesthetic 2",LootTables.NEWaestheticTier2Chest(rng,-1,1)) |]
-                    yield [| yield Byte("Slot",26uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG aesthetic 3",LootTables.NEWaestheticTier3Chest(rng,-1,1)) |]
+                    yield [| yield Byte("Slot",5uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG mountain chest",LootTables.NEWsampleTier5Chest(rng)) |]
+                    yield [| yield Byte("Slot",6uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,LootTables.NEWsampleTier4Chest(rng,true)) |]
+                    yield [| yield Byte("Slot",7uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,LootTables.NEWsampleTier3Chest(rng,true)) |]
+                    yield [| yield Byte("Slot",8uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,LootTables.NEWsampleTier2Chest(rng,true)) |]
                 |]
         putUntrappedChestWithItemsAt(3,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
+        let chestItems = 
+            Compounds[| 
+                    for i = 0uy to 8uy do
+                        let level = if i<2uy then 1 elif i<5uy then 2 else 3
+                        yield [| yield Byte("Slot",i); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 1 level %d" level),LootTables.NEWaestheticTier1Chest(rng,-1,level)) |]
+                        yield [| yield Byte("Slot",i+9uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 2 level %d" level),LootTables.NEWaestheticTier2Chest(rng,-1,level)) |]
+                        yield [| yield Byte("Slot",i+18uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 3 level %d" level),LootTables.NEWaestheticTier3Chest(rng,-1,level)) |]
+                |]
+        putUntrappedChestWithItemsAt(4,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
     // bonus monument
     if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
         let chestItems = 
@@ -2625,33 +2633,33 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // floor
     for x = -1 to 3 do
         for z = -1 to 3 do
-            map.SetBlockIDAndDamage(x,h+6,z,20uy,0uy) // 20=glass
+            map.SetBlockIDAndDamage(x,h+5,z,20uy,0uy) // 20=glass
     // walls
     for x = -2 to 4 do
         for z = -2 to 4 do
             if x= -2 || z= -2 || x=4 || z=4 then
+                map.SetBlockIDAndDamage(x,h+6,z,20uy,0uy) // 20=glass
                 map.SetBlockIDAndDamage(x,h+7,z,20uy,0uy) // 20=glass
-                map.SetBlockIDAndDamage(x,h+8,z,20uy,0uy) // 20=glass
     // signs
-    map.SetBlockIDAndDamage(0,h+8,-1,68uy,3uy)
     map.SetBlockIDAndDamage(0,h+7,-1,68uy,3uy)
+    map.SetBlockIDAndDamage(0,h+6,-1,68uy,3uy)
     map.AddOrReplaceTileEntities([|
-                                    Strings.makeTextSignTE(0,h+8,-1,Strings.CB_TEST_SIGN1)
-                                    Strings.makeTextSignTE(0,h+7,-1,Strings.CB_TEST_SIGN2)
+                                    Strings.makeTextSignTE(0,h+7,-1,Strings.CB_TEST_SIGN1)
+                                    Strings.makeTextSignTE(0,h+6,-1,Strings.CB_TEST_SIGN2)
                                 |])
-    map.SetBlockIDAndDamage(2,h+8,-1,68uy,3uy)
     map.SetBlockIDAndDamage(2,h+7,-1,68uy,3uy)
+    map.SetBlockIDAndDamage(2,h+6,-1,68uy,3uy)
     map.AddOrReplaceTileEntities([|
-                                    Strings.makeTextSignTE(2,h+8,-1,Strings.CB_TEST_SIGN3)
-                                    Strings.makeTextSignTE(2,h+7,-1,Strings.CB_TEST_SIGN4)
+                                    Strings.makeTextSignTE(2,h+7,-1,Strings.CB_TEST_SIGN3)
+                                    Strings.makeTextSignTE(2,h+6,-1,Strings.CB_TEST_SIGN4)
                                 |])
     // button
-    map.SetBlockIDAndDamage(1,h+7,-2,1uy,0uy)
-    map.SetBlockIDAndDamage(1,h+7,-1,143uy,3uy) //143=wooden_button
+    map.SetBlockIDAndDamage(1,h+6,-2,1uy,0uy)
+    map.SetBlockIDAndDamage(1,h+6,-1,143uy,3uy) //143=wooden_button
     // commands
-    placeCommand(1,h+6,-1,Strings.TELLRAW_CB_TEST_WORKED,137uy,3uy,"minecraft:command_block",false)
-    placeCommand(1,h+6,0,sprintf "fill -1 %d -1 3 %d 3 air 0" (h+7) (h+8),211uy,3uy,"minecraft:chain_command_block",false) // two-phase clear, remove signs/button first, or else they pop off when glass removed
-    placeCommand(1,h+6,1,sprintf "fill -2 %d -2 4 %d 4 air 0" (h+6) (h+8),211uy,3uy,"minecraft:chain_command_block",false)
+    placeCommand(1,h+5,-1,Strings.TELLRAW_CB_TEST_WORKED,137uy,3uy,"minecraft:command_block",false)
+    placeCommand(1,h+5,0,sprintf "fill -1 %d -1 3 %d 3 air 0" (h+6) (h+7),211uy,3uy,"minecraft:chain_command_block",false) // two-phase clear, remove signs/button first, or else they pop off when glass removed
+    placeCommand(1,h+5,1,sprintf "fill -2 %d -2 4 %d 4 air 0" (h+5) (h+7),211uy,3uy,"minecraft:chain_command_block",false)
     // passive mob initialization and counting
     let mutable cowC, sheepC, pigC, chickenC, rabbitC = 0,0,0,0,0
     for rx in [-2 .. 1] do
@@ -3101,21 +3109,21 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    time (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
