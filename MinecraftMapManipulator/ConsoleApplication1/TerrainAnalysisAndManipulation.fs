@@ -1633,6 +1633,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
                         let z = j
                         let y = hm.[x,z] + rng.Next(2)
                         if rng.Next(12+dist/2) = 0 then
+                            map.SetBlockIDAndDamage(x,y+1,z,76uy,5uy) // 76=redstone_torch
                             map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
                             let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
                             spawners.Add(ms)
@@ -1641,7 +1642,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
                     elif rng.Next(60) = 0 then
                         map.SetBlockIDAndDamage(i,hm.[i,j],j,76uy,5uy) // 76=redstone_torch
                         map.SetBlockIDAndDamage(i,hm.[i,j]-1,j,1uy,5uy) // 1,5=andesite
-        // place some obsidian below ground to make it harder to tunnel underneath
+        // place some obsidian & feesh below ground to make it harder to tunnel underneath
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
                 if abs(x-i) > 3 || abs(z-j) > 3 then  // don't overwrite the beacon/bedrock!
@@ -1655,6 +1656,9 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
                         if (i+y+j)%2 = 0 then
                             if rng.NextDouble() < pct then
                                 map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
+                        else
+                            if rng.NextDouble() < pct then
+                                map.SetBlockIDAndDamage(i,y,j,97uy,0uy) // 97=silverfish monster egg
         spawners.AddToMapAndLog(map,log)
         for i = x-CR to x+CR do
             for j = z-CR to z+CR do
@@ -1778,7 +1782,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         // can hold up to 3 items
         let items = [|  yield [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
                         yield LootTables.makeMultiBook(rng)
-                        if CustomizationKnobs.KURT_SPECIAL then
+                        if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
                             if color <> -1 then
                                 yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
                     |] |> LootTables.addSlotTags
@@ -2529,7 +2533,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                 |]
         putUntrappedChestWithItemsAt(3,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
     // bonus monument
-    if CustomizationKnobs.KURT_SPECIAL then
+    if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
         let chestItems = 
             Compounds[| 
                     for i = 1 to 8 do
@@ -2574,6 +2578,10 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                             yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
                 |]
         putUntrappedChestWithItemsAndOrientationAt(-3,h+2,2,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
+        // TODO make .dat files better (brittle file path now, klutzy)
+        let dummyMapDatFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp4\data\"""
+        System.IO.File.Copy(dummyMapDatFolder+"map_1.dat", worldSaveFolder+"""\data\map_0.dat""", true)
+        System.IO.File.Copy(dummyMapDatFolder+"idcounts.dat", worldSaveFolder+"""\data\idcounts.dat""", true)
         Utilities.editMapDat(worldSaveFolder+"""\data\map_0.dat""",4uy,0,0)
     // map/logo backing
     map.SetBlockIDAndDamage(-3,h+3,1,156uy,4uy) //156,4=quartz_stairs, facing east, upside down
@@ -3091,19 +3099,19 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
     xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
     xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
     time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")

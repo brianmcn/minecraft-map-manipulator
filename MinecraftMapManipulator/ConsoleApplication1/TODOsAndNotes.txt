@@ -73,14 +73,20 @@ publish checklist:
 	go in and check spawn, teleporters, orchid, map_0
 
 TEST
+OK fix map.dat stuff
+OK break 'kurt special' out into explorer monument plus kurt stuff
+OK "I couldn't tell which spawners were where" - what if red torches atop each spawner, in addition to random? looks kinda good
+OK obsidian not a strong deterrant under red, add some feesh too?
 
 TODO: bugs & good ideas
 
+what if green has first mon block, there are slightly fewer reds, red has 2nd, mountain has none... fix the pace? (would need to reword books, and ensure 1st not lost among treasure, e.g. remention got it in 2.aftergreen, or work it like flat with just 2 items)
 still maybe too much diamonds or prot at end
-consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
+BOOK_IN_FLAT_DUNGEON_CHEST should say 2nd monument block coming there too
 cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs), can also give stone/cobble in chests far from spawn
-fix map.dat stuff
-break 'kurt special' out into explorer monument plus kurt stuff
+food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles? - be sure to add more debug chests
+'keep eyes open', can have multiple chest names, vary
+consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 
 there is still an overwhelming amount of book loot; more 'given items' (reduce choice, but also reduce paralysis)
 also, give more BoA axes maybe along the way, since so useful throughout? or at least BoA 5, who would ever use 2?
@@ -88,7 +94,6 @@ also, give more BoA axes maybe along the way, since so useful throughout? or at 
 add kurt? cthulhu? ... to testers?
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
-food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles?
 could put time later (local diff) if farther from spawn?
 
 maybe-consider with more feedback:
@@ -111,8 +116,9 @@ could do like divining rod, but with voronoi and find nearest but only if within
     - will still beep chest looted but item lost/not returned; this desync is part of core issue... maybe also E-D for the loot? probably, since e.g.
 	  on a finding mission after getting one you want to keep searching for another but not have this one still ping? though other same color would ping until return to monument...
  - system described here https://www.reddit.com/r/MinecraftCommands/comments/4fhbbw/best_way_to_track_which_chests_a_player_has/d2a5gbo and kill AS for already-looted, should work
-any kind of 'progress meter' in cave dungeons? 
+any kind of 'progress meter' in cave dungeons?   
 what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
+"Something like cave systems that shift and change flavor as you delve deeper could be really fun in the future - walls changing over from andesite to diorite to granite might be a way of signalling that something new is happening to the player"
 bats with a trail of fire particles look cool :)
 something with pushable blocks or moving platforms using shulkers?
 
@@ -164,8 +170,7 @@ rather than paintings, custom maps/design/info on walls, maybe with traps or sec
 
 below this line can probably do without for beta
 ------------------------------------------------
-'keep eyes open', can have multiple chest names, vary; same with dead-end, maybe
-
+bat spawner in sky, has mob as passenger, bat has wither effect, dies and randomly rains down mobs?
 cool proc: walking on path blocks grants a speed buff
 weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
 a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?

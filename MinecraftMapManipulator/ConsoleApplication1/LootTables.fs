@@ -584,7 +584,7 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(5)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)
-            if CustomizationKnobs.KURT_SPECIAL then
+            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
                 if color <> -1 then
                     yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
@@ -656,7 +656,7 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(4)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)
-            if CustomizationKnobs.KURT_SPECIAL then
+            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
                 if color <> -1 then
                     yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
@@ -676,7 +676,7 @@ let NEWaestheticTier3Chest(rng:System.Random, color, level) =
             // other chests
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1,level))
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng,-1,level))
-            if CustomizationKnobs.KURT_SPECIAL then
+            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
                 if color <> -1 then
                     yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]

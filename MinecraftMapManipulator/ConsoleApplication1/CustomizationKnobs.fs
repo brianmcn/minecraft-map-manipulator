@@ -9,7 +9,8 @@ let UHC_MODE = false
 let SINGLEPLAYER = false
 
 
-let KURT_SPECIAL = true
+let EXPLORER_BONUS_MONUMENT = true
+let KURT_SPECIAL = false
 let SILVERFISH_LIMITS = true
 let SILVERFISH_BIG = if SINGLEPLAYER then 20 else 25
 let SILVERFISH_SMALL = if SINGLEPLAYER then 10 else 15
