@@ -62,14 +62,14 @@ let rec MakeTreeDiff (Compound(_,x) as xp) (Compound(_,y) as yp) (tvp:TreeViewIt
                                 hasDiff := true
                         | List(_,xpay), List(_,ypay) ->
                             match xpay, ypay with
-                            | Bytes xx, Bytes yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Shorts xx, Shorts yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Ints xx, Ints yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Longs xx, Longs yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Floats xx, Floats yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Doubles xx, Doubles yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | Strings xx, Strings yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
-                            | IntArrays xx, IntArrays yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Bytes _xx, Bytes _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Shorts _xx, Shorts _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Ints _xx, Ints _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Longs _xx, Longs _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Floats _xx, Floats _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Doubles _xx, Doubles _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | Strings _xx, Strings _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
+                            | IntArrays _xx, IntArrays _yy -> tvi.Items.Add(new TreeViewItem(Header="TODO",Background=Brushes.Blue)) |> ignore
                             | Compounds xx, Compounds yy ->
                                 // This is the hard part.  Need to be 'smart' about how to compare/merge/display
                                 let ya = ResizeArray yy
@@ -347,7 +347,7 @@ let placeCertainEntitiesInTheWorld(entities,filename) =
                 | None -> ()
                 | Some _ -> 
                     match theChunk with 
-                    Compound(cname,a) ->
+                    Compound(_cname,a) ->
                         let i = a.FindIndex (fun x -> match x with NBT.List("Entities",_) -> true | _ -> false)
                         let es = entities |> Seq.choose (fun (e,(x,z)) -> if x/16=cx && z/16=cz then Some e else None) |> Seq.toArray 
                         a.[i] <- NBT.List("Entities",Compounds es)
@@ -371,7 +371,7 @@ let dumpSomeCommandBlocks(fil) =
                     | Some te -> 
                         match te with List(_,Compounds(tes)) ->
                         for t in tes do
-                            if t |> Array.exists (function String("Command",s) -> true | _ -> false) then
+                            if t |> Array.exists (function String("Command",_s) -> true | _ -> false) then
                                 let comm = t |> Array.pick (function String("Command",s) -> Some(string s) | _ -> None)
                                 let x = t |> Array.pick (function Int("x",i) -> Some(int i) | _ -> None)
                                 let y = t |> Array.pick (function Int("y",i) -> Some(int i) | _ -> None)
@@ -379,7 +379,7 @@ let dumpSomeCommandBlocks(fil) =
                                 aaa.Add( (comm,x,y,z) )
                     let sections = match theChunk.["Sections"] with List(_,Compounds(cs)) -> cs
                     for s in sections do
-                        let ySection = s |> Array.pick (function Byte("Y",y) -> Some(int y) | _ -> None)
+                        //let ySection = s |> Array.pick (function Byte("Y",y) -> Some(int y) | _ -> None)
                         let blocks = s |> Array.pick (function ByteArray("Blocks",a) -> Some a | _ -> None)
                         for i = 0 to 4095 do
                             let bid = blocks.[i]
@@ -677,7 +677,7 @@ let editMapDat(file,scale,xCenter,zCenter) =
 let mapDatToPng(mapDatFile:string, newPngFilename:string) =
     let nbt = readDatFile(mapDatFile)
     let out = new System.Drawing.Bitmap(128, 128)
-    let nbt = cataNBT (fun _pl nbt -> 
+    let _nbt = cataNBT (fun _pl nbt -> 
         match nbt with 
         | NBT.Compound("data",a) ->
             match a |> Seq.find(fun x -> x.Name = "colors") with
@@ -685,7 +685,7 @@ let mapDatToPng(mapDatFile:string, newPngFilename:string) =
                 for x = 0 to 127 do
                     for y = 0 to 127 do
                         let b = colorArray.[x+128*y]
-                        let r,g,b = MAP_COLOR_TABLE |> Array.find (fun (x,y) -> x = int b) |> snd
+                        let r,g,b = MAP_COLOR_TABLE |> Array.find (fun (x,_y) -> x = int b) |> snd
                         out.SetPixel(x,y,System.Drawing.Color.FromArgb(r,g,b))
             id nbt
         | _ -> nbt) (fun _pl nbt -> nbt) [] nbt
@@ -1342,6 +1342,54 @@ let placeCommandBlocksInTheWorldTemp(fil) =
     System.IO.File.Delete(fil)
     System.IO.File.Move(fil+".new",fil)
 
+type ScoreboardFromScratch(worldFolder) =
+    let scoreboardDatFilename = System.IO.Path.Combine(worldFolder, """data\scoreboard.dat""")
+    let objectives = ResizeArray()
+    let scores = ResizeArray()
+    let mutable sidebarObjective = None
+    member this.AddDummyObjective(name) =
+        objectives.Add(name,"dummy",name)
+    member this.AddObjective(name,criteria,displayName) =
+        objectives.Add(name,criteria,displayName)
+    member this.AddScore(name,objective,score) =
+        scores.Add(name,objective,score)
+    member this.SetSidebar(objective) =
+        sidebarObjective <- Some objective 
+    member this.Write() =
+        let scoreboardDat = NBT.Compound("",[
+            NBT.Compound("data",[
+                yield NBT.List("Objectives",Compounds[|
+                        for name, criteria, displayName in objectives do
+                            yield [|
+                                NBT.String("CriteriaName",criteria)
+                                NBT.String("DisplayName",displayName)
+                                NBT.String("RenderType","integer")
+                                NBT.String("Name",name)
+                                End
+                            |]
+                    |])
+                yield NBT.List("PlayerScores",Compounds[|
+                        for name, obj, score in scores do
+                            yield [|
+                                NBT.String("Objective",obj)
+                                NBT.Byte("Locked",0uy)
+                                NBT.Int("Score",score)
+                                NBT.String("Name",name)
+                                End
+                            |]
+                    |])
+                yield NBT.List("Teams",Compounds[|
+                    // TODO if needed
+                    |])
+                if sidebarObjective.IsSome then
+                    yield NBT.Compound("DisplaySlots",[
+                        NBT.String("slot_1",sidebarObjective.Value)
+                        End]|>ResizeArray)
+                yield End]|>ResizeArray)
+            End]|>ResizeArray)
+        System.IO.File.Delete(scoreboardDatFilename)
+        writeDatFile(scoreboardDatFilename,scoreboardDat)
+
 let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decorations) =
     let negXCount = rxs |> Seq.filter (fun x -> x<0) |> Seq.length 
     let negZCount = rzs |> Seq.filter (fun z -> z<0) |> Seq.length 
@@ -1355,7 +1403,7 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
                     | Some c ->
                         let chunkLevel = match c with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name (or two with a data version appended)
                         match chunkLevel with 
-                        | Compound(n,nbts) -> 
+                        | Compound(_n,nbts) -> 
                             let biomes = nbts |> Seq.find (fun nbt -> nbt.Name = "Biomes")
                             match biomes with
                             | NBT.ByteArray(_,a) ->

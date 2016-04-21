@@ -86,12 +86,12 @@ TODO: bugs & good ideas
 
 still maybe too much diamonds or prot at end
 'keep eyes open', can have multiple chest names, vary
-consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 have new thread for feedback on april maps, link it for feedback
 target 1.9.3
 
 there is still an overwhelming amount of book loot; more 'given items' (reduce choice, but also reduce paralysis)
 also, give more BoA axes maybe along the way, since so useful throughout? or at least BoA 5, who would ever use 2?
+consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
@@ -117,6 +117,49 @@ could do like divining rod, but with voronoi and find nearest but only if within
     - will still beep chest looted but item lost/not returned; this desync is part of core issue... maybe also E-D for the loot? probably, since e.g.
 	  on a finding mission after getting one you want to keep searching for another but not have this one still ping? though other same color would ping until return to monument...
  - system described here https://www.reddit.com/r/MinecraftCommands/comments/4fhbbw/best_way_to_track_which_chests_a_player_has/d2a5gbo and kill AS for already-looted, should work
+
+proximity detector is diamond hoe in a chest in green beacon (replace one dungeon loot chest, can appear nested in red's green's loot too), conditioned on EBM=true
+chest also contains a book explaining it (while holding, it will detect nearby chests containing a color stained glass not yet present in explorer bonus monument)
+
+	scoreoard objectives add ChestHasLoot dummy
+	scoreoard objectives add EBM dummy
+moral equiv of:
+    summon ArmorStand ~ ~ ~ {Tags:["unlooted","colorWhite"],CommandStats:{SuccessCountName:"@e[type=ArmorStand,c=1]",SuccessCountObjective:"ChestHasLoot"}}
+	scoreboard players set @e[type=ArmorStand,tag=unlooted] ChestHasLoot 1  // this is hard, need to manually update scoreboard dat (uuids?)
+maybe once every two seconds:
+	execute @a ~ ~ ~ execute @e[type=ArmorStand,tag=unlooted,r=9] ~ ~ ~ /testforblock ~ ~ ~ minecraft:chest -1 {Items:[{tag:{ChestedEmerald:1b}}]}
+	kill @e[type=ArmorStand,tag=unlooted,score_ChestHasLoot=0]
+	// and also
+	testfor @p[holding] 
+	C auto1
+	C auto0
+	O
+	U testforblock x y z minecraft:chest -1 {Items:[{tag:{colorWhite:1b}}]}
+	C scoreboard players set hasWhite EBM 1
+	U testforblock -2 chain_command_block -1 {SuccessCount:0}
+	C scoreboard players set hasWhite EBM 0
+	...
+	and then also run below:
+each AS can know its color from the start, so then pinger is like:
+	(this chain also triggered by someone holding detector above)
+	scoreboard players set @a NEARNESS 0
+	scoreboard players test hasWhite EBM 0 0
+	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorWhite,r=30] ~ ~ ~ scoreboard players set @a NEARNESS 3
+	scoreboard players test hasOrange EBM 0 0
+	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorOrange,r=30] ~ ~ ~ scoreboard players set @a NEARNESS 3
+	...
+	scoreboard players test hasWhite EBM 0 0
+	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorWhite,r=60] ~ ~ ~ scoreboard players set @a NEARNESS 2
+	scoreboard players test hasOrange EBM 0 0
+	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorOrange,r=60] ~ ~ ~ scoreboard players set @a NEARNESS 2
+	...
+	scoreboard players test hasWhite EBM 0 0
+	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorWhite,r=120] ~ ~ ~ scoreboard players set @a NEARNESS 2
+	scoreboard players test hasOrange EBM 0 0
+	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorOrange,r=120] ~ ~ ~ scoreboard players set @a NEARNESS 1
+	...
+	then make a HUD based on NEARNESS value 0-3, play tone too
+
 any kind of 'progress meter' in cave dungeons?   
 what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
 "Something like cave systems that shift and change flavor as you delve deeper could be really fun in the future - walls changing over from andesite to diorite to granite might be a way of signalling that something new is happening to the player"

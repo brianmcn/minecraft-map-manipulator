@@ -26,6 +26,7 @@
     <DocumentationFile>bin\Debug\ConsoleApplication1.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
     <OtherFlags>--warnon:1182</OtherFlags>
+    <NoWarn>58</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -38,6 +39,7 @@
     <DocumentationFile>bin\Release\ConsoleApplication1.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
     <OtherFlags>--warnon:1182</OtherFlags>
+    <NoWarn>58</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

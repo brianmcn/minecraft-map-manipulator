@@ -2409,9 +2409,10 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             for y = 60 to h do
                 map.SetBlockIDAndDamage(x,y,z,1uy,3uy)  // diorite
             map.SetBlockIDAndDamage(x,h+1,z,89uy,0uy) // 89=glowstone
+    let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
     // compass initialization
-    I "scoreboard objectives add Rot dummy"
-    I "scoreboard players set #ThreeSixty Rot 360"
+    scoreboard.AddDummyObjective("Rot")
+    scoreboard.AddScore("#ThreeSixty","Rot",360)
     I "blockdata 1 2 1 {auto:1b}"
     // other commands    
     I("worldborder set 2048")
@@ -2425,14 +2426,14 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     I(sprintf "setworldspawn 1 %d 1" h)
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
-    I("scoreboard objectives add hidden dummy")
-    I(sprintf "scoreboard objectives add Deaths stat.deaths %s" Strings.NAME_OF_DEATHCOUNTER_SIDEBAR.Text)
-    I("scoreboard objectives setdisplay sidebar Deaths")
-    I(sprintf "scoreboard players set X hidden %d" hiddenX)
-    I(sprintf "scoreboard players set Z hidden %d" hiddenZ)
-    I(sprintf "scoreboard players set fX hidden %d" finalEX)
-    I(sprintf "scoreboard players set fZ hidden %d" finalEZ)
-    I("scoreboard players set CTM hidden 0")
+    scoreboard.AddDummyObjective("hidden")
+    scoreboard.AddObjective("Deaths","stat.deaths",Strings.NAME_OF_DEATHCOUNTER_SIDEBAR.Text)
+    scoreboard.SetSidebar("Deaths")
+    scoreboard.AddScore("X","hidden",hiddenX)
+    scoreboard.AddScore("Z","hidden",hiddenZ)
+    scoreboard.AddScore("fX","hidden",finalEX)
+    scoreboard.AddScore("fZ","hidden",finalEZ)
+    scoreboard.AddScore("CTM","hidden",0)
     // map/logo
     I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10000s},Facing:3b}""" -2 (h+4) 2) // damage values from Utilities.makeInGameOverviewMap
     I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10001s},Facing:3b}""" -2 (h+4) 1) // damage values from Utilities.makeInGameOverviewMap
@@ -2784,6 +2785,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
     placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar",true)
     placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED,true)
+    // write out scoreboard
+    scoreboard.Write()
 
 let TELEPORT_PATH_OUT_DISTANCES = [|60;120;180;240;300|]
 let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>, allTrees : ContainerOfMCTrees) =
@@ -3114,12 +3117,12 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
