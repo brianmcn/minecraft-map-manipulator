@@ -42,7 +42,7 @@ let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST =
 
 let BOOK_IN_GREEN_BEACON_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","2. After green beacon cave",[|
-         id """{"text":"If you feel protected enough, look for one of the RED beacons; conquer a surface area filled with cobwebs to earn the first monument block and some great loot!"}"""
+         id """{"text":"If you feel protected enough, look for one of the RED beacons; conquer a surface area filled with cobwebs to earn the second monument block and some great loot!"}"""
      |]) |> ResizeArray)
 
 let BOOK_IN_FLAT_DUNGEON_CHEST = 
@@ -52,8 +52,7 @@ let BOOK_IN_FLAT_DUNGEON_CHEST =
 
 let BOOK_IN_MOUNTAIN_PEAK_CHEST =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","4. Secret Treasure",[| 
-//        id """{"text":"The secret treasure is buried at\nX : ","extra":[{"score":{"name":"X","objective":"hidden"}},{"text":"\nZ : "},{"score":{"name":"Z","objective":"hidden"}}]}"""
-        sprintf """{"text":"A secret treasure lies buried in a quiet mountain top... hold the %s while exploring to find it!"}}]}""" NameAndLore.DIVINING_ROD_NAME 
+        sprintf """{"text":"A secret treasure lies buried in a quiet mountain top... hold the %s while exploring to find where to dig!"}}]}""" NameAndLore.DIVINING_ROD_NAME 
      |])|> ResizeArray)
 
 let BOOK_WITH_ELYTRA =
@@ -78,7 +77,7 @@ let QUADRANT_SOUTHEAST = TranslatableString "SouthEast (+X,+Z)"
 let TELEPORTER_TO_BLAH(quadrant:TranslatableString) = TranslatableString(sprintf "Teleporter to %s" quadrant.Text)
 let BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","Congratulations!",[| 
-        wrapInJSONTextContinued """(This was intended to be the final dungeon; if you have not yet obtained the other two monument blocks, then you may want to revisit some bedrock-sky areas of the map.)"""
+        wrapInJSONTextContinued """(This was intended to be the final dungeon; if you have not yet obtained the other two monument blocks, then you may want to revisit some red/green beacons on the map.)"""
         Utilities.wrapInJSONText """Once all monument blocks are placed on the monument, you win!\n\nI hope you enjoyed playing the map. Feedback links will appear when you complete the monument."""
      |])|> ResizeArray)
 
@@ -113,7 +112,7 @@ let STARTING_BOOK_OVERVIEW =
                                 wrapInJSONTextContinued "...\nThere will be lots of anvils and enchanted books. To progress, you ought NOT need to farm xp/drops, mine for diamonds, nor make an enchanting table, but you CAN if you want."
                                 wrapInJSONTextContinued "...\nThere will be emeralds in some loot chests. You should save them, as eventually you may unlock the ability to trade emeralds for some very useful buffs."
                                 wrapInJSONTextContinued "RANDOMLY GENERATED\n\nAlgorithms created this entire map. The VANILLA Minecraft generator made the original terrain; my program added a SWIRL of dungeons, loot, monument, & secrets automatically."
-                                wrapInJSONTextContinued "THANKS\n\nThanks to obesity84, FixxxerTV, no_leaf_clover, Thungon217, and ChaosC for providing useful feedback and entertainment in previous playthroughs!"
+                                wrapInJSONTextContinued "THANKS\n\nThanks to obesity84, FixxxerTV, no_leaf_clover, Thungon217, ChaosC, and others for providing useful feedback and entertainment in previous playthroughs!"
                                 sprintf """[{"text":"MORE INFO\n\nYou can learn more about the map, request features, give feedback, etc. on the map forum here:\n\n"},{"text":"Vanilla Swirl CTM subreddit","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}},{"text":"\n\n(continued...)"}]""" forumLink
                                 sprintf """[{"text":"If you enjoyed the map and would like to leave me a donation, I'd very much appreciate that!\n\n"},{"text":"Click to donate","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
                             |]) |> ResizeArray)
@@ -144,9 +143,9 @@ let STARTING_BOOK_HINTS_AND_SPOILERS =
                                 wrapInJSONTextContinued "Note: In the map folder on disk, there are two pictures of the terrain, one has locations of major dungeons labeled (spoilers), the other does not."
                                 wrapInJSONTextContinued "1. GEARING UP\n\nGetting your first cobblestone is not so easy, though there are at least 5 different ways you can obtain it."
                                 wrapInJSONTextContinued "...\nCaving near spawn to find dungeons (which are somewhat common) or abandoned mineshafts is the best way to find initial loot to gear up. You can also mine iron and gold (or even diamonds) for early gear."
-                                wrapInJSONTextContinued "2. GREEN BEACONS\n\nNext explore the world for GREEN beacons ('B' on spoiler map image), which lead to underground dungeons. You'll find a marked path through a cave and spawners guarding a good loot box."
-                                wrapInJSONTextContinued "3. RED BEACONS\n\nNext explore the world for RED beacons ('F' on spoiler map image): cobwebbed dungeons on the surface.  The loot box at the center has the first monument block and more gear upgrades."
-                                wrapInJSONTextContinued "4. MOUNTAIN PEAKS\n\nNext explore the world for dangerous looking mountain peaks ('P' on spoiler map image), lit by redstone torches. You'll find the second monument block, and a tool to locate buried treasure!"
+                                wrapInJSONTextContinued "2. GREEN BEACONS\n\nNext explore the world for GREEN beacons ('B' on spoiler map image), which lead to a marked path through a cave. Spawners help guard a box with the first monument block and good loot."
+                                wrapInJSONTextContinued "3. RED BEACONS\n\nNext explore the world for RED beacons ('F' on spoiler map image): cobwebbed dungeons on the surface.  The loot box at the center has the second monument block and more gear upgrades."
+                                wrapInJSONTextContinued "4. MOUNTAIN PEAKS\n\nNext explore the world for dangerous looking mountain peaks ('P' on spoiler map image), lit by redstone torches. You'll find more loot and a tool to locate buried treasure!"
                                 wrapInJSONTextContinued "5. SECRET TREASURE\n\nNext use the tool to locate where to dig for treasure ('H' on the spoiler map image). You'll uncover a method of faster travel, and learn which way to explore for the final dungeon."
                                 Utilities.wrapInJSONText "6. FINAL DUNGEON\n\nFinally explore one quadrant of the world for a PURPLE beacon ('X' on spoiler map image), the final dungeon. It's like the first dungeon, but harder, and has the final monument block."
                             |]) |> ResizeArray)
