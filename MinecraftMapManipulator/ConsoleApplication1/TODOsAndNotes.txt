@@ -81,25 +81,31 @@ OK what if green has first mon block, red has 2nd, mountain has none... fix the 
 OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
 OK cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs)
 OK food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles? - be sure to add more debug chests
+
+proximity threshold values
 multiplayer proximity (and prox & divining at once)
+OK sounds for prox in 'ambient', should I put them in 'voice' so folks can turn them off separately?
+too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
+(multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
+there is still an overwhelming amount of book loot, lessening...
+also, the multi-books in the random loot chests are almost all worthless, and hard to 'categorize' as a result of being multi; maybe single enchants, more useful, by 'level' (dist from spawn)?
+still maybe too much diamonds or prot at end, lessened diamonds
+new rand loot balance
 
 TODO: bugs & good ideas
 
-still maybe too much diamonds or prot at end
+occasionally spiders should drop 4 pairs of gold/iron boots (since they have 8 legs), ha! (shook)
+anti-tunneling under peaks too?
 'keep eyes open', can have multiple chest names, vary
 have new thread for feedback on april maps, link it for feedback
 target 1.9.3
-
-there is still an overwhelming amount of book loot; more 'given items' (reduce choice, but also reduce paralysis)
-also, give more BoA axes maybe along the way, since so useful throughout? or at least BoA 5, who would ever use 2?
-consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
-
+4ound zom spawners at sur4ace, one right next to spawn - min dist?  and maybe i4 sunlight >0 on square, don't make spawner?
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
-could put time later (local diff) if farther from spawn?
 
 maybe-consider with more feedback:
 are there too many webs in the red?
+consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 
 
 future features/map request:

@@ -404,6 +404,8 @@ let makeBookWithIdLvl(id, lvl) =
 let chooseNbooks(rng:System.Random,n,a) =
     let r = Algorithms.pickNnonindependently(rng, n, a)
     r |> Array.map (fun (id,lvls:_[]) -> makeBookWithIdLvl(id, lvls.[rng.Next(lvls.Length)]))
+(*
+these have almost always been useless
 let makeMultiBook(rng:System.Random) =  // makes a low-level multi-book suitable for aesthetic chests
     // deal with incompatible enchants
     let oneProt = [| PROT,[1]; FP,[1..3]; BP,[1..3]; PROJ,[1..3] |] |> (fun a -> a.[rng.Next(a.Length)]) |> (fun (f,x) -> f x)
@@ -422,6 +424,17 @@ let makeMultiBook(rng:System.Random) =  // makes a low-level multi-book suitable
                   let lvl = levels.[rng.Next(levels.Length)]
                   yield [|Short("id",int16 id);Short("lvl",int16 lvl);End|]
             |]); End |] |> ResizeArray); End |]
+*)
+let makeRandomBookBasedOnAestheticLevel(rng:System.Random,level) =
+    let possibles = 
+        match level with
+        | 1 -> [PROT[1]; FP[1..3]; BP[1..3]; PROJ[1..3]; SHARP[1]; SMITE[1..3]; SILK[1]; FF[1..3]; FA[1..2]; KNOCK[2]; EFF[1..3]; POW[1..2]; PUNCH[1]]
+        | 2 -> [PROT[1..2]; BP[1..3]; PROJ[1..3]; SHARP[1..3]; SMITE[3]; FF[2..4]; EFF[2..4]; BOA[5]]
+        | 3 -> [PROT[2]; BP[3]; PROJ[3]; SHARP[3]; SMITE[3]; FF[4]; EFF[4]; BOA[5]]
+        | _ -> failwith "bad level"
+    let chosenId,lvls = possibles.[rng.Next(possibles.Length)]
+    let chosenLvl = lvls.[rng.Next(lvls.Length)]
+    makeBookWithIdLvl(chosenId,chosenLvl)
 let addSlotTags(items) =
     let slot = ref 0uy
     [|
@@ -435,9 +448,9 @@ let addSlotTags(items) =
 let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // dungeons and mineshafts
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier2ArmorBooks = [PROT[1]; FF[1..4]; BP[1..3]; PROJ[1..3]]
-    let tier2MeleeBooks = [SHARP[1]; SMITE[1..3]; BOA[1..3]; KNOCK[2]]
+    let tier2MeleeBooks = [SHARP[1]; BOA[5]; KNOCK[2]] // SMITE
     let tier2UtilBooks = [EFF[1..3]; SILK[1]; FORT[1..3]] //; FW[2]]
-    let tier2BowBooks = [POW[1..2]; PUNCH[1]; FLAME[1..2]]
+    let tier2BowBooks = [POW[1..3]; PUNCH[1]; FLAME[1..2]]
     let tier2Items =
         [|
             if CustomizationKnobs.UHC_MODE then
@@ -445,7 +458,7 @@ let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // d
             yield! chooseNbooks(rng,F 2,tier2ArmorBooks)
             yield! chooseNbooks(rng,F 1,tier2MeleeBooks)
             yield! chooseNbooks(rng,F 2,tier2UtilBooks)
-            yield! chooseNbooks(rng,F 1,tier2BowBooks)
+            yield! chooseNbooks(rng,F 2,tier2BowBooks)
             yield makeItem(rng,"anvil",F 3,F 5,2s)
             yield makeItem(rng,"arrow",F 10,F 20,0s)
             yield makeItem(rng,"apple",F 4,F 6,0s)
@@ -471,23 +484,29 @@ let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // d
 let NEWsampleTier3Chest(rng:System.Random,haveInnerChestsAndInstructions) = // green beacon
     let F = CustomizationKnobs.LOOT_FUNCTION
     let tier3ArmorBooks = [PROT[1..3]; FF[1..4]; BP[1..3]; PROJ[1..3]]
-    let tier3MeleeBooks = [SHARP[1..3]; SMITE[2..4]; BOA[2..4]; KNOCK[2]]
+    let tier3MeleeBooks = [SHARP[1..3]; SMITE[2..4]; KNOCK[2]] // BOA
     let tier3UtilBooks = [EFF[3..5]; UNBR[1..3]]
-    let tier3BowBooks = [POW[2..4]; PUNCH[1..2]] // ; INF[1]]    Fix suggested no infinity this early is good, makes arrow management needed   
+    //let tier3BowBooks = [POW[2..4]; PUNCH[1..2]] // ; INF[1]]    Fix suggested no infinity this early is good, makes arrow management needed   
     let tier3Items =
         [|
             yield makeBookWithIdLvl(0,4)   // prot 4 book
             yield makeItem(rng,"anvil",F 3,F 5,2s)
             yield! chooseNbooks(rng,F 3,tier3ArmorBooks)
-            yield! chooseNbooks(rng,F 3,tier3MeleeBooks)
+            yield! chooseNbooks(rng,F 2,tier3MeleeBooks)
             yield! chooseNbooks(rng,F 2,tier3UtilBooks)
-            yield! chooseNbooks(rng,F 2,tier3BowBooks)
+            //yield! chooseNbooks(rng,F 2,tier3BowBooks) // trying to unclutter book loot, dung chests have bow books that may be decent
             if haveInnerChestsAndInstructions then
                 yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
                 yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
             yield makeItem(rng,"experience_bottle",64,64,0s)
             yield makeItem(rng,"diamond_pickaxe",1,1,0s)
             yield makeItem(rng,"diamond_sword",1,1,0s)
+            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
+                yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_PROXIMITY_DETECTOR, [|
+                        [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_EXPLAINING_PROXIMITY_DETECTOR; End |]
+                        [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:diamond_hoe"); Compound("tag",[
+                                    Int("Unbreakable",1); Strings.NameAndLore.PROXIMITY_DETECTOR; End] |> ResizeArray); End |]
+                        |])
             yield makeItem(rng,"iron_ingot",F 15,F 20,0s)
             yield makeItem(rng,"gold_ingot",F 15,F 20,0s)
             yield makeItem(rng,"cooked_beef",F 10,F 20,0s)
@@ -512,7 +531,7 @@ let NEWsampleTier4Chest(rng:System.Random,haveInnerChestsAndInstructions) = // f
             if haveInnerChestsAndInstructions then
                 yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng,false))
                 yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
-            yield makeItem(rng,"diamond",F 10,F 16,0s)
+            yield makeItem(rng,"diamond",F 7,F 9,0s)
             yield makeItem(rng,"golden_apple",F 4,F 7,0s)
             for _i = 1 to 2 do
                 yield [| String("id","minecraft:potion"); Byte("Count", 1uy); Short("Damage",0s); Compound("tag",[
@@ -532,7 +551,6 @@ let NEWsampleTier5Chest(rng:System.Random) = // mountain peak
         [|
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,NEWsampleTier4Chest(rng,false))
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,NEWsampleTier3Chest(rng,false))
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,NEWsampleTier2Chest(rng,false))
             yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
             yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:golden_hoe"); Compound("tag",[
                         Int("Unbreakable",1); Strings.NameAndLore.DIVINING_ROD; End] |> ResizeArray); End |]
@@ -630,7 +648,7 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
             // useful
-            yield makeMultiBook(rng)
+            yield makeRandomBookBasedOnAestheticLevel(rng,level)
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(5)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)
@@ -704,7 +722,7 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
             // useful
-            yield makeMultiBook(rng)
+            yield makeRandomBookBasedOnAestheticLevel(rng,level)
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(4)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)

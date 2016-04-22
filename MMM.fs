@@ -1502,27 +1502,7 @@ automatic game start configs (night vision, starting items), customizable
         System.IO.Directory.Delete(System.IO.Path.Combine(worldSaveFolder,"playerdata"),true) // delete playerdata folder
     with _ -> ()
 
-    dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM\data\scoreboard.dat""")
-(*
-    dumpPlayerDat("""C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\flat\data\scoreboard.dat""")
-    let least = -9217416061113214703L // UUIDLeast
-    let most = -6129536729130317557L // UUIDMost
-    let toLeastMost(uuid:System.Guid) =
-        let bytes = uuid.ToByteArray()
-        let i,j,k,a = bytes.[0..3], bytes.[4..5], bytes.[6..7], bytes.[8..15]
-        let least = System.BitConverter.ToInt64(a |> Array.rev, 0)
-        let most = System.BitConverter.ToInt64(Array.concat [i |> Array.rev; j |> Array.rev; k |> Array.rev] |> Array.rev, 0)
-        printfn "%d    %d" least most
-    let toUuid(l:int64,m:int64) = 
-        let a = System.BitConverter.GetBytes(l)
-        System.Array.Reverse(a)
-        let b = System.BitConverter.GetBytes(m)
-        System.Array.Reverse(b)
-        let uuid = new System.Guid(System.BitConverter.ToInt32(b.[0..3]|>Array.rev,0), System.BitConverter.ToInt16(b.[4..5]|>Array.rev,0), System.BitConverter.ToInt16(b.[6..7]|>Array.rev,0), a)
-        printfn "%s" (uuid.ToString()) // aaef82d2-0e7a-490b-8015-28edaa5dd911
-        toLeastMost(uuid)  // -9217416061113214703    -6129536729130317557
-    toUuid(least,most)
-*)
+    //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM\data\scoreboard.dat""")
 
     (*
     do

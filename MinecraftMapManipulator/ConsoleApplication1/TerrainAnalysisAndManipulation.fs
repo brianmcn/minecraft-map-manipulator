@@ -610,15 +610,17 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
     for hs in nearSpawnCaveEntranceCCs.Values do
         if hs.Count > 200 then
             // only consider "caves" of some min size
-            let mutable bestX,bestY,bestZ = 9999,0,9999
+            let mutable bestX,bestY,bestZ,spacesAboveHM = 9999,0,9999,0
             for p in hs do
                 let x,y,z = XYZP(p)
-                if y >= hmIgnoringLeaves.[x,z] && (x*x+z*z < bestX*bestX+bestZ*bestZ) then
-                    bestX <- x
-                    bestY <- y
-                    bestZ <- z
-            if bestY <> 0 then
-                // found highest point in this cave exposed to surface
+                if y >= hmIgnoringLeaves.[x,z] then
+                    spacesAboveHM <- spacesAboveHM + 1
+                    if (x*x+z*z < bestX*bestX+bestZ*bestZ) then
+                        bestX <- x
+                        bestY <- y
+                        bestZ <- z
+            if bestY <> 0 && hs.Count-spacesAboveHM > 200 then
+                // found highest point in this cave exposed to surface, and this is not just a deep ravine exposed to air
                 for y = bestY + 10 to bestY + 26 do
                     map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
                 hm.[bestX,bestZ] <- bestY+27
@@ -1018,46 +1020,52 @@ let oreSpawnCustom =
         "diamond",   4,  1, 0,  16
     |]
 
-// only place if visible
+// only place if visible, returns Some(nearbyAirCoord) if can
 let canPlaceSpawner(map:MapFolder,x,y,z) =
     // avoid placing multiple in a cluster
     if map.GetBlockInfo(x-1,y,z).BlockID = 52uy then
-        false
+        None
     elif map.GetBlockInfo(x-1,y-1,z).BlockID = 52uy then
-        false
+        None
+    elif map.GetBlockInfo(x+1,y-1,z).BlockID = 52uy then
+        None
     elif map.GetBlockInfo(x,y-1,z).BlockID = 52uy then
-        false
+        None
     elif map.GetBlockInfo(x,y-1,z-1).BlockID = 52uy then
-        false
+        None
+    elif map.GetBlockInfo(x,y-1,z+1).BlockID = 52uy then
+        None
     elif map.GetBlockInfo(x,y,z-1).BlockID = 52uy then
-        false
+        None
     elif map.GetBlockInfo(x-1,y,z-1).BlockID = 52uy then
-        false
+        None
+    elif map.GetBlockInfo(x-1,y,z+1).BlockID = 52uy then
+        None
     // only place if air nearby (can see spawner, or see particles up through blocks)
     elif map.GetBlockInfo(x+1,y,z).BlockID = 0uy then
-        true
+        Some(x+1,y,z)
     elif map.GetBlockInfo(x-1,y,z).BlockID = 0uy then
-        true
+        Some(x-1,y,z)
     elif map.GetBlockInfo(x,y,z+1).BlockID = 0uy then
-        true
+        Some(x,y,z+1)
     elif map.GetBlockInfo(x,y,z-1).BlockID = 0uy then
-        true
+        Some(x,y,z-1)
     elif map.GetBlockInfo(x,y+1,z).BlockID = 0uy then
-        true
+        Some(x,y+1,z)
     //elif map.GetBlockInfo(x,y-1,z).BlockID = 0uy then  // don't place if only visible at y-1, this means it's in the ceiling, and likely can't spawn tall mobs
     //    true
     elif map.GetBlockInfo(x+1,y+1,z).BlockID = 0uy then
-        true
+        Some(x+1,y+1,z)
     elif map.GetBlockInfo(x-1,y+1,z).BlockID = 0uy then
-        true
+        Some(x-1,y+1,z)
     elif map.GetBlockInfo(x,y+1,z+1).BlockID = 0uy then
-        true
+        Some(x,y+1,z+1)
     elif map.GetBlockInfo(x,y+1,z-1).BlockID = 0uy then
-        true
+        Some(x,y+1,z-1)
     elif map.GetBlockInfo(x,y+2,z).BlockID = 0uy then
-        true
+        Some(x,y+2,z)
     else
-        false
+        None
 
 // TODO consider eliminating all cobwebs (if so, can change logic that checks cobwebs, and have more control over access to bows)
 let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog) =
@@ -1082,18 +1090,25 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                     elif bid = 1uy && dmg = 0uy then // stone ->
                         map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 1uy && dmg = 1uy then // granite ->
-                        if canPlaceSpawner(map,x,y,z) then
-                            map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
-                            let ms = 
-                                if x*x+z*z > DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
-                                    GRANITE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
-                                else
-                                    NEAR_SPAWN_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
-                            spawners1.Add(ms)
-                        else
+                        match canPlaceSpawner(map,x,y,z) with
+                        | Some(airx,airy,airz) -> 
+                            let _nbt,_blocks,_blockData,_blockLight,skyLight = map.GetSection(airx,airy,airz)
+                            let sky = NibbleArray.get(skyLight,airx,airy,airz)
+                            if sky <> 0uy && (x*x+z*z) < (DAYLIGHT_RADIUS*DAYLIGHT_RADIUS) then
+                                log.LogInfo(sprintf "NOT WRITING SPAWNER IN LIGHT NEAR SPAWN AT %d %d %d" x y z)
+                                map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
+                            else
+                                map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
+                                let ms = 
+                                    if x*x+z*z > DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
+                                        GRANITE_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                                    else
+                                        NEAR_SPAWN_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
+                                spawners1.Add(ms)
+                        | None ->
                             map.SetBlockIDAndDamage(x,y,z,1uy,5uy) // andesite
                     elif bid = 73uy && dmg = 0uy then // redstone ore ->
-                        if canPlaceSpawner(map,x,y,z) then
+                        if canPlaceSpawner(map,x,y,z).IsSome then
                             map.SetBlockIDAndDamage(x,y,z,52uy,0uy) // mob spawner
                             let ms = 
                                 if x*x+z*z > DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
@@ -1796,15 +1811,18 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
     let isFlowingWater(nbi:BlockInfo) = 
         nbi.BlockID = 9uy && nbi.BlockData <> 0uy || nbi.BlockID = 8uy // flowing water
     let tierCounts = Array.zeroCreate 4
+    let levelCounts = Array.zeroCreate 4
+    let level(x,z) =
+        let dsq = x*x+z*z
+        let SQR x = x*x
+        if dsq < SQR(DAYLIGHT_RADIUS*9/5) then
+            1
+        elif dsq < SQR(DAYLIGHT_RADIUS*7/2) then
+            2
+        else 
+            3
     let putTrappedChestWithLoot(color,x,y,z,tier) =
-        let level = 
-            let dsq = x*x+z*z
-            if dsq < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS then
-                1
-            elif dsq < DAYLIGHT_RADIUS*DAYLIGHT_RADIUS*5/2 then
-                2
-            else 
-                3
+        let level = level(x,z)
         let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng,color,level)
                     elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng,color,level)
                     elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng,color,level)
@@ -1812,11 +1830,13 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
         tierCounts.[tier] <- tierCounts.[tier] + 1
+        levelCounts.[level] <- levelCounts.[level] + 1
         mkUuidArmorStandAt(x,y,z,false,color)
     let putFurnaceWithLoot(color,x,y,z) =
+        let level = level(x,z)
         // can hold up to 3 items
         let items = [|  yield [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
-                        yield LootTables.makeMultiBook(rng)
+                        yield LootTables.makeRandomBookBasedOnAestheticLevel(rng,level)
                         if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
                             if color <> -1 then
                                 yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
@@ -1824,6 +1844,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         putFurnaceWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
         tierCounts.[0] <- tierCounts.[0] + 1
+        levelCounts.[level] <- levelCounts.[level] + 1
         mkUuidArmorStandAt(x,y,z,true,color)
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
@@ -1857,7 +1878,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             let x = if rng.Next(2) = 0 then x-1 else x+1
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
-                                if noneWithin(150,points.[1],x,y,z) && noneWithin(150,points.[7],x,y,z) then
+                                if noneWithin(160,points.[1],x,y,z) && noneWithin(155,points.[7],x,y,z) then
                                     putTrappedChestWithLoot(1,x,y,z,1)
                                     points.[1].Add( (x,y,z) )
                                     names.[1] <- "tree top leaves"
@@ -2174,7 +2195,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
             () // ignore hell/end trees we've already replaced
         else
             // if no other super-common chests nearby
-            if noneWithin(150,points.[7],x,y,z) && noneWithin(150,points.[1],x,y,z) && noneWithin(150,points.[15],x,y,z) then
+            if noneWithin(140,points.[7],x,y,z) && noneWithin(140,points.[1],x,y,z) && noneWithin(140,points.[15],x,y,z) then
                 // if base would not leave chest exposed    
                 let bidsAroundBase = 
                     set [| int(map.GetBlockInfo(x+1,y-1,z).BlockID)
@@ -2275,7 +2296,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     goodPortionCoords.Remove(i+di,j+dj) |> ignore
     map.AddOrReplaceTileEntities(tileEntities)
     map.AddEntities(entities)
-    log.LogSummary(sprintf "added %d extra loot chests (tier counts: %A)" lootLocations.Count tierCounts)
+    log.LogSummary(sprintf "added %d extra loot chests (tier counts: %A   levelCounts: %A)" lootLocations.Count tierCounts levelCounts)
     for i = 0 to names.Length-1 do
         if names.[i] <> "" then
             log.LogInfo(sprintf "%3d: %s (%d %s)" points.[i].Count names.[i] i (snd MC_Constants.WOOL_COLORS.[i]))
@@ -2549,10 +2570,6 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                     yield [| Byte("Count",1uy); Byte("Slot",3uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
 
-                    // TODO move to green chest with accompany book
-                    yield [| Byte("Count",1uy); Byte("Slot",4uy); Short("Damage",0s); String("id","minecraft:diamond_hoe"); Compound("tag",[
-                                Int("Unbreakable",1); Strings.NameAndLore.PROXIMITY_DETECTOR; End] |> ResizeArray); End |]
-
                     yield [| Byte("Count",1uy); Byte("Slot",9uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Compound("tag", Utilities.makeWrittenBookTags(Strings.FISHING_DATA)|>ResizeArray); End |]
                     yield [| Byte("Count",1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); 
@@ -2573,7 +2590,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
         let chestItems = 
             Compounds[| 
                     for i = 0uy to 8uy do
-                        let level = if i<2uy then 1 elif i<5uy then 2 else 3
+                        let level = if i<3uy then 1 elif i<6uy then 2 else 3
                         yield [| yield Byte("Slot",i); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 1 level %d" level),LootTables.NEWaestheticTier1Chest(rng,-1,level)) |]
                         yield [| yield Byte("Slot",i+9uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 2 level %d" level),LootTables.NEWaestheticTier2Chest(rng,-1,level)) |]
                         yield [| yield Byte("Slot",i+18uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 3 level %d" level),LootTables.NEWaestheticTier3Chest(rng,-1,level)) |]
@@ -2584,29 +2601,29 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
         let chestItems = 
             Compounds[| 
                     for i = 1 to 8 do
-                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                     yield [| Byte("Count", 1uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BONUS_MONUMENT_BOOK; End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                     for i = 10 to 17 do
                         let color = i-10
                         let count = colorCount.[color]
                         if count = 0 then
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                     for i = 19 to 26 do
                         let color = i-11
                         let count = colorCount.[color]
                         if count = 0 then
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                 |]
         putUntrappedChestWithItemsAndOrientationAt(-3,h+2,1,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
         let chestItems = 
             Compounds[| 
                     for i = 1 to 8 do
-                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                     yield [| Byte("Count", 32uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:filled_map"); Compound("tag", [|Strings.NameAndLore.WORLD_MAP; End|]|>ResizeArray); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                     for i = 10 to 17 do
                         let color = i-10
                         let count = colorCount.[color]
@@ -2614,7 +2631,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                             assert(count > 0 && count <= 64)
                             yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
                         else
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                     for i = 19 to 26 do
                         let color = i-11
                         let count = colorCount.[color]
@@ -2622,7 +2639,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                             assert(count > 0 && count <= 64)
                             yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
                         else
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",15s); String("id","minecraft:stained_glass_pane"); End |]
+                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                 |]
         putUntrappedChestWithItemsAndOrientationAt(-3,h+2,2,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
         // TODO make .dat files better (brittle file path now, klutzy)
@@ -2762,8 +2779,12 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     let ticks = (int64 mapTimeInHours) * 60L  *60L * 20L
     assert(ticks % 24000L = 0L)
     let dayTicks = ticks + 1000L
-    let nightTicks = ticks + 14500L
-    R(sprintf "time set %d" nightTicks) // night
+    let nightTicks = ticks + 14500L                 // LD 0.01 -> 0.76
+    let lateNightTicks = nightTicks + 24000L * 32L  // 32 days later -> more local difficulty // LD 0.19 -> 0.94
+    R(sprintf "testfor @p[r=%d,x=0,y=80,z=0]" (DAYLIGHT_RADIUS*3))
+    C(sprintf "time set %d" nightTicks) // night
+    U("testforblock ~ ~2 ~ repeating_command_block -1 {SuccessCount:0}")
+    C(sprintf "time set %d" lateNightTicks) // late night when far from spawn
     U("testfor @a {ActiveEffects:[{Id:26b}]}") // if anyone has luck potion
     C(sprintf "time set %d" dayTicks) // day
     U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set %d" DAYLIGHT_RADIUS dayTicks)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
@@ -2875,7 +2896,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     let U(c) = placeChain(3,!y,3,c,false); decr y
     let I(c) = placeImpulse(3,!y,3,c,false); decr y
     I("scoreboard players set @a NEARNESS 0")
-    let DIST = 30
+    let DIST = PROXIMITY_DETECTION_THRESHOLDS.[0]
     for color = 0 to 15 do
         if colorCount.[color]<>0 then
             U(sprintf "scoreboard players test has%d EBM 0 0" color)
@@ -2889,7 +2910,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     let U(c) = placeChain(2,!y,3,c,false); decr y
     let I(c) = placeImpulse(2,!y,3,c,false); decr y
     I("")
-    let DIST = 60
+    let DIST = PROXIMITY_DETECTION_THRESHOLDS.[1]
     for color = 0 to 15 do
         if colorCount.[color]<>0 then
             U(sprintf "scoreboard players test has%d EBM 0 0" color)
@@ -2903,7 +2924,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     let U(c) = placeChain(1,!y,3,c,false); decr y
     let I(c) = placeImpulse(1,!y,3,c,false); decr y
     I("")
-    let DIST = 120
+    let DIST = PROXIMITY_DETECTION_THRESHOLDS.[2]
     for color = 0 to 15 do
         if colorCount.[color]<>0 then
             U(sprintf "scoreboard players test has%d EBM 0 0" color)
@@ -2917,10 +2938,10 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     let U(c) = placeChain(0,!y,3,c,false); decr y
     let I(c) = placeImpulse(0,!y,3,c,false); decr y
     I("")
-    U("execute @p[tag=Detecting,score_NEARNESS_min=3] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 1.2")
-    U("execute @p[tag=Detecting,score_NEARNESS=2,score_NEARNESS_min=2] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 1.0")
-    U("execute @p[tag=Detecting,score_NEARNESS=1,score_NEARNESS_min=1] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 0.8")
-    U("execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ playsound block.note.harp ambient @p ~ ~ ~ 1 0.6")
+    U("execute @p[tag=Detecting,score_NEARNESS_min=3] ~ ~ ~ playsound block.note.harp voice @p ~ ~ ~ 1 1.2")
+    U("execute @p[tag=Detecting,score_NEARNESS=2,score_NEARNESS_min=2] ~ ~ ~ playsound block.note.harp voice @p ~ ~ ~ 1 1.0")
+    U("execute @p[tag=Detecting,score_NEARNESS=1,score_NEARNESS_min=1] ~ ~ ~ playsound block.note.harp voice @p ~ ~ ~ 1 0.8")
+    U("execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ playsound block.note.harp voice @p ~ ~ ~ 1 0.6")
     U("title @p[tag=Detecting] times 0 10 0") // is not saved with the world, so has to be re-executed to ensure run after restart client
     U(sprintf """title @p[tag=Detecting,score_NEARNESS=3] subtitle {"text":"%s"}""" Strings.PROXIMITY_HOT)
     U(sprintf """title @p[tag=Detecting,score_NEARNESS=2] subtitle {"text":"%s"}""" Strings.PROXIMITY_WARMER)
@@ -3265,12 +3286,12 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
     xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    time (fun() -> 
+    xtime (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

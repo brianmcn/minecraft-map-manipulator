@@ -45,7 +45,7 @@ let forumLink = """https://www.reddit.com/r/VanillaSwirlCTM/"""
 
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","1. After gearing up",[|
-        wrapInJSONTextContinued """Once you've geared up and are wearing metal armor, venture out into the night looking for one of the GREEN beacons. Each green beacon has a challenging path that leads to riches!"""
+        wrapInJSONTextContinued """Once you've geared up and are wearing metal armor, venture out into the night looking for one of the GREEN beacons. Each green beacon has a challenging path that leads to riches and the first monument block!"""
         Utilities.wrapInJSONText """(Note that the dungeon/mineshaft chests that held this book generate throughout the entire map, so if you need more gear like this, you can go caving most anywhere to find more.)"""
      |]) |> ResizeArray)
 
@@ -53,6 +53,19 @@ let BOOK_IN_GREEN_BEACON_CHEST =
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","2. After green beacon cave",[|
          id """{"text":"If you feel protected enough, look for one of the RED beacons; conquer a surface area filled with cobwebs to earn the second monument block and some great loot!"}"""
      |]) |> ResizeArray)
+
+let BOOK_EXPLAINING_PROXIMITY_DETECTOR = 
+    Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","Bonus loot finder",[|
+        wrapInJSONTextContinued(sprintf """This amazing device can detect nearby bonus loot boxes hidden throughout the surface of the world! When the %s is HELD, it will suggest how close you are to a nearby loot box.""" NameAndLore.PROXIMITY_DETECTOR_NAME)
+        wrapInJSONTextContinued(sprintf """Here's how it works. If no boxes are anywhere nearby, it will display "%s" and play a low tone. If you get within about %d blocks of a box, the display says "%s" and the pitch rises.""" PROXIMITY_COLD CustomizationKnobs.PROXIMITY_DETECTION_THRESHOLDS.[2] PROXIMITY_WARM)
+        wrapInJSONTextContinued(sprintf """If you get within about %d blocks, it says "%s", and within %d blocks it says "%s" and the tone's pitch is highest. But note...""" CustomizationKnobs.PROXIMITY_DETECTION_THRESHOLDS.[1] PROXIMITY_WARMER CustomizationKnobs.PROXIMITY_DETECTION_THRESHOLDS.[0] PROXIMITY_HOT)
+        wrapInJSONTextContinued """This device detects only bonus surface boxes that have not been looted of the stained glass "Bonus Monument" items. And furthermore..."""
+        wrapInJSONTextContinued """This device detects only boxes containing stained glass blocks with a COLOR that does NOT currently appear in the top half of the Bonus Monument chest at spawn."""
+        wrapInJSONTextContinued """Thus if you want to find only boxes containing remaining stained glass colors, put other colors you've already found in the Bonus Monument chest, so boxes containing those already-found colors will be ignored."""
+        wrapInJSONTextContinued """On the other hand, if you want to detect every unlooted box (for extra loot), then remove the stained glass items from the top half of the Bonus Monument chest at spawn. Then all unlooted chests will be detected."""
+        Utilities.wrapInJSONText """Note that you can control the volume of the tone with the "Voice/Speech" slider in the Minecraft volume controls."""
+     |]) |> ResizeArray)
+
 
 let BOOK_IN_FLAT_DUNGEON_CHEST = 
     Compound("tag", Utilities.makeWrittenBookTags("Lorgon111","3. After red beacon webs",[|
@@ -162,9 +175,9 @@ let TELEPORTER_HUB_BOOK =
     Compound("tag", Utilities.makeWrittenBookTags(
                             "Lorgon111","Teleport hub",
                             [|
-                                wrapInJSONTextContinued "This teleporter hub allows for faster travel to unlocked corners of the map. Each unlocked teleporter also provides a villager who trades emeralds for potion buffs."
+                                wrapInJSONTextContinued "This teleporter hub allows for faster travel to unlocked corners of the map. Each unlocked teleporter also provides a villager who trades emeralds for one kind of potion buff."
                                 wrapInJSONTextContinued "If you can't see a villager in this room, exit/disconnect from the world, then reload/rejoin, and the villager should appear above the teleporter (Minecraft rendering bug)."
-                                Utilities.wrapInJSONText "WARNING: After going through a teleporter, a lot of other bugs occur in this version of Minecraft :( Example: elytra glider wings may no longer deploy.\n\nYOU SHOULD RE-LOG EACH TIME YOU TELELPORT!"
+                                Utilities.wrapInJSONText "WARNING: After going through a teleporter, a lot of other bugs occur in this version of Minecraft :( Example: elytra glider wings may no longer deploy.\n\nYOU SHOULD RE-LOG EACH TIME YOU TELEPORT!"
                             |]) |> ResizeArray)
 let BONUS_MONUMENT_BOOK =
     Compound("tag", Utilities.makeWrittenBookTags(
@@ -174,7 +187,7 @@ let BONUS_MONUMENT_BOOK =
                                 wrapInJSONTextContinued "Each kind of loot chest has a corresponding stained glass block of a certain color. The goal of this challenge is to fill the empty slots in the top half of this chest with found blocks."
                                 wrapInJSONTextContinued "The bottom half of the chest has sample blocks, where the number of stained glass in the stack equals the number of loot chests in the world that contain that color."
                                 wrapInJSONTextContinued "For example, a stack of 25 lime stained glass means there are 25 instances of a certain kind of loot box; your goal is to find at least one of those and bring back the lime glass."
-                                wrapInJSONTextContinued "(The black stained glass panes are just filler/border to help you keep track of remaining empty slots.)\n\nIt will be very difficult to find all the colors, but how many can you find?"
+                                wrapInJSONTextContinued "(The iron bars are just filler/border to help you keep track of remaining empty slots.)\n\nIt may be very difficult to find all the colors, but how many can you find?"
                                 Utilities.wrapInJSONText "Maps given in the chest here may help you track where you've been.\n\nOverview biome map of the world above this chest suggests the world biome layout, pre-swirl.\n\nGood luck!"
                             |]) |> ResizeArray)
 
@@ -196,6 +209,7 @@ let NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT = TranslatableString "Dungeon Loo
 let NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT = TranslatableString "Green Beacon Cave Loot"
 let NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS = TranslatableString "Basic Blocks"
 let NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS = TranslatableString "Nicer Blocks and Fun"
+let NAME_OF_CHEST_ITEM_CONTAINING_PROXIMITY_DETECTOR = TranslatableString "Loot-finding kit"
 
 let POTION_SPEED_NAME = TranslatableString "Enduring Speed"
 let POTION_HASTE_NAME = TranslatableString "Enduring Haste"

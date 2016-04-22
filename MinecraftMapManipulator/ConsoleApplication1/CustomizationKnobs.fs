@@ -6,7 +6,7 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = false
+let SINGLEPLAYER = true
 
 
 let EXPLORER_BONUS_MONUMENT = true
@@ -166,6 +166,11 @@ let makeMapTimeNhours(levelDat, n) =
 *)
 
 /////////////////////////////////
+
+let PROXIMITY_DETECTION_THRESHOLDS = [| 30; 60; 120 |]
+
+/////////////////////////////////
+
 
 // map size; probably would require other changes to change these
 let MINIMUM = -1024

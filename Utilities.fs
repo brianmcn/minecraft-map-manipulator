@@ -1284,6 +1284,7 @@ let makeWrittenBookTags(author, title, pages) =
 // TODO below does not work if '^' is in the original text
 let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
 let escape2(s) = escape(escape(s))
+let translateNewlinesThenEscape(s:string) = escape(s.Replace("""\n""","\n"))
 
 let writtenBookNBTString(author, title, pages:string[]) =
     let sb = System.Text.StringBuilder()
@@ -1301,8 +1302,8 @@ let writtenBookNBTString(author, title, pages:string[]) =
 let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
     sprintf "/give @p minecraft:written_book 1 0 %s" (writtenBookNBTString(author, title, pages))
 
-let wrapInJSONText(s) = sprintf """{"text":"%s"}""" s
-let wrapInJSONTextContinued(s,continuedText) = sprintf """{"text":"%s\n\n%s"}""" s continuedText
+let wrapInJSONText(s) = sprintf """{"text":"%s"}""" (translateNewlinesThenEscape s)
+let wrapInJSONTextContinued(s,continuedText) = sprintf """{"text":"%s\n\n%s"}""" (translateNewlinesThenEscape s) (translateNewlinesThenEscape continuedText)
 
 let placeCommandBlocksInTheWorldTemp(fil) =
     let region = new RegionFile(fil)
@@ -1637,3 +1638,24 @@ let makeInGameOverviewMap(regionFolder, origBiome:byte[,], xmin, xlen:int, zmin,
     makeMapDat(System.IO.Path.Combine(mapFolder,"""data\map_10002.dat"""),0uy,999999,999999,bottomLeft)
     let bottomRight = Array.init 16384 (fun i -> bigColors.[128+i%128,128+i/128])
     makeMapDat(System.IO.Path.Combine(mapFolder,"""data\map_10003.dat"""),0uy,999999,999999,bottomRight)
+
+(*
+    dumpPlayerDat("""C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\flat\data\scoreboard.dat""")
+    let least = -9217416061113214703L // UUIDLeast
+    let most = -6129536729130317557L // UUIDMost
+    let toLeastMost(uuid:System.Guid) =
+        let bytes = uuid.ToByteArray()
+        let i,j,k,a = bytes.[0..3], bytes.[4..5], bytes.[6..7], bytes.[8..15]
+        let least = System.BitConverter.ToInt64(a |> Array.rev, 0)
+        let most = System.BitConverter.ToInt64(Array.concat [i |> Array.rev; j |> Array.rev; k |> Array.rev] |> Array.rev, 0)
+        printfn "%d    %d" least most
+    let toUuid(l:int64,m:int64) = 
+        let a = System.BitConverter.GetBytes(l)
+        System.Array.Reverse(a)
+        let b = System.BitConverter.GetBytes(m)
+        System.Array.Reverse(b)
+        let uuid = new System.Guid(System.BitConverter.ToInt32(b.[0..3]|>Array.rev,0), System.BitConverter.ToInt16(b.[4..5]|>Array.rev,0), System.BitConverter.ToInt16(b.[6..7]|>Array.rev,0), a)
+        printfn "%s" (uuid.ToString()) // aaef82d2-0e7a-490b-8015-28edaa5dd911
+        toLeastMost(uuid)  // -9217416061113214703    -6129536729130317557
+    toUuid(least,most)
+*)
