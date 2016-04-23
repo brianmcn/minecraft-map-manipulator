@@ -1491,7 +1491,7 @@ automatic game start configs (night vision, starting items), customizable
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
 
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
+//    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))

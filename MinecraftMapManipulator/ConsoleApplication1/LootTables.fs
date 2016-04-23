@@ -266,6 +266,7 @@ let cobblePile = Item("minecraft:cobblestone", [SetCount(3,7)])
 let ironPile = Item("minecraft:iron_ingot", [SetCount(1,3)])  // TODO gold pile?
 let arrows = Item("minecraft:arrow", [SetCount(6,9)])
 let luckyGapple = Item("minecraft:golden_apple", [SetCount(1,1);SetNbt(Strings.NBT_LUCKY_GAPPLE)])
+let luckySboots = Item("minecraft:iron_boots", [SetCount(1,1);SetNbt(Strings.NBT_LUCKY_BOOTS)])
 let MOB = [KilledByPlayer]
 let LOOT_FROM_DEFAULT_MOBS =
     [|
@@ -305,7 +306,10 @@ let LOOT_FROM_DEFAULT_MOBS =
                                               tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 2 [FOOD] 16; OneOfAtNPercent([arrows],16,MOB); OneOfAtNPercent(HEALS,8,MOB)]
 //        "minecraft:entities/skeleton_horse
 //        "minecraft:entities/slime
-        "minecraft:entities/spider", Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
+        sprintf "%s:entities/spider_silly" LOOT_NS_PREFIX, Pools [Pool(Roll(4,4),[luckySboots,1,0,[]])]
+        sprintf "%s:entities/spider_basic" LOOT_NS_PREFIX, Pools [tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 1 2 [FOOD] 12; OneOfAtNPercent([cobblePile],8,MOB); OneOfAtNPercent(HEALS,8,MOB)]
+        "minecraft:entities/spider", Pools [Pool(Roll(1,1),[LootTable(sprintf "%s:entities/spider_basic" LOOT_NS_PREFIX),199,0,[]
+                                                            LootTable(sprintf "%s:entities/spider_silly" LOOT_NS_PREFIX),1,0,[]])]  // 1/200 chance
         "minecraft:entities/witch", Pools [tierxyLootPct MOB 2 3 [ARMOR;TOOLS] 10; tierxyLootPct MOB 2 3 [FOOD] 16; OneOfAtNPercent([arrows],10,MOB); OneOfAtNPercent(HEALS,15,MOB)]
         "minecraft:entities/wither_skeleton", Pools [tierxyLootPct MOB 2 2 [ARMOR;TOOLS] 8; tierxyLootPct MOB 2 2 [FOOD] 10; OneOfAtNPercent([ironPile],5,MOB); OneOfAtNPercent(HEALS,15,MOB)]
         "minecraft:entities/zombie", Pools [yield tierxyLootPct MOB 1 2 [ARMOR;TOOLS] 6
@@ -334,6 +338,8 @@ let LOOT_FROM_DEFAULT_CHESTS =
 
 let writeLootTables(tables, worldSaveFolder) =
     for (name:string, table:LootTable) in tables do
+        if name<>name.ToLowerInvariant() then
+            failwithf "bad loot table name has uppercase: %s" name
         let pathBits = name.Split [|':';'/'|]
         let wslt = System.IO.Path.Combine [| yield worldSaveFolder; yield "data"; yield "loot_tables" |]
         let filename = System.IO.Path.Combine [| yield wslt; yield! pathBits |]
@@ -598,7 +604,7 @@ let occasionalGreatBonus(rng:System.Random,level,tier) =
         | 1 -> Algorithms.pickNnonindependently(rng,1,[
                         makeItem(rng,"egg",16,16,0s)
                         makeItem(rng,"gold_nugget",1,1,0s)
-                        makeItem(rng,"shears",1,1,0s)
+                        makeItem(rng,"torch",64,64,0s)
                     ])
         | 2 -> Algorithms.pickNnonindependently(rng,1,[
                         makeItem(rng,"fishing_rod",1,1,0s)
@@ -628,6 +634,7 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
                 makeItem(rng,"grass",SS,SS,0s)
                 makeItem(rng,"mossy_cobblestone",SS,SS,0s)
                 makeItem(rng,"obsidian",SS,SS,0s)
+                makeItem(rng,"ice",SS,SS,0s)
                 ])
             // utility blocks
             yield! Algorithms.pickNnonindependently(rng,countSize(level,2),[
@@ -670,6 +677,8 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
                 makeItem(rng,"glowstone",SS,SS,0s)
                 makeItem(rng,"stone",SS,SS,3s) // diorite
                 makeItem(rng,"mycelium",SS,SS,0s)
+                makeItem(rng,"packed_ice",SS,SS,0s)
+                makeItem(rng,"dirt",SS,SS,2s)  // podzol
                 ])
             // utility blocks
             yield! Algorithms.pickNnonindependently(rng,1,[

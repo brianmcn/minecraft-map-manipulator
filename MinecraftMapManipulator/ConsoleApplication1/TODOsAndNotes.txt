@@ -81,30 +81,38 @@ OK what if green has first mon block, red has 2nd, mountain has none... fix the 
 OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
 OK cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs)
 OK food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles? - be sure to add more debug chests
-
-proximity threshold values
-multiplayer proximity (and prox & divining at once)
 OK sounds for prox in 'ambient', should I put them in 'voice' so folks can turn them off separately?
-too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
+OK occasionally spiders should drop 4 pairs of gold/iron boots (since they have 8 legs), ha! (shook)
+
+OK proximity threshold values
+multiplayer proximity (and prox & divining at once)
+OK too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
 (multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
-there is still an overwhelming amount of book loot, lessening...
-also, the multi-books in the random loot chests are almost all worthless, and hard to 'categorize' as a result of being multi; maybe single enchants, more useful, by 'level' (dist from spawn)?
-still maybe too much diamonds or prot at end, lessened diamonds
-new rand loot balance
+OK also, the multi-books in the random loot chests are almost all worthless, and hard to 'categorize' as a result of being multi; maybe single enchants, more useful, by 'level' (dist from spawn)?
+OK? still maybe too much diamonds or prot at end, lessened diamonds
+OK new rand loot balance
+OK 4ound zom spawners at sur4ace, one right next to spawn - min dist?  and maybe i4 sunlight >0 on square, don't make spawner?
+173 green was too short/easy, maybe 225 as min dist?  or maybe slightly increase 4req o4 insta-spawn?  with only 30 or 40 can blitz
+OK ice blocks and packed ice as gift blocks, also podzol...
+
 
 TODO: bugs & good ideas
 
-occasionally spiders should drop 4 pairs of gold/iron boots (since they have 8 legs), ha! (shook)
-anti-tunneling under peaks too?
+need detector in EBM to announce when 4irst place a color, and to announce when get all colors (not inter4ere with prox).. i guess say '4ound all colors'? kind weird i4 say done but chest not 4ull, hmm
 'keep eyes open', can have multiple chest names, vary
 have new thread for feedback on april maps, link it for feedback
 target 1.9.3
-4ound zom spawners at sur4ace, one right next to spawn - min dist?  and maybe i4 sunlight >0 on square, don't make spawner?
+CONSIDER elevation map on at-spawn map, to see which mountains are high (only 2nd threshold on in-game map)? hard to see swamps (swamp water color? also swamp on .png too)
+4lat plains x o4 grass would be good rand chest (block 38,0-8; X or O of tall grass on 9x9 flat)
+any other things like 'sillySPider boots' that are fun easter eggs?
+curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
+can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
+anti-tunneling under peaks too? I did it, but it doesn't dissuade really; maybe also add some... what creeper spawners? water sources? those as rand other non-feesh?
+
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
 
 maybe-consider with more feedback:
-are there too many webs in the red?
 consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 
 

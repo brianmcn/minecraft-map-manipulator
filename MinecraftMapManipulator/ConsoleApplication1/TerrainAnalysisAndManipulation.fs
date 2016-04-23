@@ -548,8 +548,9 @@ let treeify(map:MapFolder, hm:_[,]) =
 let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], log:EventAndProgressLog) =
     let MINIMUM = -DAYLIGHT_RADIUS
     let LENGTH = 2*DAYLIGHT_RADIUS
-    let YMIN = 50
-    let YLEN = 30
+    let YDEPTH = 50  // cave goes down to at least this depth
+    let YMIN = 20
+    let YLEN = 60
     let PT(x,y,z) = 
         let i,j,k = x-MINIMUM, y-YMIN, z-MINIMUM
         i*YLEN*LENGTH + k*YLEN + j
@@ -576,7 +577,7 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
                 let dz = (z+51200) % 16
                 let bix = dy*256 + dz*16 + dx
                 if currentSectionBlocks.[bix] = 0uy then
-                    a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YMIN+1),(y>=hmIgnoringLeaves.[x,z])))
+                    a.[x,y,z] <- new Partition(new Thingy(PT(x,y,z),(y=YDEPTH+1),(y>=hmIgnoringLeaves.[x,z])))
     printfn ""
     printf "CONNECT"
     // connected-components them
@@ -623,7 +624,8 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
                 // found highest point in this cave exposed to surface, and this is not just a deep ravine exposed to air
                 for y = bestY + 10 to bestY + 26 do
                     map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
-                hm.[bestX,bestZ] <- bestY+27
+                log.LogInfo(sprintf "glowstone pillar at (x,z) of (%4d,%4d)" bestX bestZ)
+                //hm.[bestX,bestZ] <- bestY+27    don't do this, don't want to change how other algorithms see the terrain, this lie ought not affect things substantially, but e.g. don't want to change HM of only hole making dungeon-to-surface think can't reach surface, for example
                 caveCount <- caveCount + 1
                 (*
                 for p in hs do
@@ -716,6 +718,8 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                                 connectedCount <- connectedCount + 1
                                                 surfaceConnected <- true
         log.LogSummary(sprintf "in DAYLIGHT_RADIUS, of %d dungeons, %d are connected to surface via caves" vanillaDungeonsInDaylightRing.Count connectedCount)
+    else
+        log.LogSummary("vanillaDungeonsInDaylightRing not computed, no dungeons-near-spawn summary")
     printfn ""
     printf "ANALYZE"
     // look for 'good' ones
@@ -800,7 +804,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 ()
             else
             let fullDist = path.Count
-            let GREEN_MIN = 150
+            let GREEN_MIN = 225
             let GREEN_MAX = 300
             if fullDist > GREEN_MIN then
                 let PURPLE_MIN = 400
@@ -1328,6 +1332,25 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
 
 // also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
 
+let replaceUndergroundWithObsidianAndSilverfish(map:MapFolder,x,z,radius,min_radius,hmIgnoringLeaves:_[,],rng:System.Random) =
+    // place some obsidian & feesh below ground to make it harder to tunnel underneath
+    for i = x-radius to x+radius do
+        for j = z-radius to z+radius do
+            if abs(x-i) > min_radius || abs(z-j) > min_radius then  // don't overwrite the beacon/bedrock!
+                let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
+                let pct = float (radius-dist) / (float radius)
+                let mutable belowGround = hmIgnoringLeaves.[i,j] - 2
+                // there might be a tree trunk here, get past it to actual ground
+                while (let bid = map.GetBlockInfo(i,belowGround,j).BlockID in (bid=17uy || bid=162uy)) do // 17/162=log/log2
+                    belowGround <- belowGround - 1
+                for y = belowGround downto belowGround-7 do
+                    if (i+y+j)%2 = 0 then
+                        if rng.NextDouble() < pct then
+                            map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
+                    else
+                        if rng.NextDouble() < pct then
+                            map.SetBlockIDAndDamage(i,y,j,97uy,0uy) // 97=silverfish monster egg
+
 let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, bestNearbyDist, hmDiffPerCC, decorations:ResizeArray<_>) =
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
     printfn "PART..."
@@ -1561,6 +1584,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                         let y = hm.[x,z]
                         map.SetBlockIDAndDamage(x,y,z,76uy,5uy) // 76=redstone_torch
                         map.SetBlockIDAndDamage(x,y-1,z,1uy,5uy) // 1,5=andesite
+        replaceUndergroundWithObsidianAndSilverfish(map,x,z,RADIUS,3,hmIgnoringLeaves,rng)
         let RADIUS = RADIUS + DAYLIGHT_BEDROCK_BUFFER_RADIUS
         for i = x-RADIUS to x+RADIUS do
             for j = z-RADIUS to z+RADIUS do
@@ -1659,23 +1683,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeaves:
                     elif rng.Next(60) = 0 then
                         map.SetBlockIDAndDamage(i,hm.[i,j],j,76uy,5uy) // 76=redstone_torch
                         map.SetBlockIDAndDamage(i,hm.[i,j]-1,j,1uy,5uy) // 1,5=andesite
-        // place some obsidian & feesh below ground to make it harder to tunnel underneath
-        for i = x-RADIUS to x+RADIUS do
-            for j = z-RADIUS to z+RADIUS do
-                if abs(x-i) > 3 || abs(z-j) > 3 then  // don't overwrite the beacon/bedrock!
-                    let dist = (x-i)*(x-i) + (z-j)*(z-j) |> float |> sqrt |> int
-                    let pct = float (RADIUS-dist) / (float RADIUS)
-                    let mutable belowGround = hmIgnoringLeaves.[i,j] - 2
-                    // there might be a tree trunk here, get past it to actual ground
-                    while (let bid = map.GetBlockInfo(i,belowGround,j).BlockID in (bid=17uy || bid=162uy)) do // 17/162=log/log2
-                        belowGround <- belowGround - 1
-                    for y = belowGround downto belowGround-7 do
-                        if (i+y+j)%2 = 0 then
-                            if rng.NextDouble() < pct then
-                                map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
-                        else
-                            if rng.NextDouble() < pct then
-                                map.SetBlockIDAndDamage(i,y,j,97uy,0uy) // 97=silverfish monster egg
+        replaceUndergroundWithObsidianAndSilverfish(map,x,z,RADIUS,3,hmIgnoringLeaves,rng)
         spawners.AddToMapAndLog(map,log)
         for i = x-CR to x+CR do
             for j = z-CR to z+CR do
@@ -2789,7 +2797,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     C(sprintf "time set %d" dayTicks) // day
     U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set %d" DAYLIGHT_RADIUS dayTicks)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
     U("scoreboard players test CTM hidden 3 *")
-    C(sprintf "blockdata ~ %d ~ {auto:0b}" (h-13)) // turn off main repeat loop
+    //C(sprintf "blockdata ~ %d ~ {auto:0b}" (h-13)) // turn off main repeat loop (day/night and the CTM checkers) - will now be perma-day, desirable?
     C("blockdata ~ ~-2 ~ {auto:1b}")
     C("blockdata ~ ~-1 ~ {auto:0b}")
     // won-the-game proc
@@ -3281,10 +3289,10 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
     xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
     xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured

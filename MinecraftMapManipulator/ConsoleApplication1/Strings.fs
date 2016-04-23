@@ -275,6 +275,7 @@ let FISHING_DATA = ("Lorgon111","Nope!",[|
     |])
 
 let NBT_LUCKY_GAPPLE = """{display:{Name:\"Lucky Golden Apple\",Lore:[\"Extremely rare drop\",\"See? Bats are useful :)\"]}}"""
+let NBT_LUCKY_BOOTS  = """{display:{Name:\"Lucky Spider Boots\",Lore:[\"Extremely rare drop\",\"8 legs requires 4 pairs\"]}}"""
 let NBT_FISHING = 
     Utilities.escape <| Utilities.writtenBookNBTString(FISHING_DATA)
 
