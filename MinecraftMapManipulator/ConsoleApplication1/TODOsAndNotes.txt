@@ -83,6 +83,7 @@ OK? new rand loot balance
 OK? 173 green was too short/easy, maybe 225 as min dist?  or maybe slightly increase 4req o4 insta-spawn?  with only 30 or 40 can blitz
 flat plains X of grass would be good rand chest (block 38,0-8; X or O of tall grass on 9x9 flat)
 check wording of EBM progress versus prox is understandable/ok
+OK place some desert wells to ensure there are a few
 
 TODO: bugs & good ideas
 

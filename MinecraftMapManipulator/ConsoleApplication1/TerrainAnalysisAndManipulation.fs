@@ -1854,6 +1854,21 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         tierCounts.[0] <- tierCounts.[0] + 1
         levelCounts.[level] <- levelCounts.[level] + 1
         mkUuidArmorStandAt(x,y,z,true,color)
+    let addLootToDesertWellWithTopCenterAt(x,y,z) =
+        printfn "DESERT WELL %d %d %d" x y z
+        // do 100% of them, they're very rare
+        // 5 down chest, 4 more down torch
+        for i = 1 to 4 do
+            map.SetBlockIDAndDamage(x+1,y-5-i,z,24uy,0uy)
+            map.SetBlockIDAndDamage(x-1,y-5-i,z,24uy,0uy)
+            map.SetBlockIDAndDamage(x,y-5-i,z+1,24uy,0uy)
+            map.SetBlockIDAndDamage(x,y-5-i,z-1,24uy,0uy)
+            map.SetBlockIDAndDamage(x,y-5-i,z,0uy,0uy)
+        map.SetBlockIDAndDamage(x,y-5-4,z,50uy,5uy)
+        map.SetBlockIDAndDamage(x,y-5-5,z,24uy,0uy)
+        putTrappedChestWithLoot(8,x,y-5,z,2)
+        points.[8].Add( (x,y-5,z) )
+        names.[8] <- "rare desert well"
     let flowingWaterVisited = new System.Collections.Generic.HashSet<_>()
     let waterfallTopVisited = new System.Collections.Generic.HashSet<_>()
     // TODO consider fun names for each kind of chest (a la /help command)
@@ -1925,26 +1940,73 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             let deserts = [| 2uy; 17uy; 130uy |]
                             if deserts |> Array.exists (fun b -> b = biome.[x,z]) then
                                 if checkForPlus(x,y,z,12uy,12uy) then // flat square of sand
-                                    let mutable ok = true
-                                    // cacti need to not be placed next to blocks, we need some clear air here
-                                    for xx = x-2 to x+2 do
-                                        for zz = z-2 to z+2 do
-                                            if map.GetBlockInfo(xx,y+1,zz).BlockID <> 0uy || map.GetBlockInfo(xx,y+2,zz).BlockID <> 0uy then
-                                                ok <- false
-                                    if ok && rng.Next(30) = 0 then // TODO probability, so don't place on all
-                                        if noneWithin(180,points.[4],x,y,z) then
-                                            let y = y + 1
-                                            // put cactus
-                                            for dy = 0 to 1 do
-                                                map.SetBlockIDAndDamage(x+1,y+dy,z+1,81uy,0uy)  // cactus
-                                                map.SetBlockIDAndDamage(x+1,y+dy,z-1,81uy,0uy)  // cactus
-                                                map.SetBlockIDAndDamage(x-1,y+dy,z-1,81uy,0uy)  // cactus
-                                                map.SetBlockIDAndDamage(x-1,y+dy,z+1,81uy,0uy)  // cactus
-                                            // put chest
-                                            putTrappedChestWithLoot(4,x,y,z,1)
-                                            points.[4].Add( (x,y,z) )
-                                            names.[4] <- "desert cactus"
-                                            // TODO sometimes be a trap
+                                    let placedDesertWell = 
+                                        let mutable ok = noneWithin(400,points.[8],x,y,z) // check for nearby desert wells
+                                        ok <- ok && noneWithin(100,points.[4],x,y,z) // don't want nearby (aesthetic)
+                                        let x,z = x-1,z-1
+                                        if ok then
+                                            for dx = 0 to 4 do
+                                                if ok then
+                                                    for dz = 0 to 4 do
+                                                        if map.GetBlockInfo(x+dx,y,z+dz).BlockID<>12uy || 
+                                                            map.GetBlockInfo(x+dx,y+1,z+dz).BlockID<>0uy ||
+                                                            map.GetBlockInfo(x+dx,y+2,z+dz).BlockID<>0uy ||
+                                                            map.GetBlockInfo(x+dx,y+3,z+dz).BlockID<>0uy ||
+                                                            map.GetBlockInfo(x+dx,y+4,z+dz).BlockID<>0uy ||
+                                                            map.GetBlockInfo(x+dx,y+5,z+dz).BlockID<>0uy then
+                                                            ok <- false
+                                            let ok = ok && rng.Next(30) = 0 // TODO probability, so don't place on all
+                                            if ok then
+                                                // is 5x5 sand with air above
+                                                let y = y+1
+                                                for dx = 0 to 4 do
+                                                    for dz = 0 to 4 do
+                                                        map.SetBlockIDAndDamage(x+dx,y-2,z+dz,24uy,0uy) // 24=sandstone
+                                                        map.SetBlockIDAndDamage(x+dx,y-1,z+dz,24uy,0uy) // 24=sandstone
+                                                        map.SetBlockIDAndDamage(x+dx,y+0,z+dz,24uy,0uy) // 24=sandstone
+                                                for dx = 1 to 3 do
+                                                    for dz = 1 to 3 do
+                                                        map.SetBlockIDAndDamage(x+dx,y-1,z+dz,9uy,0uy) // 9=water
+                                                        map.SetBlockIDAndDamage(x+dx,y-0,z+dz,0uy,0uy) // air above water
+                                                map.SetBlockIDAndDamage(x+0,y,z+2,44uy,1uy) // 44,1=sandstone slab
+                                                map.SetBlockIDAndDamage(x+4,y,z+2,44uy,1uy) // 44,1=sandstone slab
+                                                map.SetBlockIDAndDamage(x+2,y,z+0,44uy,1uy) // 44,1=sandstone slab
+                                                map.SetBlockIDAndDamage(x+2,y,z+4,44uy,1uy) // 44,1=sandstone slab
+                                                for dx in [1;3] do
+                                                    for dz in [1;3] do
+                                                        map.SetBlockIDAndDamage(x+dx,y-1,z+dz,24uy,0uy) // 24=sandstone
+                                                        map.SetBlockIDAndDamage(x+dx,y+0,z+dz,24uy,0uy) // 24=sandstone
+                                                        map.SetBlockIDAndDamage(x+dx,y+1,z+dz,24uy,0uy) // 24=sandstone
+                                                        map.SetBlockIDAndDamage(x+dx,y+2,z+dz,24uy,0uy) // 24=sandstone
+                                                for dx = 1 to 3 do
+                                                    for dz = 1 to 3 do
+                                                        map.SetBlockIDAndDamage(x+dx,y+3,z+dz,44uy,1uy) // 44,1=sandstone slab
+                                                map.SetBlockIDAndDamage(x+2,y+3,z+2,24uy,0uy) // 24=sandstone
+                                                printfn "placed well with top center at (x,y,z) = %A" (x+2,y+3,z+2)
+                                                addLootToDesertWellWithTopCenterAt(x+2,y+3,z+2)
+                                        ok
+                                    if not placedDesertWell then
+                                        let mutable ok = true
+                                        // cacti need to not be placed next to blocks, we need some clear air here
+                                        for xx = x-2 to x+2 do
+                                            for zz = z-2 to z+2 do
+                                                if map.GetBlockInfo(xx,y+1,zz).BlockID <> 0uy || map.GetBlockInfo(xx,y+2,zz).BlockID <> 0uy then
+                                                    ok <- false
+                                        if ok && rng.Next(30) = 0 then // TODO probability, so don't place on all
+                                            if noneWithin(180,points.[4],x,y,z) && noneWithin(100,points.[8],x,y,z) then
+                                                let y = y + 1
+                                                // put cactus
+                                                for dy = 0 to 1 do
+                                                    map.SetBlockIDAndDamage(x+1,y+dy,z+1,81uy,0uy)  // cactus
+                                                    map.SetBlockIDAndDamage(x+1,y+dy,z-1,81uy,0uy)  // cactus
+                                                    map.SetBlockIDAndDamage(x-1,y+dy,z-1,81uy,0uy)  // cactus
+                                                    map.SetBlockIDAndDamage(x-1,y+dy,z+1,81uy,0uy)  // cactus
+                                                // put chest
+                                                putTrappedChestWithLoot(4,x,y,z,1)
+                                                points.[4].Add( (x,y,z) )
+                                                names.[4] <- "desert cactus"
+                                                // TODO sometimes be a trap
+                                                printfn "placed cactus at (x,y,z) = %A" (x,y,z)
                     elif y>63 && isFlowingWater(bi) then
                         if not(flowingWaterVisited.Contains(x,y,z)) then
                             flowingWaterVisited.Add(x,y,z) |> ignore
@@ -2079,20 +2141,9 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         names.[13] <- "plains flat"
                                         printfn "plains flat at %A" (x+4,y-1,z+4)
                     elif bid = 24uy && checkForPlus(x,y,z,44uy,44uy) then // 24=sandstone, 44=slab - top of desert well
-                        printfn "DESERT WELL %d %d %d" x y z
-                        // do 100% of them, they're very rare
-                        // 5 down chest, 4 more down torch
-                        for i = 1 to 4 do
-                            map.SetBlockIDAndDamage(x+1,y-5-i,z,24uy,0uy)
-                            map.SetBlockIDAndDamage(x-1,y-5-i,z,24uy,0uy)
-                            map.SetBlockIDAndDamage(x,y-5-i,z+1,24uy,0uy)
-                            map.SetBlockIDAndDamage(x,y-5-i,z-1,24uy,0uy)
-                            map.SetBlockIDAndDamage(x,y-5-i,z,0uy,0uy)
-                        map.SetBlockIDAndDamage(x,y-5-4,z,50uy,5uy)
-                        map.SetBlockIDAndDamage(x,y-5-5,z,24uy,0uy)
-                        putTrappedChestWithLoot(8,x,y-5,z,2)
-                        points.[8].Add( (x,y-5,z) )
-                        names.[8] <- "rare desert well"
+                        if noneWithin(400,points.[8],x,y,z) then // check for nearby desert wells - we may have placed this one and already written loot in it! writing chest TE twice crashes Minecraft!
+                            // NOTE: this means that existing desert wells from MC may not get loot if I placed a well nearby.  I can live with that.
+                            addLootToDesertWellWithTopCenterAt(x,y,z)
                     elif bid = 11uy && hm.[x,z] <= y+1 then // 11=lava at surface
                         for dx,dz in [0,1; 1,0; 0,-1; -1,0] do
                             if noneWithin(150,points.[9],x,y,z) then // in the loop so stop after placing one
@@ -3398,7 +3449,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
     xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    xtime (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
     time (fun() -> 

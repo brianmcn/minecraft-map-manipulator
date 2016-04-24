@@ -695,6 +695,17 @@ type MapFolder(folderName) =
             let cx = ((x+512000)%512)/16
             let cz = ((z+512000)%512)/16
             data.[(rx,rz)].[cx,cz].Add(te)
+#if DEBUG_BAD_TES_MAYBE
+            let bid = (this.GetBlockInfo(x,y,z) : BlockInfo).BlockID 
+            if bid <> 52uy && // spawner
+                bid <> 54uy && // chest
+                bid <> 61uy && // furnace
+                bid <> 62uy && // lit_furnace
+                bid <> 130uy && // enderchest
+                bid <> 146uy && // trapped_chest
+                bid <> 137uy && bid <> 210uy && bid <> 211uy then // command blocks
+                failwithf "bad TE at %A with BID %d" (x,y,z) bid
+#endif
         for (KeyValue((rx,rz),tesPerChunk)) in data do
             let r = getOrCreateRegion(rx, rz)
             // load each chunk TEs
