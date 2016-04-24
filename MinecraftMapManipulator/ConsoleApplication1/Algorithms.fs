@@ -121,7 +121,7 @@ let findMaximalRectangle(a:bool[,]) =
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // dijkstra
-let findShortestPathCore(sx,sy,sz,canMove,isEnd,differences:_[],findLongest) =
+let findShortestPathCore(sx,sy,sz,canMoveTo,isEnd,differences:_[],findLongest) =
     let visited = new System.Collections.Generic.Dictionary<_,_>()  // key exists = visited, value = previous direction
     let q = new System.Collections.Generic.Queue<_>()
     let mutable e = None
@@ -140,7 +140,7 @@ let findShortestPathCore(sx,sy,sz,canMove,isEnd,differences:_[],findLongest) =
             for diffi = 0 to differences.Length-1 do
                 let dx,dy,dz = differences.[diffi]
                 let nx,ny,nz = x+dx, y+dy, z+dz
-                if canMove(nx,ny,nz) && not(visited.ContainsKey(nx,ny,nz)) then
+                if canMoveTo(nx,ny,nz) && not(visited.ContainsKey(nx,ny,nz)) then
                     visited.Add((nx,ny,nz), diffi)
                     q.Enqueue(nx,ny,nz)
     match e with
@@ -161,10 +161,25 @@ let findShortestPathCore(sx,sy,sz,canMove,isEnd,differences:_[],findLongest) =
         moves.Reverse()
         Some((ex,ey,ez), path, moves)  // path is list of points from start to end, inclusive; moves is differences-indexes
 
-let findShortestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
-    findShortestPathCore(sx,sy,sz,canMove,isEnd,differences,false)
-let findLongestPath(sx,sy,sz,canMove,isEnd,differences:_[]) =
-    findShortestPathCore(sx,sy,sz,canMove,isEnd,differences,true)
+let findShortestPath(sx,sy,sz,canMoveTo,isEnd,differences:_[]) =
+    findShortestPathCore(sx,sy,sz,canMoveTo,isEnd,differences,false)
+let findLongestPath(sx,sy,sz,canMoveTo,isEnd,differences:_[]) =
+    findShortestPathCore(sx,sy,sz,canMoveTo,isEnd,differences,true)
+
+let findAllShortestPaths(sx,sy,sz,canMoveTo,differences:_[]) =
+    let visited = new System.Collections.Generic.Dictionary<_,_>()  // key exists = visited, value = distance
+    let q = new System.Collections.Generic.Queue<_>()
+    q.Enqueue(sx,sy,sz,0)
+    visited.Add((sx,sy,sz), 0)
+    while q.Count > 0 do
+        let x,y,z,d = q.Dequeue()
+        for diffi = 0 to differences.Length-1 do
+            let dx,dy,dz = differences.[diffi]
+            let nx,ny,nz = x+dx, y+dy, z+dz
+            if canMoveTo(nx,ny,nz) && not(visited.ContainsKey(nx,ny,nz)) then
+                visited.Add((nx,ny,nz), d+1)
+                q.Enqueue(nx,ny,nz,d+1)
+    visited
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 

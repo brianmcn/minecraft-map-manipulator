@@ -87,6 +87,7 @@ OK place some desert wells to ensure there are a few
 
 TODO: bugs & good ideas
 
+glowstone pillar algorithm improved, but dungeons-near-them metric is still poor, improve?
 'keep eyes open', can have multiple chest names, vary
 any other things like 'silly spider boots' that are fun easter eggs?
 curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
