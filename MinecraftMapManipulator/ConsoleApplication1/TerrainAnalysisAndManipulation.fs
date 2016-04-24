@@ -1845,9 +1845,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         // can hold up to 3 items
         let items = [|  yield [| String("id","minecraft:emerald"); Byte("Count", 1uy); Short("Damage",0s); End |]
                         yield LootTables.makeRandomBookBasedOnAestheticLevel(rng,level)
-                        if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
-                            if color <> -1 then
-                                yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
+                        if color <> -1 then
+                            yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
                     |] |> LootTables.addSlotTags
         putFurnaceWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
@@ -2713,56 +2712,55 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
                 |]
         putUntrappedChestWithItemsAt(4,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
     // bonus monument
-    if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
-        let chestItems = 
-            Compounds[| 
-                    for i = 1 to 8 do
+    let chestItems = 
+        Compounds[| 
+                for i = 1 to 8 do
+                    yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BONUS_MONUMENT_BOOK; End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                for i = 10 to 17 do
+                    let color = i-10
+                    let count = colorCount.[color]
+                    if count = 0 then
                         yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BONUS_MONUMENT_BOOK; End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    for i = 10 to 17 do
-                        let color = i-10
-                        let count = colorCount.[color]
-                        if count = 0 then
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    for i = 19 to 26 do
-                        let color = i-11
-                        let count = colorCount.[color]
-                        if count = 0 then
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                |]
-        putUntrappedChestWithItemsAndOrientationAt(-3,h+2,1,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
-        let chestItems = 
-            Compounds[| 
-                    for i = 1 to 8 do
+                for i = 19 to 26 do
+                    let color = i-11
+                    let count = colorCount.[color]
+                    if count = 0 then
                         yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    yield [| Byte("Count", 32uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:filled_map"); Compound("tag", [|Strings.NameAndLore.WORLD_MAP; End|]|>ResizeArray); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    for i = 10 to 17 do
-                        let color = i-10
-                        let count = colorCount.[color]
-                        if count <> 0 then
-                            assert(count > 0 && count <= 64)
-                            yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
-                        else
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                    for i = 19 to 26 do
-                        let color = i-11
-                        let count = colorCount.[color]
-                        if count <> 0 then
-                            assert(count > 0 && count <= 64)
-                            yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
-                        else
-                            yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
-                |]
-        putUntrappedChestWithItemsAndOrientationAt(-3,h+2,2,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
-        // TODO make .dat files better (brittle file path now, klutzy)
-        let dummyMapDatFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp4\data\"""
-        System.IO.File.Copy(dummyMapDatFolder+"map_1.dat", worldSaveFolder+"""\data\map_0.dat""", true)
-        System.IO.File.Copy(dummyMapDatFolder+"idcounts.dat", worldSaveFolder+"""\data\idcounts.dat""", true)
-        Utilities.editMapDat(worldSaveFolder+"""\data\map_0.dat""",4uy,0,0)
+            |]
+    putUntrappedChestWithItemsAndOrientationAt(-3,h+2,1,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
+    let chestItems = 
+        Compounds[| 
+                for i = 1 to 8 do
+                    yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                yield [| Byte("Count", 32uy); Byte("Slot", 0uy); Short("Damage",0s); String("id","minecraft:filled_map"); Compound("tag", [|Strings.NameAndLore.WORLD_MAP; End|]|>ResizeArray); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 9uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                for i = 10 to 17 do
+                    let color = i-10
+                    let count = colorCount.[color]
+                    if count <> 0 then
+                        assert(count > 0 && count <= 64)
+                        yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
+                    else
+                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+                for i = 19 to 26 do
+                    let color = i-11
+                    let count = colorCount.[color]
+                    if count <> 0 then
+                        assert(count > 0 && count <= 64)
+                        yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
+                    else
+                        yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
+            |]
+    putUntrappedChestWithItemsAndOrientationAt(-3,h+2,2,Strings.NAME_OF_BONUS_MONUMENT_CHEST,chestItems,5uy,map,null)
+    // TODO make .dat files better (brittle file path now, klutzy)
+    let dummyMapDatFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp4\data\"""
+    System.IO.File.Copy(dummyMapDatFolder+"map_1.dat", worldSaveFolder+"""\data\map_0.dat""", true)
+    System.IO.File.Copy(dummyMapDatFolder+"idcounts.dat", worldSaveFolder+"""\data\idcounts.dat""", true)
+    Utilities.editMapDat(worldSaveFolder+"""\data\map_0.dat""",4uy,0,0)
     // map/logo backing
     map.SetBlockIDAndDamage(-3,h+3,1,156uy,4uy) //156,4=quartz_stairs, facing east, upside down
     map.SetBlockIDAndDamage(-3,h+3,2,156uy,4uy) //156,4=quartz_stairs, facing east, upside down
@@ -3447,9 +3445,9 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
     xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    xtime (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
     time (fun() -> 
@@ -3458,7 +3456,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], 
                                 Seq.append [0,0,SPAWN_PROTECTION_DISTANCE_GREEN] teleporterCenters, decorations)
-        Utilities.makeInGameOverviewMap(worldSaveFolder+"""\region""", origBiome, MINIMUM, LENGTH, MINIMUM, LENGTH)
+        Utilities.makeInGameOverviewMap(worldSaveFolder+"""\region""", origBiome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH)
         )
     log.LogSummary(sprintf "Took %f total minutes" mainTimer.Elapsed.TotalMinutes)
     let now = System.DateTime.Now.ToString()

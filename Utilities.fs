@@ -1585,7 +1585,7 @@ let REDDITURLVANILLASWIRLCTM =
     ".........................................................................................................................................................................."
     |]
 
-let makeInGameOverviewMap(regionFolder, origBiome:byte[,], xmin, xlen:int, zmin, zlen:int) =
+let makeInGameOverviewMap(regionFolder, origBiome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int) =
     let size = 256
     let image = new System.Drawing.Bitmap(size,size)
     assert(xlen=zlen)
@@ -1597,6 +1597,7 @@ let makeInGameOverviewMap(regionFolder, origBiome:byte[,], xmin, xlen:int, zmin,
         for j = 0 to size-1 do
             // compute representative biome for this square portion
             let scores = Array.zeroCreate 256
+            let mutable heightSum = 0
             let x,z = i*SCALE+xmin, j*SCALE+zmin
             for dx = 0 to SCALE-1 do
                 for dz = 0 to SCALE-1 do
@@ -1604,10 +1605,24 @@ let makeInGameOverviewMap(regionFolder, origBiome:byte[,], xmin, xlen:int, zmin,
                     let penalty = [| 16; 8; 4; 0; 1; 5; 9; 17 |]  // ad-hoc center weighting
                     let score = 100 - penalty.[dx] - penalty.[dz]
                     scores.[b] <- scores.[b] + score
+                    heightSum <- heightSum + hmIgnoringLeaves.[x+dx,z+dz]
+            let heightAvg = heightSum / SCALE / SCALE
             let maxScore = Array.max scores
             let representativeBiome = scores |> Array.findIndex (fun x -> x = maxScore)
             // draw it
             let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=representativeBiome) |> (fun (_,_,color) -> color)
+            let mapColorIndex = 
+                if i%2=0 && j%2=0 then
+                    if heightAvg > 100 then
+                        // darkest variant
+                        mapColorIndex / 4 * 4 + 3
+                    elif heightAvg > 80 && (mapColorIndex <> (mapColorIndex / 4 * 4 + 3)) then
+                        // if not already darkest, then choose the merely 'darker' variant
+                        mapColorIndex / 4 * 4 + 0
+                    else
+                        mapColorIndex 
+                else
+                    mapColorIndex 
             bigColors.[i,j] <- byte mapColorIndex 
             let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
             assert(mci = mapColorIndex)

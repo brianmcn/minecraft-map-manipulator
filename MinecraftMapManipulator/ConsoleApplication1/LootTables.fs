@@ -507,12 +507,11 @@ let NEWsampleTier3Chest(rng:System.Random,haveInnerChestsAndInstructions) = // g
             yield makeItem(rng,"experience_bottle",64,64,0s)
             yield makeItem(rng,"diamond_pickaxe",1,1,0s)
             yield makeItem(rng,"diamond_sword",1,1,0s)
-            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
-                yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_PROXIMITY_DETECTOR, [|
-                        [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_EXPLAINING_PROXIMITY_DETECTOR; End |]
-                        [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:diamond_hoe"); Compound("tag",[
-                                    Int("Unbreakable",1); Strings.NameAndLore.PROXIMITY_DETECTOR; End] |> ResizeArray); End |]
-                        |])
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_PROXIMITY_DETECTOR, [|
+                    [| Byte("Count", 1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_EXPLAINING_PROXIMITY_DETECTOR; End |]
+                    [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:diamond_hoe"); Compound("tag",[
+                                Int("Unbreakable",1); Strings.NameAndLore.PROXIMITY_DETECTOR; End] |> ResizeArray); End |]
+                    |])
             yield makeItem(rng,"iron_ingot",F 15,F 20,0s)
             yield makeItem(rng,"gold_ingot",F 15,F 20,0s)
             yield makeItem(rng,"cooked_beef",F 10,F 20,0s)
@@ -659,9 +658,8 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(5)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)
-            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
-                if color <> -1 then
-                    yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
+            if color <> -1 then
+                yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
     addSlotTags items 
 
@@ -735,9 +733,8 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
             yield makeItem(rng,"anvil",F 2,F 2,2s)
             if rng.Next(4)=0 then
                 yield makeItem(rng,"ender_pearl",1,F 1,0s)
-            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
-                if color <> -1 then
-                    yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
+            if color <> -1 then
+                yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
     addSlotTags items 
 
@@ -756,8 +753,7 @@ let NEWaestheticTier3Chest(rng:System.Random, color, level) =
             // other chests
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1,level))
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng,-1,level))
-            if CustomizationKnobs.EXPLORER_BONUS_MONUMENT then
-                if color <> -1 then
-                    yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
+            if color <> -1 then
+                yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
     addSlotTags items 

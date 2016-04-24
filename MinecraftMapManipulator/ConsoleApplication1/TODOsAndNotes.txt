@@ -88,14 +88,12 @@ OK place some desert wells to ensure there are a few
 TODO: bugs & good ideas
 
 'keep eyes open', can have multiple chest names, vary
-CONSIDER elevation map on at-spawn map, to see which mountains are high (only 2nd threshold on in-game map)? hard to see swamps (swamp water color? also swamp on .png too)
 any other things like 'silly spider boots' that are fun easter eggs?
 curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
 can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
 anti-tunneling under peaks too? I did it, but it doesn't dissuade really; maybe also add some... what creeper spawners? water sources? those as rand other non-feesh?
 have new thread for feedback on april maps, link it for feedback
 target 1.9.3
-remove EBM if/constants, since always there?
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
 
