@@ -621,11 +621,12 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
                         bestY <- y
                         bestZ <- z
             if bestY <> 0 && hs.Count-spacesAboveHM > 200 then
-                // found highest point in this cave exposed to surface, and this is not just a deep ravine exposed to air
-                for y = bestY + 10 to bestY + 26 do
+                // found nearest-spawn point in this cave exposed to surface, and this is not just a deep ravine exposed to air
+                let glowstonePillarBottomY = // ensure pillar not down in a deep hole (possibly 'stopping it up')
+                    2 + (Array.max [| hm.[bestX,bestZ]; hm.[bestX+1,bestZ]; hm.[bestX-1,bestZ]; hm.[bestX,bestZ+1]; hm.[bestX,bestZ-1] |]) // some adjacent point should have land above, be above that
+                for y = glowstonePillarBottomY to glowstonePillarBottomY + 16 do
                     map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
                 log.LogInfo(sprintf "glowstone pillar at (x,z) of (%4d,%4d)" bestX bestZ)
-                //hm.[bestX,bestZ] <- bestY+27    don't do this, don't want to change how other algorithms see the terrain, this lie ought not affect things substantially, but e.g. don't want to change HM of only hole making dungeon-to-surface think can't reach surface, for example
                 caveCount <- caveCount + 1
                 (*
                 for p in hs do
@@ -3436,19 +3437,19 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let vanillaDungeonsInDaylightRing = ref null
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
-    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
     time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
