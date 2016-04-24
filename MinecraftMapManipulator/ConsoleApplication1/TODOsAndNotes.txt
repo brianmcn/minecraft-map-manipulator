@@ -73,42 +73,28 @@ publish checklist:
 	go in and check spawn, teleporters, orchid, map_0
 
 TEST
-OK fix map.dat stuff
-OK break 'kurt special' out into explorer monument plus kurt stuff
-OK "I couldn't tell which spawners were where" - what if red torches atop each spawner, in addition to random? looks kinda good
-OK obsidian not a strong deterrant under red, add some feesh too?
-OK what if green has first mon block, red has 2nd, mountain has none... fix the pace? (would need to reword books, and ensure 1st not lost among treasure, e.g. remention got it in 2.aftergreen, or work it like flat with just 2 items)
 OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
-OK cobblestone/stone brick stairs/slabs may be nice blocks to give (saw paraxis using wood stairs)
-OK food bonus in random chests?  occasional something great makes all chests better (could even have totally different chest every so often, for common ones at least)... xp bottles? - be sure to add more debug chests
-OK sounds for prox in 'ambient', should I put them in 'voice' so folks can turn them off separately?
-OK occasionally spiders should drop 4 pairs of gold/iron boots (since they have 8 legs), ha! (shook)
-
-OK proximity threshold values
 multiplayer proximity (and prox & divining at once)
-OK too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
+OK? too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
 (multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
-OK also, the multi-books in the random loot chests are almost all worthless, and hard to 'categorize' as a result of being multi; maybe single enchants, more useful, by 'level' (dist from spawn)?
+OK? also, the multi-books in the random loot chests are almost all worthless, and hard to 'categorize' as a result of being multi; maybe single enchants, more useful, by 'level' (dist from spawn)?
 OK? still maybe too much diamonds or prot at end, lessened diamonds
-OK new rand loot balance
-OK 4ound zom spawners at sur4ace, one right next to spawn - min dist?  and maybe i4 sunlight >0 on square, don't make spawner?
-173 green was too short/easy, maybe 225 as min dist?  or maybe slightly increase 4req o4 insta-spawn?  with only 30 or 40 can blitz
-OK ice blocks and packed ice as gift blocks, also podzol...
-
+OK? new rand loot balance
+OK? 173 green was too short/easy, maybe 225 as min dist?  or maybe slightly increase 4req o4 insta-spawn?  with only 30 or 40 can blitz
+flat plains X of grass would be good rand chest (block 38,0-8; X or O of tall grass on 9x9 flat)
+check wording of EBM progress versus prox is understandable/ok
 
 TODO: bugs & good ideas
 
-need detector in EBM to announce when 4irst place a color, and to announce when get all colors (not inter4ere with prox).. i guess say '4ound all colors'? kind weird i4 say done but chest not 4ull, hmm
 'keep eyes open', can have multiple chest names, vary
-have new thread for feedback on april maps, link it for feedback
-target 1.9.3
 CONSIDER elevation map on at-spawn map, to see which mountains are high (only 2nd threshold on in-game map)? hard to see swamps (swamp water color? also swamp on .png too)
-4lat plains x o4 grass would be good rand chest (block 38,0-8; X or O of tall grass on 9x9 flat)
-any other things like 'sillySPider boots' that are fun easter eggs?
+any other things like 'silly spider boots' that are fun easter eggs?
 curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
 can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
 anti-tunneling under peaks too? I did it, but it doesn't dissuade really; maybe also add some... what creeper spawners? water sources? those as rand other non-feesh?
-
+have new thread for feedback on april maps, link it for feedback
+target 1.9.3
+remove EBM if/constants, since always there?
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
 

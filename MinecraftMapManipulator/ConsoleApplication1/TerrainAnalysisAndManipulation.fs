@@ -2006,21 +2006,78 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                 putTrappedChestWithLoot(6,x,y,z,1)
                                 points.[6].Add( (x,y,z) )
                                 names.[6] <- "red mushroom top"
-                    elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 0uy && checkForPlus(x,y,z,2uy,2uy) && checkForPlus(x,y+1,z,0uy,0uy) then
-                        // 3x3 of grass with air above
+                    elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 0uy && checkForPlus(x,y,z,2uy,2uy) then // 3x3 of grass 
                         let b = biome.[x,z]
-                        if b = 4uy || b = 27uy || b = 29uy then // forest/birch/roofed
-                            // TODO these probabilities can cause wild swings in variance; a better system would gather all the candidates, and try to smooth out the results over all the buckets somehow
-                            // e.g. have each bucket have an xyz candidate placement and a function to run to modify the map, and then could choose a candidate from the least-populated
-                            // bucket, and run it, until candidates exhausted or reach some maximum (ensure xyz are randomized across map)
-                            if rng.Next(50) = 0 then // TODO probability, so don't place on all
-                                if noneWithin(160,points.[7],x,y,z) && noneWithin(160,points.[1],x,y,z) then
-                                    for dx in [-1..1] do
-                                        for dz in [-1..1] do
-                                            map.SetBlockIDAndDamage(x+dx,y,z+dz,3uy,1uy) //3,1=coarse dirt
-                                    putTrappedChestWithLoot(7,x,y-1,z,1)
-                                    points.[7].Add( (x,y-1,z) )
-                                    names.[7] <- "forest buried"
+                        if checkForPlus(x,y+1,z,0uy,0uy) then //with air above
+                            if b = 4uy || b = 27uy || b = 29uy then // forest/birch/roofed
+                                // TODO these probabilities can cause wild swings in variance; a better system would gather all the candidates, and try to smooth out the results over all the buckets somehow
+                                // e.g. have each bucket have an xyz candidate placement and a function to run to modify the map, and then could choose a candidate from the least-populated
+                                // bucket, and run it, until candidates exhausted or reach some maximum (ensure xyz are randomized across map)
+                                if rng.Next(50) = 0 then // TODO probability, so don't place on all
+                                    if noneWithin(160,points.[7],x,y,z) && noneWithin(160,points.[1],x,y,z) then
+                                        for dx in [-1..1] do
+                                            for dz in [-1..1] do
+                                                map.SetBlockIDAndDamage(x+dx,y,z+dz,3uy,1uy) //3,1=coarse dirt
+                                        putTrappedChestWithLoot(7,x,y-1,z,1)
+                                        points.[7].Add( (x,y-1,z) )
+                                        names.[7] <- "forest buried"
+                        if b = 1uy then // plains
+                            if noneWithin(175,points.[13],x,y,z) then
+                                // find 9x9
+                                let x,z = x-1,z-1 
+                                let mutable ok = true
+                                for dx = 0 to 8 do
+                                    if ok then
+                                        for dz = 0 to 8 do
+                                            if ok then
+                                                if map.GetBlockInfo(x+dx,y,z+dz).BlockID <> 2uy then // 2=grass
+                                                    ok <- false
+                                                else
+                                                    let bid = map.GetBlockInfo(x+dx,y+1,z+dz).BlockID
+                                                    if bid<>0uy && bid<>31uy && bid<>37uy && bid<>38uy then // air/tallgrass/dandelion/other-flowers
+                                                        ok <- false
+                                if ok then
+                                    if rng.Next(10) = 0 then // TODO probability, so don't place on all
+                                        let PIXELS = 
+                                            if rng.Next(2) = 0 then
+                                                [|
+                                                    "........."
+                                                    ".XX...XX."
+                                                    ".XXX.XXX."
+                                                    "..XXXXX.."
+                                                    "...XXX..."
+                                                    "..XXXXX.."
+                                                    ".XXX.XXX."
+                                                    ".XX...XX."
+                                                    "........."
+                                                |]
+                                            else
+                                                [|
+                                                    "........."
+                                                    "...XXX..."
+                                                    "..X...X.."
+                                                    ".X.....X."
+                                                    ".X.....X."
+                                                    ".X.....X."
+                                                    "..X...X.."
+                                                    "...XXX..."
+                                                    "........."
+                                                |]
+                                        // place X or O
+                                        for dx = 0 to 8 do
+                                            for dz = 0 to 8 do
+                                                if PIXELS.[dx].[dz] = 'X' then
+                                                    map.SetBlockIDAndDamage(x+dx,y+1,z+dz,31uy,1uy) // 31,1 = tallgrass
+                                                else
+                                                    map.SetBlockIDAndDamage(x+dx,y+1,z+dz,0uy,0uy) // air
+                                        // place rand flower 38,0-8 atop
+                                        let dmg = rng.Next(9) |> byte
+                                        map.SetBlockIDAndDamage(x+4,y+1,z+4,38uy,dmg) // 38,n = one-high flower
+                                        // place chest
+                                        putTrappedChestWithLoot(13,x+4,y-1,z+4,2)
+                                        points.[13].Add( (x+4,y-1,z+4) )
+                                        names.[13] <- "plains flat"
+                                        printfn "plains flat at %A" (x+4,y-1,z+4)
                     elif bid = 24uy && checkForPlus(x,y,z,44uy,44uy) then // 24=sandstone, 44=slab - top of desert well
                         printfn "DESERT WELL %d %d %d" x y z
                         // do 100% of them, they're very rare
@@ -2109,7 +2166,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     if map.GetBiome(x,z)<>6uy || map.GetBlockInfo(x,y,z).BlockID<>9uy then // swamp, water
                                         ok <- false
                                 if ok then
-                                    log.LogInfo(sprintf "putting SWAMP bit at %d %d" x z)
+                                    printfn "putting SWAMP bit at %d %d" x z
                                     // put "DIG" and "X" with entities so frost walker exposes
                                     let mkArmorStandAt(x,y,z) = 
                                         let y = y + 1  // place AS above the water, so no bubbles
@@ -2862,6 +2919,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     R("scoreboard players add Time hidden 1")
     U("scoreboard players test Time hidden 20 *")  // 20 = every 1 second
     C("scoreboard players set Time hidden 0")
+    C(sprintf "blockdata -1 %d 2 {auto:1b}" (h-13)) // EBM scoring (further below)
+    C(sprintf "blockdata -1 %d 2 {auto:0b}" (h-13))
     C("blockdata ~ ~-2 ~ {auto:1b}")
     C("blockdata ~ ~-1 ~ {auto:0b}")
     I("""execute @a ~ ~ ~ execute @e[type=ArmorStand,tag=unlootedChest,r=9] ~ ~ ~ testforblock ~ ~ ~ trapped_chest -1 {Items:[{id:"minecraft:stained_glass"}]}""")
@@ -2957,6 +3016,49 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     U(sprintf """title @p[tag=Detecting,score_NEARNESS=0] subtitle {"text":"%s"}""" Strings.PROXIMITY_COLD)
     U("""title @p[tag=Detecting] title {"text":""}""")
     U("""scoreboard players tag @a remove Detecting""")
+    // -1,h-13,2: EBM scoring
+    let y = ref (h-13)
+    let R(c) = placeRepeating(-1,!y,2,c,true); decr y
+    let C(c) = placeChain(-1,!y,2,c,true); decr y
+    let U(c) = placeChain(-1,!y,2,c,false); decr y
+    let I(c) = placeImpulse(-1,!y,2,c,false); decr y
+    I("")  // targeted by slow clock
+    scoreboard.AddDummyObjective("EverHad")
+    scoreboard.AddScore("total", "EverHad", 0)
+    let mutable count = 0
+    for color = 0 to 15 do
+        if colorCount.[color]<>0 then
+            scoreboard.AddScore(sprintf "color%d" color, "EverHad", 0)
+            count <- count + 1
+    scoreboard.AddScore("max", "EverHad", count)
+    for color = 0 to 7 do
+        if colorCount.[color]<>0 then
+            U(sprintf "scoreboard players test color%d EverHad 0 0" color)
+            C(sprintf """testforblock -3 %d 1 chest -1 {Items:[{Damage:%ds,tag:{display:{Lore:["%s"]}}}]}""" (h+2) color Strings.NameAndLore.BONUS_ACTUAL_LORE)
+            C(sprintf "scoreboard players set color%d EverHad 1" color)
+            C("scoreboard players add total EverHad 1")
+            C(Strings.TELLRAW_GOT_EBM(color))
+    U(sprintf "blockdata -1 %d 1 {auto:1b}" (h-13))
+    U(sprintf "blockdata -1 %d 1 {auto:0b}" (h-13))
+    // -1,h-13,1: more EBM scoring
+    let y = ref (h-13)
+    let R(c) = placeRepeating(-1,!y,1,c,true); decr y
+    let C(c) = placeChain(-1,!y,1,c,true); decr y
+    let U(c) = placeChain(-1,!y,1,c,false); decr y
+    let I(c) = placeImpulse(-1,!y,1,c,false); decr y
+    I("")
+    for color = 8 to 15 do
+        if colorCount.[color]<>0 then
+            U(sprintf "scoreboard players test color%d EverHad 0 0" color)
+            C(sprintf """testforblock -3 %d 1 chest -1 {Items:[{Damage:%ds,tag:{display:{Lore:["%s"]}}}]}""" (h+2) color Strings.NameAndLore.BONUS_ACTUAL_LORE)
+            C(sprintf "scoreboard players set color%d EverHad 1" color)
+            C("scoreboard players add total EverHad 1")
+            C(Strings.TELLRAW_GOT_EBM(color))
+    U(sprintf "scoreboard players test total EverHad %d %d" count count) // test if got all
+    C("scoreboard players add total EverHad 1") // increase one past, so won't fire more than once
+    C(Strings.TELLRAW_FINISHED_EBM)
+    C(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:14,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:1,Colors:[56831],FadeColors:[16715263]}]}}}}" -3 (h+5) 1)
+    C(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:24,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:1,Trail:1,Colors:[3849770],FadeColors:[14500508]}]}}}}" -3 (h+5) 2)
     // write out scoreboard
     scoreboard.Write()
 
@@ -3294,12 +3396,12 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
     xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
     xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
     xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

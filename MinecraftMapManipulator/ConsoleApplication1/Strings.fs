@@ -228,6 +228,28 @@ let TELLRAW_FINAL_3 = """tellraw @a ["I hope you enjoyed the map. If you did, an
 let TELLRAW_FINAL_4 = sprintf """tellraw @a [{"text":"Donation link","underlined":true,"clickEvent":{"action":"open_url","value":"%s"}}]""" donationLink
 let TELLRAW_SILVERFISH_LIMIT_ON = sprintf """tellraw @a ["At least %d silverfish detected, turning ON silverfish limiter: newly spawned silverfish will be automatically removed"]""" CustomizationKnobs.SILVERFISH_BIG
 let TELLRAW_SILVERFISH_LIMIT_OFF = sprintf """tellraw @a ["At most %d silverfish detected, turning OFF silverfish limiter"]""" CustomizationKnobs.SILVERFISH_SMALL
+let TELLRAW_GOT_EBM(color) = 
+    let colorString =
+        match color with
+        | 0 -> "white"      
+        | 1 -> "orange"     
+        | 2 -> "magenta"    
+        | 3 -> "light blue"
+        | 4 -> "yellow"
+        | 5 -> "lime"    
+        | 6 -> "pink"       
+        | 7 -> "dark gray"
+        | 8 -> "light gray" 
+        | 9 -> "cyan"
+        | 10 -> "purple"
+        | 11 -> "blue"    
+        | 12 -> "brown"      
+        | 13 -> "green"     
+        | 14 -> "red"     
+        | 15 -> "black"
+        | _ -> failwith "bad color value"
+    sprintf """tellraw @a ["You found a %s stained glass block! This has been recorded; thus far you've placed ",{"score":{"name":"total","objective":"EverHad"}}," of ",{"score":{"name":"max","objective":"EverHad"}}," different colors in the Explorer Bonus Monument chest."]""" colorString
+let TELLRAW_FINISHED_EBM = """tellraw @a ["You found all the colors for the Explorer Bonus Monument! Congratulations!"]"""
 
 let CB_TEST_SIGN1 = 
     [|
