@@ -1391,6 +1391,7 @@ type ScoreboardFromScratch(worldFolder) =
         System.IO.File.Delete(scoreboardDatFilename)
         writeDatFile(scoreboardDatFilename,scoreboardDat)
 
+(*
 let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decorations) =
     let negXCount = rxs |> Seq.filter (fun x -> x<0) |> Seq.length 
     let negZCount = rzs |> Seq.filter (fun z -> z<0) |> Seq.length 
@@ -1443,8 +1444,9 @@ let makeBiomeMapFromRegions(regionFolder, rxs:int list, rzs:int list, decoration
     for (c,x,z) in decorations do
         placeRedLetterAt(c,x,z)
     image.Save(System.IO.Path.Combine(mapFolder,"mapOverviewWithLocationSpoilers.png"))
+*)
 
-let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, squareCenterRadiuses, decorations) =
+let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], hmIgnoringLeavesAndLogs:int[,], xmin, xlen:int, zmin, zlen:int, circleRadii, squareCenterRadiuses, decorations) =
     let image = new System.Drawing.Bitmap(xlen,zlen)
     let isSquare(x,y) =
         let mutable s = false
@@ -1468,7 +1470,7 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
         for x = xmin to xmin+xlen-1 do
             for y = zmin to zmin+zlen-1 do
                 let biome = biome.[x,y]
-                let topIsWater = map.GetBlockInfo(x,hmIgnoringLeaves.[x,y],y).BlockID = 9uy
+                let topIsWater = map.GetBlockInfo(x,hmIgnoringLeavesAndLogs.[x,y],y).BlockID = 9uy
                 let topIsWaterAndNotOceanOrRiver = topIsWater && not(biome = 0uy || biome = 10uy || biome = 24uy || biome=7uy || biome=11uy) // 0,10,24 are oceans; 7,11 are rivers
                 let mapColorIndex = BIOMES |> Array.find (fun (b,_,_) -> b=int biome) |> (fun (_,_,color) -> color)
                 let mci,(r,g,b) = MAP_COLOR_TABLE.[mapColorIndex]
@@ -1485,9 +1487,9 @@ let makeBiomeMap(regionFolder, map:MapFolder, origBiome:byte[,], biome:byte[,], 
                         r/2,g/2,b/2  // dark lines on circle or square
                     else
                         if x/6%2=0 && y/6%2=0 then
-                            if hmIgnoringLeaves.[x,y] > 100 then // TODO named constants
+                            if hmIgnoringLeavesAndLogs.[x,y] > 100 then // TODO named constants
                                 r*1/3,g*1/3,b*1/3
-                            elif hmIgnoringLeaves.[x,y] > 80 then // TODO named constants
+                            elif hmIgnoringLeavesAndLogs.[x,y] > 80 then // TODO named constants
                                 r*2/3,g*2/3,b*2/3
                             else
                                 r,g,b
@@ -1585,7 +1587,7 @@ let REDDITURLVANILLASWIRLCTM =
     ".........................................................................................................................................................................."
     |]
 
-let makeInGameOverviewMap(regionFolder, origBiome:byte[,], hmIgnoringLeaves:int[,], xmin, xlen:int, zmin, zlen:int) =
+let makeInGameOverviewMap(regionFolder, origBiome:byte[,], hmIgnoringLeavesAndLogs:int[,], xmin, xlen:int, zmin, zlen:int) =
     let size = 256
     let image = new System.Drawing.Bitmap(size,size)
     assert(xlen=zlen)
@@ -1605,7 +1607,7 @@ let makeInGameOverviewMap(regionFolder, origBiome:byte[,], hmIgnoringLeaves:int[
                     let penalty = [| 16; 8; 4; 0; 1; 5; 9; 17 |]  // ad-hoc center weighting
                     let score = 100 - penalty.[dx] - penalty.[dz]
                     scores.[b] <- scores.[b] + score
-                    heightSum <- heightSum + hmIgnoringLeaves.[x+dx,z+dz]
+                    heightSum <- heightSum + hmIgnoringLeavesAndLogs.[x+dx,z+dz]
             let heightAvg = heightSum / SCALE / SCALE
             let maxScore = Array.max scores
             let representativeBiome = scores |> Array.findIndex (fun x -> x = maxScore)

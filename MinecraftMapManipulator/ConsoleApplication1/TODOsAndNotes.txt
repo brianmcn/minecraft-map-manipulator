@@ -84,15 +84,20 @@ OK? 173 green was too short/easy, maybe 225 as min dist?  or maybe slightly incr
 flat plains X of grass would be good rand chest (block 38,0-8; X or O of tall grass on 9x9 flat)
 check wording of EBM progress versus prox is understandable/ok
 OK place some desert wells to ensure there are a few
+anti-tunneling under peaks too? I did it, but it doesn't dissuade really; make the bedrock below it a little wider, 1 block might do wonders? 2 on mountain? and on mountain, put some air next to it (above bedrock), so can't dig in from side
+OK maybe at most oneof FSE/enderchest/saddle in dungeon loot?
+changes leaves to leavesAndLogs throughout, check for oddities, esp. look at elytra, peaks, and flats
+OK? peak floating half in a tree, obsidian confused by tree logs: need to remove trees on center of peak, and also have hm ignoring trees
 
 TODO: bugs & good ideas
-
-maybe at most oneof FSE/enderchest/saddle in dungeon loot?
 
 65 dungeon rate does not seem to 'harm' the map in spawn/green i think, turn up to that!
 
 apparent side-path of 2 (screenshot apr25), was in a wide open spot where cave-skeleton must have doubled-back at different Y height and repainted redstone, making apparently short side path (hard to imagine how to fix offhand)
 
+noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again independent events cause too much variance
+
+flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components
 
 still a glow-pillar problem, where pillar can be down deep hole - maybe ensure it goes to at least height of 90 or something?
 also, pillar near spawn above land, because it saw a removed tree as overhang - ideally need to use a hmIgnoringLeavesAndLogs for cave entry
@@ -109,7 +114,6 @@ can find more glowstone pillars now, decide if want to trim them to help find du
 'keep eyes open', can have multiple chest names, vary
 any other things like 'silly spider boots' that are fun easter eggs?
 curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
-anti-tunneling under peaks too? I did it, but it doesn't dissuade really; make the bedrock below it a little wider, 2 blocks will probably do wonders?
 have new thread for feedback(/request/LP/release) on april maps, link it for feedback
 target 1.9.3
 prep two good seeds for single player, one good seed for multiplayer
