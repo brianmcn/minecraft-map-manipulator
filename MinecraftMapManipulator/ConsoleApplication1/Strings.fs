@@ -33,6 +33,7 @@ module NameAndLore =
     let BONUS_ACTUAL = displayNameAndLore(null,[|BONUS_ACTUAL_LORE|])
     let WORLD_MAP = displayNameAndLore("Map of the entire world",null)
     let ONE_USE_PICK = displayNameAndLore("One-use pickaxe",[|"Did you know that";"even wood can mine";"an enderchest if it";"has Silk Touch?"|])
+    let NIGHT_VISION_FSE = displayNameAndLore("Infinitely seeing eye",[|"Grants night vision";"when held in your";"main hand, but";"makes you slow"|])
 
 let PROXIMITY_HOT = "HOT!!!"
 let PROXIMITY_WARMER = "VERY WARM!"

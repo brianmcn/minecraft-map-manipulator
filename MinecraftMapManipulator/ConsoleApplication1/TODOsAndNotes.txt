@@ -87,14 +87,32 @@ OK place some desert wells to ensure there are a few
 
 TODO: bugs & good ideas
 
-glowstone pillar algorithm improved, but dungeons-near-them metric is still poor, improve?
+maybe at most oneof FSE/enderchest/saddle in dungeon loot?
+
+65 dungeon rate does not seem to 'harm' the map in spawn/green i think, turn up to that!
+
+apparent side-path of 2 (screenshot apr25), was in a wide open spot where cave-skeleton must have doubled-back at different Y height and repainted redstone, making apparently short side path (hard to imagine how to fix offhand)
+
+
+still a glow-pillar problem, where pillar can be down deep hole - maybe ensure it goes to at least height of 90 or something?
+also, pillar near spawn above land, because it saw a removed tree as overhang - ideally need to use a hmIgnoringLeavesAndLogs for cave entry
+even when dungeon reachable, may be in shallow cave, unmarked because pillar says cave is not big enough to warrant pillar
+
+data from 5 seeds suggests I need to turn up dungeon rate, had only like 0, 1, 2, 3, 5 "good dungeons" in those seeds whose terrain was ok
+ - seed 487 may be candidate to see how rate increase goes  (16,5,0 -> 21,7,0)
+ - seed 545? 21,4,1 -> 24,4,1 hmm
+
+glowstone pillar algorithm improved, but dungeons-near-them metric is still poor, improve?  ravines and many directions are tough, need a metric where an unbranching narrow cave costs less (have an idea for one)
+can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
+
+
 'keep eyes open', can have multiple chest names, vary
 any other things like 'silly spider boots' that are fun easter eggs?
 curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
-can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
-anti-tunneling under peaks too? I did it, but it doesn't dissuade really; maybe also add some... what creeper spawners? water sources? those as rand other non-feesh?
-have new thread for feedback on april maps, link it for feedback
+anti-tunneling under peaks too? I did it, but it doesn't dissuade really; make the bedrock below it a little wider, 2 blocks will probably do wonders?
+have new thread for feedback(/request/LP/release) on april maps, link it for feedback
 target 1.9.3
+prep two good seeds for single player, one good seed for multiplayer
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
 

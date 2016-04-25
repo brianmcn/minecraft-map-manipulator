@@ -1427,11 +1427,11 @@ let oreSpawnBingo =
         "redstone",  8,  8, 0,  16
         "diamond",   8,  1, 0,  16
     |]
-let defaultWorldWithCustomOreSpawns(biomeSize,dungeonChance,waterLakeRarity,lavaLakeRarity,   // defaults: 4, 8, 80, 4
-                                    useStrongholds,useVillages,useTemples,useMonuments,       // defaults: all true
-                                    oreSpawnCustom) =                                         // defaults: "oreSpawnDefaults" above
+let defaultWorldWithCustomOreSpawns(biomeSize,dungeonChance,waterLakeRarity,lavaLakeRarity,        // defaults: 4, 8, 80, 4
+                                    useStrongholds,useVillages,useTemples,useMonuments,useRavines, // defaults: all true
+                                    oreSpawnCustom) =                                              // defaults: "oreSpawnDefaults" above
     let TF b = if b then "true" else "false"
-    let part1 : string = sprintf """{"coordinateScale":684.412,"heightScale":684.412,"lowerLimitScale":512.0,"upperLimitScale":512.0,"depthNoiseScaleX":200.0,"depthNoiseScaleZ":200.0,"depthNoiseScaleExponent":0.5,"mainNoiseScaleX":80.0,"mainNoiseScaleY":160.0,"mainNoiseScaleZ":80.0,"baseSize":8.5,"stretchY":12.0,"biomeDepthWeight":1.0,"biomeDepthOffset":0.0,"biomeScaleWeight":1.0,"biomeScaleOffset":0.0,"seaLevel":63,"useCaves":true,"useDungeons":true,"dungeonChance":%d,"useStrongholds":%s,"useVillages":%s,"useMineShafts":true,"useTemples":%s,"useMonuments":%s,"useRavines":true,"useWaterLakes":true,"waterLakeChance":%d,"useLavaLakes":true,"lavaLakeChance":%d,"useLavaOceans":false,"fixedBiome":-1,"biomeSize":%d,"riverSize":4,""" dungeonChance (TF useStrongholds) (TF useVillages) (TF useTemples) (TF useMonuments) waterLakeRarity lavaLakeRarity biomeSize
+    let part1 : string = sprintf """{"coordinateScale":684.412,"heightScale":684.412,"lowerLimitScale":512.0,"upperLimitScale":512.0,"depthNoiseScaleX":200.0,"depthNoiseScaleZ":200.0,"depthNoiseScaleExponent":0.5,"mainNoiseScaleX":80.0,"mainNoiseScaleY":160.0,"mainNoiseScaleZ":80.0,"baseSize":8.5,"stretchY":12.0,"biomeDepthWeight":1.0,"biomeDepthOffset":0.0,"biomeScaleWeight":1.0,"biomeScaleOffset":0.0,"seaLevel":63,"useCaves":true,"useDungeons":true,"dungeonChance":%d,"useStrongholds":%s,"useVillages":%s,"useMineShafts":true,"useTemples":%s,"useMonuments":%s,"useRavines":%s,"useWaterLakes":true,"waterLakeChance":%d,"useLavaLakes":true,"lavaLakeChance":%d,"useLavaOceans":false,"fixedBiome":-1,"biomeSize":%d,"riverSize":4,""" dungeonChance (TF useStrongholds) (TF useVillages) (TF useTemples) (TF useMonuments) (TF useRavines) waterLakeRarity lavaLakeRarity biomeSize
     let part4 =
         let sb = new System.Text.StringBuilder()
         for kind, size, count, min, max in oreSpawnCustom do

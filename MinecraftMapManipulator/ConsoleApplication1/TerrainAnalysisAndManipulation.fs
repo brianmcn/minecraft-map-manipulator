@@ -635,6 +635,7 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeaves:_[,], lo
                 let mutable distinctEntrances = pointsAboveHM |> ResizeArray
                 while distinctEntrances.Count > 0 do
                     let bestX,bestY,bestZ = distinctEntrances |> Seq.minBy(fun (x,_y,z)->x*x+z*z) // found nearest-spawn point in this cave exposed to surface
+                    // TODO should I only mark if within daylight radius? right now marks some outside the pillars, which is probably fine
                     markWithGlowstonePillar(bestX,bestY,bestZ)
                     let dict = Algorithms.findAllShortestPaths(bestX,bestY,bestZ,(fun (x,y,z)->hs.Contains(PT(x,y,z))),DIFFERENCES)
                     distinctEntrances <- distinctEntrances |> Seq.filter (fun p -> 
@@ -2586,6 +2587,10 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
 
 let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
     log.LogSummary("START CMDS")
+    if colorCount = Array.zeroCreate 16 then
+        log.LogInfo("NO COLORS DETECTED, ARTIFICALLY ADDING 1 OF EACH FOR DEBUG PURPOSES")
+        for i = 0 to 15 do
+            colorCount.[i] <- 1
     let placeCommand(x,y,z,command,bid,dmg,name,wantTileTick) =
         map.SetBlockIDAndDamage(x,y,z,bid,dmg)  // command block
         let auto = if name = "minecraft:command_block" then 0uy else 1uy
@@ -2798,11 +2803,12 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     map.SetBlockIDAndDamage(-3,h+3,2,156uy,4uy) //156,4=quartz_stairs, facing east, upside down
     map.SetBlockIDAndDamage(-3,h+4,1,156uy,0uy) //156,0=quartz_stairs, facing east, right side up
     map.SetBlockIDAndDamage(-3,h+4,2,156uy,0uy) //156,0=quartz_stairs, facing east, right side up
+    let COMMAND_ROOM_BOTTOM_Y = h-61
     // the TP hub...
     // ...walls and room
     for x = -2 to 4 do
         for z = -2 to 4 do
-            for y = h-50 to h-1 do
+            for y = COMMAND_ROOM_BOTTOM_Y+1 to h-1 do
                 if x = -2 || x = 4 || z = -2 || z = 4 then
                     map.SetBlockIDAndDamage(x,y,z,7uy,0uy)
                 else
@@ -2817,7 +2823,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // ...floor & ceiling
     for x = -2 to 4 do
         for z = -2 to 4 do
-            map.SetBlockIDAndDamage(x,h-51,z,7uy,0uy) // floor of commands box
+            map.SetBlockIDAndDamage(x,COMMAND_ROOM_BOTTOM_Y,z,7uy,0uy) // floor of commands box
             map.SetBlockIDAndDamage(x,h-6,z,7uy,0uy)  // floor of teleporter hub
             map.SetBlockIDAndDamage(x,h,z,7uy,0uy)
     for x = -3 to 5 do
@@ -2916,12 +2922,16 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // h-11, monument block detectors
     for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
         r.PlaceCommandBlocksStartingAt(x,h-11,0,cmds(x,tilename),"check ctm block")
-    // 0,h-13,0: daylight and CTM completion logic
-    let y = ref (h-13)
-    let R(c) = placeRepeating(0,!y,0,c,true); decr y
-    let C(c) = placeChain(0,!y,0,c,true); decr y
-    let U(c) = placeChain(0,!y,0,c,false); decr y
-    let I(c) = placeImpulse(0,!y,0,c,false); decr y
+    let cx = ref 0
+    let cy = ref (h-13)
+    let cz = ref 0
+    let R(c) = placeRepeating(!cx,!cy,!cz,c,true); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let C(c) = placeChain(!cx,!cy,!cz,c,true); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let U(c) = placeChain(!cx,!cy,!cz,c,false); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let I(c) = placeImpulse(!cx,!cy,!cz,c,false); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let startVerticalCommands(x,y,z) = cx:=x; cy:=y; cz:=z
+    // daylight, NV, and CTM completion logic
+    startVerticalCommands(-1,h-13,0)
     let ticks = (int64 mapTimeInHours) * 60L  *60L * 20L
     assert(ticks % 24000L = 0L)
     let dayTicks = ticks + 1000L
@@ -2934,6 +2944,18 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     U("testfor @a {ActiveEffects:[{Id:26b}]}") // if anyone has luck potion
     C(sprintf "time set %d" dayTicks) // day
     U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set %d" DAYLIGHT_RADIUS dayTicks)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
+    // night vision item
+    scoreboard.AddDummyObjective("HoldingNV")
+    U("scoreboard players set @a HoldingNV 0")
+    U("scoreboard players set @a HoldingNV 1 {SelectedItem:{tag:{NightVision:1}}}")
+    // just got it?
+    U("effect @a[tag=!NightVision,score_HoldingNV_min=1] 16 9999 0 true")
+    U("scoreboard players tag @a[tag=!NightVision,score_HoldingNV_min=1] add NightVision")
+    // just lost it?
+    U("effect @a[tag=NightVision,score_HoldingNV=0] 16 0 0 true")
+    U("scoreboard players tag @a[tag=NightVision,score_HoldingNV=0] remove NightVision")
+    // TODO any poissible way it can desync, leaving player with NV? TBD...
+    // CTM
     U("scoreboard players test CTM hidden 3 *")
     //C(sprintf "blockdata ~ %d ~ {auto:0b}" (h-13)) // turn off main repeat loop (day/night and the CTM checkers) - will now be perma-day, desirable?
     C("blockdata ~ ~-2 ~ {auto:1b}")
@@ -2956,12 +2978,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     // TODO loot tables still different
     // TODO message players about ability to keep playing
     if CustomizationKnobs.SILVERFISH_LIMITS then
-        // 1,h-13,0: silverfish limiter
-        let y = ref (h-13)
-        let R(c) = placeRepeating(1,!y,0,c,true); decr y
-        let C(c) = placeChain(1,!y,0,c,true); decr y
-        let U(c) = placeChain(1,!y,0,c,false); decr y
-        let I(c) = placeImpulse(1,!y,0,c,false); decr y
+        // silverfish limiter
+        startVerticalCommands(0,h-13,0)
         // cap currently off
         R("""scoreboard players set Feesh hidden 0""")
         U("""execute @e[type=Silverfish] ~ ~ ~ scoreboard players add Feesh hidden 1""")
@@ -2991,12 +3009,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     placeImpulse(x,y,z,"blockdata ~ ~ ~ {auto:0b}",false)
     placeChain(x,y-1,z,"scoreboard objectives setdisplay sidebar",true)
     placeChain(x,y-2,z,Strings.TELLRAW_DEATH_COUNTER_DISPLAY_DISABLED,true)
-    // 2,h-13,0: EBM and random loot chest testers
-    let y = ref (h-13)
-    let R(c) = placeRepeating(2,!y,0,c,true); decr y
-    let C(c) = placeChain(2,!y,0,c,true); decr y
-    let U(c) = placeChain(2,!y,0,c,false); decr y
-    let I(c) = placeImpulse(2,!y,0,c,false); decr y
+    // EBM slow clock, armor start killers, holding detector
+    startVerticalCommands(1,h-13,0)
     R("scoreboard players add Time hidden 1")
     U("scoreboard players test Time hidden 20 *")  // 20 = every 1 second
     C("scoreboard players set Time hidden 0")
@@ -3010,8 +3024,10 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     U("kill @e[type=ArmorStand,tag=unlootedFurnace,score_ChestHasLoot=0]")
     U(sprintf """scoreboard players tag @a add Detecting {SelectedItem:{tag:{display:{Lore:["%s"]}}}}""" Strings.NameAndLore.PROXIMITY_DETECTOR_LORE)
     U("testfor @p[tag=Detecting]")
-    C("blockdata ~ ~-2 ~ {auto:1b}")
-    C("blockdata ~ ~-1 ~ {auto:0b}")
+    C(sprintf "blockdata 2 %d 0 {auto:1b}" (h-13))
+    C(sprintf "blockdata 2 %d 0 {auto:0b}" (h-13))
+    // EBM random loot chest testers
+    startVerticalCommands(2,h-13,0)
     I("")
     for color = 0 to 7 do
         if colorCount.[color]<>0 then
@@ -3021,12 +3037,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             C(sprintf "scoreboard players set has%d EBM 0" color)
     U(sprintf "blockdata 3 %d 0 {auto:1b}" (h-13))
     U(sprintf "blockdata 3 %d 0 {auto:0b}" (h-13))
-    // 3,h-13,0: more EBM chest testers
-    let y = ref (h-13)
-    let R(c) = placeRepeating(3,!y,0,c,true); decr y
-    let C(c) = placeChain(3,!y,0,c,true); decr y
-    let U(c) = placeChain(3,!y,0,c,false); decr y
-    let I(c) = placeImpulse(3,!y,0,c,false); decr y
+    // more EBM chest testers
+    startVerticalCommands(3,h-13,0)
     I("")
     for color = 8 to 15 do
         if colorCount.[color]<>0 then
@@ -3036,13 +3048,9 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             C(sprintf "scoreboard players set has%d EBM 0" color)
     U(sprintf "blockdata 3 %d 3 {auto:1b}" (h-13))
     U(sprintf "blockdata 3 %d 3 {auto:0b}" (h-13))
-    // 3,h-13,3: nearness pingers
+    // nearness pingers
+    startVerticalCommands(3,h-13,3)
     scoreboard.AddDummyObjective("NEARNESS")
-    let y = ref (h-13)
-    let R(c) = placeRepeating(3,!y,3,c,true); decr y
-    let C(c) = placeChain(3,!y,3,c,true); decr y
-    let U(c) = placeChain(3,!y,3,c,false); decr y
-    let I(c) = placeImpulse(3,!y,3,c,false); decr y
     I("scoreboard players set @a NEARNESS 0")
     let DIST = PROXIMITY_DETECTION_THRESHOLDS.[0]
     for color = 0 to 15 do
@@ -3051,12 +3059,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             C(sprintf "execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=color%d,r=%d] ~ ~ ~ scoreboard players set @a NEARNESS 3" color DIST)
     U(sprintf "blockdata 2 %d 3 {auto:1b}" (h-13))
     U(sprintf "blockdata 2 %d 3 {auto:0b}" (h-13))
-    // 2,h-13,3: nearness pingers
-    let y = ref (h-13)
-    let R(c) = placeRepeating(2,!y,3,c,true); decr y
-    let C(c) = placeChain(2,!y,3,c,true); decr y
-    let U(c) = placeChain(2,!y,3,c,false); decr y
-    let I(c) = placeImpulse(2,!y,3,c,false); decr y
+    // nearness pingers
+    startVerticalCommands(2,h-13,3)
     I("")
     let DIST = PROXIMITY_DETECTION_THRESHOLDS.[1]
     for color = 0 to 15 do
@@ -3065,12 +3069,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             C(sprintf "execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=color%d,r=%d] ~ ~ ~ scoreboard players set @a NEARNESS 2" color DIST)
     U(sprintf "blockdata 1 %d 3 {auto:1b}" (h-13))
     U(sprintf "blockdata 1 %d 3 {auto:0b}" (h-13))
-    // 1,h-13,3: nearness pingers
-    let y = ref (h-13)
-    let R(c) = placeRepeating(1,!y,3,c,true); decr y
-    let C(c) = placeChain(1,!y,3,c,true); decr y
-    let U(c) = placeChain(1,!y,3,c,false); decr y
-    let I(c) = placeImpulse(1,!y,3,c,false); decr y
+    // nearness pingers
+    startVerticalCommands(1,h-13,3)
     I("")
     let DIST = PROXIMITY_DETECTION_THRESHOLDS.[2]
     for color = 0 to 15 do
@@ -3079,12 +3079,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             C(sprintf "execute @p[tag=Detecting,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=color%d,r=%d] ~ ~ ~ scoreboard players set @a NEARNESS 1" color DIST)
     U(sprintf "blockdata 0 %d 3 {auto:1b}" (h-13))
     U(sprintf "blockdata 0 %d 3 {auto:0b}" (h-13))
-    // 0,h-13,3: HUD/tone
-    let y = ref (h-13)
-    let R(c) = placeRepeating(0,!y,3,c,true); decr y
-    let C(c) = placeChain(0,!y,3,c,true); decr y
-    let U(c) = placeChain(0,!y,3,c,false); decr y
-    let I(c) = placeImpulse(0,!y,3,c,false); decr y
+    // HUD/tone
+    startVerticalCommands(0,h-13,3)
     I("")
     U("execute @p[tag=Detecting,score_NEARNESS_min=3] ~ ~ ~ playsound block.note.harp voice @p ~ ~ ~ 1 1.2")
     U("execute @p[tag=Detecting,score_NEARNESS=2,score_NEARNESS_min=2] ~ ~ ~ playsound block.note.harp voice @p ~ ~ ~ 1 1.0")
@@ -3097,12 +3093,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
     U(sprintf """title @p[tag=Detecting,score_NEARNESS=0] subtitle {"text":"%s"}""" Strings.PROXIMITY_COLD)
     U("""title @p[tag=Detecting] title {"text":""}""")
     U("""scoreboard players tag @a remove Detecting""")
-    // -1,h-13,2: EBM scoring
-    let y = ref (h-13)
-    let R(c) = placeRepeating(-1,!y,2,c,true); decr y
-    let C(c) = placeChain(-1,!y,2,c,true); decr y
-    let U(c) = placeChain(-1,!y,2,c,false); decr y
-    let I(c) = placeImpulse(-1,!y,2,c,false); decr y
+    // EBM scoring
+    startVerticalCommands(-1,h-13,2)
     I("")  // targeted by slow clock
     scoreboard.AddDummyObjective("EverHad")
     scoreboard.AddScore("total", "EverHad", 0)
@@ -3121,12 +3113,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeaves:
             C(Strings.TELLRAW_GOT_EBM(color))
     U(sprintf "blockdata -1 %d 1 {auto:1b}" (h-13))
     U(sprintf "blockdata -1 %d 1 {auto:0b}" (h-13))
-    // -1,h-13,1: more EBM scoring
-    let y = ref (h-13)
-    let R(c) = placeRepeating(-1,!y,1,c,true); decr y
-    let C(c) = placeChain(-1,!y,1,c,true); decr y
-    let U(c) = placeChain(-1,!y,1,c,false); decr y
-    let I(c) = placeImpulse(-1,!y,1,c,false); decr y
+    // more EBM scoring
+    startVerticalCommands(-1,h-13,1)
     I("")
     for color = 8 to 15 do
         if colorCount.[color]<>0 then
@@ -3469,21 +3457,21 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let pillars = ref null
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeaves, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeaves, log, decorations, !allTrees))
     time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
     time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeaves,log))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    xtime (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    xtime (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeaves, log, biome, decorations, !allTrees))
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeaves, log, decorations))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeaves, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeaves,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun() -> 
+    time (fun() -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeaves, MINIMUM, LENGTH, MINIMUM, LENGTH, 

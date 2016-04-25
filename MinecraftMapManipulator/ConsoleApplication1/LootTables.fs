@@ -473,15 +473,33 @@ let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // d
             else
                 yield makeItem(rng,"bread",F 2,F 2,0s)
             yield! Algorithms.pickNnonindependently(rng,F 1,[makeItem(rng,"iron_pickaxe",1,1,0s);makeItem(rng,"iron_sword",1,1,0s);makeItem(rng,"iron_axe",1,1,0s);makeItem(rng,"iron_ingot",2,9,0s)])
-            if rng.Next(2)=0 then
-                yield makeItem(rng,"saddle",1,1,0s)
-                yield makeItem(rng,"iron_horse_armor",1,1,0s)
+            // possible 1 of 3 utility items: pick&enderchest...
             if rng.Next(3)=0 then
                 yield makeItem(rng,"ender_chest",1,1,0s)
                 yield [| Byte("Count",1uy); Short("Damage",59s); String("id","minecraft:wooden_pickaxe"); Compound("tag",[|
-                            Strings.NameAndLore.ONE_USE_PICK;
-                            List("ench",Compounds[|[|Short("id",32s);Short("lvl",5s);End|];[|Short("id",33s);Short("lvl",1s);End|]|]);  // EFF V, SILK
+                            Strings.NameAndLore.ONE_USE_PICK
+                            List("ench",Compounds[|[|Short("id",32s);Short("lvl",5s);End|];[|Short("id",33s);Short("lvl",1s);End|]|])  // EFF V, SILK
                             End|]|>ResizeArray); End |]
+            // ... night vision...
+            elif rng.Next(3)=0 then
+                yield [| Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:fermented_spider_eye"); Compound("tag",[|
+                            Strings.NameAndLore.NIGHT_VISION_FSE
+                            Int("NightVision",1)
+                            List("ench",Compounds[|[|Short("id",51s);Short("lvl",1s);End|]|])  // INF
+                            List("AttributeModifiers",Compounds[|[|   
+                                    String("Slot","mainhand")
+                                    String("AttributeName","generic.movementSpeed")
+                                    String("Name","generic.movementSpeed")
+                                    Double("Amount",-0.8)
+                                    Int("Operation",1)
+                                    Long("UUIDLeast",11102L)
+                                    Long("UUIDMost",11102L)
+                                    End|]|])
+                            End|]|>ResizeArray); End |]
+            // ... or saddle&horse_armor
+            elif rng.Next(3)=0 then
+                yield makeItem(rng,"saddle",1,1,0s)
+                yield makeItem(rng,"iron_horse_armor",1,1,0s)
             if haveInnerChestsAndInstructions then
                 yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST; End |]
         |]
