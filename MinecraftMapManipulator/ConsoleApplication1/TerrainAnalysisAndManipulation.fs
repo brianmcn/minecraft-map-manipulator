@@ -623,7 +623,8 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
                 let markWithGlowstonePillar(bestX,_bestY,bestZ) = 
                     let glowstonePillarBottomY = // ensure pillar not down in a deep hole (possibly 'stopping it up')
                         2 + (Array.max [| hm.[bestX,bestZ]; hm.[bestX+1,bestZ]; hm.[bestX-1,bestZ]; hm.[bestX,bestZ+1]; hm.[bestX,bestZ-1] |]) // some adjacent point should have land above, be above that
-                    for y = glowstonePillarBottomY to glowstonePillarBottomY + 16 do
+                    let glowstonePillarBottomY = min 64 glowstonePillarBottomY // can still be down a wide hole, bring it up
+                    for y = glowstonePillarBottomY to glowstonePillarBottomY + 26 do
                         map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
                     log.LogInfo(sprintf "glowstone pillar at (x,z) of (%4d,%4d)" bestX bestZ)
                     pillarXZs.Add( (bestX,bestZ) )
@@ -653,6 +654,8 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
     log.LogSummary(sprintf "highlighted %d cave entrances near spawn" caveCount)
     pillarXZs
 
+let mutable hiddenX = 0
+let mutable hiddenZ = 0
 let mutable finalEX = 0
 let mutable finalEZ = 0
 
@@ -843,7 +846,9 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
             if fullDist > GREEN_MIN then
                 let PURPLE_MIN = 400
                 let PURPLE_MAX = 480
-                if not hasDoneFinal && fullDist > PURPLE_MIN && ex*ex+ez*ez > SPAWN_PROTECTION_DISTANCE_PURPLE*SPAWN_PROTECTION_DISTANCE_PURPLE then
+                let SQR x = x*x
+                if not hasDoneFinal && fullDist > PURPLE_MIN && SQR(ex)+SQR(ez) > SQR(SPAWN_PROTECTION_DISTANCE_PURPLE) && 
+                        SQR(hiddenX-ex)+SQR(hiddenZ-ez)>SQR(700) then // ensure that elytra and purple are not too close to one another, so divining rod not have them see purple
                     thisIsFinal <- true
                 if thisIsFinal || 
                             // don't bother with green beacons near edge of map
@@ -1481,9 +1486,6 @@ let findHidingSpot(map:MapFolder,hmIgnoringLeavesAndLogs:_[,],((highx,highz),(mi
         Some((fx,fy,fz),(highx,highz))
     else
         None
-
-let mutable hiddenX = 0
-let mutable hiddenZ = 0
 
 let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs, log:EventAndProgressLog, biome:_[,], decorations:ResizeArray<_>, allTrees:ContainerOfMCTrees) =
     let RADIUS = MOUNTAIN_PEAK_DANGER_RADIUS
@@ -2472,6 +2474,9 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
             else
                 map.SetBlockIDAndDamage(x,0,z,159uy,byte(steps-16)) // 159=stained_hardened_clay
             map.SetBlockIDAndDamage(x,1,z,7uy,0uy) // 7=bedrock
+    for x = hiddenX-1 to hiddenX+1 do
+        for z = hiddenZ-1 to hiddenZ+1 do
+            map.SetBlockIDAndDamage(x,0,z,20uy,0uy) // 20=glass
     // place the spawn chunks runner (y=2)
     let theString = """  ------->    ------->    ^^    <-------    <-------    --vv--  """
     let twice = theString + theString
@@ -2566,11 +2571,12 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
             yield U(sprintf """title @p[tag=Divining,score_Rot_min=327,score_Rot=337] subtitle {"text":"%s"}""" (next()))
             yield U(sprintf """title @p[tag=Divining,score_Rot_min=338,score_Rot=348] subtitle {"text":"%s"}""" (next()))
             yield U(sprintf """title @p[tag=Divining,score_Rot_min=349,score_Rot=359] subtitle {"text":"%s"}""" (next()))
+            yield U(sprintf """execute @p[tag=Divining] ~ 0 ~ detect ~ ~ ~ glass 0 title @p[tag=Divining] subtitle {"text":"%s"}""" Strings.DIVINING_TIME_TO_DIG)
             yield U("""title @p[tag=Divining] title {"text":""}""")
             yield U("""scoreboard players tag @a remove Divining""")
         |]
     let r = map.GetRegion(1,1)
-    r.PlaceCommandBlocksStartingAt(1,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
+    r.PlaceCommandBlocksStartingAt(5,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
 let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
@@ -2604,7 +2610,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
     // compass initialization
     scoreboard.AddDummyObjective("Rot")
     scoreboard.AddScore("#ThreeSixty","Rot",360)
-    I "blockdata 1 2 1 {auto:1b}"
+    I "blockdata 5 2 1 {auto:1b}"
     // other commands    
     I("worldborder set 2048")
     I("gamerule doDaylightCycle false")
@@ -2792,6 +2798,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
     map.SetBlockIDAndDamage(-3,h+4,1,156uy,0uy) //156,0=quartz_stairs, facing east, right side up
     map.SetBlockIDAndDamage(-3,h+4,2,156uy,0uy) //156,0=quartz_stairs, facing east, right side up
     let COMMAND_ROOM_BOTTOM_Y = h-61
+    if COMMAND_ROOM_BOTTOM_Y < 1 then
+        failwith "command room too low, overwriting glass or going out of world"
     // the TP hub...
     // ...walls and room
     for x = -2 to 4 do
@@ -3442,9 +3450,9 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
     time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
     time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
     time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes

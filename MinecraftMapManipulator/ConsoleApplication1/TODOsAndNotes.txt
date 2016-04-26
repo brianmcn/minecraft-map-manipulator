@@ -74,33 +74,26 @@ publish checklist:
 
 TEST
 OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
-multiplayer proximity (and prox & divining at once)
 OK? too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
-(multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
 OK? also, the multi-books in the random loot chests are almost all worthless, and hard to 'categorize' as a result of being multi; maybe single enchants, more useful, by 'level' (dist from spawn)?
 OK? still maybe too much diamonds or prot at end, lessened diamonds
 OK? new rand loot balance
 OK? 173 green was too short/easy, maybe 225 as min dist?  or maybe slightly increase 4req o4 insta-spawn?  with only 30 or 40 can blitz
-flat plains X of grass would be good rand chest (block 38,0-8; X or O of tall grass on 9x9 flat)
-check wording of EBM progress versus prox is understandable/ok
-OK place some desert wells to ensure there are a few
-anti-tunneling under peaks too? I did it, but it doesn't dissuade really; make the bedrock below it a little wider, 1 block might do wonders? 2 on mountain? and on mountain, put some air next to it (above bedrock), so can't dig in from side
-OK maybe at most oneof FSE/enderchest/saddle in dungeon loot?
-changes leaves to leavesAndLogs throughout, check for oddities, esp. look at elytra, peaks, and flats
+OK? anti-tunneling under peaks too? I did it, but it doesn't dissuade really; make the bedrock below it a little wider, 1 block might do wonders? 2 on mountain? and on mountain, put some air next to it (above bedrock), so can't dig in from side
 OK? peak floating half in a tree, obsidian confused by tree logs: need to remove trees on center of peak, and also have hm ignoring trees
+OK still a glow-pillar problem, where pillar can be down deep hole - maybe ensure it goes to at least height of 90 or something?
+OK also, pillar near spawn above land, because it saw a removed tree as overhang - ideally need to use a hmIgnoringLeavesAndLogs for cave entry
+changes leaves to leavesAndLogs throughout, check for oddities, esp. look at elytra, peaks, and flats
+multiplayer proximity (and prox & divining at once)
+(multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
+check wording of EBM progress versus prox is understandable/ok
 
 TODO: bugs & good ideas
 
+make divining rod say 'dig atop mountain here' when reach spot, i think
+
 65 dungeon rate does not seem to 'harm' the map in spawn/green i think, turn up to that!
 
-apparent side-path of 2 (screenshot apr25), was in a wide open spot where cave-skeleton must have doubled-back at different Y height and repainted redstone, making apparently short side path (hard to imagine how to fix offhand)
-
-noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again independent events cause too much variance
-
-flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components
-
-still a glow-pillar problem, where pillar can be down deep hole - maybe ensure it goes to at least height of 90 or something?
-also, pillar near spawn above land, because it saw a removed tree as overhang - ideally need to use a hmIgnoringLeavesAndLogs for cave entry
 even when dungeon reachable, may be in shallow cave, unmarked because pillar says cave is not big enough to warrant pillar
 
 data from 5 seeds suggests I need to turn up dungeon rate, had only like 0, 1, 2, 3, 5 "good dungeons" in those seeds whose terrain was ok
@@ -111,8 +104,6 @@ glowstone pillar algorithm improved, but dungeons-near-them metric is still poor
 can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
 
 
-'keep eyes open', can have multiple chest names, vary
-any other things like 'silly spider boots' that are fun easter eggs?
 curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
 have new thread for feedback(/request/LP/release) on april maps, link it for feedback
 target 1.9.3
@@ -129,65 +120,25 @@ get rid of all grass/tallgrass?
 (possibly some spellbook that lets you pull up all the 'quest text' to refer back to in chat or something, so don't need to carry/forget books?)
 cow spawn eggs (too op?) rationing friendly mobs? ...
 thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
-plains/flower forest/sunflowers hide chest under weird flower formation
-could do like divining rod, but with voronoi and find nearest but only if within a certain radius or something... 
- - could even only track the colors you've not got yet? beeping frequency/tone suggest when getting close, but not direction/exact? 
-   but also need scoreboard way to track which colors found and placed in monument...
-   consider different implementation strategeis, e.g. again blocks underground versus entities at chests, really think thru trade-offs
- - with entity at chest, could track stat.trappedChestTriggered, when increase, note nearest marker entity within 6 blocks or so (system will trigger and fail a lot when opening storage chests at spawn)
-   also maybe execute-detect for chest of any marker entity that wants to beep
- - or maybe use the monument chest as the source of truth, when player holds the sensor, check the chest for empty slots to know colors missing, and only beep those entities
-    - will still beep chest looted but item lost/not returned; this desync is part of core issue... maybe also E-D for the loot? probably, since e.g.
-	  on a finding mission after getting one you want to keep searching for another but not have this one still ping? though other same color would ping until return to monument...
- - system described here https://www.reddit.com/r/MinecraftCommands/comments/4fhbbw/best_way_to_track_which_chests_a_player_has/d2a5gbo and kill AS for already-looted, should work
 
-proximity detector is diamond hoe in a chest in green beacon (replace one dungeon loot chest, can appear nested in red's green's loot too), conditioned on EBM=true
-chest also contains a book explaining it (while holding, it will detect nearby chests containing a color stained glass not yet present in explorer bonus monument)
 
-	scoreoard objectives add ChestHasLoot dummy
-	scoreoard objectives add EBM dummy
-moral equiv of:
-    summon ArmorStand ~ ~ ~ {Tags:["unlooted","colorWhite"],CommandStats:{SuccessCountName:"@e[type=ArmorStand,c=1]",SuccessCountObjective:"ChestHasLoot"}}
-	scoreboard players set @e[type=ArmorStand,tag=unlooted] ChestHasLoot 1  // this is hard, need to manually update scoreboard dat (uuids?)
-maybe once every two seconds:
-	execute @a ~ ~ ~ execute @e[type=ArmorStand,tag=unlooted,r=9] ~ ~ ~ /testforblock ~ ~ ~ minecraft:chest -1 {Items:[{tag:{ChestedEmerald:1b}}]}
-	kill @e[type=ArmorStand,tag=unlooted,score_ChestHasLoot=0]
-	// and also
-	testfor @p[holding] 
-	C auto1
-	C auto0
-	O
-	U testforblock x y z minecraft:chest -1 {Items:[{tag:{colorWhite:1b}}]}
-	C scoreboard players set hasWhite EBM 1
-	U testforblock -2 chain_command_block -1 {SuccessCount:0}
-	C scoreboard players set hasWhite EBM 0
-	...
-	and then also run below:
-each AS can know its color from the start, so then pinger is like:
-	(this chain also triggered by someone holding detector above)
-	scoreboard players set @a NEARNESS 0
-	scoreboard players test hasWhite EBM 0 0
-	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorWhite,r=30] ~ ~ ~ scoreboard players set @a NEARNESS 3
-	scoreboard players test hasOrange EBM 0 0
-	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorOrange,r=30] ~ ~ ~ scoreboard players set @a NEARNESS 3
-	...
-	scoreboard players test hasWhite EBM 0 0
-	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorWhite,r=60] ~ ~ ~ scoreboard players set @a NEARNESS 2
-	scoreboard players test hasOrange EBM 0 0
-	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorOrange,r=60] ~ ~ ~ scoreboard players set @a NEARNESS 2
-	...
-	scoreboard players test hasWhite EBM 0 0
-	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorWhite,r=120] ~ ~ ~ scoreboard players set @a NEARNESS 2
-	scoreboard players test hasOrange EBM 0 0
-	C execute @p[holding,score_NEARNESS=0] ~ ~ ~ execute @e[type=ArmorStand,tag=colorOrange,r=120] ~ ~ ~ scoreboard players set @a NEARNESS 1
-	...
-	then make a HUD based on NEARNESS value 0-3, play tone too
+
+
+apparent side-path of 2 (screenshot apr25), was in a wide open spot where cave-skeleton must have doubled-back at different Y height and repainted redstone, making apparently short side path (hard to imagine how to fix offhand)
+
+'keep eyes open', can have multiple chest names, vary
 
 any kind of 'progress meter' in cave dungeons?   
 what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
 "Something like cave systems that shift and change flavor as you delve deeper could be really fun in the future - walls changing over from andesite to diorite to granite might be a way of signalling that something new is happening to the player"
 bats with a trail of fire particles look cool :)
 something with pushable blocks or moving platforms using shulkers?
+
+noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again independent events cause too much variance
+ - fixed the SpawnerData.NextSpawnerAt() to bias the rng for more balanced mob types in right proportions, but the number of spawners is harder to bias in dungeons since the percentages vary based on location...
+
+flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components
+
 
 
 post to /r/minecraftmaps, /r/ctm, forum?

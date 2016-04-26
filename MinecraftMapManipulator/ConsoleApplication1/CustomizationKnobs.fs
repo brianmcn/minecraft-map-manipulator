@@ -80,15 +80,31 @@ type MobSpawnerInfo() =
 
 ////////////////////////////////////////////
 
+// biased rng loosely based on ideas from
+// http://gamedev.stackexchange.com/questions/95675/how-can-i-make-a-random-generator-that-is-biased-by-prior-events
 type SpawnerData(distributionInfo, densityMultiplier) =
     let distribution = distributionInfo |> Array.collect (fun (n,k) -> Array.replicate n k)
+    let deck = System.Collections.Generic.Queue<_>()
     let mutable delayF = fun (_ms : MobSpawnerInfo, _rng : System.Random) -> ()
     let mutable spiderJockeyPercentage = 0.0
     member this.DensityMultiplier = densityMultiplier
     member this.DelayF with get() = delayF and set(f) = delayF <- f
     member this.SpiderJockeyPercentage with get() = spiderJockeyPercentage and set(x) = spiderJockeyPercentage <- x // 0.0 to 1.0
     member this.NextSpawnerAt(x,y,z,rng:System.Random) = 
-        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=distribution.[rng.Next(distribution.Length)])
+//        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=distribution.[rng.Next(distribution.Length)])  // unbiased
+        if deck.Count = 0 then
+            // first time we are called, init the deck
+            let a = [| yield! distribution;yield! distribution;yield! distribution |]  // start with 3 copies
+            Algorithms.shuffle(a,rng)
+            for x in a do
+                deck.Enqueue(x)
+        let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob=deck.Dequeue())
+        if deck.Count <= distribution.Length then
+            let a = [| yield! distribution; yield! distribution; yield! deck.ToArray() |]  // 2 more copies + remaining 
+            Algorithms.shuffle(a,rng)
+            deck.Clear()
+            for x in a do
+                deck.Enqueue(x)
         delayF(ms, rng)
         if ms.BasicMob = "Spider" then
             if rng.NextDouble() < spiderJockeyPercentage then
