@@ -5,6 +5,31 @@ open NBT_Manipulation
 open RegionFiles
 open CustomizationKnobs
 
+// use printf for console progress indiciation
+// use warning for notable events that may or may not indicate bugs
+// use info for non-summary info
+// use summary for summary info
+type EventAndProgressLog() =
+    let log = ResizeArray()
+    member this.LogWarning(s) = 
+        let s = sprintf "WARN: %s" s
+        log.Add( (0,s) )
+        printfn "%s" s
+    member this.LogInfo(s) = 
+        log.Add( (1,s) )
+        printfn "%s" s
+    member this.LogSummary(s) = 
+        log.Add( (2,s) )
+        printfn "%s" s
+    member this.WarningEvents() = 
+        log |> Seq.choose (fun (i,s) -> if i=0 then Some s else None)
+    member this.SummaryEvents() = 
+        // append warning events to end
+        Seq.append (log |> Seq.choose (fun (i,s) -> if i=2 then Some s else None)) (this.WarningEvents())
+    member this.AllEvents() = 
+        // re-append warning events to end
+        Seq.append (log |> Seq.map snd) (this.WarningEvents())
+
 let HM_IGNORING_LEAVES_AND_LOGS_SKIPPABLE_DOWN_BLOCKS = 
     new System.Collections.Generic.HashSet<_>( [|0uy; 17uy; 162uy; 18uy; 161uy; 78uy; 31uy; 175uy; 32uy; 37uy; 38uy; 39uy; 40uy; 106uy |] ) // air, log, log2, leaves, leaves2, snow_layer, tallgrass, double_plant, deadbush, yellow_flower, red_flower, brown_mushroom, red_mushroom, vine
 
@@ -151,11 +176,15 @@ let putTreasureBoxAt(map:MapFolder,sx,sy,sz,lootTableName,lootTableSeed) =
 let putTreasureBoxWithItemsAt(map:MapFolder,sx,sy,sz,itemsNbt) =
     putTreasureBoxAtCore(map,sx,sy,sz,null,0L,itemsNbt,22uy,0uy,20uy,0uy,2) //22=lapis, 20=glass
 
-let putBeaconAt(map:MapFolder,ex,ey,ez,colorDamage,addAirSpace) =
+let putBeaconAt(map:MapFolder,log:EventAndProgressLog,ex,ey,ez,colorDamage,addAirSpace) =
     if addAirSpace then
         for x = ex-3 to ex+3 do
             for y = ey-5 to ey do
                 for z = ez-3 to ez+3 do
+                    match map.TryRemoveTileEntity(x,y,z) with
+                    | Some te ->
+                        log.LogWarning(sprintf "putting a beacon that overwrites a TE: %s" (te.ToString()))
+                    | None -> ()
                     map.SetBlockIDAndDamage(x,y,z,0uy,0uy)  // air
     for x = ex-2 to ex+2 do
         for y = ey-4 to ey-1 do
@@ -167,20 +196,6 @@ let putBeaconAt(map:MapFolder,ex,ey,ez,colorDamage,addAirSpace) =
     map.SetBlockIDAndDamage(ex,ey-2,ez,138uy,0uy) // beacon
     map.SetBlockIDAndDamage(ex,ey-1,ez, 95uy,colorDamage) // stained glass
     map.SetBlockIDAndDamage(ex,ey+0,ez,120uy,0uy) // end portal frame
-
-// use printf for console progress indiciation
-// use info for non-summary info
-// use summary for summary info
-type EventAndProgressLog() =
-    let log = ResizeArray()
-    member this.LogInfo(s) = 
-        log.Add( (1,s) )
-        printfn "%s" s
-    member this.LogSummary(s) = 
-        log.Add( (2,s) )
-        printfn "%s" s
-    member this.SummaryEvents() = log |> Seq.choose (fun (i,s) -> if i=2 then Some s else None)
-    member this.AllEvents() = log |> Seq.map snd
 
 type SpawnerAccumulator(description) =
     let spawnerTileEntities = ResizeArray()
@@ -248,9 +263,12 @@ type MCTree(woodType) =
     let leaves = ResizeArray()
     let mutable lly = 0
     let mutable cs = 0,0,0
+    let mutable lowestSidewaysLogY = 256
     member this.WoodType = woodType
     member this.Logs = logs
     member this.Leaves = leaves
+    member this.RecordSidewaysLogYAt(y) = if y < lowestSidewaysLogY then lowestSidewaysLogY <- y
+    member this.LowestSidewaysLogY = if lowestSidewaysLogY = 256 then None else Some lowestSidewaysLogY 
     member this.LowestLeafY with get() = lly and set(y) = lly <- y
     member this.CanonicalStump with get() = cs and set(p) = cs <- p
     member this.CouldClaimAsMyLeaf(nbi:BlockInfo) =
@@ -265,10 +283,10 @@ type MCTree(woodType) =
         for x,y,z,_ in this.Leaves do
             map.SetBlockIDAndDamage(x,y,z,leafbid,leafdmg)
     member this.Remove(map:MapFolder, hm:_[,]) =
-        let airXZs = ResizeArray()
+        let airXZs = new System.Collections.Generic.HashSet<_>()
         let makeAir(x,y,z) =
             map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
-            airXZs.Add( (x,z) )
+            airXZs.Add( (x,z) ) |> ignore
         let nearby(x,y,z) =
             for dx,dy,dz in [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0] do
                 let x,y,z = x+dx,y+dy,z+dz
@@ -326,12 +344,8 @@ type MCTree(woodType) =
                 if snow then
                     map.SetBlockIDAndDamage(x,y+1,z,78uy,0uy)
             for x,z in airXZs do
-                let mutable y = hm.[x,z]
                 // just removed some trees, so correct it
-                while map.MaybeGetBlockInfo(x,y,z).BlockID=0uy && map.MaybeGetBlockInfo(x,y-1,z).BlockID=0uy do
-                    y <- y - 1
-                hm.[x,z] <- y
-
+                hm.[x,z] <- Utilities.recomputeHeightMap(map,x,z)
 
 [<AllowNullLiteral>]
 type ContainerOfMCTrees(allTrees:MCTree seq) =
@@ -365,16 +379,13 @@ type ContainerOfMCTrees(allTrees:MCTree seq) =
 
 type PriorityQueue() =
     let mutable pq = Set.empty 
-    let mutable count = 0
     member this.Enqueue(pri,v) = 
         pq <- pq.Add(pri,v)
-        count <- count + 1
     member this.Dequeue() =
         let r = pq.MinimumElement 
         pq <- pq.Remove(r)
-        count <- count - 1
         r
-    member this.Count = count
+    member this.IsEmpty = pq.IsEmpty 
 
 let treeify(map:MapFolder, hm:_[,]) =
     let TREE_MIN_Y = 60  // why not 63? swamp trees often start below water surface, and end up removing leaves of a swamp tree but not stump, when neighbor tree above water gets assigned all leaves of tree below water.  Lower values are 'better' but 'more expensive to compute'
@@ -422,6 +433,8 @@ let treeify(map:MapFolder, hm:_[,]) =
                                                         if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(woodType) then
                                                             visitedLogs.Add(nx,ny,nz) |> ignore
                                                             tree.Logs.Add(nx,ny,nz)
+                                                            if (nbi.BlockData &&& 12uy) <> 0uy then // not up-down log
+                                                                tree.RecordSidewaysLogYAt(ny)
                                                             q.Enqueue(nx,ny,nz)
                                 let mutable isTallPokingAbove = false  // does the tree start below TREE_MIN_Y and we're just seeing the top of it?
                                 if y = TREE_MIN_Y then
@@ -447,39 +460,44 @@ let treeify(map:MapFolder, hm:_[,]) =
                 let ls = t.Logs.ToArray()
                 Array.sortInPlaceBy (fun (x,y,z) -> y,x,z) ls
                 t.LowestLeafY <- -1
-                for cx,cy,cz in ls do
-                    if t.LowestLeafY = -1 then
-                        let mutable numAdjacentLeaves = 0
-                        for dx,dz in [-1,0; 1,0; 0,-1; 0,1] do
-                            let nx,ny,nz = cx+dx, cy, cz+dz
-                            // we may have wandered out of bounds, stay inside our outer window
-                            if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
-                                let nbi = map.GetBlockInfo(nx,ny,nz)
-                                if t.CouldClaimAsMyLeaf(nbi) then
-                                    numAdjacentLeaves <- numAdjacentLeaves + 1
-                                    // large oaks can have low offshoot branches where leaves are below them in only one direction, try to kludge that case
-                                    let nbi = map.GetBlockInfo(nx,ny+1,nz)
-                                    if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
-                                        numAdjacentLeaves <- numAdjacentLeaves + 1 // if same-type log above leaf, assume branching oak and ensure LLY adjusts for this
-                                    // sometimes the 'side' of one low tree crashes into the 'stem' of another, usually we can detect and prevent this thusly:
-                                    if nbi.BlockID = 0uy then
-                                        // was air just above the supposed 'bottom connecting leaf', but bottom connecting leaves never have air above, I think, so reject
-                                        numAdjacentLeaves <- numAdjacentLeaves - 1
-                                    else
-                                        // another way to detect is to see if there are also lowest-leaves on the opposite side of the stem here:
-                                        let nx,ny,nz = cx-dx, cy, cz-dz
-                                        if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
-                                            let mutable nbi = map.GetBlockInfo(nx,ny,nz)
-                                            if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
-                                                // seems to be two-wide tree, go one further back
-                                                let nx,ny,nz = cx-2*dx, cy, cz-2*dz
-                                                if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
-                                                    nbi <- map.GetBlockInfo(nx,ny,nz)
-                                            if not(t.CouldClaimAsMyLeaf(nbi)) then
-                                                // we didn't find lower leaves on the opposite side, suggesting this may be a crashing-stem case
-                                                numAdjacentLeaves <- numAdjacentLeaves - 1
-                        if numAdjacentLeaves >=2 then
-                            t.LowestLeafY <- cy
+                if t.WoodType = WoodType.OAK then
+                    match t.LowestSidewaysLogY with
+                    | None -> ()
+                    | Some y -> t.LowestLeafY <- y-1  // oak trees with sideways logs can have leaves 1 below the lowest sideways log
+                if t.LowestLeafY = -1 then
+                    for cx,cy,cz in ls do
+                        if t.LowestLeafY = -1 then
+                            let mutable numAdjacentLeaves = 0
+                            for dx,dz in [-1,0; 1,0; 0,-1; 0,1] do
+                                let nx,ny,nz = cx+dx, cy, cz+dz
+                                // we may have wandered out of bounds, stay inside our outer window
+                                if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                                    let nbi = map.GetBlockInfo(nx,ny,nz)
+                                    if t.CouldClaimAsMyLeaf(nbi) then
+                                        numAdjacentLeaves <- numAdjacentLeaves + 1
+                                        // large oaks can have low offshoot branches where leaves are below them in only one direction, try to kludge that case
+                                        let nbi = map.GetBlockInfo(nx,ny+1,nz)
+                                        if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                            numAdjacentLeaves <- numAdjacentLeaves + 1 // if same-type log above leaf, assume branching oak and ensure LLY adjusts for this
+                                        // sometimes the 'side' of one low tree crashes into the 'stem' of another, usually we can detect and prevent this thusly:
+                                        if nbi.BlockID = 0uy then
+                                            // was air just above the supposed 'bottom connecting leaf', but bottom connecting leaves never have air above, I think, so reject
+                                            numAdjacentLeaves <- numAdjacentLeaves - 1
+                                        else
+                                            // another way to detect is to see if there are also lowest-leaves on the opposite side of the stem here:
+                                            let nx,ny,nz = cx-dx, cy, cz-dz
+                                            if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                                                let mutable nbi = map.GetBlockInfo(nx,ny,nz)
+                                                if WoodType.AsLog(nbi.BlockID,nbi.BlockData) = Some(t.WoodType) then
+                                                    // seems to be two-wide tree, go one further back
+                                                    let nx,ny,nz = cx-2*dx, cy, cz-2*dz
+                                                    if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 then
+                                                        nbi <- map.GetBlockInfo(nx,ny,nz)
+                                                if not(t.CouldClaimAsMyLeaf(nbi)) then
+                                                    // we didn't find lower leaves on the opposite side, suggesting this may be a crashing-stem case
+                                                    numAdjacentLeaves <- numAdjacentLeaves - 1
+                            if numAdjacentLeaves >=2 then
+                                t.LowestLeafY <- cy
             // then walk outwards from all logs over all trees, claiming ownership
             let claimedLeaves = new System.Collections.Generic.HashSet<_>()
             let claimAttemptsAtThisPriority = new System.Collections.Generic.Dictionary<_,ResizeArray<_>>()
@@ -494,11 +512,9 @@ let treeify(map:MapFolder, hm:_[,]) =
                 for cx,cy,cz in t.Logs do
                     if cy >= t.LowestLeafY then
                         pq.Enqueue(0,(cx,cy,cz,treeIndex))
-            let processLeaves(dirs) =
+            let processLeaves(normalDirs,largeOakDirs) =
                 let finishThisPriority(currentPriority) =
                     for KeyValue((x,y,z),ts) in claimAttemptsAtThisPriority do
-//                        if (x,y,z)=(514,75,328) then
-//                            printfn "hey"
                         claimedLeaves.Add(x,y,z) |> ignore
                         let a = ts.ToArray()
                         Array.sortInPlaceBy (fun ti -> computeXZsq(treesInThisWindow.[ti],x,z)) a
@@ -507,16 +523,15 @@ let treeify(map:MapFolder, hm:_[,]) =
                         treesInThisWindow.[a.[0]].Leaves.Add(x,y,z,currentPriority)
                     claimAttemptsAtThisPriority.Clear()
                 let mutable currentPriority = 0
-                while pq.Count <> 0 do
+                while not(pq.IsEmpty) do
                     let ci,(cx,cy,cz,treeIndex) = pq.Dequeue()
                     let t = treesInThisWindow.[treeIndex]
                     if ci <> currentPriority then
                         finishThisPriority(currentPriority)
                         currentPriority <- ci
+                    let dirs = if t.LowestSidewaysLogY.IsSome then largeOakDirs else normalDirs
                     for dx,dy,dz in dirs do
                         let nx,ny,nz = cx+dx, cy+dy, cz+dz
-//                        if (nx,ny,nz)=(514,75,328) then
-//                            printfn "hey"
                         // we may have wandered out of bounds, stay inside our outer window
                         if nx >= wx && nx <= wx+WINDOW_SIZE-1 && nz >= wz && nz <= wz+WINDOW_SIZE-1 && ny >= TREE_MIN_Y then
                             if not(claimedLeaves.Contains(nx,ny,nz)) then
@@ -534,14 +549,22 @@ let treeify(map:MapFolder, hm:_[,]) =
                                         claimAttemptsAtThisPriority.Add((nx,ny,nz), ResizeArray[treeIndex])
                                     if not alreadyEnqueued then
                                         pq.Enqueue(ni,(nx,ny,nz,treeIndex)) // just keep going so long as we're claiming
+                                elif WoodType.AsLeaves(nbi.BlockID,nbi.BlockData).IsSome then // is a different kind of leaf
+                                    let nnx,nny,nnz = nx+dx, ny+dy, nz+dz // look one farther in cur direction
+                                    let nnbi = map.GetBlockInfo(nnx,nny,nnz)
+                                    if t.CouldClaimAsMyLeaf(nnbi) then
+                                        if ci < 120 then // bound it, so not more than one desperate try
+                                            pq.Enqueue(ci+100,(nx,ny,nz,treeIndex)) // keep going past leaves we can't claim, to ones we can, at a VERY low priority. This is because e.g. a large oak may 'swallow' a birch stem and replace its inner leaves with oak, even though outer are birch, and we want birch to claim it rather than leave unclaimed
                 finishThisPriority(currentPriority)
-            processLeaves([-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0])
+            let ALL_BUT_DOWN = [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0]
+            let ALL = [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0; 0,-1,0]
+            processLeaves(ALL_BUT_DOWN,ALL)
             // go back and attempt to deal with unclaimed leaves that failed my original ownership heuristic
             for treeIndex = 0 to treesInThisWindow.Count-1 do
                 let t = treesInThisWindow.[treeIndex]
                 for x,y,z,i in t.Leaves do
                     pq.Enqueue(i,(x,y,z,treeIndex))
-            processLeaves([-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0; 0,-1,0]) // note this also goes y-1, normally does not
+            processLeaves(ALL,ALL) // note this also goes y-1, for normal trees, normally does not
     // done with processing...
     printfn "There were %d trees found" allTrees.Count
 (*
@@ -958,7 +981,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     assert(i=sx && j=sy && k=sz)
                     // write out all the spawner data we just placed
                     spawners.AddToMapAndLog(map,log)
-                    putBeaconAt(map,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
+                    putBeaconAt(map,log,ex,ey,ez,(if thisIsFinal then 10uy else 5uy), true) // 10=purple, 5=lime
                     map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
                     // put treasure at bottom end
                     putTreasureBoxWithItemsAt(map,sx,sy,sz,[|
@@ -1395,6 +1418,8 @@ let replaceSomeBiomes(rng : System.Random, map:MapFolder, log:EventAndProgressLo
 // also need to code up basic mob spawner methods (passengers, effects, attributes, range, frequency, ...)
 
 let replaceUndergroundWithObsidianAndSilverfish(map:MapFolder,x,z,radius,min_radius,hmIgnoringLeavesAndLogs:_[,],rng:System.Random) =
+    let dontOverwrite(bid) = 
+        MC_Constants.TILE_ENTITY_BID_ID |> Array.exists(fun (b,_) -> b=bid)
     // place some obsidian & feesh below ground to make it harder to tunnel underneath
     for i = x-radius to x+radius do
         for j = z-radius to z+radius do
@@ -1403,12 +1428,14 @@ let replaceUndergroundWithObsidianAndSilverfish(map:MapFolder,x,z,radius,min_rad
                 let pct = float (radius-dist) / (float radius)
                 let belowGround = hmIgnoringLeavesAndLogs.[i,j] - 2
                 for y = belowGround downto belowGround-7 do
-                    if (i+y+j)%2 = 0 then
-                        if rng.NextDouble() < pct then
-                            map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
-                    else
-                        if rng.NextDouble() < pct then
-                            map.SetBlockIDAndDamage(i,y,j,97uy,0uy) // 97=silverfish monster egg
+                    let bid = map.GetBlockInfo(i,y,j).BlockID 
+                    if not(dontOverwrite(bid)) then // don't overwrite tile entities (e.g. once saw a zombie spawner just below surface underneath red beacon area)
+                        if (i+y+j)%2 = 0 then
+                            if rng.NextDouble() < pct then
+                                map.SetBlockIDAndDamage(i,y,j,49uy,0uy) // 49=obsdian
+                        else
+                            if rng.NextDouble() < pct then
+                                map.SetBlockIDAndDamage(i,y,j,97uy,0uy) // 97=silverfish monster egg
 
 let findBestPeaksAlgorithm(heightMap:_[,], connectedThreshold, goodThreshold, hmDiffPerCC, scoreF, decorations:ResizeArray<_>) =
     let a = Array2D.zeroCreateBased MINIMUM MINIMUM LENGTH LENGTH
@@ -1720,7 +1747,7 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeavesA
                 [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,LootTables.NEWsampleTier4Chest(rng,true)) |]
             |])
         map.SetBlockIDAndDamage(x,y+3,z,20uy,0uy) // glass (replace roof of box so beacon works)
-        putBeaconAt(map,x,y,z,14uy,false) // 14 = red
+        putBeaconAt(map,log,x,y,z,14uy,false) // 14 = red
         // TODO make these spawners in CustomizationKnobs?
         // add blazes atop
         for (dx,dz) in [-3,-3; -3,3; 3,-3; 3,3] do
@@ -2839,7 +2866,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
                 if x = -3 || x = 5 || z = -3 || z = 5 then
                     map.SetBlockIDAndDamage(x,y,z,159uy,3uy) // 159,3 is light blue stained clay, on walls of tp hub in case exposed on surface
     // beacon at spawn for convenience
-    putBeaconAt(map,1,h-6,1,0uy,false)
+    putBeaconAt(map,log,1,h-6,1,0uy,false)
     // ...floor & ceiling
     for x = -2 to 4 do
         for z = -2 to 4 do
@@ -3243,7 +3270,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                             map.SetBlockIDAndDamage(x+2,h+2,z+2,209uy,0uy) // 209=end_gateway
                             let spawnHeight = hmIgnoringLeavesAndLogs.[1,1]
                             map.AddOrReplaceTileEntities([| [| Int("x",x+2); Int("y",h+2); Int("z",z+2); String("id","EndGateway"); Long("Age",180L); Byte("ExactTeleport",1uy); Compound("ExitPortal",[Int("X",1);Int("Y",spawnHeight-4);Int("Z",1);End]|>ResizeArray); End |] |])
-                            putBeaconAt(map,x+2,h+14,z+2,0uy,false)
+                            putBeaconAt(map,log,x+2,h+14,z+2,0uy,false)
                             placeRepeating(x+2,h+24,z+2,sprintf "execute @p[r=28] ~ ~ ~ blockdata %d %d %d {auto:1b}" (x+2) (h+23) (z+2)) // absolute coords since execute-at
                             map.AddTileTick("minecraft:repeating_command_block",100,0,x+2,h+24,z+2)
                             placeImpulse(x+2,h+23,z+2,sprintf "blockdata %d %d %d {auto:1b}" 3 (spawnHeight-11) 0) // expose teleporters at spawn //note brittle coords of block
@@ -3545,22 +3572,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let pillars = ref null
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
-    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 

@@ -119,6 +119,7 @@ let BLOCK_IDS =
 
 let blockIdToMinecraftName =
     [|
+        0,"minecraft:air"
         1,"minecraft:stone"
         2,"minecraft:grass"
         3,"minecraft:dirt"

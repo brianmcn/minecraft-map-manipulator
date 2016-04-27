@@ -86,20 +86,21 @@ OK make divining rod say 'dig atop mountain here' when reach spot, i think
 OK final dungeon, last half at lava layer, no spawns - maybe convert nearby lava (not flowing) to obsidian whenever place spawner at Y=10 in final dung?
 OK 65 dungeon rate does not seem to 'harm' the map in spawn/green i think, turn up to that!
 
-changes leaves to leavesAndLogs throughout, check for oddities, esp. look at elytra, peaks, and flats
+OK? changes leaves to leavesAndLogs throughout, check for oddities, esp. look at elytra, peaks, and flats
 OK multiplayer proximity (and prox & divining at once)
 OK (multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
 OK check wording of EBM progress versus prox is understandable/ok
 
-test contents of purple and green beacons, make sure loot correct
+OK test contents of purple and green beacons, make sure loot correct
 OK ms&ms in beacon path -> 2TEs one block
 OK putChestCore twice with same x,y,z while accumulating TEs
-add fireworks sound when get glass block / place monument block
-ensure monument blocks work at all (changed cmds)
-OK? teleporter removed trees but didn't update HM, and then flat put spawners/cobwebs/etc in trees, left floating (x530,z450 in seed 615)
-check actual elytra chest ok
+OK add fireworks sound when get glass block / place monument block
+OK ensure monument blocks work at all (changed cmds)
+OK check actual elytra chest ok
 OK check jump boots (replaced potions)
 OK change book with elytra to note changes
+OK teleporter removed trees but didn't update HM, and then flat put spawners/cobwebs/etc in trees, left floating (x530,z450 in seed 615)
+OK? changed leaf ownership, look at nether/end trees, and teleporter-clear lines
 
 TODO: bugs & good ideas
 

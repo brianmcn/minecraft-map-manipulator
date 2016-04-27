@@ -390,6 +390,36 @@ type RegionFile(filename) =
                 else failwith "unexpected: multiple TileEntities with same xyz coords"
             | _ -> None
         tileEntity
+    member this.TryRemoveTileEntity(x, y, z) = // will create unrepresented chunk/section
+        ensureCorrectRegion(x,z)
+        this.GetOrCreateSection(x,y,z) |> ignore
+        // TileEntities
+        let tileEntity =
+            let theChunk = this.GetOrCreateChunk(x,z)
+            let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+            match theChunkLevel.["TileEntities"] with 
+            | List(name,Compounds(cs)) ->
+                let tes = cs |> Array.choose (fun te -> 
+                    let te = Compound("unnamedDummyToCarryAPayload",te |> ResizeArray)
+                    if te.["x"]=Int("x",x) && te.["y"]=Int("y",y) && te.["z"]=Int("z",z) then Some te else None)
+                let te = 
+                    if tes.Length = 0 then None
+                    elif tes.Length = 1 then Some tes.[0]
+                    else failwith "unexpected: multiple TileEntities with same xyz coords"
+                match te with
+                | None -> ()
+                | Some _ ->
+                    let a = match theChunk with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
+                    let mutable i = 0
+                    while i < a.Count-1 do
+                        if a.[i].Name = "TileEntities" then
+                            a.[i] <- List("TileEntities",Compounds(cs |> Seq.filter (fun te->
+                                        let te = Compound("unnamedDummyToCarryAPayload",te |> ResizeArray)
+                                        not(te.["x"]=Int("x",x) && te.["y"]=Int("y",y) && te.["z"]=Int("z",z))) |> Array.ofSeq))
+                        i <- i + 1
+                te
+            | _ -> None
+        tileEntity
     member this.EnsureSetBlockIDAndDamage(x, y, z, blockID, damage) =
         this.GetOrCreateSection(x,y,z) |> ignore
         this.SetBlockIDAndDamage(x, y, z, blockID, damage)
@@ -832,6 +862,11 @@ type MapFolder(folderName) =
         let rz = (z + 512000) / 512 - 1000
         let r = getOrCreateRegion(rx, rz)
         r.GetTileEntity(x,y,z)
+    member this.TryRemoveTileEntity(x,y,z) =
+        let rx = (x + 512000) / 512 - 1000
+        let rz = (z + 512000) / 512 - 1000
+        let r = getOrCreateRegion(rx, rz)
+        r.TryRemoveTileEntity(x,y,z)
     member this.AddTileTick(id,t,p,x,y,z) =
         let rx = (x + 512000) / 512 - 1000
         let rz = (z + 512000) / 512 - 1000

@@ -1264,6 +1264,32 @@ COOKED
 
 /////////////////////////////
 
+let recomputeHeightMap(map:MapFolder,x,z) =
+    let isFully = Array.zeroCreate 256
+    MC_Constants.BLOCKIDS_THAT_ARE_FULLY_TRANSPARENT_TO_LIGHT |> Array.iter (fun bid -> isFully.[bid] <- true)
+    let dx = MOD(x,16)
+    let dz = MOD(z,16)
+    let mutable result = 0
+    let mutable y = 255  // TODO how does minecraft represent an opaque block at the build height in the HM? does it use 256? is that why int and not byte?
+    let mutable _,curSectionBlocks,_,_,_ = map.GetSection(x,y,z)
+    while y >= 0 do
+        if curSectionBlocks = null then
+            // This section is not represented, jump down to section below
+            assert(y%16 = 15)
+            y <- y - 16
+            let _,blocks,_,_,_ = map.GetSection(x,y,z)
+            curSectionBlocks <- blocks
+        elif not(isFully.[int curSectionBlocks.[(y%16)*256+dz*16+dx]]) then
+            result <- y+1
+            y <- -1
+        else
+            // we're in terrain, but at a fully transparent block
+            y <- y - 1
+            if y%16 = 15 then
+                let _,blocks,_,_,_ = map.GetSection(x,y,z)
+                curSectionBlocks <- blocks
+    result
+
 let makeWrittenBookTags(author, title, pages) =
     (*
     //    /give @p minecraft:written_book 1 0 {title:"hello"}
