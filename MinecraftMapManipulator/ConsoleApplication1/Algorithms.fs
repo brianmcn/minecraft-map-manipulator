@@ -165,13 +165,18 @@ let findShortestPath(sx,sy,sz,canMoveTo,isEnd,differences:_[]) =
 let findLongestPath(sx,sy,sz,canMoveTo,isEnd,differences:_[]) =
     findShortestPathCore(sx,sy,sz,canMoveTo,isEnd,differences,true)
 
-let findAllShortestPaths(sx,sy,sz,canMoveTo,differences:_[]) =
+let findAllShortestPaths(sx,sy,sz,canMoveTo,differences:_[],maxDist) = // maxDist of -1 will visit all; else will stop once reaches that dist
     let visited = new System.Collections.Generic.Dictionary<_,_>()  // key exists = visited, value = distance
     let q = new System.Collections.Generic.Queue<_>()
+    let mutable prevD = -1
     q.Enqueue(sx,sy,sz,0)
     visited.Add((sx,sy,sz), 0)
-    while q.Count > 0 do
+    while q.Count > 0 && (maxDist = -1 || prevD < maxDist) do
         let x,y,z,d = q.Dequeue()
+        if d < prevD then
+            failwith "this should never happen d < prevD"
+        else
+            prevD <- d
         for diffi = 0 to differences.Length-1 do
             let dx,dy,dz = differences.[diffi]
             let nx,ny,nz = x+dx, y+dy, z+dz

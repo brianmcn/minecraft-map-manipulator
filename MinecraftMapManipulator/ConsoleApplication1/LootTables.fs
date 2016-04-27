@@ -367,6 +367,27 @@ let writeAllLootTables(worldSaveFolder) =
 
 // non-loot-table chests
 
+open NBT_Manipulation
+
+let elytraChestContents(quadrant) = 
+        [| 
+                for slot in [11uy..15uy] do
+                    yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:elytra"); Compound("tag",[|
+                                Int("Unbreakable",1)
+                                List("ench",Compounds[|[|Short("id",2s);Short("lvl",10s);End|]|]);End|]|>ResizeArray); End |] // FFX
+                // jump boost boots
+                for slot in [2uy..6uy] do
+                    yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:leather_boots"); Compound("tag",[|
+                                Strings.NameAndLore.SUPER_JUMP_BOOTS([|Int("color",3387411)|])
+                                Int("SuperJump",1)
+                                Int("Unbreakable",1)
+                                List("ench",Compounds[|[|Short("id",2s);Short("lvl",10s);End|]|]);End|]|>ResizeArray); End |] // FFX
+                yield [| Byte("Count",1uy); Byte("Slot",21uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                         Strings.BOOK_IN_HIDING_SPOT(quadrant); End |]
+                yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
+                         Strings.BOOK_WITH_ELYTRA; End |]
+        |]
+
 // ARMOR
 let PROT(lvls) = 0, Seq.toArray lvls
 let FP(lvls) = 1, Seq.toArray lvls

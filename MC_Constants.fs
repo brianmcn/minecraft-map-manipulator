@@ -333,6 +333,20 @@ let blockIdToMinecraftName =
         212,"minecraft:frosted_ice"
         255,"minecraft:structure_block"
     |]
+let toMinecraftName(bid:byte) = blockIdToMinecraftName |> Array.pick (fun (b,n) -> if b=int bid then Some n else None)
+
+let TILE_ENTITY_BID_ID = [| // an incomplete (TODO) list of tile entities
+    52uy, "MobSpawner"
+    54uy, "Chest"
+    61uy, "Furnace"
+    68uy, "Sign"
+    130uy, "Enderchest"
+    137uy, "Control"
+    146uy, "Chest"
+    209uy, "EndGateway"
+    210uy, "Control"
+    211uy, "Control"
+    |]
 
 let BLOCKIDS_THAT_EMIT_LIGHT =
     [|  // block id, light level

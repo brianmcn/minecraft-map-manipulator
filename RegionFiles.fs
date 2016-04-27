@@ -695,23 +695,23 @@ type MapFolder(folderName) =
             let cx = ((x+512000)%512)/16
             let cz = ((z+512000)%512)/16
             data.[(rx,rz)].[cx,cz].Add(te)
-#if DEBUG_BAD_TES_MAYBE
-            let bid = (this.GetBlockInfo(x,y,z) : BlockInfo).BlockID 
-            if bid <> 52uy && // spawner
-                bid <> 54uy && // chest
-                bid <> 61uy && // furnace
-                bid <> 62uy && // lit_furnace
-                bid <> 130uy && // enderchest
-                bid <> 146uy && // trapped_chest
-                bid <> 137uy && bid <> 210uy && bid <> 211uy then // command blocks
-                failwithf "bad TE at %A with BID %d" (x,y,z) bid
-#endif
         for (KeyValue((rx,rz),tesPerChunk)) in data do
             let r = getOrCreateRegion(rx, rz)
             // load each chunk TEs
             for cx = 0 to 31 do
                 for cz = 0 to 31 do
                     if tesPerChunk.[cx,cz].Count > 0 then
+                        // validate
+                        let coordsOfNewTEs = new System.Collections.Generic.Dictionary<_,_>()
+                        for nte in tesPerChunk.[cx,cz] do
+                            let x = nte |> Array.pick (function Int("x",x) -> Some x | _ -> None)
+                            let y = nte |> Array.pick (function Int("y",y) -> Some y | _ -> None)
+                            let z = nte |> Array.pick (function Int("z",z) -> Some z | _ -> None)
+                            if coordsOfNewTEs.ContainsKey( (x,y,z) ) then
+                                failwithf "tried to AddOrReplaceTileEntities with two in same location; %A has both ```%A``` and ```%A```" (x,y,z) nte (coordsOfNewTEs.[(x,y,z)])
+                            else
+                                coordsOfNewTEs.Add( (x,y,z), nte )
+                        // add
                         let chunk = r.GetChunk(cx,cz)
                         let a = match chunk with Compound(_,rsa) -> match rsa.[0] with Compound(_,a) -> a
                         let mutable found = false
@@ -732,7 +732,7 @@ type MapFolder(folderName) =
                                         if alreadyThere then
                                             willGetOverwritten <- true
                                     if willGetOverwritten then
-                                        () // TODO failwith "TODO overwriting TE, care?"
+                                        () // failwith "TODO overwriting TE, care?" // this is AddOrReplace, so we can overwrite just fine
                                     else
                                         finalTEs.Add(ete)
                                 for nte in tesPerChunk.[cx,cz] do

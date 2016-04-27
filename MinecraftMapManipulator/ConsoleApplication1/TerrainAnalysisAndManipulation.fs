@@ -89,12 +89,17 @@ let blockTE(blockEntityName,x,y,z,items,customName:Strings.TranslatableString,lo
     te
 
 let putChestCore(blockEntityName,x,y,z,chestBid,chestDmg,items,customName:Strings.TranslatableString,lootTable,lootTableSeed,map:MapFolder,tileEntities:ResizeArray<_>) =
-    map.SetBlockIDAndDamage(x,y,z,chestBid,chestDmg)
-    let te = blockTE(blockEntityName,x,y,z,items,customName,lootTable,lootTableSeed)
-    if tileEntities <> null then
-        tileEntities.Add( te )
-    else
-        map.AddOrReplaceTileEntities[| te |]
+    match map.GetTileEntity(x,y,z) with
+    | Some nbt ->
+        // we are trying to overwrite an existing tile entity.  this is a bug we want to know about.
+        failwithf "Trying to place a chest somewhere there's already an existing TE with nbt: %A" (nbt.ToString())
+    | None ->
+        map.SetBlockIDAndDamage(x,y,z,chestBid,chestDmg)
+        let te = blockTE(blockEntityName,x,y,z,items,customName,lootTable,lootTableSeed)
+        if tileEntities <> null then
+            tileEntities.Add( te )
+        else
+            map.AddOrReplaceTileEntities[| te |]
 
 let putTrappedChestWithLootTableAt(x,y,z,customName,lootTable,lootTableSeed,map,tileEntities) =
     putChestCore("Chest",x,y,z,146uy,3uy,Compounds[| |],customName,lootTable,lootTableSeed,map,tileEntities)  // 146=trapped chest
@@ -259,24 +264,28 @@ type MCTree(woodType) =
             map.SetBlockIDAndDamage(x,y,z,logbid,logdmg)
         for x,y,z,_ in this.Leaves do
             map.SetBlockIDAndDamage(x,y,z,leafbid,leafdmg)
-    member this.Remove(map:MapFolder) =
+    member this.Remove(map:MapFolder, hm:_[,]) =
+        let airXZs = ResizeArray()
+        let makeAir(x,y,z) =
+            map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+            airXZs.Add( (x,z) )
         let nearby(x,y,z) =
             for dx,dy,dz in [-1,0,0; 1,0,0; 0,0,-1; 0,0,1; 0,1,0] do
                 let x,y,z = x+dx,y+dy,z+dz
                 let bid = map.GetBlockInfo(x,y,z).BlockID 
                 if dy=1 && bid=78uy || bid=39uy || bid=40uy then // snow_layer, mushrooms are possible "above-tree-block accessories"
-                    map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+                    makeAir(x,y,z)
                 if bid=127uy then // cocoa beans anywhere connected
-                    map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+                    makeAir(x,y,z)
                 if bid=106uy then // vine, extra attention needed, can hang down
                     let mutable y = y
                     while map.GetBlockInfo(x,y,z).BlockID=106uy do
-                        map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+                        makeAir(x,y,z)
                         y <- y - 1
         let mutable lowestY = 256
         let lowestLogs = ResizeArray()
         for x,y,z in this.Logs do
-            map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+            makeAir(x,y,z)
             nearby(x,y,z)
             // keep track of lowest logs
             if y < lowestY then
@@ -286,7 +295,7 @@ type MCTree(woodType) =
             if y = lowestY then
                 lowestLogs.Add((x,y,z))
         for x,y,z,_ in this.Leaves do
-            map.SetBlockIDAndDamage(x,y,z,0uy,0uy)
+            makeAir(x,y,z)
             nearby(x,y,z)
         for x,y,z in lowestLogs do
             // fixup any dirt below lowest logs
@@ -316,6 +325,13 @@ type MCTree(woodType) =
                     map.SetBlockIDAndDamage(x,y,z,3uy,1uy)
                 if snow then
                     map.SetBlockIDAndDamage(x,y+1,z,78uy,0uy)
+            for x,z in airXZs do
+                let mutable y = hm.[x,z]
+                // just removed some trees, so correct it
+                while map.MaybeGetBlockInfo(x,y,z).BlockID=0uy && map.MaybeGetBlockInfo(x,y-1,z).BlockID=0uy do
+                    y <- y - 1
+                hm.[x,z] <- y
+
 
 [<AllowNullLiteral>]
 type ContainerOfMCTrees(allTrees:MCTree seq) =
@@ -328,10 +344,10 @@ type ContainerOfMCTrees(allTrees:MCTree seq) =
                 treeByXZ.Add((x,z),ResizeArray[t])
             else
                 treeByXZ.[x,z].Add(t)
-    member this.Remove(x,z,map:MapFolder) =
+    member this.Remove(x,z,map:MapFolder,hm:_[,]) =
         if treeByXZ.ContainsKey(x,z) then
             for t in treeByXZ.[(x,z)] do
-                t.Remove(map)
+                t.Remove(map,hm)
             treeByXZ.[(x,z)].Clear()
     member this.Replace(x,z,logbid,logdmg,leafbid,leafdmg,map:MapFolder) =
         let mutable count = 0
@@ -620,13 +636,13 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
                     pointsAboveHM.Add(x,y,z) |> ignore
                     spacesAboveHM <- spacesAboveHM + 1
             if hs.Count-spacesAboveHM > 200 then // this is not just a deep ravine exposed to air
-                let markWithGlowstonePillar(bestX,_bestY,bestZ) = 
+                let markWithGlowstonePillar(bestX,bestY,bestZ) = 
                     let glowstonePillarBottomY = // ensure pillar not down in a deep hole (possibly 'stopping it up')
                         2 + (Array.max [| hm.[bestX,bestZ]; hm.[bestX+1,bestZ]; hm.[bestX-1,bestZ]; hm.[bestX,bestZ+1]; hm.[bestX,bestZ-1] |]) // some adjacent point should have land above, be above that
                     let glowstonePillarBottomY = min 64 glowstonePillarBottomY // can still be down a wide hole, bring it up
-                    for y = glowstonePillarBottomY to glowstonePillarBottomY + 26 do
+                    for y = glowstonePillarBottomY to glowstonePillarBottomY + 36 do
                         map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
-                    log.LogInfo(sprintf "glowstone pillar at (x,z) of (%4d,%4d)" bestX bestZ)
+                    log.LogInfo(sprintf "glowstone pillar at (x,y,z) of (%4d,%4d,%4d)" bestX bestY bestZ)
                     pillarXZs.Add( (bestX,bestZ) )
                     caveCount <- caveCount + 1
                 // This may be a huge cave system with many entrances worth marking because the player will think they are distinct.
@@ -638,13 +654,16 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
                     let bestX,bestY,bestZ = distinctEntrances |> Seq.minBy(fun (x,_y,z)->x*x+z*z) // found nearest-spawn point in this cave exposed to surface
                     // TODO should I only mark if within daylight radius? right now marks some outside the pillars, which is probably fine
                     markWithGlowstonePillar(bestX,bestY,bestZ)
-                    let dict = Algorithms.findAllShortestPaths(bestX,bestY,bestZ,(fun (x,y,z)->hs.Contains(PT(x,y,z))),DIFFERENCES)
+                    let dict = Algorithms.findAllShortestPaths(bestX,bestY,bestZ,(fun (x,y,z)->hs.Contains(PT(x,y,z))),DIFFERENCES,THRESHOLD)
                     distinctEntrances <- distinctEntrances |> Seq.filter (fun p -> 
-                        if dict.[p] > THRESHOLD then
-                            //printfn "keeping %A for now as dist of %d from %A" p dict.[p] (bestX,bestZ) 
+                        if not(dict.ContainsKey(p)) then
+                            //printfn "   keeping %A for now as too far from %A" p (bestX,bestZ) 
+                            true
+                        elif dict.[p] > THRESHOLD then
+                            //printfn "   keeping %A for now as dist of %d from %A" p dict.[p] (bestX,bestZ) 
                             true
                         else
-                            //printfn "skipping %A as too close to %A with dist of only %d" p (bestX,bestZ) dict.[p]
+                            //printfn "   skipping %A as too close to %A with dist of only %d" p (bestX,bestZ) dict.[p]
                             false) |> ResizeArray
                 (*
                 for p in hs do
@@ -750,11 +769,11 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                                 connectedCount <- connectedCount + 1
                                                 surfaceConnected <- true
         log.LogSummary(sprintf "in DAYLIGHT_RADIUS, of %d dungeons, %d are connected to surface via caves" vanillaDungeonsInDaylightRing.Count connectedCount)
+        log.LogSummary("These are near pillars:")
         if pillarConnectionDistances.Count <> 0 then
-            log.LogSummary("These are near pillars:")
             let a = pillarConnectionDistances.ToArray() |> Array.sortBy (fun (x,z,dist) -> dist + int(sqrt(float(x*x+z*z))))
             for x,z,dist in a do
-                log.LogSummary(sprintf "surface near pillar at (%d,%d) reaches dungeon after %d" x z dist)
+                log.LogSummary(sprintf "   surface near pillar at (%d,%d) reaches dungeon after %d" x z dist)
     else
         log.LogSummary("vanillaDungeonsInDaylightRing not computed, no dungeons-near-spawn summary")
     printfn ""
@@ -775,11 +794,13 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
     log.LogInfo(sprintf "There are %d CCs with the desired property" goodCCs.Count)
     let skippableDown(bid) = 
         (bid = 8uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=66uy) // flowing_water/web/tallgrass/2flowers/2mushrooms/rail
+    let dontOverwrite(bid) = 
+        MC_Constants.TILE_ENTITY_BID_ID |> Array.exists(fun (b,_) -> b=bid)
     let replaceGroundBelowWith(x,y,z,bid,dmg) = 
         let mutable pi,pj,pk = x,y,z
         while a.[pi,pj,pk]<>null do
             pj <- pj - 1
-        while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) do
+        while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) && dontOverwrite(map.GetBlockInfo(pi,pj,pk).BlockID) do
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
     let mutable hasDoneFinal, thisIsFinal = false, false
@@ -907,7 +928,9 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                     for y in ys do
                                         for z in zs do
                                             let bid = map.GetBlockInfo(x,y,z).BlockID
-                                            if bid <> 0uy && not(skippableDown(bid)) then // if 'solid' enough to replace with spawner
+                                            if bid <> 0uy && not(skippableDown(bid)) && // if 'solid' enough to replace with spawner
+                                                                not(dontOverwrite(bid)) && // and not another tile entity (e.g. spawner, chest, ...)
+                                                                bid <> 73uy then // and not redstone ore - at one point, redstone_ore could overwrite spawners, and then re-overwriting it caused two TEs to be written to the same block
                                                 candidates.Add(x,y,z)
                                 if candidates.Count > 0 then
                                     let x,y,z = candidates.[rng.Next(candidates.Count-1)]
@@ -915,6 +938,14 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                     let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
                                     spawners.Add(ms)
                                     ok <- true
+                                    if y = 10 && thisIsFinal then // in final dungeon, don't let lava help them as much
+                                        for dx = -10 to 10 do
+                                            for dz = -10 to 10 do
+                                                if map.GetBlockInfo(x+dx,y,z+dz).BlockID=11uy then // 11=lava (intentionally letting flowing_lava get ignored)
+                                                    map.SetBlockIDAndDamage(x+dx,y,z+dz,49uy,0uy) // 49=obsidian - change nearby lava to it
+                                        // also change any lava (flowing or not) directly below spawner, since spawners are transparent to light
+                                        if map.GetBlockInfo(x,y-1,z).BlockID=11uy || map.GetBlockInfo(x,y-1,z).BlockID=10uy then // 10/11=flowing_lava/lava
+                                            map.SetBlockIDAndDamage(x,y-1,z,49uy,0uy) // 49=obsidian
                                 spread <- spread + 1
                                 if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
                                     ok <- true
@@ -931,11 +962,14 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     map.SetBlockIDAndDamage(ex,ey+1,ez,130uy,2uy) // ender chest
                     // put treasure at bottom end
                     putTreasureBoxWithItemsAt(map,sx,sy,sz,[|
-                        [| Byte("Slot",12uy); Byte("Count",1uy); String("id","end_bricks"); Compound("tag", [|
-                                Strings.NameAndLore.MONUMENT_BLOCK_END_STONE_BRICK
-                                End
-                            |] |> ResizeArray); End |]
-                        [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,LootTables.NEWsampleTier3Chest(rng,true)) |]
+                        if thisIsFinal then
+                                yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:sponge"); Compound("tag", [|
+                                            Strings.NameAndLore.MONUMENT_BLOCK_SPONGE; End |] |> ResizeArray); End |]
+                                yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
+                        else
+                            yield [| Byte("Slot",12uy); Byte("Count",1uy); String("id","end_bricks"); Compound("tag", [|
+                                            Strings.NameAndLore.MONUMENT_BLOCK_END_STONE_BRICK; End |] |> ResizeArray); End |]
+                            yield [| yield Byte("Slot",14uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,LootTables.NEWsampleTier3Chest(rng,true)) |]
                     |])
                     let debugSkeleton = false
                     if debugSkeleton then
@@ -946,17 +980,6 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                         hasDoneFinal <- true
                         finalEX <- ex
                         finalEZ <- ez
-                        // replace final treasure
-                        let bx,by,bz = sx,sy+1,sz // chest location, will overwrite it inside treasure box
-                        let chestItems = 
-                            Compounds[| 
-                                    yield [| Byte("Count",1uy); Byte("Slot",12uy); Short("Damage",0s); String("id","minecraft:sponge"); Compound("tag", [|
-                                                Compound("display",[|String("Name","Monument Block: Sponge");End|] |> ResizeArray); End |] |> ResizeArray); End |]
-                                    yield [| Byte("Count",1uy); Byte("Slot",14uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                                             Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST
-                                             End |]
-                                |]
-                        putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_FINAL_PURPLE_DUNGEON_CHEST,chestItems,map,null)
                     else // no reason for side paths in final dungeon
                         let SIDE_PATH_MIN, SIDE_PATH_MAX = 15,40
                         // make side paths with extra loot
@@ -1542,21 +1565,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                 Strings.QUADRANT_NORTHEAST 
             else
                 Strings.QUADRANT_SOUTHEAST 
-    let chestItems = 
-        Compounds[| 
-                for slot in [11uy..15uy] do
-                    yield [| Byte("Count",1uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:elytra"); Compound("tag",[|
-                                List("ench",Compounds[|[|Short("id",2s);Short("lvl",10s);End|];[|Short("id",34s);Short("lvl",3s);End|]|]);End|]|>ResizeArray); End |] // FFX,U3
-                // jump boost pots
-                for slot in [2uy..6uy] do
-                    yield [| Byte("Count",24uy); Byte("Slot",slot); Short("Damage",0s); String("id","minecraft:splash_potion"); Compound("tag",[|
-                                Strings.NameAndLore.SUPER_JUMP_BOOST
-                                List("CustomPotionEffects",Compounds[|[|Byte("Id",8uy);Byte("Amplifier",39uy);Int("Duration",300);End|]|]);End|]|>ResizeArray); End |]
-                yield [| Byte("Count",1uy); Byte("Slot",21uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                         Strings.BOOK_IN_HIDING_SPOT(quadrant); End |]
-                yield [| Byte("Count",1uy); Byte("Slot",23uy); Short("Damage",0s); String("id","minecraft:written_book"); 
-                         Strings.BOOK_WITH_ELYTRA; End |]
-            |]
+    let chestItems = Compounds(LootTables.elytraChestContents(quadrant))
     putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_HIDDEN_TREASURE_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(bx,by-1,bz,89uy,0uy) // 89=glowstone
     // put a tiny mark on the surface
@@ -1567,7 +1576,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
         else
             for x = bx-10 to bx+10 do
                 for z = bz-10 to bz+10 do
-                    allTrees.Remove(x,z,map)
+                    allTrees.Remove(x,z,map,hm)
         let h = hmIgnoringLeavesAndLogs.[bx,bz]
         map.SetBlockIDAndDamage(bx,h+0,bz,3uy,0uy) // 3=dirt
         map.SetBlockIDAndDamage(bx,h+1,bz,38uy,1uy) // 38,1=blue orchid
@@ -1585,7 +1594,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
         else
             for x = x-10 to x+10 do
                 for z = z-10 to z+10 do
-                    allTrees.Remove(x,z,map)
+                    allTrees.Remove(x,z,map,hm)
         let y = hmIgnoringLeavesAndLogs.[x,z]
         log.LogSummary(sprintf "added mountain peak (score %d) at %d %d %d" s x y z)
         let spawners = SpawnerAccumulator("spawners around mountain peak")
@@ -1952,7 +1961,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             if not(excludedBiomes |> Array.exists (fun x -> x = b)) then
                                 // probably a surface lake
                                 if rng.Next(20) = 0 then
-                                    if noneWithin(50,points.[3],x,y,z) then
+                                    if noneWithin(50,points.[3],x,y,z) && noneWithin(50,points.[8],x,y,z) then // why check desert wells (points.[8])? because ones we placed have not adjusted hm, which means this part sees it as a tiny lake and tries to put a chest at the same location!
                                         // TODO where put? bottom? any light cue? ...
                                         // for now just under water
                                         let y = y - 1
@@ -2579,7 +2588,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(5,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
+let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
     log.LogSummary("START CMDS")
     if colorCount = Array.zeroCreate 16 then
         log.LogInfo("NO COLORS DETECTED, ARTIFICALLY ADDING 1 OF EACH FOR DEBUG PURPOSES")
@@ -2638,11 +2647,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
     I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10001s},Facing:3b}""" -2 (h+4) 1) // damage values from Utilities.makeInGameOverviewMap
     I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10002s},Facing:3b}""" -2 (h+3) 2) // damage values from Utilities.makeInGameOverviewMap
     I(sprintf """summon ItemFrame %d %d %d {Item:{id:"minecraft:filled_map",Damage:10003s},Facing:3b}""" -2 (h+3) 1) // damage values from Utilities.makeInGameOverviewMap
-    // repeat blocks to check for CTM completion
-    I(sprintf "blockdata 0 %d 0 {auto:1b}" (h-11))
-    I(sprintf "blockdata 1 %d 0 {auto:1b}" (h-11))
-    I(sprintf "blockdata 2 %d 0 {auto:1b}" (h-11))
     I(sprintf "fill 0 %d 0 0 255 0 air" !y) // remove all the ICBs
+    let y = "shadow old value so not accidentally use"
 
     // clear space above spawn platform...
     // ..remove entirety of nearby trees
@@ -2652,7 +2658,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
         let TREE_REMOVE_RADIUS = 15
         for x = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
             for z = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
-                allTrees.Remove(x,z,map)
+                allTrees.Remove(x,z,map,hm)
     // ...clear out any other blocks
     for x = -3 to 5 do
         for z = -3 to 5 do
@@ -2716,6 +2722,12 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
                     yield [| Byte("Count",1uy); Byte("Slot",3uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_FINAL_PURPLE_DUNGEON_CHEST; End |]
 
+
+                    yield [| yield Byte("Slot",5uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG mountain chest",LootTables.NEWsampleTier5Chest(rng)) |]
+                    yield [| yield Byte("Slot",6uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,LootTables.NEWsampleTier4Chest(rng,true)) |]
+                    yield [| yield Byte("Slot",7uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,LootTables.NEWsampleTier3Chest(rng,true)) |]
+                    yield [| yield Byte("Slot",8uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,LootTables.NEWsampleTier2Chest(rng,true)) |]
+
                     yield [| Byte("Count",1uy); Byte("Slot",9uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Compound("tag", Utilities.makeWrittenBookTags(Strings.FISHING_DATA)|>ResizeArray); End |]
                     yield [| Byte("Count",1uy); Byte("Slot",10uy); Short("Damage",0s); String("id","minecraft:written_book"); 
@@ -2727,10 +2739,22 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
                     yield [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                              Strings.BOOK_IN_MOUNTAIN_PEAK_CHEST; End |]
 
-                    yield [| yield Byte("Slot",5uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG mountain chest",LootTables.NEWsampleTier5Chest(rng)) |]
-                    yield [| yield Byte("Slot",6uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT,LootTables.NEWsampleTier4Chest(rng,true)) |]
-                    yield [| yield Byte("Slot",7uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT,LootTables.NEWsampleTier3Chest(rng,true)) |]
-                    yield [| yield Byte("Slot",8uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT,LootTables.NEWsampleTier2Chest(rng,true)) |]
+                    yield [| yield Byte("Slot",15uy); yield! LootTables.makeChestItemWithNBTItems(Strings.NAME_OF_HIDDEN_TREASURE_CHEST,
+                                        LootTables.elytraChestContents(Strings.TranslatableString"DUMMYNW")) |]
+
+                    yield [| yield Byte("Slot",17uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString "DEBUG All monument blocks",[|
+                                yield [| Byte("Slot",0uy); Byte("Count",1uy); String("id","end_bricks"); Compound("tag", [|
+                                            Strings.NameAndLore.MONUMENT_BLOCK_END_STONE_BRICK; End |] |> ResizeArray); End |]
+                                yield [| Byte("Slot",1uy); Byte("Count",1uy); String("id","purpur_block"); Compound("tag", [|
+                                            Strings.NameAndLore.MONUMENT_BLOCK_PURPUR;End|] |> ResizeArray); End |]
+                                yield [| Byte("Slot",2uy); Byte("Count",1uy); Short("Damage",0s); String("id","minecraft:sponge"); Compound("tag", [|
+                                            Strings.NameAndLore.MONUMENT_BLOCK_SPONGE; End |] |> ResizeArray); End |]
+                                for color = 0 to 15 do
+                                    if colorCount.[color] <> 0 then
+                                        let slot = if color < 8 then 9uy+byte(color) else 10uy+byte(color)
+                                        yield [| Byte("Slot",slot); Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); 
+                                                 Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
+                                |]) |]
                 |]
         putUntrappedChestWithItemsAt(3,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
         let chestItems = 
@@ -2907,25 +2931,22 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
     // 'expose teleport area' cmd
     map.SetBlockIDAndDamage(3,h-11,0,137uy,0uy)
     map.AddOrReplaceTileEntities([| [| Int("x",3); Int("y",h-11); Int("z",0); String("id","Control"); Byte("auto",0uy); String("Command",sprintf "/fill %d %d %d %d %d %d ladder 1" 1 (h-4) 3 1 (h+1) 3); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |] |])
-    let r = map.GetRegion(1,1)
-    let cmds(x,tilename) = 
-        [|
-            P (sprintf "testforblock %d %d 4 %s" x (h+3) tilename)
-            C "scoreboard players add CTM hidden 1"
-            C Strings.TELLRAW_PLACED_A_MONUMENT_BLOCK 
-            C "fill ~ ~ ~ ~ ~ ~-3 air"
-        |]
-    // h-11, monument block detectors
-    for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
-        r.PlaceCommandBlocksStartingAt(x,h-11,0,cmds(x,tilename),"check ctm block")
     let cx = ref 0
     let cy = ref (h-13)
     let cz = ref 0
-    let R(c) = placeRepeating(!cx,!cy,!cz,c,true); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
-    let C(c) = placeChain(!cx,!cy,!cz,c,true); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
-    let U(c) = placeChain(!cx,!cy,!cz,c,false); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
-    let I(c) = placeImpulse(!cx,!cy,!cz,c,false); decr cy; if !y < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let R(c) = placeRepeating(!cx,!cy,!cz,c,true); decr cy; if !cy < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let C(c) = placeChain(!cx,!cy,!cz,c,true); decr cy; if !cy < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let U(c) = placeChain(!cx,!cy,!cz,c,false); decr cy; if !cy < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
+    let I(c) = placeImpulse(!cx,!cy,!cz,c,false); decr cy; if !cy < COMMAND_ROOM_BOTTOM_Y then failwith "too many commands to fit in spawn box"
     let startVerticalCommands(x,y,z) = cx:=x; cy:=y; cz:=z
+    // monument block detectors
+    for x,tilename in [0,"sponge"; 1,"purpur_block"; 2,"end_bricks"] do
+        startVerticalCommands(x,h-13,-1)
+        R(sprintf "testforblock %d %d 4 %s" x (h+3) tilename)
+        C("scoreboard players add CTM hidden 1")
+        C(Strings.TELLRAW_PLACED_A_MONUMENT_BLOCK)
+        C("execute @a ~ ~ ~ playsound entity.firework.launch ambient @p ~ ~ ~")
+        C("fill ~ ~ ~ ~ ~4 ~ air") // erase to turn off
     // daylight, NV, and CTM completion logic
     startVerticalCommands(-1,h-13,0)
     let ticks = (int64 mapTimeInHours) * 60L  *60L * 20L
@@ -2950,12 +2971,22 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
     // just lost it?
     U("effect @a[tag=NightVision,score_HoldingNV=0] 16 0 0 true")
     U("scoreboard players tag @a[tag=NightVision,score_HoldingNV=0] remove NightVision")
-    // TODO any poissible way it can desync, leaving player with NV? TBD...
+    // TODO any possible way it can desync, leaving player with NV? TBD...
+    // jump boost item
+    scoreboard.AddDummyObjective("WearingJB")
+    U("scoreboard players set @a WearingJB 0")
+    U("scoreboard players set @a WearingJB 1 {Inventory:[{Slot:100b,tag:{SuperJump:1}}]}")
+    // just got it?
+    U("effect @a[tag=!SuperJump,score_WearingJB_min=1] 8 9999 39 false")
+    U("scoreboard players tag @a[tag=!SuperJump,score_WearingJB_min=1] add SuperJump")
+    // just lost it?
+    U("effect @a[tag=SuperJump,score_WearingJB=0] 8 0 39 false")
+    U("scoreboard players tag @a[tag=SuperJump,score_WearingJB=0] remove SuperJump")
+    // TODO any possible way it can desync, leaving player with JB? TBD...
     // CTM
     U("scoreboard players test CTM hidden 3 *")
     //C(sprintf "blockdata ~ %d ~ {auto:0b}" (h-13)) // turn off main repeat loop (day/night and the CTM checkers) - will now be perma-day, desirable?
-    C("blockdata ~ ~-2 ~ {auto:1b}")
-    C("blockdata ~ ~-1 ~ {auto:0b}")
+    C("blockdata ~ ~-1 ~ {auto:1b}") // just permanently turn it on, so it only fires once
     // won-the-game proc
     I(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:14,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:1,Colors:[56831],FadeColors:[16715263]}]}}}}" 0 (h+3) 4)
     U(sprintf "summon FireworksRocketEntity %d %d %d {LifeTime:24,FireworksItem:{id:fireworks,Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:1,Trail:1,Colors:[3849770],FadeColors:[14500508]}]}}}}" 1 (h+3) 4)
@@ -3010,8 +3041,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
     R("scoreboard players add Time hidden 1")
     U("scoreboard players test Time hidden 20 *")  // 20 = every 1 second
     C("scoreboard players set Time hidden 0")
-    C(sprintf "blockdata -1 %d 2 {auto:1b}" (h-13)) // EBM scoring (further below)
-    C(sprintf "blockdata -1 %d 2 {auto:0b}" (h-13))
+    C(sprintf "blockdata -1 %d 3 {auto:1b}" (h-13)) // EBM scoring (further below)
+    C(sprintf "blockdata -1 %d 3 {auto:0b}" (h-13))
     C("blockdata ~ ~-2 ~ {auto:1b}")
     C("blockdata ~ ~-1 ~ {auto:0b}")
     I("""execute @a ~ ~ ~ execute @e[type=ArmorStand,tag=unlootedChest,r=9] ~ ~ ~ testforblock ~ ~ ~ trapped_chest -1 {Items:[{id:"minecraft:stained_glass"}]}""")
@@ -3090,7 +3121,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
     U("""title @p[tag=Detecting] title {"text":""}""")
     U("""scoreboard players tag @a remove Detecting""")
     // EBM scoring
-    startVerticalCommands(-1,h-13,2)
+    startVerticalCommands(-1,h-13,3)
     I("")  // targeted by slow clock
     scoreboard.AddDummyObjective("EverHad")
     scoreboard.AddScore("total", "EverHad", 0)
@@ -3100,25 +3131,39 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hmIgnoringLeavesA
             scoreboard.AddScore(sprintf "color%d" color, "EverHad", 0)
             count <- count + 1
     scoreboard.AddScore("max", "EverHad", count)
-    for color = 0 to 7 do
+    for color = 0 to 5 do
         if colorCount.[color]<>0 then
             U(sprintf "scoreboard players test color%d EverHad 0 0" color)
             C(sprintf """testforblock -3 %d 1 chest -1 {Items:[{Damage:%ds,tag:{display:{Lore:["%s"]}}}]}""" (h+2) color Strings.NameAndLore.BONUS_ACTUAL_LORE)
             C(sprintf "scoreboard players set color%d EverHad 1" color)
             C("scoreboard players add total EverHad 1")
             C(Strings.TELLRAW_GOT_EBM(color))
+            C("execute @a ~ ~ ~ playsound entity.firework.launch ambient @p ~ ~ ~")
+    U(sprintf "blockdata -1 %d 2 {auto:1b}" (h-13))
+    U(sprintf "blockdata -1 %d 2 {auto:0b}" (h-13))
+    // more EBM scoring
+    startVerticalCommands(-1,h-13,2)
+    I("")
+    for color = 6 to 11 do
+        if colorCount.[color]<>0 then
+            U(sprintf "scoreboard players test color%d EverHad 0 0" color)
+            C(sprintf """testforblock -3 %d 1 chest -1 {Items:[{Damage:%ds,tag:{display:{Lore:["%s"]}}}]}""" (h+2) color Strings.NameAndLore.BONUS_ACTUAL_LORE)
+            C(sprintf "scoreboard players set color%d EverHad 1" color)
+            C("scoreboard players add total EverHad 1")
+            C(Strings.TELLRAW_GOT_EBM(color))
+            C("execute @a ~ ~ ~ playsound entity.firework.launch ambient @p ~ ~ ~")
     U(sprintf "blockdata -1 %d 1 {auto:1b}" (h-13))
     U(sprintf "blockdata -1 %d 1 {auto:0b}" (h-13))
-    // more EBM scoring
     startVerticalCommands(-1,h-13,1)
     I("")
-    for color = 8 to 15 do
+    for color = 12 to 15 do
         if colorCount.[color]<>0 then
             U(sprintf "scoreboard players test color%d EverHad 0 0" color)
             C(sprintf """testforblock -3 %d 1 chest -1 {Items:[{Damage:%ds,tag:{display:{Lore:["%s"]}}}]}""" (h+2) color Strings.NameAndLore.BONUS_ACTUAL_LORE)
             C(sprintf "scoreboard players set color%d EverHad 1" color)
             C("scoreboard players add total EverHad 1")
             C(Strings.TELLRAW_GOT_EBM(color))
+            C("execute @a ~ ~ ~ playsound entity.firework.launch ambient @p ~ ~ ~")
     U(sprintf "scoreboard players test total EverHad %d %d" count count) // test if got all
     C("scoreboard players add total EverHad 1") // increase one past, so won't fire more than once
     C(Strings.TELLRAW_FINISHED_EBM)
@@ -3269,10 +3314,10 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     for w in TREEWIDE do
                                         let x,z = ix+w*ax, iz+w*az
                                         if allTrees <> null then
-                                            allTrees.Remove(x,z,map)
+                                            allTrees.Remove(x,z,map,hm)
                                         // if we're on a diagonal, we only cover every other block, so kludge it thusly (x+1)
                                         if isDiagonal && allTrees <> null then
-                                            allTrees.Remove(x+1,z,map)
+                                            allTrees.Remove(x+1,z,map,hm)
                                     // make path
                                     let w = rng.Next(WIDE.Length)
                                     if dist > 5 && dist % A.[1] > 5 then
@@ -3361,7 +3406,61 @@ let findMountainToHollowOut(map : MapFolder, hm, hmIgnoringLeavesAndLogs :_[,], 
     // TODO entrance, floor, populate
     // TODO log, decorations, etc
 
-
+let discoverAndFixTileEntityErrors(map:MapFolder, log:EventAndProgressLog) =
+    let teLocations = new System.Collections.Generic.HashSet<_>()
+    let correctedErrors = ResizeArray()
+    let uncorrectedErrors = ResizeArray()
+    let toRemove = ResizeArray()
+    for x in [MINIMUM .. 16 .. MINIMUM+LENGTH-1] do
+        for z in [MINIMUM .. 16 .. MINIMUM+LENGTH-1] do
+            let theChunk = map.GetRegion(x,z).GetChunk( ((x+102400)%512)/16, ((z+102400)%512)/16 )
+            let theChunkLevel = match theChunk with Compound(_,rsa) -> rsa.[0]  // unwrap: almost every root tag has an empty name string and encapsulates only one Compound tag with the actual data and a name
+            match theChunkLevel.["TileEntities"] with 
+            | List(_,Compounds(tes)) ->
+                for te in tes do
+                    let x = te |> Array.pick (function Int("x",x) -> Some x | _ -> None)
+                    let y = te |> Array.pick (function Int("y",y) -> Some y | _ -> None)
+                    let z = te |> Array.pick (function Int("z",z) -> Some z | _ -> None)
+                    let kind = te |> Array.pick (function String("id",s) -> Some s | _ -> None)
+                    let bid = (map.GetBlockInfo(x,y,z) : BlockInfo).BlockID 
+                    match MC_Constants.TILE_ENTITY_BID_ID |> Array.tryFindIndex (fun (b,_) -> b=bid) with
+                    | Some i -> 
+                        let existingKind = snd MC_Constants.TILE_ENTITY_BID_ID.[i]
+                        if existingKind <> kind then
+                            uncorrectedErrors.Add(sprintf "does not match '%s' <> '%s'" existingKind kind)
+                    | None ->
+                        let error = sprintf "bad TE '%s' at %A with BID %d - %s" kind (x,y,z) bid (MC_Constants.toMinecraftName bid)
+                        if kind="MobSpawner" && (bid=7uy || bid=73uy) then // spawner overwritten by bedrock/redstone_ore
+                            correctedErrors.Add(error)
+                            toRemove.Add( (x,y,z) ) // will be corrected below
+                        else
+                            uncorrectedErrors.Add(error)
+                    if not(teLocations.Add( (x,y,z) )) then
+                        uncorrectedErrors.Add(sprintf "two different TEs at %A, one is '%s', BID is %d - %s" (x,y,z) kind bid (MC_Constants.toMinecraftName bid))
+            | _ -> ()
+            // remove some bad TEs
+            if toRemove.Count <> 0 then
+                match theChunkLevel with Compound(_,a) ->
+                match theChunkLevel.["TileEntities"] with List(_,Compounds(tes)) ->
+                let updatedTEs = tes |> Array.filter (fun te ->
+                    let x = te |> Array.pick (function Int("x",x) -> Some x | _ -> None)
+                    let y = te |> Array.pick (function Int("y",y) -> Some y | _ -> None)
+                    let z = te |> Array.pick (function Int("z",z) -> Some z | _ -> None)
+                    not(toRemove.Contains( (x,y,z) ))
+                    )
+                let mutable i = 0
+                while i < a.Count-1 do
+                    if a.[i].Name = "TileEntities" then
+                        a.[i] <- List("TileEntities",Compounds(updatedTEs))
+                    i <- i + 1
+            toRemove.Clear()
+    for s in correctedErrors do
+        printfn "fixing up: %s" s
+    log.LogInfo(sprintf "corrected %d errors" correctedErrors.Count)
+    for s in uncorrectedErrors do
+        printfn "UNABLE TO CORRECT: %s" s
+    if uncorrectedErrors.Count <> 0 then
+        failwith "could not fix all TE errors"
 
 
 let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTimeInHours) =
@@ -3446,21 +3545,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let pillars = ref null
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
-    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    time (fun() -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    time (fun() -> placeStartingCommands(worldSaveFolder,map,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
-    time (fun() -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    time (fun() -> 
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
+    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
+    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    xtime (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
+    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
+    xtime (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 

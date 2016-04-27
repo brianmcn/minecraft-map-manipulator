@@ -1484,7 +1484,7 @@ automatic game start configs (night vision, starting items), customizable
 
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let levelDat = System.IO.Path.Combine(worldSaveFolder, "level.dat")
-//    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - Apr 2016 \u00A7aK\u00A7r ")
+//    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - Apr 2016 \u00A7aJ\u00A7r ")
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,65,25,80,false,false,false,false,(*ravine*)true,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
@@ -1504,6 +1504,10 @@ automatic game start configs (night vision, starting items), customizable
 
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM\data\scoreboard.dat""")
 
+//    System.Windows.Clipboard.SetText(custom)   // AFK pregen: http://pastebin.com/uq09kFNW
+    //let worldSeed = 14 
+    //genTerrainWithMCServer(worldSeed,custom)
+
     (*
     do
         let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\QFETest\region\""")
@@ -1514,9 +1518,10 @@ automatic game start configs (night vision, starting items), customizable
     *)
     //testCompass4()
 
-//    System.Windows.Clipboard.SetText(custom)   // AFK pregen: http://pastebin.com/uq09kFNW
-    //let worldSeed = 14 
-    //genTerrainWithMCServer(worldSeed,custom)
+    (*
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\VanillaSwirlCTMApr2016J - Copy\region""")
+    TerrainAnalysisAndManipulation.discoverAndFixTileEntityErrors(map)
+    *)
 #endif
 
 

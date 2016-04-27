@@ -59,18 +59,17 @@ Apr2016A - seed ice-spikes, single, normal   // LNG request
 CHECKLIST (automate?)
 make world checklist:
     tweak customization knobs
-	(ensure RCTM world has right ore settings)
 	set up world name
 	run it
 publish checklist: 
 	fix icon
 	do any manual customization
-	run /gamemode 0 /defaultgamemode 0
+	run /gamemode 0 /defaultgamemode 0 /effect @p clear
 	put player in starting box
 	remove stats/playerdata
 	change folder name map date/name
 	make a copy
-	go in and check spawn, teleporters, orchid, map_0
+	go in and check spawn platform, caves/dungeons/pillars, worst flat/peak, orchid, purple underground, map_0
 
 TEST
 OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
@@ -83,23 +82,34 @@ OK? anti-tunneling under peaks too? I did it, but it doesn't dissuade really; ma
 OK? peak floating half in a tree, obsidian confused by tree logs: need to remove trees on center of peak, and also have hm ignoring trees
 OK still a glow-pillar problem, where pillar can be down deep hole - maybe ensure it goes to at least height of 90 or something?
 OK also, pillar near spawn above land, because it saw a removed tree as overhang - ideally need to use a hmIgnoringLeavesAndLogs for cave entry
+OK make divining rod say 'dig atop mountain here' when reach spot, i think
+OK final dungeon, last half at lava layer, no spawns - maybe convert nearby lava (not flowing) to obsidian whenever place spawner at Y=10 in final dung?
+OK 65 dungeon rate does not seem to 'harm' the map in spawn/green i think, turn up to that!
+
 changes leaves to leavesAndLogs throughout, check for oddities, esp. look at elytra, peaks, and flats
-multiplayer proximity (and prox & divining at once)
-(multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
-check wording of EBM progress versus prox is understandable/ok
+OK multiplayer proximity (and prox & divining at once)
+OK (multiplayer test still) could put time later (local diff) if farther from spawn?  level 3 aesthetic chest distance?
+OK check wording of EBM progress versus prox is understandable/ok
+
+test contents of purple and green beacons, make sure loot correct
+OK ms&ms in beacon path -> 2TEs one block
+OK putChestCore twice with same x,y,z while accumulating TEs
+add fireworks sound when get glass block / place monument block
+ensure monument blocks work at all (changed cmds)
+OK? teleporter removed trees but didn't update HM, and then flat put spawners/cobwebs/etc in trees, left floating (x530,z450 in seed 615)
+check actual elytra chest ok
+OK check jump boots (replaced potions)
+OK change book with elytra to note changes
 
 TODO: bugs & good ideas
 
-make divining rod say 'dig atop mountain here' when reach spot, i think
-
-65 dungeon rate does not seem to 'harm' the map in spawn/green i think, turn up to that!
-
-even when dungeon reachable, may be in shallow cave, unmarked because pillar says cave is not big enough to warrant pillar
+should i just get rid of 'keep eyes open' chests? yes
 
 data from 5 seeds suggests I need to turn up dungeon rate, had only like 0, 1, 2, 3, 5 "good dungeons" in those seeds whose terrain was ok
  - seed 487 may be candidate to see how rate increase goes  (16,5,0 -> 21,7,0)
  - seed 545? 21,4,1 -> 24,4,1 hmm
 
+even when dungeon reachable, may be in shallow cave, unmarked because pillar says cave is not big enough to warrant pillar
 glowstone pillar algorithm improved, but dungeons-near-them metric is still poor, improve?  ravines and many directions are tough, need a metric where an unbranching narrow cave costs less (have an idea for one)
 can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
 
@@ -107,12 +117,9 @@ can find more glowstone pillars now, decide if want to trim them to help find du
 curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
 have new thread for feedback(/request/LP/release) on april maps, link it for feedback
 target 1.9.3
-prep two good seeds for single player, one good seed for multiplayer
+prep two good seeds for single player, one good seed for multiplayer (and maybe one 'easier' map?)
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
-
-maybe-consider with more feedback:
-consider second line in lore of hoe to say to dig... and maybe make shovel with column of dirt under flower before glass? or HUD say 'dig here' when at location?
 
 
 future features/map request:
@@ -120,7 +127,7 @@ get rid of all grass/tallgrass?
 (possibly some spellbook that lets you pull up all the 'quest text' to refer back to in chat or something, so don't need to carry/forget books?)
 cow spawn eggs (too op?) rationing friendly mobs? ...
 thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
-
+easier map: https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d2hgsgh?context=3
 
 
 
@@ -137,8 +144,7 @@ something with pushable blocks or moving platforms using shulkers?
 noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again independent events cause too much variance
  - fixed the SpawnerData.NextSpawnerAt() to bias the rng for more balanced mob types in right proportions, but the number of spawners is harder to bias in dungeons since the percentages vary based on location...
 
-flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components
-
+flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components; right now it only finds a R=20 flat center rather than R=40 flat whole
 
 
 post to /r/minecraftmaps, /r/ctm, forum?

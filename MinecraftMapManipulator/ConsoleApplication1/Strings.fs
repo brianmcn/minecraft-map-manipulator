@@ -7,17 +7,20 @@ type TranslatableString(s:string) =
 
 open NBT_Manipulation
 
-let private displayNameAndLore(name, lore:_[]) = // name or lore can be null
+let private displayNameAndLoreCore(name, lore:_[], otherDisplay) = // name or lore can be null
     Compound("display",[|if name <> null then 
                              yield String("Name",name)
                          if lore <> null && lore.Length > 0 then
                              yield List("Lore",Strings(lore))
+                         yield! otherDisplay
                          yield End|] |> ResizeArray)
+let private displayNameAndLore(name, lore:_[]) = // name or lore can be null
+    displayNameAndLoreCore(name, lore, [||])
 
 let wrapInJSONTextContinued(s) = Utilities.wrapInJSONTextContinued(s,"(continued...)")
 
 module NameAndLore =
-    let SUPER_JUMP_BOOST = displayNameAndLore("Super jump boost",[|"Don't use without";"your elytra wings on!"|])
+    let MONUMENT_BLOCK_SPONGE = displayNameAndLore("Monument Block: Sponge",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let MONUMENT_BLOCK_PURPUR = displayNameAndLore("Monument Block: Purpur Block",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let MONUMENT_BLOCK_END_STONE_BRICK = displayNameAndLore("Monument Block: End Stone Brick",null) // TODO ideally would use MC's item.whatever.name, but this is not a 1.9 translatable context
     let INNER_CHEST_WITH_NAME(name:TranslatableString) = displayNameAndLore(name.Text, [|"Place this chest"; "and open it"; "for more loot"|])
@@ -34,6 +37,7 @@ module NameAndLore =
     let WORLD_MAP = displayNameAndLore("Map of the entire world",null)
     let ONE_USE_PICK = displayNameAndLore("One-use pickaxe",[|"Did you know that";"even wood can mine";"an enderchest if it";"has Silk Touch?"|])
     let NIGHT_VISION_FSE = displayNameAndLore("Infinitely seeing eye",[|"Grants night vision";"when held in your";"main hand, but";"makes you slow"|])
+    let SUPER_JUMP_BOOTS(other) = displayNameAndLoreCore("Super jump boots",[|"Grants jump boost 40";"when worn"|],other)
 
 let PROXIMITY_HOT = "HOT!!!"
 let PROXIMITY_WARMER = "VERY WARM!"
@@ -82,11 +86,11 @@ let BOOK_IN_MOUNTAIN_PEAK_CHEST =
 let BOOK_WITH_ELYTRA =
     Compound("tag",Utilities.makeWrittenBookTags("Lorgon111","New to flying with elytra?",[| 
         wrapInJSONTextContinued """If you have never used elytra wings before, here are some flight tips which may save your life!\n\nThe elytra wings found here can be worn in place of a chestplate to allow limited flight (gliding)."""
-        wrapInJSONTextContinued """You can cause the elytra wings to deploy by pressing the jump key (usually spacebar) while you're in the air and wearing elytra."""
+        wrapInJSONTextContinued """You can cause the elytra wings to deploy by pressing the jump key (usually spacebar) while you're falling in the air and wearing elytra."""
         wrapInJSONTextContinued """While gliding, whatever direction you point your mouse is the direction you'll go. Left/right will steer, and up/down will affect altitude and speed. Be careful!"""
         wrapInJSONTextContinued """Go too slowly and you'll stall out and fall.  Go too quickly and you can crash into a wall or into the ground at high speed and take enough damage to die. Level flight at medium speed is safest."""
-        wrapInJSONTextContinued """The jump boost potions found with the elytra in this chest will allow you to jump extremely high into the air. Don't use them without elytra equipped, unless you want to die of fall damage!"""
-        Utilities.wrapInJSONText "Despite those warnings, elytra flight is very fun and expedient. Equip the wings, splash a potion, jump up, press jump again to deploy wings, and enjoy a fantastic glide across the map!"
+        wrapInJSONTextContinued """The super jump boots found with the elytra in this chest will allow you to jump extremely high into the air. Don't wear them without elytra also equipped, unless you want to die of fall damage!"""
+        Utilities.wrapInJSONText "Despite those warnings, elytra flight is very fun and expedient. Equip the wings and boots, jump up, and as you fall, press jump again to deploy wings, and enjoy a fantastic glide across the map!"
      |])|> ResizeArray)
 
 // TODO quadrant stuff is sloppy, ideally should be 4 strings in both places
