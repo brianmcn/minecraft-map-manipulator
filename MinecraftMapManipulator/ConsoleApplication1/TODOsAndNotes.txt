@@ -29,20 +29,6 @@ playtest note: both obe & fix kinda wanted to replay and speedrun afterwards :)
 playtest note: obe used mob-drop gear even to attack mountain, did little anvil/enchant before then
 playtest note: did a play: 1.5 hours to finish green, 1 more for red, 0.5 for peak, 1.5 to finish, quite hard, got 9/12 bonus blocks
 
-COLLECTABLES:
-
-even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
- - have a crude mockup in 126finished.  over plains/ice-plains/desert could be good
-noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)
-could even have a block in the starter chest to suggest the hunt
-deal with "// TODO these probabilities can cause wild swings in variance"
-glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what? (can't due to https://bugs.mojang.com/browse/MC-97094)
-out-of-place lilypads on oceans/lakes?
-possibly have each 'type' of random loot chest have a different collectible, so side-goal of getting all collectibles? (what is 'displayable' to collect? ...)
-a finite set of collectable items could be good long-term for completionists - lore/blockentitytag so can proc if they get them all? yeah, 16 colors stained glass, can easily testfor a la QFE to proc when 16 points
-secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
-what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
-
 PUBLISHED MAPS
 
 Mar2016A - seed 231, single, normal
@@ -104,8 +90,6 @@ OK? changed leaf ownership, look at nether/end trees, and teleporter-clear lines
 
 TODO: bugs & good ideas
 
-should i just get rid of 'keep eyes open' chests? yes
-
 data from 5 seeds suggests I need to turn up dungeon rate, had only like 0, 1, 2, 3, 5 "good dungeons" in those seeds whose terrain was ok
  - seed 487 may be candidate to see how rate increase goes  (16,5,0 -> 21,7,0)
  - seed 545? 21,4,1 -> 24,4,1 hmm
@@ -149,6 +133,18 @@ flats: TODO consider some simple maximal square algorithm rather than using find
 
 
 post to /r/minecraftmaps, /r/ctm, forum?
+
+
+COLLECTABLES:
+
+even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
+ - have a crude mockup in 126finished.  over plains/ice-plains/desert could be good
+noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)
+deal with "// TODO these probabilities can cause wild swings in variance"
+glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what? (can't due to https://bugs.mojang.com/browse/MC-97094)
+secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
+what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
+
 
 ---
 

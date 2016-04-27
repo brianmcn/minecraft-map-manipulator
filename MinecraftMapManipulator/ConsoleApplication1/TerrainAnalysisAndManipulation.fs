@@ -3199,7 +3199,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
     // write out scoreboard
     scoreboard.Write()
 
-let TELEPORT_PATH_OUT_DISTANCES = [|60;120;180;240;300|]
+let TELEPORT_PATH_MAX = 300
 let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_[,], log:EventAndProgressLog, decorations:ResizeArray<_>, allTrees : ContainerOfMCTrees) =
     let placeCommand(x,y,z,command,bid,auto,_name) =
         map.SetBlockIDAndDamage(x,y,z,bid,0uy)  // command block
@@ -3332,9 +3332,8 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                 let dx,dz = DIRS.[i]
                                 let ax,az = DIRS.[(i+2)%8]  // right angle
                                 let mutable ix,iz = cx+dx*4, cz+dz*4
-                                let A = TELEPORT_PATH_OUT_DISTANCES
                                 let isDiagonal = abs(dx)+abs(dz) = 2 
-                                for dist = 0 to A.[A.Length-1] do
+                                for dist = 0 to TELEPORT_PATH_MAX do
                                     ix <- ix + dx
                                     iz <- iz + dz
                                     // remove trees
@@ -3345,28 +3344,19 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                         // if we're on a diagonal, we only cover every other block, so kludge it thusly (x+1)
                                         if isDiagonal && allTrees <> null then
                                             allTrees.Remove(x+1,z,map,hm)
-                                    // make path
-                                    let w = rng.Next(WIDE.Length)
-                                    if dist > 5 && dist % A.[1] > 5 then
-                                        if dist<A.[0] && dist%2=0 || dist<A.[1] && dist%3=0 || dist<A.[2] && dist%4=0 || dist<A.[3] && dist%5=0 || dist<A.[4] && dist%6=0 then
-                                            subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az, WIDE.[w])
-                                    // occasional lit chests to see from afar
-                                    elif dist > 5 && dist % A.[1] = 2 then
-                                        let y = hmIgnoringLeavesAndLogs.[ix,iz]
-                                        let chestItems = Compounds[| [| Byte("Count",1uy); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
-                                        putTrappedChestWithItemsAt(ix,y,iz,Strings.NAME_OF_TELEPORTER_BREADCRUMBS_CHEST,chestItems,map,null)
-                                        map.SetBlockIDAndDamage(ix,y-1,iz,0uy,0uy) // 0=air
-                                        map.SetBlockIDAndDamage(ix,y-2,iz,76uy,5uy) // 76=redstone_torch
-                                        map.SetBlockIDAndDamage(ix,y-3,iz,1uy,5uy) // 1,5=andesite
-                                        if map.GetBlockInfo(ix,y+1,iz).BlockID = 78uy then // 78=snow_layer above
-                                            map.SetBlockIDAndDamage(ix,y+1,iz,0uy,0uy)     // replace snow_layer with air, for visibility (hard enough to see as-is)
-//                                        decorations.Add('*',ix,iz,-1) // TODO will this interfere with dungeon placement?
+                                    // occasional chevrons to direct
+                                    if dist > 5 && dist % 30 = 3 then
                                         // make an arrow/chevron pointing in right direction
                                         subst(ix-dx, iz-dz, 0)
                                         subst(ix+ax, iz+az, 0)
                                         subst(ix-ax, iz-az, 0)
                                         subst(ix+dx+2*ax, iz+dz+2*az, 0)
                                         subst(ix+dx-2*ax, iz+dz-2*az, 0)
+                                    elif dist > 5 && dist % 30 > 7 then
+                                        // make path
+                                        if dist % 3 = 0 then
+                                            let w = rng.Next(WIDE.Length)
+                                            subst(ix+WIDE.[w]*ax, iz+WIDE.[w]*az, WIDE.[w])
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
             failwith "no teleporters"
@@ -3574,22 +3564,22 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
-    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
-    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    xtime (fun () -> substituteBlocks(!rng, map, log))
+    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
+    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    xtime (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    xtime (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
+    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
-        let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_OUT_DISTANCES.[TELEPORT_PATH_OUT_DISTANCES.Length-1])
+        let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_MAX)
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 
                                 [DAYLIGHT_RADIUS; SPAWN_PROTECTION_DISTANCE_FLAT; SPAWN_PROTECTION_DISTANCE_PEAK; SPAWN_PROTECTION_DISTANCE_PURPLE], 
                                 Seq.append [0,0,SPAWN_PROTECTION_DISTANCE_GREEN] teleporterCenters, decorations)
