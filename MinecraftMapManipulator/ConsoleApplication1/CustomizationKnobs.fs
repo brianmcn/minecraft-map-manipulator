@@ -13,7 +13,7 @@ let KURT_SPECIAL = false
 let SILVERFISH_LIMITS = true
 let SILVERFISH_BIG = if SINGLEPLAYER then 20 else 25
 let SILVERFISH_SMALL = if SINGLEPLAYER then 10 else 15
-let DEBUG_CHESTS = true
+let DEBUG_CHESTS = false
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
 // TODO kind/cost of villager trades can affect difficulty or offer crutches (e.g. resistance pot, buy gapples, ...)
@@ -119,7 +119,7 @@ let GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA =
 let PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
     SpawnerData([|(6,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (2,"Skeleton"); (2,"Creeper")|], UHC_MULT_B*1.5, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
 let MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(3,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (2,"Ghast")|],     UHC_MULT_B*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 1.0)
+    SpawnerData([|(3,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (2,"Ghast")|],     UHC_MULT_B*1.0, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- if rng.Next(3) = 0 then 200s else 1s), SpiderJockeyPercentage = 1.0)
 let FLAT_COBWEB_OUTER_SPAWNER_DATA = 
     SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.0)
 let FLAT_COBWEB_INNER_SPAWNER_DATA = 

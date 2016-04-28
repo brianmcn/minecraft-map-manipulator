@@ -823,7 +823,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
         let mutable pi,pj,pk = x,y,z
         while a.[pi,pj,pk]<>null do
             pj <- pj - 1
-        while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) && dontOverwrite(map.GetBlockInfo(pi,pj,pk).BlockID) do
+        while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) || dontOverwrite(map.GetBlockInfo(pi,pj,pk).BlockID) do
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
     let mutable hasDoneFinal, thisIsFinal = false, false
@@ -1582,6 +1582,8 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
             for dz = -1 to 1 do
                 map.SetBlockIDAndDamage(bx+dx,by+dy,bz+dz,20uy,0uy)  // glass
     let quadrant = 
+        if finalEX = 0 && finalEZ = 0 then
+            failwith "final not placed yet!!!"
         if finalEX < 0 then
             if finalEZ < 0 then 
                 Strings.QUADRANT_NORTHWEST
@@ -1622,7 +1624,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
             for x = x-10 to x+10 do
                 for z = z-10 to z+10 do
                     allTrees.Remove(x,z,map,hm)
-        let y = hmIgnoringLeavesAndLogs.[x,z]
+        let y = hmIgnoringLeavesAndLogs.[x,z] + 2 // add 2 to raise it up a little bit, algorithm tends to put it in a small depression
         log.LogSummary(sprintf "added mountain peak (score %d) at %d %d %d" s x y z)
         let spawners = SpawnerAccumulator("spawners around mountain peak")
         putTreasureBoxWithItemsAt(map,x,y,z,[|
@@ -1677,7 +1679,6 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                 // ceiling over top to prevent cheesing it
                 map.SetBlockIDAndDamage(i,y+5,j,7uy,0uy) // 7=bedrock
         spawners.AddToMapAndLog(map,log)
-    ()
 
 let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog, decorations:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
@@ -1961,7 +1962,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                             let x = if rng.Next(2) = 0 then x-1 else x+1
                             let z = if rng.Next(2) = 0 then z-1 else z+1
                             if map.GetBlockInfo(x,y-1,z).BlockID = 18uy || map.GetBlockInfo(x,y-1,z).BlockID = 161uy then // only if block below would be leaf
-                                if noneWithin(160,points.[1],x,y,z) && noneWithin(155,points.[7],x,y,z) then
+                                if noneWithin(165,points.[1],x,y,z) && noneWithin(158,points.[7],x,y,z) then
                                     putTrappedChestWithLoot(1,x,y,z,1)
                                     points.[1].Add( (x,y,z) )
                                     names.[1] <- "tree top leaves"
@@ -2659,6 +2660,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
     I(sprintf "setworldspawn 1 %d 1" h)
     I("gamerule spawnRadius 2")
     I("weather clear 999999")
+    I("effect @a clear")
     scoreboard.AddDummyObjective("hidden")
     scoreboard.AddObjective("Deaths","stat.deaths",Strings.NAME_OF_DEATHCOUNTER_SIDEBAR.Text)
     scoreboard.SetSidebar("Deaths")
@@ -3360,7 +3362,6 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
         if not found then
             log.LogSummary(sprintf "FAILED TO FIND TELEPORTER LOCATION NEAR %d %d" xs zs)
             failwith "no teleporters"
-    ()
 
 let findMountainToHollowOut(map : MapFolder, hm, hmIgnoringLeavesAndLogs :_[,], log, decorations) =
     let YMAX = 100
@@ -3564,20 +3565,20 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
-    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars)) // after mountain peaks, use hiddenX/hiddenZ
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    xtime (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees)) // after underground, uses finalEX/finalEZ
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_MAX)
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 
