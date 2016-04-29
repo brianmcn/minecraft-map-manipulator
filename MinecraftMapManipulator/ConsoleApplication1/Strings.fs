@@ -46,7 +46,7 @@ let PROXIMITY_COLD = "COLD"
 let DIVINING_TIME_TO_DIG = "Dig here, atop mountain"
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
-let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4bt5h0/map_feedback_thread/"""
+let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4gvelu/may_2016_maps_feedback_thread/"""
 let forumLink = """https://www.reddit.com/r/VanillaSwirlCTM/"""
 
 let BOOK_IN_DUNGEON_OR_MINESHAFT_CHEST = 

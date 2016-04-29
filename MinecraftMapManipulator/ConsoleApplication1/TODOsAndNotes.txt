@@ -20,6 +20,9 @@ Mar2016D - seed  20, single, normal
 Mar2016E - seed 357, multi, normal
 Apr2016A - seed ice-spikes, single, normal   // LNG request
 
+May2016A - seed mesa2, multi    // CT request
+May2016B - seed 684, single
+May2016C - seed 702, single
 
 CHECKLIST (automate?)
 make world checklist:
@@ -38,7 +41,7 @@ publish checklist:
 	go in and check spawn platform, caves/dungeons/pillars, worst flat/peak, orchid, purple underground, map_0
 
 TEST
-OK? slightly fewer reds (ad-hoc to -1000000), makes each better and may force more exploration
+OK? slightly fewer reds, makes each better and may force more exploration
 OK? too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
 OK? also, the multi-books in the random loot chests are almost all worthless, and hard to 'categorize' as a result of being multi; maybe single enchants, more useful, by 'level' (dist from spawn)?
 OK? still maybe too much diamonds or prot at end, lessened diamonds
@@ -52,13 +55,21 @@ OK? changes leaves to leavesAndLogs throughout, check for oddities, esp. look at
 
 OK? changed leaf ownership, look at nether/end trees, and teleporter-clear lines
 
-final dungeon quadrant wrong, because placed book in hiding spot before placing final dungeon
+OK? final dungeon quadrant wrong, because placed book in hiding spot before placing final dungeon
 verify mineshaft beacon path looks ok
-make bedrock roo4 above mountain just a little higher?  just like 2 blocks?  maybe also elevate the loot box those 2 blocks? (700,350 on seed615)
+OK? make bedrock roo4 above mountain just a little higher?  just like 2 blocks?  maybe also elevate the loot box those 2 blocks? (700,350 on seed615)
+
+OK? remove trees at spawn before glowpillar? check the 200 thresh with SL<13 or so? check glow pillars look good
+
+have new thread for feedback(/request/LP/release) on april maps, link it for feedback
+
+test new dung rate
 
 TODO: bugs & good ideas
 
-have new thread for feedback(/request/LP/release) on april maps, link it for feedback
+manual customize 702 (remove one spawner)
+
+
 target 1.9.3
 prep two good seeds for single player, one good seed for multiplayer (and maybe one 'easier' map?)
 

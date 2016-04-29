@@ -584,7 +584,16 @@ let treeify(map:MapFolder, hm:_[,]) =
 
 /////////////////////////////////////////////////////////////////
 
-let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_[,], log:EventAndProgressLog) =
+let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_[,], allTrees:ContainerOfMCTrees, log:EventAndProgressLog) =
+    // first remove entirety of trees near spawn - we want this for spawn area, and want to fix the HM before we do glowstone pillar work
+    if allTrees = null then
+        printfn "allTrees WAS NULL, SKIPPING TREE REDO"
+    else
+        let TREE_REMOVE_RADIUS = 15
+        for x = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
+            for z = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
+                allTrees.Remove(x,z,map,hm)
+
     let MINIMUM = -DAYLIGHT_RADIUS
     let LENGTH = 2*DAYLIGHT_RADIUS
     let YDEPTH = 50  // cave goes down to at least this depth
@@ -651,18 +660,23 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
     for hs in nearSpawnCaveEntranceCCs.Values do
         if hs.Count > 200 then
             // only consider "caves" of some min size
-            let mutable spacesAboveHM = 0
+            let mutable spacesNearSunlight = 0
             let pointsAboveHM = new System.Collections.Generic.HashSet<_>()
+            let pointsNearSunlight = new System.Collections.Generic.HashSet<_>()
             for p in hs do
                 let x,y,z = XYZP(p)
                 if y >= hmIgnoringLeavesAndLogs.[x,z] then
                     pointsAboveHM.Add(x,y,z) |> ignore
-                    spacesAboveHM <- spacesAboveHM + 1
-            if hs.Count-spacesAboveHM > 200 then // this is not just a deep ravine exposed to air
+                let skyLight = 
+                    let _,_,_,_,origSkyLight = map.GetSection(x,y,z)
+                    NibbleArray.get(origSkyLight,x,y,z)
+                if skyLight > 12uy then
+                    pointsNearSunlight.Add(x,y,z) |> ignore
+            if hs.Count-pointsNearSunlight.Count > 200 then // this is not e.g. just a deep ravine exposed to air
                 let markWithGlowstonePillar(bestX,bestY,bestZ) = 
                     let glowstonePillarBottomY = // ensure pillar not down in a deep hole (possibly 'stopping it up')
                         2 + (Array.max [| hm.[bestX,bestZ]; hm.[bestX+1,bestZ]; hm.[bestX-1,bestZ]; hm.[bestX,bestZ+1]; hm.[bestX,bestZ-1] |]) // some adjacent point should have land above, be above that
-                    let glowstonePillarBottomY = min 64 glowstonePillarBottomY // can still be down a wide hole, bring it up
+                    let glowstonePillarBottomY = max 64 glowstonePillarBottomY // can still be down a wide hole, bring it up
                     for y = glowstonePillarBottomY to glowstonePillarBottomY + 36 do
                         map.SetBlockIDAndDamage(bestX,y,bestZ,89uy,0uy)  // glowstone
                     log.LogInfo(sprintf "glowstone pillar at (x,y,z) of (%4d,%4d,%4d)" bestX bestY bestZ)
@@ -673,6 +687,15 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
                 let THRESHOLD = 200  // TODO what is best number here?
                 let DIFFERENCES = [|1,0,0; 0,1,0; 0,0,1; -1,0,0; 0,-1,0; 0,0,-1|]
                 let mutable distinctEntrances = pointsAboveHM |> ResizeArray
+                distinctEntrances <- distinctEntrances |> Seq.filter (fun (x,y,z) ->
+                            let mutable darkNearby = false
+                            for i = x-3 to x+1 do
+                                for j = y-2 to y+2 do
+                                    for k = z-3 to z+3 do
+                                        if hs.Contains(PT(i,j,k)) && not(pointsNearSunlight.Contains(i,j,k)) then
+                                            darkNearby <- true
+                            darkNearby
+                        ) |> ResizeArray
                 while distinctEntrances.Count > 0 do
                     let bestX,bestY,bestZ = distinctEntrances |> Seq.minBy(fun (x,_y,z)->x*x+z*z) // found nearest-spawn point in this cave exposed to surface
                     // TODO should I only mark if within daylight radius? right now marks some outside the pillars, which is probably fine
@@ -2616,7 +2639,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(5,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog,allTrees:ContainerOfMCTrees, mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
+let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog,mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
     log.LogSummary("START CMDS")
     if colorCount = Array.zeroCreate 16 then
         log.LogInfo("NO COLORS DETECTED, ARTIFICALLY ADDING 1 OF EACH FOR DEBUG PURPOSES")
@@ -2680,14 +2703,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
     let y = "shadow old value so not accidentally use"
 
     // clear space above spawn platform...
-    // ..remove entirety of nearby trees
-    if allTrees = null then
-        printfn "allTrees WAS NULL, SKIPPING TREE REDO"
-    else
-        let TREE_REMOVE_RADIUS = 15
-        for x = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
-            for z = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
-                allTrees.Remove(x,z,map,hm)
+    // note: tree removal near spawn was already handled in findCaveEntrancesNearSpawn
     // ...clear out any other blocks
     for x = -3 to 5 do
         for z = -3 to 5 do
@@ -3567,14 +3583,14 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
     time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,!allTrees,log))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees)) // after underground, uses finalEX/finalEZ
     time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
     time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
     time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
     time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,!allTrees, mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
     time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
