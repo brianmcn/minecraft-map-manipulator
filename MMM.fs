@@ -1503,6 +1503,8 @@ automatic game start configs (night vision, starting items), customizable
     with _ -> ()
 
     //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\RandomCTM\data\scoreboard.dat""")
+    //dumpTileTicks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\RandomCTM\region\r.0.-1.mca""")
+
 
 //    System.Windows.Clipboard.SetText(custom)   // AFK pregen: http://pastebin.com/uq09kFNW
     //let worldSeed = 14 

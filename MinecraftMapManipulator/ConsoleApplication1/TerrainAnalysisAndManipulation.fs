@@ -584,8 +584,8 @@ let treeify(map:MapFolder, hm:_[,]) =
 
 /////////////////////////////////////////////////////////////////
 
-let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_[,], allTrees:ContainerOfMCTrees, log:EventAndProgressLog) =
-    // first remove entirety of trees near spawn - we want this for spawn area, and want to fix the HM before we do glowstone pillar work
+let removeTreesNearSpawn(map:MapFolder, hm:_[,], allTrees:ContainerOfMCTrees) =
+    // first remove entirety of trees near spawn - we want this for spawn area, and want to fix the HM before we do glowstone pillar work or compute h-13 for teleporters etc
     if allTrees = null then
         printfn "allTrees WAS NULL, SKIPPING TREE REDO"
     else
@@ -594,6 +594,7 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
             for z = -TREE_REMOVE_RADIUS to TREE_REMOVE_RADIUS do
                 allTrees.Remove(x,z,map,hm)
 
+let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_[,], log:EventAndProgressLog) =
     let MINIMUM = -DAYLIGHT_RADIUS
     let LENGTH = 2*DAYLIGHT_RADIUS
     let YDEPTH = 50  // cave goes down to at least this depth
@@ -1667,10 +1668,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                     if rng.NextDouble() < pct*MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA.DensityMultiplier then
                         let x = i
                         let z = j
-                        let mutable y = hm.[x,z]
-                        // just removed some trees, so correct it
-                        while map.MaybeGetBlockInfo(x,y,z).BlockID=0uy && map.MaybeGetBlockInfo(x,y-1,z).BlockID=0uy do
-                            y <- y - 1
+                        let y = hm.[x,z]
                         map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
                         let ms = MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA.NextSpawnerAt(x,y,z,rng)
                         spawners.Add(ms)
@@ -1678,12 +1676,10 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                     elif rng.NextDouble() < pct then
                         let x = i
                         let z = j
-                        let mutable y = hm.[x,z]
-                        // just removed some trees, so correct it
-                        while map.MaybeGetBlockInfo(x,y,z).BlockID=0uy && map.MaybeGetBlockInfo(x,y-1,z).BlockID=0uy do
-                            y <- y - 1
-                        map.SetBlockIDAndDamage(x,y,z,76uy,5uy) // 76=redstone_torch
-                        map.SetBlockIDAndDamage(x,y-1,z,1uy,5uy) // 1,5=andesite
+                        let y = hm.[x,z]
+                        if map.GetBlockInfo(x,y-1,z).BlockID <> 52uy then // there could be a granite-substituted mob spawner in surface rock here, don't overwrite it
+                            map.SetBlockIDAndDamage(x,y,z,76uy,5uy) // 76=redstone_torch
+                            map.SetBlockIDAndDamage(x,y-1,z,1uy,5uy) // 1,5=andesite
         replaceUndergroundWithObsidianAndSilverfish(map,x,z,RADIUS,3,hmIgnoringLeavesAndLogs,rng)
         // after replacing underground, fortify bedrock:
         for xx = x-4 to x+4 do
@@ -2703,7 +2699,7 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
     let y = "shadow old value so not accidentally use"
 
     // clear space above spawn platform...
-    // note: tree removal near spawn was already handled in findCaveEntrancesNearSpawn
+    // note: tree removal near spawn was already handled in removeTreesNearSpawn
     // ...clear out any other blocks
     for x = -3 to 5 do
         for z = -3 to 5 do
@@ -3580,10 +3576,11 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
     time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
     time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,!allTrees,log))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
     time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees)) // after underground, uses finalEX/finalEZ
     time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))

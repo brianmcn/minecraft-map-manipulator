@@ -31,6 +31,7 @@ make world checklist:
 	run it
 	curation advice: num dungeons near spawn and cave length to reach them; overall beacon layout
 publish checklist: 
+	let spawn settle
 	fix icon
 	do any manual customization
 	run /gamemode 0 /defaultgamemode 0 /effect @p clear
@@ -61,12 +62,13 @@ OK? make bedrock roo4 above mountain just a little higher?  just like 2 blocks? 
 
 OK? remove trees at spawn before glowpillar? check the 200 thresh with SL<13 or so? check glow pillars look good
 
-have new thread for feedback(/request/LP/release) on april maps, link it for feedback
+OK have new thread for feedback(/request/LP/release) on May maps, link it for feedback
 
-test new dung rate
+OK test new dung rate
 
 TODO: bugs & good ideas
 
+check teleporters/CTM work in all maps
 manual customize 702 (remove one spawner)
 
 
