@@ -87,6 +87,7 @@
       <Link>MMM.fs</Link>
     </Compile>
     <Content Include="TODOsAndNotes.txt" />
+    <Content Include="Design.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

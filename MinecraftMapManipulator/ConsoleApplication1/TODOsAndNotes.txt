@@ -24,6 +24,8 @@ May2016A - seed mesa2, multi    // CT request
 May2016B - seed 684, single
 May2016C - seed 702, single
 
+May2016E - seed 611, multi-EZ
+
 CHECKLIST (automate?)
 make world checklist:
     tweak customization knobs
@@ -34,8 +36,12 @@ publish checklist:
 	let spawn settle
 	fix icon
 	do any manual customization
-	run /gamemode 0 /defaultgamemode 0 /effect @p clear
 	put player in starting box
+	run 
+		/gamemode 0 
+		/defaultgamemode 0 
+		/effect @p clear
+		/clear
 	remove stats/playerdata
 	change folder name map date/name
 	make a copy
@@ -66,16 +72,26 @@ OK have new thread for feedback(/request/LP/release) on May maps, link it for fe
 
 OK test new dung rate
 
+test that no-easy, things back how they were (e.g. make MayB again, see if all.txt aligns)
+
+
 TODO: bugs & good ideas
 
-check teleporters/CTM work in all maps
-manual customize 702 (remove one spawner)
+EASY: less 4eesh
 
+one use pickaxe doesn't have a huge repair cost, can repair with wood planks e.g.
+
+'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
+
+mossy vanilla spawners inside high mountain (above Y = whatever) are not doubled (but loot chests have replaced loot)
 
 target 1.9.3
 prep two good seeds for single player, one good seed for multiplayer (and maybe one 'easier' map?)
 
-post to /r/minecraftmaps, /r/ctm, /r/proceduralgeneration, forum?
+post to /r/minecraftmaps, /r/ctm - done
+post to /r/proceduralgeneration, forum?
+
+ask https://www.youtube.com/channel/UCljRRaFplpmZ63r-S7slEgw to play?
 
 for cthulhu - seed 'mesa2'? other features...? cthulhu stuff (ink?)
 

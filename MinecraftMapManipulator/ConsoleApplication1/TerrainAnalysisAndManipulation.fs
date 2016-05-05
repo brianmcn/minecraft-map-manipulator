@@ -1124,7 +1124,7 @@ let oreSpawnCustom =
         "dirt",     33, 90, 0, 256
         "gravel",   33,  8, 0, 256
         "granite",   3, GRANITE_COUNT, 0,  80
-        "diorite",  12,120, 0,  80
+        "diorite",  DIORITE_SIZE,DIORITE_COUNT, 0,  80
         "andesite", 33,  0, 0,  80
         "coal",     17, 20, 0, 128
         "iron",      9,  5, 0,  58
@@ -1771,10 +1771,14 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeavesA
         // TODO make these spawners in CustomizationKnobs?
         // add blazes atop
         for (dx,dz) in [-3,-3; -3,3; 3,-3; 3,3] do
-            let x,y,z = x+dx, y+5, z+dz
-            map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
-            let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Blaze", Delay=1s)
-            spawners.Add(ms)
+            let dontPutSome = CustomizationKnobs.EASY && (dx=dz) // only have 2/4 on EASY mode
+            if dontPutSome then
+                ()
+            else
+                let x,y,z = x+dx, y+5, z+dz
+                map.SetBlockIDAndDamage(x, y, z, 52uy, 0uy) // 52 = monster spawner
+                let ms = MobSpawnerInfo(x=x, y=y, z=z, BasicMob="Blaze", Delay=1s)
+                spawners.Add(ms)
         // add a spider jockey too
         map.SetBlockIDAndDamage(x, y+5, z, 52uy, 0uy) // 52 = monster spawner
         let ms = MobSpawnerInfo(x=x, y=y+5, z=z, BasicMob="Spider", Delay=1s)

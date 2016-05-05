@@ -6,13 +6,21 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = true
+let SINGLEPLAYER = false
+let EASY = true
+
+do
+    if EASY then
+        if SINGLEPLAYER then
+            failwith "easy should only be multi-player"
+        if UHC_MODE then
+            failwith "easy should not be UHC mode"
 
 
 let KURT_SPECIAL = false
 let SILVERFISH_LIMITS = true
-let SILVERFISH_BIG = if SINGLEPLAYER then 20 else 25
-let SILVERFISH_SMALL = if SINGLEPLAYER then 10 else 15
+let SILVERFISH_BIG = if SINGLEPLAYER || EASY then 20 else 25
+let SILVERFISH_SMALL = if SINGLEPLAYER || EASY then 10 else 15
 let DEBUG_CHESTS = false
 
 // TODO kind/freq of armor/weapon/food drops can affect difficulty
@@ -25,8 +33,8 @@ let DEBUG_CHESTS = false
 
 ///////////////////////////////////////////////////
 
-let UHC_MULT_A = if UHC_MODE then 0.5 else 1.0   // most of map is much harder, make easier
-let UHC_MULT_B = if UHC_MODE then 0.8 else 1.0   // end of map with great armor doesn't need as much buffer
+let UHC_MULT_A = if EASY then 0.5 elif UHC_MODE then 0.5 else 1.0   // most of map is much harder, make easier
+let UHC_MULT_B = if EASY then 0.5 elif UHC_MODE then 0.8 else 1.0   // end of map with great armor doesn't need as much buffer
 
 let LOOT_FUNCTION(n) =
     if SINGLEPLAYER then
@@ -131,6 +139,8 @@ let FLAT_SET_PIECE_SPAWNER_DATA =
 let NEAR_SPAWN_SPAWNER_DATA = // in daylight radius, be kinder underground
     SpawnerData([|(3,"Zombie"); (1,"Skeleton")|],     0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))
 
+let DIORITE_SIZE = if EASY then 6 else 12 // num feesh per vein
+let DIORITE_COUNT = if EASY then 60 else 120 // num feesh veins tried per chunk
 let GRANITE_COUNT = int(UHC_MULT_A*12.0)
 let GRANITE_SPAWNER_DATA = 
     SpawnerData([|(5,"Zombie"); (5,"Skeleton"); (5,"Spider"); (2,"Creeper")|],     0.0, DelayF = (fun (ms,_rng) -> ms.MaxSpawnDelay <- 400s))

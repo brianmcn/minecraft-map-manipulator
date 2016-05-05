@@ -1,0 +1,156 @@
+﻿
+RANDOMLY GENERATED
+I like MC vanilla terrain, CTMs, and roguelikes like spelunky, rogue legacy etc... combine!
+Have not seen this done before (a couple mods or crazy command-block thingies, but of those I've seen, none do 'CTM' at all well IMO)
+customization levers (I can make a new map with X), donation incentive
+
+OPEN WORLD
+
+How to steer the player and have progression?
+ - geographic distance (things you want to happen sooner are closer to spawn)
+ - level of challenge (areas that are apparently too challenging repel players so they go elsewhere)
+ - breadcrumbs (text to explicitly give players goals/quests to look for)
+ - command/map mechanics (like divining rod, or other map-like stuff) which direct player to a location
+
+story/lore/building
+ - none, but hell/end biomes for flavor, dubious value
+
+PACE
+I really like basic survival in CTMs, and want people to chop a tree, make a pickaxe, and struggle to get stone at the start. (drop, dungeon wall, generator, high mountain, silk touch monster egg)
+felt like needed red to have lots of DoT (poison/fire) to repel under-geared players, so had at least a prot4 in green loot, plus player would have gotten more
+ - may have 'escalated too quickly'.  by end player is OP and mobs are kinda insane.  
+ - better design probably to lessen the slope of the curve of loot/mobs, and use other ways to keep the player on progression and avoid sequence-breaks
+
+BONUS MONUMENT
+  - want to encourage/reward exploration
+  - random loot chests help that, but at some point it's just 'another chest' unless you find ways to make each unique and valuable
+    - stained glass gives strong incentive to find different kinds
+	- proximity detector makes possible to find more and all the kinds
+	- randomizing loot/bonuses/trolls and having variety of 'basic' loot also helps (and helps builders scratch other itches, and players who lost gear re-gear)
+ - I could not make 16 dungeons, but nice to have 16-something in CTMs (quite enjoyed making/hiding these)
+ - map overview and given maps help encourage travel
+
+LOOT
+I don't like to force people to play a certain way, give them options
+  - there are diamonds underground (though not as many) if want to enchant
+  - there are lots of books as rewards, so you get to choose your own gear sets a fair bit
+    - very hard tension between giving people options and not overwhelming them with chests full of books.  hopefully May better than March
+  - there is way more loot than you'll ever need, with multiple copies of dungeons and hundreds of random loot chest for easy extra bonuses
+  - hardly any 'custom items' (fse-night-vision, enderchest-with-wood-silk-pick to teach/encourage)
+I don't like a lot of CTM map custom loot:
+ - I don't like spreading loot around chests with garbage to make it hard to see what's in a chest and what's useful
+ - I don't like having chests every 5 minutes that have "a slightly better/different sword than you got 5 mins ago"
+ - I loathe "inventory management" as an MC mini-game
+The villager trades also reward exploration, make travel faster, and give players who are struggling a way to get stronger (and provide more incentive to explore).
+
+COMMANDS
+  - it's easy to over-use command blocks
+  - a few combat-procs are kind of cool, but I prefer commands for utility/surprise/fun rather than messing with core mechanics
+  - CTM block-detection, daylight cycle, divining rod, proximity detector are almost all the commands (feesh limiter too)
+
+CUSTOM MOBS
+Custom mobs can add some flavor, but I don't like how opaque they are:
+ - here is a new zombie with custom armor and an enchanted sword. how hard does he hit? how many hearts does he have? how fast is he? how many HP does he have? no way to know without fighting a bunch, and then often you move on to a new area/spawner.
+I didn't use wither skeletons, guardians, magma cubes, or electrified creepers (or bosses).  Some might be ok.
+But without custom mobs, rely on spawner-spam, especially in later dungeons of map.  Not ideal...
+That said I do use local difficulty (dist from spawn, if in dungeon area).
+
+DUNGEONS
+I think I first got main idea from rewatching Z's Inferno Mines and the Lush Ruins which was a mineshaft subtitution... to make a cave dungeon with redstone 'ribbon path'. Knew good algorithms for some of it, had to figure out a lot.
+Red beacon and mountain peak are similar ideas, drop spawners out of sky around a box :) Just on different terrain.  Need bedrock ceiling to deal with multiplayer daylight at spawn, and also gives better ambience with red torches compared to moonlight.
+Green fight downwards (easiest), red fight across flats (middle), mountain fight uphill/fall (hardest) was the main idea.
+Lots of juggling with sizes and spawner distributions and webs and test playing.
+
+POTIONS
+There are some really OP potions, and it is hard to gauge difficulty when players can freely obtain them, so I just chose not to have pots (other than the villager trades).
+
+FOOD
+To reduce inventory-management issues, I only give 5 types, one of each main 'tier' of food quality.
+Players can farm food, once again giving people option of 'extra gear', as steak is pretty OP (and gapples surely are).
+
+RANDOM
+need to curate maps/seeds a lot to deal with random flaws (can't place dungeons, no good caves at spawn, poor biome diversity, too much ocean, ...)
+each new seed finds new bugs and flaws in heuristics :)
+
+MARCH->MAY changes
+
+1st monument block came way too late, halfway thru map, moved it to green beacon, made green chest loot carryable home, moved red up too
+ - peak is kinda optional, though only if can somehow find purple on own without quadrant hint and elytra
+ - want to ensure red is unskippable, as it's the turning point of the map, and also you have to explore a bit to find one
+
+inventory: no one was using enderchests; they were kind of rare, some folks didn't know can silk without diamond pick, so added bonus dung. loot with EC and wood ST
+
+evolution of teleporters to make more discoverable 
+ - path arrows and 'keep eyes open' lit chests
+ - longer distance
+ - chop down trees
+ - more arrows (got rid of chests which people found confusing and maybe distracted from the arrows)
+
+usability
+ - add sounds to CTM-get
+ - no more stacked jump boost pots (which people drop and unstack), now boots that give effect when worn
+ - some folks had hard time getting a look at red beacon dungeon to plan attack; added red torch atop spawners, and added FSE bonus loot for zoom night vision
+ - reworded text of a lot of books, hopefully less confusion (very hard to predict how people can interpret)
+
+algorithms/heuristics
+ - better cave entrance detection for glowstone pillars
+ - better terrain for red beacon dungeon
+ - no longer have to have green/purple lot at 'end of cave', more consistent lengths, more chances to place them
+ - increased dungeon rate 35->50; very hard to curate/customize maps so will struggle some in caves before getting lucky (but assuredly finding one for breadcrumbs and gear)
+
+difficulty curve
+ - some folks hit a wall on red beacon, the loot-finder in green gives an outlet for people to gear up more if struggling with red, and FSE makes it more plannable
+   - but also added more anti-tunneling; you can probably cheese with tunnels/pearls/lava/etc, but want to encourage fun path
+ - mountain peak was too easy, made a bit harder & less tunnelable (still maybe not enough, but it's the most optional, and it's probably scary enough to repel under-geared new players, even if they could cheese it)
+ - tried to rein in variance of green/purple (some were much easier/harder than others), but still a lot of work that could be done to reduce variance of spawner kinds/locations in all dungeons (just got the number-of-spanwers variance in check)
+
+Added silverfish limiter, and reduced number of monster eggs, as witch-infighting or poor play sometimes caused 'feesh-pocalypse', which is bad for FPS and for fun.
+
+
+
+IMPLEMENTATION overview summary
+
+maybe discuss various algorithms/heuristics
+
+
+
+HISTORY
+
+loot tables came out
+played VF:ET, had idea to make a uhc-mode map with cool loot drops
+had been playing with new command block algs, but decided online stuff like GM4 was too laggy, started doing more offline algorithms to put blocks in world
+'lush ruins' gave good idea for cave dungeon with ribbon
+lots of maps gave ideas for random loot chests
+implemented one set piece rejected (small flat wither skellie area), not fun, no good loot to guard
+had idea for one other dungeon, half-started (hollowed) out mountain
+3 was good enough for mini-ctm, had cave, flat, peak; green first (go), red 2nd (stop), peak didn't need beacon as already visible from distance (before bedrock ceiling added)
+at first had no starting items except axe/shield, food was issue got a fire-aspect sword drop - cooked meat!
+but at time, loved cave, thought other meh... and wanted a treasure map to explore more... had elytra idea
+ - hidden loot on mountain top, both so player won't acccidentally stumble on, and also for good first lift-off with elytra
+decided to bookend map with another tougher cave at end, black beacon (hard to see, became purple)
+obe alpha test; had minimum viable product of dungeons, but needed refinement and more random loot
+at some point realized needed bedrock ceiling for multiplayer.  this broke 'relighting'/heightmap, MC would crash and die, had to implement own lighting engine
+fixxxer multiplayer test, went to red before green, but got repelled, multiplayer light issue, "infinite strength" -> "enduring strength"
+thungon/nlc other good feedback, aesthetics of spawn (bedrock first impression), fix tree algorithms (jungle/mega taiga removed trees but left vines/much/etc)
+chaosc played march, offered a ton of useful feedback, also playing on very low-end machine to see render-dist/fps/feesh issues
+watched lots of others (goth, shook, war, LNG, ... and got refinement ideas from almost all of them)
+
+tweets from vanilla swirl origins:
+
+https://twitter.com/lorgon111/status/656238310109663233
+
+https://twitter.com/lorgon111/status/659026437467426816
+
+https://twitter.com/lorgon111/status/661539108787998720
+
+https://twitter.com/lorgon111/status/666657964313309184
+
+https://twitter.com/lorgon111/status/668492353070583813
+
+https://twitter.com/lorgon111/status/669154326296829952
+
+https://twitter.com/lorgon111/status/673215631244795904
+
+https://twitter.com/lorgon111/status/678453223607418880
+
+https://twitter.com/lorgon111/status/681920242080153600
