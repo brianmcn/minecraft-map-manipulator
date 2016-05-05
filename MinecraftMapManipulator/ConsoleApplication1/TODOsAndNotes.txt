@@ -72,12 +72,10 @@ OK have new thread for feedback(/request/LP/release) on May maps, link it for fe
 
 OK test new dung rate
 
-test that no-easy, things back how they were (e.g. make MayB again, see if all.txt aligns)
+OK test that no-easy, things back how they were (e.g. make MayB again, see if all.txt aligns)
 
 
 TODO: bugs & good ideas
-
-EASY: less 4eesh
 
 one use pickaxe doesn't have a huge repair cost, can repair with wood planks e.g.
 

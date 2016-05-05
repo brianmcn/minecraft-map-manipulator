@@ -2499,8 +2499,10 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
         if names.[i] <> "" then
             log.LogInfo(sprintf "%3d: %s (%d %s)" points.[i].Count names.[i] i (snd MC_Constants.WOOL_COLORS.[i]))
             colorCount.[i] <- points.[i].Count
-            if points.[i].Count > 64 then
-                failwithf "more than 64 random loots of type %s added" names.[i]
+            if points.[i].Count > 70 then
+                failwithf "more than 70 random loots of type %s added" names.[i]
+            elif points.[i].Count > 64 then
+                log.LogWarning(sprintf "more than 64 random loots of type %s added" names.[i]) // we'll fudge it, given variability, and just report 64 in the monument
         else
             colorCount.[i] <- 0
     let mutable withinDaylightCount = 0
@@ -2840,17 +2842,15 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
                 yield [| Byte("Count", 1uy); Byte("Slot", 18uy); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                 for i = 10 to 17 do
                     let color = i-10
-                    let count = colorCount.[color]
+                    let count = min 64 colorCount.[color] // min 64 because sometimes we have a few more, and fudge it
                     if count <> 0 then
-                        assert(count > 0 && count <= 64)
                         yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
                     else
                         yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]
                 for i = 19 to 26 do
                     let color = i-11
-                    let count = colorCount.[color]
+                    let count = min 64 colorCount.[color] // min 64 because sometimes we have a few more, and fudge it
                     if count <> 0 then
-                        assert(count > 0 && count <= 64)
                         yield [| Byte("Count", byte(count)); Byte("Slot", byte(i)); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_SAMPLE; End|]|>ResizeArray); End |]
                     else
                         yield [| Byte("Count", 1uy); Byte("Slot", byte(i)); Short("Damage",0s); String("id","minecraft:iron_bars"); End |]

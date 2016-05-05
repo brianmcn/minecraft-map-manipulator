@@ -6,8 +6,8 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = false
-let EASY = true
+let SINGLEPLAYER = true
+let EASY = false
 
 do
     if EASY then
