@@ -206,6 +206,8 @@ let LOOT_TOOLS =
                                ])]
     |]
 
+let goodFood = if CustomizationKnobs.NO_GRASS_NO_MEAT then "bread" else "cooked_beef"
+
 // TODO make a customization knob to buff/nerf these drops/chances, perhaps?
 let LOOT_FOOD =
     if CustomizationKnobs.UHC_MODE then  
@@ -230,7 +232,7 @@ let LOOT_FOOD =
             // tier 3
             Pools [Pool(Roll(1,1), [Item("minecraft:bread",   [SetCount(3,5)]), 1, 0, []])]
             // tier 4
-            Pools [Pool(Roll(1,1), [Item("minecraft:cooked_beef",   [SetCount(3,8)]), 1, 0, []])]
+            Pools [Pool(Roll(1,1), [Item(sprintf "minecraft:%s" goodFood,   [SetCount(3,8)]), 1, 0, []])]
             // tier 5
             Pools [Pool(Roll(1,1), [Item("minecraft:golden_apple",   [SetCount(3,6)]), 1, 0, []])]
         |]
@@ -381,6 +383,7 @@ let elytraChestContents(quadrant) =
                                 Strings.NameAndLore.SUPER_JUMP_BOOTS([|Int("color",3387411)|])
                                 Int("SuperJump",1)
                                 Int("Unbreakable",1)
+                                Int("RepairCost",1000) // unrepairable
                                 List("ench",Compounds[|[|Short("id",2s);Short("lvl",10s);End|]|]);End|]|>ResizeArray); End |] // FFX
                 yield [| Byte("Count",1uy); Byte("Slot",21uy); Short("Damage",0s); String("id","minecraft:written_book"); 
                          Strings.BOOK_IN_HIDING_SPOT(quadrant); End |]
@@ -500,7 +503,7 @@ let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // d
                 yield [| Byte("Count",1uy); Short("Damage",59s); String("id","minecraft:wooden_pickaxe"); Compound("tag",[|
                             Strings.NameAndLore.ONE_USE_PICK
                             List("ench",Compounds[|[|Short("id",32s);Short("lvl",5s);End|];[|Short("id",33s);Short("lvl",1s);End|]|])  // EFF V, SILK
-                            Int("RepairCost",1000)
+                            Int("RepairCost",1000) // unrepairable
                             End|]|>ResizeArray); End |]
             // ... night vision...
             elif rng.Next(3)=0 then
@@ -554,7 +557,7 @@ let NEWsampleTier3Chest(rng:System.Random,haveInnerChestsAndInstructions) = // g
                     |])
             yield makeItem(rng,"iron_ingot",F 15,F 20,0s)
             yield makeItem(rng,"gold_ingot",F 15,F 20,0s)
-            yield makeItem(rng,"cooked_beef",F 10,F 20,0s)
+            yield makeItem(rng,goodFood,F 10,F 20,0s)
             if haveInnerChestsAndInstructions then
                 yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:written_book"); Strings.BOOK_IN_GREEN_BEACON_CHEST; End |]
         |]
@@ -623,19 +626,23 @@ let occasionalGreatBonus(rng:System.Random,level,tier) =
     if rng.Next(5)=0 then // good thing
         match level with
         | 1 -> Algorithms.pickNnonindependently(rng,1,[
-                        makeItem(rng,"cooked_beef",F 6,F 6,0s)
+                        makeItem(rng,goodFood,F 6,F 6,0s)
                         makeItem(rng,"iron_chestplate",1,1,0s)
                     ])
         | 2 -> Algorithms.pickNnonindependently(rng,1,[
-                        makeItem(rng,"cooked_beef",F 10,F 10,0s)
-                        makeItem(rng,"golden_apple",F 2,F 2,0s)
-                        makeItem(rng,"experience_bottle",64,64,0s)
-                        [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
+                        yield makeItem(rng,goodFood,F 10,F 10,0s)
+                        yield makeItem(rng,"golden_apple",F 2,F 2,0s)
+                        yield makeItem(rng,"experience_bottle",64,64,0s)
+                        yield [| Byte("Count", 1uy); Short("Damage",0s); String("id","minecraft:iron_axe"); Compound("tag", [|List("ench",Compounds[|[|Short("id",18s);Short("lvl",5s);End|]|]); End |] |> ResizeArray); End |]
+                        if CustomizationKnobs.NO_GRASS_NO_MEAT then
+                            yield makeItem(rng,"grass",1,1,0s) // 1/25 of middle chests will have a single grass block
                     ])
         | 3 -> Algorithms.pickNnonindependently(rng,1,[
-                        makeItem(rng,"cooked_beef",F 10,F 10,0s)
-                        makeItem(rng,"golden_apple",F 3,F 3,0s)
-                        makeItem(rng,"diamond_helmet",1,1,0s)
+                        yield makeItem(rng,goodFood,F 10,F 10,0s)
+                        yield makeItem(rng,"golden_apple",F 3,F 3,0s)
+                        yield makeItem(rng,"diamond_helmet",1,1,0s)
+                        if CustomizationKnobs.NO_GRASS_NO_MEAT then
+                            yield makeItem(rng,"grass",1,1,0s) // 1/20 of outside chests will have a single grass block
                     ])
         | _ -> failwith "bad level"
     elif rng.Next(4)=0 then // booby prize
@@ -664,16 +671,17 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
         [|  yield! occasionalGreatBonus(rng,level,1)
             // blocks
             yield! Algorithms.pickNnonindependently(rng,countSize(level,2),[
-                makeItem(rng,"stone",SS,SS,1s) // granite
-                makeItem(rng,"brick_block",SS,SS,0s)
-                makeItem(rng,"stonebrick",SS,SS,0s)
-                makeItem(rng,"stone_brick_stairs",SS,SS,0s)
-                makeItem(rng,"hardened_clay",SS,SS,0s)
-                makeItem(rng,"netherrack",SS,SS,0s)
-                makeItem(rng,"grass",SS,SS,0s)
-                makeItem(rng,"mossy_cobblestone",SS,SS,0s)
-                makeItem(rng,"obsidian",SS,SS,0s)
-                makeItem(rng,"ice",SS,SS,0s)
+                yield makeItem(rng,"stone",SS,SS,1s) // granite
+                yield makeItem(rng,"brick_block",SS,SS,0s)
+                yield makeItem(rng,"stonebrick",SS,SS,0s)
+                yield makeItem(rng,"stone_brick_stairs",SS,SS,0s)
+                yield makeItem(rng,"hardened_clay",SS,SS,0s)
+                yield makeItem(rng,"netherrack",SS,SS,0s)
+                if not CustomizationKnobs.NO_GRASS_NO_MEAT then
+                    yield makeItem(rng,"grass",SS,SS,0s)
+                yield makeItem(rng,"mossy_cobblestone",SS,SS,0s)
+                yield makeItem(rng,"obsidian",SS,SS,0s)
+                yield makeItem(rng,"ice",SS,SS,0s)
                 ])
             // utility blocks
             yield! Algorithms.pickNnonindependently(rng,countSize(level,2),[
@@ -785,10 +793,11 @@ let NEWaestheticTier3Chest(rng:System.Random, color, level) =
         [|  yield! occasionalGreatBonus(rng,level,3)
             // blocks
             yield! Algorithms.pickNnonindependently(rng,3,[
-                makeItem(rng,"quartz_block",SS,SS,0s)
-                makeItem(rng,"prismarine",SS,SS,0s)
-                makeItem(rng,"sea_lantern",SS,SS,0s)
-                makeItem(rng,"hay_block",SS,SS,0s)
+                yield makeItem(rng,"quartz_block",SS,SS,0s)
+                yield makeItem(rng,"prismarine",SS,SS,0s)
+                yield makeItem(rng,"sea_lantern",SS,SS,0s)
+                if not CustomizationKnobs.NO_GRASS_NO_MEAT then
+                    yield makeItem(rng,"hay_block",SS,SS,0s)
                 ])
             // other chests
             yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1,level))

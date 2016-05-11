@@ -1,4 +1,11 @@
-﻿MOJANG BUGS
+﻿METRICS
+
+May 11 (9 days after May release)
+ - A/B/C/E have 53/134/146/86 downloads
+ - subreddit has 94 readers
+ - a couple donators (3 back from march release)
+
+MOJANG BUGS
 
 beacon at spawn sometimes not render, villager in hub sometimes not render, absorbtion/HB hearts sometimes not show (client reset 4ixes)
 go thru gateway on horse 91628
@@ -59,11 +66,21 @@ OK? make bedrock roo4 above mountain just a little higher?  just like 2 blocks? 
 OK? remove trees at spawn before glowpillar? check the 200 thresh with SL<13 or so? check glow pillars look good
 OK test new dung rate - at 50, seems a little high maybe, but better high than low I think
 OK one use pickaxe doesn't have a huge repair cost, can repair with wood planks e.g., becomes great spawner-breaker
+OK Q: what happens if drink milk while wearing jump boots? A: you no longer have JB, but it returns if you take off and put back on, which is fine
+OK do I need to put repair cost on jump boots to ensure people don't add prot4? yes, must fix
 
 
 TODO: bugs & good ideas
 
-what happens if drink milk while wearing jump boots?
+TODO test balance of no-meat maps
+
+future features/map request:
+thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
+
+witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable? yes:
+	scoreboard players tag @e[type=ThrownPotion] add witchPoison {Potion:{tag:{Potion:"minecraft:poison"}}}
+	entitydata @e[tag=witchPoison] {Potion:{tag:{Potion:"",CustomPotionEffects:[{Id:19b,Amplifier:0b,Ambient:0b,Duration:400}]}}}
+	scoreboard players tag @e[tag=witchPoison] remove witchPoison
 
 'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
 
@@ -74,26 +91,6 @@ mossy vanilla spawners inside high mountain (above Y = whatever) are not doubled
 post to /r/minecraftmaps, /r/ctm - done
 post to /r/proceduralgeneration, forum?
 
-future features/map request:
-food: get rid of grass blocks, farm animals (or make scarce) so food (esp. good food) is hard to come by (tallgrass gone too, seeds in chests, maybe grass block in hard chests, spawn eggs, ...) try not to make gold apples too attractive
-	get rid of all grass/tallgrass? (or add thick/high grass everywhere?)
-	cow spawn eggs (too op?) rationing friendly mobs? ...
-	   i think getting rid of all meats is good; maybe more gapples or bread in random chests   http://minecraft.gamepedia.com/Hunger#Mechanics
-	    - all meats means cow/chicken/pig/sheep/rabbit/mooshroom
-	   no grass means no friendly (except ocelot), so could use mycelium or dirt to replace all grass
-	   maybe grass block in rare chest at outer edge of map?  
-			figure out how many meat-mobs spawn on a tiny patch of grass, to decide if grass is an aethetic bonus or a mechanical bonus
-			on a 50x50 patch, 10 will spawn reasonable fast but then get capped, but then you can breed them; 
-				will be significant, though e.g. with map covered in mycelium rather than dirt, takes a lot of effort...
-	to sum up:
-		kill all 6 meat mobs
-		grass -> mycelium on map   
-		(mushroom biomes would still spawn mooshrooms, so validate no mush on original map)
-		hmm, my name watermark is an issue, need to maybe change to 'The Void' for my watermark
-		random chests food changes:
-			aesthetic3 is still a bonanza with hay bales, hmm, get rid of those?
-			occasionalGreatBonus() needs to turn down a level (e.g. steak->break, gapples->steak) or something
-thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
 
 
 (possibly some spellbook that lets you pull up all the 'quest text' to refer back to in chat or something, so don't need to carry/forget books?)
@@ -172,7 +169,6 @@ natural spawn mechanics twiddling, e.g. all witches get replaces by 3 zombies, o
 making all enemies glowing for a short time may be useful mechanic
 (can rename/tag bits of food if want to not be stackable, e.g. treat steak like regen pot almost)
 glowstone dust could be a fun loot drop, to accumulate to make glowstone? though it's already plentiful in the map now, so... maybe not
-witch poison lasta a long time; can I entitydata the ThrownPotions in the air to make them more reasonable?
 dreamplane/alternate dimension a la zelda LttP?
 terrain generator with more caves, fewer ravines, diff ore, much higher sea level and deeper underground, my own biomes?
 (wither skellies with bows shoot flame arrows (but I guess are not 'vanilla' mobs that way))

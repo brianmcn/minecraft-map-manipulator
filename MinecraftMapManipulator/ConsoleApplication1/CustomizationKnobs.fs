@@ -8,6 +8,7 @@ open NBT_Manipulation
 let UHC_MODE = false
 let SINGLEPLAYER = true
 let EASY = false
+let NO_GRASS_NO_MEAT = true
 
 do
     if EASY then

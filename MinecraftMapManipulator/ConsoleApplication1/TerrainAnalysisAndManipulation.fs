@@ -321,7 +321,7 @@ type MCTree(woodType) =
             let bi = map.GetBlockInfo(x,y,z)
             // TODO, note that this will not replace snow in places where below-lowest-log was not dirt, nor in places leaves were above ground
             if bi.BlockID=3uy && bi.BlockData=0uy then // dirt
-                let mutable grass,coarse,podzol,snow = false,false,false,false
+                let mutable grass,coarse,podzol,mycelium,snow = false,false,false,false,false
                 for dx = -1 to 1 do
                     for dy = -1 to 1 do
                         for dz = -1 to 1 do
@@ -332,6 +332,8 @@ type MCTree(woodType) =
                                 coarse <- true
                             if nbi.BlockID = 3uy && nbi.BlockData=2uy then
                                 podzol <- true
+                            if nbi.BlockID = 110uy then
+                                mycelium <- true
                             let nbi = map.GetBlockInfo(x+dx, y+dy+1, z+dz)
                             if nbi.BlockID = 78uy then
                                 snow <- true
@@ -341,6 +343,8 @@ type MCTree(woodType) =
                     map.SetBlockIDAndDamage(x,y,z,3uy,2uy)
                 elif coarse then
                     map.SetBlockIDAndDamage(x,y,z,3uy,1uy)
+                elif mycelium then
+                    map.SetBlockIDAndDamage(x,y,z,110uy,0uy)
                 if snow then
                     map.SetBlockIDAndDamage(x,y+1,z,78uy,0uy)
             for x,z in airXZs do
@@ -1238,6 +1242,8 @@ let substituteBlocks(rng : System.Random, map:MapFolder, log:EventAndProgressLog
                         chestTEs.Add( blockTE("Chest",x,y,z,Compounds(LootTables.NEWsampleTier2Chest(rng,true)),Strings.NAME_OF_DEFAULT_MINECRAFT_DUNGEON_CHEST,null,0L) )
                     elif bid = 17uy || bid = 162uy then // log/log2
                         map.SetBlockIDAndDamage(x,y,z,bid,dmg ||| 12uy) // setting bits 4&8 yields 6-sided bark texture, which looks cool
+                    elif CustomizationKnobs.NO_GRASS_NO_MEAT && bid = 2uy then
+                        map.SetBlockIDAndDamage(x,y,z,3uy,2uy) // grass -> podzol for NO_GRASS_NO_MEAT
     log.LogSummary("added random spawners underground")
     if CustomizationKnobs.SILVERFISH_LIMITS then
         log.LogInfo("replacing silverfish pockets not exposed to air...")
@@ -1852,6 +1858,7 @@ let doubleSpawners(map:MapFolder,log:EventAndProgressLog) =
 
 let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_[,],hmIgnoringLeavesAndLogs:_[,],biome:_[,],
                    decorations:ResizeArray<_>,allTrees:ContainerOfMCTrees,colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
+    let typicalGrassBID,typicalGrassDMG = if CustomizationKnobs.NO_GRASS_NO_MEAT then 3uy,2uy else 2uy,0uy // podzol, grass  (not using mycelium instead of podzol because tallgrass/flowers can't live on mycelium)
     printfn "add random loot chests..."
     let tileEntities = ResizeArray()
     let entities = ResizeArray()
@@ -1892,6 +1899,15 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
             if (x-px)*(x-px) + (z-pz)*(z-pz) < r*r then
                 ok <- false
         ok
+    let checkForPlusEx(x,y,z,corner,cornerDmg,plus,plusDmg) =
+        map.GetBlockInfo(x+1,y,z+1).BlockID = corner && map.GetBlockInfo(x+1,y,z+1).BlockData = cornerDmg &&
+        map.GetBlockInfo(x-1,y,z+1).BlockID = corner && map.GetBlockInfo(x-1,y,z+1).BlockData = cornerDmg &&
+        map.GetBlockInfo(x-1,y,z-1).BlockID = corner && map.GetBlockInfo(x-1,y,z-1).BlockData = cornerDmg &&
+        map.GetBlockInfo(x+1,y,z-1).BlockID = corner && map.GetBlockInfo(x+1,y,z-1).BlockData = cornerDmg &&
+        map.GetBlockInfo(x+1,y,z).BlockID = plus && map.GetBlockInfo(x+1,y,z).BlockData = plusDmg &&
+        map.GetBlockInfo(x-1,y,z).BlockID = plus && map.GetBlockInfo(x-1,y,z).BlockData = plusDmg &&
+        map.GetBlockInfo(x,y,z+1).BlockID = plus && map.GetBlockInfo(x,y,z+1).BlockData = plusDmg &&
+        map.GetBlockInfo(x,y,z-1).BlockID = plus && map.GetBlockInfo(x,y,z-1).BlockData = plusDmg
     let checkForPlus(x,y,z,corner,plus) =
         map.GetBlockInfo(x+1,y,z+1).BlockID = corner &&
         map.GetBlockInfo(x-1,y,z+1).BlockID = corner &&
@@ -1920,6 +1936,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                     elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng,color,level)
                     elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng,color,level)
                     else failwith "bad aesthetic tier"
+        //if items |> Array.exists(Array.exists (function String("id","minecraft:grass")->true|_->false)) then
+        //    log.LogInfo(sprintf "*** grass block at %d %d %d" x y z)
         putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_GENERIC_TREASURE_BOX,Compounds(items),map,tileEntities)
         lootLocations.Add(x,y,z,color)
         tierCounts.[tier] <- tierCounts.[tier] + 1
@@ -1969,6 +1987,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 for y = 90 downto 59 do
                     let bi = map.GetBlockInfo(x,y,z)
                     let bid = bi.BlockID 
+                    let dmg = bi.BlockData
                     if bid = 48uy && checkForPlus(x,y,z,0uy,48uy) then // 48 = moss stone
                         // is a '+' of moss stone with air, e.g. surface boulder in mega taiga
                         if rng.Next(5) = 0 then // TODO probability, so don't place on all
@@ -2016,9 +2035,10 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                         // TODO where put? bottom? any light cue? ...
                                         // for now just under water
                                         let y = y - 1
-                                        putTrappedChestWithLoot(3,x,y,z,2)
-                                        points.[3].Add( (x,y,z) )
-                                        names.[3] <- "surface lake"
+                                        if map.GetBlockInfo(x,y,z).BlockID <> 52uy then // was once a granite->mobspawner, oops
+                                            putTrappedChestWithLoot(3,x,y,z,2)
+                                            points.[3].Add( (x,y,z) )
+                                            names.[3] <- "surface lake"
                     elif bid = 12uy then // 12=sand
                         if y >= hm.[x,z]-1 then // at top of heightmap (-1 because surface is actually just below heightmap)
                             let deserts = [| 2uy; 17uy; 130uy |]
@@ -2152,7 +2172,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                 putTrappedChestWithLoot(6,x,y,z,1)
                                 points.[6].Add( (x,y,z) )
                                 names.[6] <- "red mushroom top"
-                    elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 0uy && checkForPlus(x,y,z,2uy,2uy) then // 3x3 of grass 
+                    elif bid = typicalGrassBID && dmg = typicalGrassDMG && map.GetBlockInfo(x,y+1,z).BlockID = 0uy && checkForPlusEx(x,y,z,typicalGrassBID,typicalGrassDMG,typicalGrassBID,typicalGrassDMG) then // 3x3 of grass/podzol
                         let b = biome.[x,z]
                         if checkForPlus(x,y+1,z,0uy,0uy) then //with air above
                             if b = 4uy || b = 27uy || b = 29uy then // forest/birch/roofed
@@ -2176,7 +2196,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     if ok then
                                         for dz = 0 to 8 do
                                             if ok then
-                                                if map.GetBlockInfo(x+dx,y,z+dz).BlockID <> 2uy then // 2=grass
+                                                let bi = map.GetBlockInfo(x+dx,y,z+dz)
+                                                if (bi.BlockID <> typicalGrassBID) || (bi.BlockData <> typicalGrassDMG) then
                                                     ok <- false
                                                 else
                                                     let bid = map.GetBlockInfo(x+dx,y+1,z+dz).BlockID
@@ -2251,8 +2272,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                                     points.[9].Add( (x,y,z) )
                                     names.[9] <- "surface lava pool"
                                     //printfn "lava %d %d %d" x y z
-                    elif bid = 2uy && map.GetBlockInfo(x,y+1,z).BlockID = 78uy && checkForPlus(x,y,z,2uy,2uy) && checkForPlus(x,y+1,z,78uy,78uy) then
-                        // 3x3 of grass with snow above
+                    elif bid = typicalGrassBID && dmg = typicalGrassDMG && map.GetBlockInfo(x,y+1,z).BlockID = 78uy && checkForPlusEx(x,y,z,typicalGrassBID,typicalGrassDMG,typicalGrassBID,typicalGrassDMG) && checkForPlus(x,y+1,z,78uy,78uy) then
+                        // 3x3 of grass/podzol with snow above
                         let b = biome.[x,z]
                         if b = 12uy then // ice plains
                             // TODO these probabilities can cause wild swings in variance; a better system would gather all the candidates, and try to smooth out the results over all the buckets somehow
@@ -2641,7 +2662,7 @@ let placeCompassCommands(map:MapFolder, log:EventAndProgressLog) =
     r.PlaceCommandBlocksStartingAt(5,2,1,cmds,"")  // placeStartingCommands will blockdata the purple at start of this guy to start him running
     log.LogInfo(sprintf "placed %d COMPASS commands" cmds.Length)
 
-let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog,mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
+let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs:_[,],biome:_[,],log:EventAndProgressLog,mapTimeInHours, colorCount:_[],scoreboard:Utilities.ScoreboardFromScratch) =
     log.LogSummary("START CMDS")
     if colorCount = Array.zeroCreate 16 then
         log.LogInfo("NO COLORS DETECTED, ARTIFICALLY ADDING 1 OF EACH FOR DEBUG PURPOSES")
@@ -2931,6 +2952,42 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
     placeCommand(1,h+5,-1,Strings.TELLRAW_CB_TEST_WORKED,137uy,3uy,"minecraft:command_block",false)
     placeCommand(1,h+5,0,sprintf "fill -1 %d -1 3 %d 3 air 0" (h+6) (h+7),211uy,3uy,"minecraft:chain_command_block",false) // two-phase clear, remove signs/button first, or else they pop off when glass removed
     placeCommand(1,h+5,1,sprintf "fill -2 %d -2 4 %d 4 air 0" (h+5) (h+7),211uy,3uy,"minecraft:chain_command_block",false)
+    if NO_GRASS_NO_MEAT then
+        for x = MINIMUM to MINIMUM+LENGTH-1 do
+            for z = MINIMUM to MINIMUM+LENGTH-1 do
+                if biome.[x,z] = 14uy || biome.[x,z] = 15uy then // 14=MushroomIsland, 15=MushroomIslandShore
+                    failwith "mooshrooms may spawn on this map"  // TODO want to just change the biome instead? or change original mycelium to podzol? (but also ensure teleporter paths don't make mycelium on it?)
+        // eliminate all meat-mobs
+        for rx in [-2 .. 1] do
+            for rz in [-2 .. 1] do
+                let r = map.GetRegion(512*rx, 512*rz)
+                for cx = 0 to 31 do
+                    for cz = 0 to 31 do
+                        let theChunk = r.GetChunk(cx,cz)
+                        match theChunk with Compound(_,rsa) ->
+                        match rsa.[0] with Compound(n,a) ->
+                        let a = a.ToArray()
+                        let i = a |> Array.findIndex(function List("Entities",_) -> true | _ -> false)
+                        let oldcs = match a.[i] with List(_,Compounds(cs)) -> cs
+                        let newcs = ResizeArray()
+                        for e in oldcs do
+                            if e |> Array.exists (fun x -> x = String("id","Sheep")) then
+                                () // ignore
+                            elif e |> Array.exists (fun x -> x = String("id","Cow")) then
+                                () // ignore
+                            elif e |> Array.exists (fun x -> x = String("id","Pig")) then
+                                () // ignore
+                            elif e |> Array.exists (fun x -> x = String("id","Rabbit")) then
+                                () // ignore
+                            elif e |> Array.exists (fun x -> x = String("id","Chicken")) then
+                                () // ignore
+                            elif e |> Array.exists (fun x -> x = String("id","MushroomCow")) then
+                                () // ignore
+                            else
+                                newcs.Add(e)  // add the rest
+                        let newEnts = List("Entities",Compounds(newcs.ToArray()))
+                        a.[i] <- newEnts
+                        rsa.[0] <- Compound(n,ResizeArray a)
     // passive mob initialization and counting
     let mutable cowC, sheepC, pigC, chickenC, rabbitC = 0,0,0,0,0
     for rx in [-2 .. 1] do
@@ -3317,7 +3374,7 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
                                     78uy,171uy,0uy   // snow_layer             -> carpet   // TODO will never be used, since below hmIgnoringLeavesAndLogs, yes?
                                     80uy,35uy,0uy    // snow                   -> wool
                                     82uy,1uy,0uy     // clay                   -> stone
-                                    110uy,2uy,0uy    // mycelium               -> grass
+                                    110uy,208uy,0uy  // mycelium               -> grass_path
                                     159uy,172uy,0uy  // stained_hardened_clay  -> hardened_clay
                                     172uy,159uy,0uy  // hardened_clay          -> stained_hardened_clay
                                 |]
@@ -3563,7 +3620,7 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
                     match Utilities.ALPHABET5INDEX wm.[i] with
                     | Some i ->
                          if Utilities.ALPHABET5.[j].[5*i+ix] = 'X' then
-                            map.SetBiome(x,z,15uy)  // 15 = MushroomIslandShore
+                            map.SetBiome(x,z,127uy)  // 127 = The Void
                     | None -> failwith "unexpected alpha wm"
                 biome.[x,z] <- map.GetBiome(x,z)
                 origBiome.[x,z] <- biome.[x,z]
@@ -3579,23 +3636,23 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let pillars = ref null
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
-    xtime (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees)) // after underground, uses finalEX/finalEZ
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
+    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees)) // after underground, uses finalEX/finalEZ
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,biome,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_MAX)
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 
