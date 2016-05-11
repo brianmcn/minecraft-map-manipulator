@@ -500,6 +500,7 @@ let NEWsampleTier2Chest(rng:System.Random,haveInnerChestsAndInstructions) = // d
                 yield [| Byte("Count",1uy); Short("Damage",59s); String("id","minecraft:wooden_pickaxe"); Compound("tag",[|
                             Strings.NameAndLore.ONE_USE_PICK
                             List("ench",Compounds[|[|Short("id",32s);Short("lvl",5s);End|];[|Short("id",33s);Short("lvl",1s);End|]|])  // EFF V, SILK
+                            Int("RepairCost",1000)
                             End|]|>ResizeArray); End |]
             // ... night vision...
             elif rng.Next(3)=0 then

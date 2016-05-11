@@ -1469,7 +1469,7 @@ automatic game start configs (night vision, starting items), customizable
 
 
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.1-pre3.jar""","""C:\Users\Admin1\Desktop\1.9.1.jar""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.1.zip""","""C:\Users\Admin1\Desktop\1.9.4.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\54\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
@@ -1510,7 +1510,31 @@ automatic game start configs (night vision, starting items), customizable
     //let worldSeed = 14 
     //genTerrainWithMCServer(worldSeed,custom)
 
+
+
     (*
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing\region""")
+    let colors = [|
+                    System.Drawing.Color.Aqua 
+                    System.Drawing.Color.Black
+                    System.Drawing.Color.Gold 
+                    System.Drawing.Color.Cyan
+                    System.Drawing.Color.Orange  
+                    System.Drawing.Color.Purple 
+                    System.Drawing.Color.Red
+                    System.Drawing.Color.Green
+                 |]
+    map.GetRegion(1,1).PlaceCommandBlocksStartingAt(1,6,1,[|
+        yield P ""
+        for i = 0 to colors.Length-1 do
+            let c = colors.[i]
+            let nonZero x = if x = 0.0 then 0.001 else x
+            let r,g,b = nonZero((float c.R)/255.0), nonZero((float c.G)/255.0), nonZero((float c.B)/255.0)
+            let x,y,z = 10.2, 6.0, 10.0+0.2*(float i)
+            printfn "particle reddust %f %f %f %f %f %f 1 0" x y z r g b
+            yield U (sprintf "particle reddust %f %f %f %f %f %f 1 0" x y z r g b)
+        |],"",false,true)
+    map.WriteAll()
     do
         let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\QFETest\region\""")
         let X,Y,Z = -300,80,60

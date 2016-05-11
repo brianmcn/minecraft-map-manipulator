@@ -21,6 +21,9 @@ felt like needed red to have lots of DoT (poison/fire) to repel under-geared pla
  - may have 'escalated too quickly'.  by end player is OP and mobs are kinda insane.  
  - better design probably to lessen the slope of the curve of loot/mobs, and use other ways to keep the player on progression and avoid sequence-breaks
 
+LORE
+I think backstory books, silly item names/descriptions, etc, are mostly worthless.
+
 BONUS MONUMENT
   - want to encourage/reward exploration
   - random loot chests help that, but at some point it's just 'another chest' unless you find ways to make each unique and valuable
@@ -46,7 +49,7 @@ The villager trades also reward exploration, make travel faster, and give player
 COMMANDS
   - it's easy to over-use command blocks
   - a few combat-procs are kind of cool, but I prefer commands for utility/surprise/fun rather than messing with core mechanics
-  - CTM block-detection, daylight cycle, divining rod, proximity detector are almost all the commands (feesh limiter too)
+  - CTM block-detection, daylight cycle, divining rod, proximity detector are almost all the commands (feesh limiter too, and NV/JB on special items)
 
 CUSTOM MOBS
 Custom mobs can add some flavor, but I don't like how opaque they are:
