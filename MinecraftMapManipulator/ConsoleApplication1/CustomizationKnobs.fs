@@ -6,10 +6,11 @@ open NBT_Manipulation
 // Try to put all the twistable knobs here, and have the rest of the code below be fixed.
 
 let UHC_MODE = false
-let SINGLEPLAYER = false
+let SINGLEPLAYER = true
 let EASY = false
-let NO_GRASS_NO_MEAT = false
-let THUNDER = false
+let HARD = true
+let NO_GRASS_NO_MEAT = HARD
+let THUNDER = HARD
 
 do
     if EASY then
@@ -17,6 +18,8 @@ do
             failwith "easy should only be multi-player"
         if UHC_MODE then
             failwith "easy should not be UHC mode"
+        if HARD || THUNDER || NO_GRASS_NO_MEAT then
+            failwith "easy should not be with hard stuff"
 
 
 let KURT_SPECIAL = false
@@ -125,17 +128,17 @@ type SpawnerData(distributionInfo, densityMultiplier) =
 
 // mega-dungeons
 let GREEN_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
-    SpawnerData([|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,rng) -> if rng.Next(9)=0 then ms.Delay <- 1s))
+    SpawnerData([|(5,"Zombie"); (1,"Skeleton"); (1,"Creeper")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,rng) -> if rng.Next(if HARD then 5 else 9)=0 then ms.Delay <- 1s))
 let PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA = 
     SpawnerData([|(6,"Zombie"); (1,"CaveSpider"); (1,"Witch"); (2,"Skeleton"); (2,"Creeper")|], UHC_MULT_B*1.5, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- int16(rng.Next(100))))
 let MOUNTAIN_PEAK_DUNGEON_SPAWNER_DATA = 
     SpawnerData([|(3,"Zombie"); (3,"Spider"); (5,"CaveSpider"); (1,"Blaze"); (2,"Ghast")|],     UHC_MULT_B*1.0, DelayF = (fun (ms,rng) -> ms.MaxSpawnDelay <- 400s; ms.Delay <- if rng.Next(3) = 0 then 200s else 1s), SpiderJockeyPercentage = 1.0)
 let FLAT_COBWEB_OUTER_SPAWNER_DATA = 
-    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.0)
+    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = if HARD then 0.333 else 0.0)
 let FLAT_COBWEB_INNER_SPAWNER_DATA = 
-    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = 0.333)
-let FLAT_SET_PIECE_SPAWNER_DATA = 
-    SpawnerData([|(4,"Zombie"); (1,"Skeleton") |],                                              UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s))
+    SpawnerData([|(2,"Spider"); (1,"Witch"); (2,"CaveSpider")|],                                UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s), SpiderJockeyPercentage = if HARD then 0.666 else 0.333)
+//let FLAT_SET_PIECE_SPAWNER_DATA = 
+//    SpawnerData([|(4,"Zombie"); (1,"Skeleton") |],                                              UHC_MULT_A*1.0, DelayF = (fun (ms,_rng) -> ms.Delay <- 1s))
 
 // terrain ore substitutes
 let NEAR_SPAWN_SPAWNER_DATA = // in daylight radius, be kinder underground
@@ -158,7 +161,7 @@ let VANILLA_DUNGEON_EXTRA(x,y,z,originalKind) =
 
 
 
-let BIOME_HELL_PERCENTAGE = 0.1
+let BIOME_HELL_PERCENTAGE = if HARD then 0.2 else 0.1
 let BIOME_SKY_PERCENTAGE = 0.2
 
 

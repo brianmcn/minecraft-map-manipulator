@@ -993,7 +993,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                     let ms = possibleSpawners.NextSpawnerAt(x,y,z,rng)
                                     spawners.Add(ms)
                                     ok <- true
-                                    if y = 10 && thisIsFinal then // in final dungeon, don't let lava help them as much
+                                    if y = 10 && (thisIsFinal || CustomizationKnobs.HARD) then // in final dungeon (or hard green), don't let lava help them as much
                                         for dx = -10 to 10 do
                                             for dz = -10 to 10 do
                                                 if map.GetBlockInfo(x+dx,y,z+dz).BlockID=11uy then // 11=lava (intentionally letting flowing_lava get ignored)
@@ -3670,23 +3670,23 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let putHiddenElytraChestThunk = ref (fun() -> ())
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
     time (fun () -> putHiddenElytraChestThunk := findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
     time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars); (!putHiddenElytraChestThunk)()) // after peaks, uses hiddenX/hiddenZ; then can final finalEX/finalEZ
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    xtime (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,biome,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,biome,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_MAX)
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 

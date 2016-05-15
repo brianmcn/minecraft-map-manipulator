@@ -538,7 +538,7 @@ let NEWsampleTier3Chest(rng:System.Random,haveInnerChestsAndInstructions) = // g
     //let tier3BowBooks = [POW[2..4]; PUNCH[1..2]] // ; INF[1]]    Fix suggested no infinity this early is good, makes arrow management needed   
     let tier3Items =
         [|
-            yield makeBookWithIdLvl(0,4)   // prot 4 book
+            yield makeBookWithIdLvl(0,if CustomizationKnobs.HARD then 3 else 4)   // prot 4 book (3 on HARD)
             yield makeItem(rng,"anvil",F 3,F 5,2s)
             yield! chooseNbooks(rng,F 3,tier3ArmorBooks)
             yield! chooseNbooks(rng,F 2,tier3MeleeBooks)

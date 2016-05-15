@@ -31,6 +31,8 @@ May2016C - seed 702, single
 
 May2016E - seed 611, multi-EZ
 
+May2016H - seed tj3, single HARD
+
 CHECKLIST (automate?)
 make world checklist:
     tweak customization knobs
@@ -68,30 +70,28 @@ OK test new dung rate - at 50, seems a little high maybe, but better high than l
 OK one use pickaxe doesn't have a huge repair cost, can repair with wood planks e.g., becomes great spawner-breaker
 OK Q: what happens if drink milk while wearing jump boots? A: you no longer have JB, but it returns if you take off and put back on, which is fine
 OK do I need to put repair cost on jump boots to ensure people don't add prot4? yes, must fix
+OK I found a triple chest bug in the E map. http://imgur.com/a/MEu9O
+OK 'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
 
 thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
 witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable?
 surround outside border with void for 32 chunks (smaller download, no lag at large render dist)
 do any of the new commands lag anything? test multiplayer on server
-
-OK I found a triple chest bug in the E map. http://imgur.com/a/MEu9O
-OK 'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
-
+extinguish lava in green on hard
+more hell biomes on hard? (random ghasts are fun)
+prot4->3 on hard
+more spider jockeys red on hard
 
 TODO: bugs & good ideas
 
-
 test balance of no-meat&thunderstorm maps
-extinguish lava in green on hard?
 consider glowing arrows, they are fun (but also have normal, for infinity)... slowness arrows?
 TJ easter egg, something with "dilly dallying"? hates libraries (bookshelves)
-more hell biomes on hard? (random ghasts are fun)
-scale down late loot on hard (e.g. only 1 inner chest, not 2; prot3 rather than prot4)?
-higher insta-spawn pct in green for hard?
+
 something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
 
 random banners in starter chest (can be applied to shields) or as random loot?
-
+random cool textures on the starting shields?
 
 frost walker boots on underground mobs (4N saw in green dungeon)
 
@@ -109,8 +109,6 @@ even when dungeon reachable, may be in shallow cave, unmarked because pillar say
 glowstone pillar algorithm improved, but dungeons-near-them metric is still poor, improve?  ravines and many directions are tough, need a metric where an unbranching narrow cave costs less (have an idea for one)
 can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
 
-apparent side-path of 2 (screenshot apr25), was in a wide open spot where cave-skeleton must have doubled-back at different Y height and repainted redstone, making apparently short side path (hard to imagine how to fix offhand)
-
 any kind of 'progress meter' in cave dungeons?   
 what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
 "Something like cave systems that shift and change flavor as you delve deeper could be really fun in the future - walls changing over from andesite to diorite to granite might be a way of signalling that something new is happening to the player"
@@ -123,7 +121,6 @@ noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again indepe
 
 flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components; right now it only finds a R=20 flat center rather than R=40 flat whole
 
-random cool textures on the starting shields?
 
 COLLECTABLES:
 

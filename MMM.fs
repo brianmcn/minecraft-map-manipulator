@@ -1484,7 +1484,7 @@ automatic game start configs (night vision, starting items), customizable
 
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let levelDat = System.IO.Path.Combine(worldSaveFolder, "level.dat")
-//    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - May 2016 \u00A7aE\u00A7r ")
+    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - May 2016 \u00A7aH\u00A7r ")
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,50,25,80,false,false,false,false,(*ravine*)true,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
