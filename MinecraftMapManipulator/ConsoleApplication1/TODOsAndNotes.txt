@@ -69,20 +69,29 @@ OK one use pickaxe doesn't have a huge repair cost, can repair with wood planks 
 OK Q: what happens if drink milk while wearing jump boots? A: you no longer have JB, but it returns if you take off and put back on, which is fine
 OK do I need to put repair cost on jump boots to ensure people don't add prot4? yes, must fix
 
+thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
+witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable?
+surround outside border with void for 32 chunks (smaller download, no lag at large render dist)
+do any of the new commands lag anything? test multiplayer on server
+
+OK I found a triple chest bug in the E map. http://imgur.com/a/MEu9O
+OK 'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
+
 
 TODO: bugs & good ideas
 
-TODO test balance of no-meat maps
 
-future features/map request:
-thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
+test balance of no-meat&thunderstorm maps
+extinguish lava in green on hard?
+consider glowing arrows, they are fun (but also have normal, for infinity)... slowness arrows?
+TJ easter egg, something with "dilly dallying"? hates libraries (bookshelves)
+more hell biomes on hard? (random ghasts are fun)
+scale down late loot on hard (e.g. only 1 inner chest, not 2; prot3 rather than prot4)?
+higher insta-spawn pct in green for hard?
+something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
 
-witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable? yes:
-	scoreboard players tag @e[type=ThrownPotion] add witchPoison {Potion:{tag:{Potion:"minecraft:poison"}}}
-	entitydata @e[tag=witchPoison] {Potion:{tag:{Potion:"",CustomPotionEffects:[{Id:19b,Amplifier:0b,Ambient:0b,Duration:400}]}}}
-	scoreboard players tag @e[tag=witchPoison] remove witchPoison
+random banners in starter chest (can be applied to shields) or as random loot?
 
-'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
 
 frost walker boots on underground mobs (4N saw in green dungeon)
 
@@ -91,6 +100,8 @@ mossy vanilla spawners inside high mountain (above Y = whatever) are not doubled
 post to /r/minecraftmaps, /r/ctm - done
 post to /r/proceduralgeneration, forum?
 
+upside down world below ground? https://www.reddit.com/r/Minecraft/comments/4ivtxi/old_mod_idea_hollow_earth_mod_image/
+ - or e.g. nether below ground... can 'reuse' MC terrain gen at a different 'Y' of the world maybe to add content without needing a whole terrain gen maybe
 
 
 (possibly some spellbook that lets you pull up all the 'quest text' to refer back to in chat or something, so don't need to carry/forget books?)
@@ -135,6 +146,15 @@ mesa: 2347792175013291886 (poor caves nearspawn, poor green beacons)
    8225324188694294234
    -2473410148646685791
 diverse:  8609991750909377810
+	-4926332849099228886
+ocean diverse:
+	-2770714252244906609
+desert spawn:
+	1986368131567302513
+	3801814466817130531
+	8157502875499041714
+	-2629270176277309667  // TJ?
+	5292001791281798257
 south warm, north cold:  -3784735310312308920
 
 consider TNT under one loot chest nearest spawn? then need no more traps :)

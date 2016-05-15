@@ -665,7 +665,6 @@ let findCaveEntrancesNearSpawn(map:MapFolder, hm:_[,], hmIgnoringLeavesAndLogs:_
     for hs in nearSpawnCaveEntranceCCs.Values do
         if hs.Count > 200 then
             // only consider "caves" of some min size
-            let mutable spacesNearSunlight = 0
             let pointsAboveHM = new System.Collections.Generic.HashSet<_>()
             let pointsNearSunlight = new System.Collections.Generic.HashSet<_>()
             for p in hs do
@@ -847,13 +846,15 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
         (bid = 8uy || bid=30uy || bid=31uy || bid=37uy || bid=38uy || bid=39uy || bid=40uy || bid=66uy) // flowing_water/web/tallgrass/2flowers/2mushrooms/rail
     let dontOverwrite(bid) = 
         MC_Constants.TILE_ENTITY_BID_ID |> Array.exists(fun (b,_) -> b=bid)
-    let replaceGroundBelowWith(x,y,z,bid,dmg) = 
+    let replaceGroundBelowWithRedstoneOre(x,y,z,points:System.Collections.Generic.HashSet<_>) = 
+        let bid,dmg = 73uy,0uy   // 73 = redstone ore (lights up when things walk on it)
         let mutable pi,pj,pk = x,y,z
         while a.[pi,pj,pk]<>null do
             pj <- pj - 1
         while skippableDown(map.GetBlockInfo(pi,pj,pk).BlockID) || dontOverwrite(map.GetBlockInfo(pi,pj,pk).BlockID) do
             pj <- pj - 1
         map.SetBlockIDAndDamage(pi,pj,pk,bid,dmg)
+        points.Add(pi,pj,pk) |> ignore
     let mutable hasDoneFinal, thisIsFinal = false, false
     let beaconXZs = ResizeArray()
     for s in goodCCs.Values do
@@ -919,6 +920,8 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                 let PURPLE_MIN = 400
                 let PURPLE_MAX = 480
                 let SQR x = x*x
+                if hiddenX = 0 && hiddenZ = 0 then
+                    failwith "hidden not placed yet!!!"
                 if not hasDoneFinal && fullDist > PURPLE_MIN && SQR(ex)+SQR(ez) > SQR(SPAWN_PROTECTION_DISTANCE_PURPLE) && 
                         SQR(hiddenX-ex)+SQR(hiddenZ-ez)>SQR(700) then // ensure that elytra and purple are not too close to one another, so divining rod not have them see purple
                     thisIsFinal <- true
@@ -947,6 +950,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                     let mutable i,j,k = ex,ey,ez
                     let mutable count = 0
                     let spawners = SpawnerAccumulator("spawners along path")
+                    let redPathPoints = new System.Collections.Generic.HashSet<_>()
                     let possibleSpawners = 
                         if thisIsFinal then
                             PURPLE_BEACON_CAVE_DUNGEON_SPAWNER_DATA
@@ -1001,7 +1005,7 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                                 if spread = 5 then  // give up if we looked a few blocks away and didn't find a suitable block to swap
                                     ok <- true
                         // put stripe on the ground
-                        replaceGroundBelowWith(i,j,k,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
+                        replaceGroundBelowWithRedstoneOre(i,j,k,redPathPoints)
                         i <- ni
                         j <- nj
                         k <- nk
@@ -1062,23 +1066,39 @@ let findUndergroundAirSpaceConnectedComponents(rng : System.Random, map:MapFolde
                             if spy <= YMAX-4 then // an apparent endpoint at a height near top may just be where there was a cave opening but the analysis cut off at high y and saw it as endpoint, so ignore high-y endpoints
                                 let l = sidePath.Count 
                                 if l >= SIDE_PATH_MIN && l <= SIDE_PATH_MAX then
-                                    for x,y,z in sidePath do
-                                        if debugSkeleton then
-                                            map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane
-                                        // put stripe on the ground
-                                        replaceGroundBelowWith(x,y,z,73uy,0uy)  // 73 = redstone ore (lights up when things walk on it)
-                                    // put chest on ground at dead end
+                                    // compute where final chest would be
                                     let mutable x,y,z = sidePath.[0]
                                     while a.[x,y,z]<>null do
                                         y <- y - 1
                                     y <- y + 1
-                                    // TODO probably make a loot table, be more interesting
-                                    // TODO sometimes be trap or troll
-                                    let F = CustomizationKnobs.LOOT_FUNCTION
-                                    let numEmeralds = 1 + rng.Next(F 2)
-                                    let chestItems = Compounds[| [| Byte("Count",byte numEmeralds); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
-                                    putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON, chestItems, map, tes)
-                                    addedSidePathLengths.Add(l)
+                                    // verify the location is ok (sometimes skeleton loops in air above, and red paths fall down overlapping)
+                                    // heuristic: see that we're some distance from existing red path
+                                    let canMoveTo(x,y,z) = a.[x,y,z]<>null || redPathPoints.Contains(x,y,z)
+                                    let isEnd(x,y,z) = redPathPoints.Contains(x,y,z)
+                                    match Algorithms.findShortestPath(x,y,z,canMoveTo,isEnd,DIFFERENCES) with
+                                    | None -> failwith "how fail get back?"
+                                    | Some(_ep,_path,moves) ->
+                                        if moves.Count < SIDE_PATH_MIN*2/3 then
+                                            () //log.LogInfo(sprintf "skipping side path that would end at %d %d %d because too close to existing red path (%d)" x y z moves.Count)
+                                        else
+                                            for x,y,z in sidePath do
+                                                if debugSkeleton then
+                                                    map.SetBlockIDAndDamage(x,y,z,160uy,5uy) // 160 = stained_glass_pane
+                                                // put stripe on the ground
+                                                replaceGroundBelowWithRedstoneOre(x,y,z,redPathPoints)
+                                            // put chest on ground at dead end
+                                            let mutable x,y,z = sidePath.[0]
+                                            while a.[x,y,z]<>null do
+                                                y <- y - 1
+                                            y <- y + 1
+                                            // TODO probably make a loot table, be more interesting
+                                            // TODO sometimes be trap or troll
+                                            let F = CustomizationKnobs.LOOT_FUNCTION
+                                            let numEmeralds = 1 + rng.Next(F 2)
+                                            let chestItems = Compounds[| [| Byte("Count",byte numEmeralds); Byte("Slot",13uy); Short("Damage",0s); String("id","minecraft:emerald"); End |] |]
+                                            putTrappedChestWithItemsAt(x,y,z,Strings.NAME_OF_DEAD_END_CHEST_IN_GREEN_DUNGEON, chestItems, map, tes)
+                                            addedSidePathLengths.Add(l)
+                                            //log.LogInfo(sprintf "side path ending at %d %d %d with data %A" x y z (sidePath.ToArray()))
                         log.LogInfo(sprintf "added side paths with lengths: %A" (addedSidePathLengths |> Array.ofSeq))
                         map.AddOrReplaceTileEntities(tes)
     // end foreach CC
@@ -1611,21 +1631,22 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
         for dy = -1 to 1 do
             for dz = -1 to 1 do
                 map.SetBlockIDAndDamage(bx+dx,by+dy,bz+dz,20uy,0uy)  // glass
-    let quadrant = 
-        if finalEX = 0 && finalEZ = 0 then
-            failwith "final not placed yet!!!"
-        if finalEX < 0 then
-            if finalEZ < 0 then 
-                Strings.QUADRANT_NORTHWEST
+    let putHiddenElytraChestThunk() =  // thunk is so we can compute global vars finalEX/finalEZ first
+        let quadrant = 
+            if finalEX = 0 && finalEZ = 0 then
+                failwith "final not placed yet!!!"
+            if finalEX < 0 then
+                if finalEZ < 0 then 
+                    Strings.QUADRANT_NORTHWEST
+                else
+                    Strings.QUADRANT_SOUTHWEST 
             else
-                Strings.QUADRANT_SOUTHWEST 
-        else
-            if finalEZ < 0 then 
-                Strings.QUADRANT_NORTHEAST 
-            else
-                Strings.QUADRANT_SOUTHEAST 
-    let chestItems = Compounds(LootTables.elytraChestContents(quadrant))
-    putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_HIDDEN_TREASURE_CHEST,chestItems,map,null)
+                if finalEZ < 0 then 
+                    Strings.QUADRANT_NORTHEAST 
+                else
+                    Strings.QUADRANT_SOUTHEAST 
+        let chestItems = Compounds(LootTables.elytraChestContents(quadrant))
+        putUntrappedChestWithItemsAt(bx,by,bz,Strings.NAME_OF_HIDDEN_TREASURE_CHEST,chestItems,map,null)
     map.SetBlockIDAndDamage(bx,by-1,bz,89uy,0uy) // 89=glowstone
     // put a tiny mark on the surface
     do
@@ -1704,6 +1725,7 @@ let findSomeMountainPeaks(rng : System.Random, map:MapFolder,hm:_[,],hmIgnoringL
                 // ceiling over top to prevent cheesing it
                 map.SetBlockIDAndDamage(i,y+5,j,7uy,0uy) // 7=bedrock
         spawners.AddToMapAndLog(map,log)
+    putHiddenElytraChestThunk
 
 let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeavesAndLogs:_[,],log:EventAndProgressLog, decorations:ResizeArray<_>) =
     // convert height map to 'goodness' function that looks for similar-height blocks nearby
@@ -3056,13 +3078,24 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
     let dayTicks = ticks + 1000L
     let nightTicks = ticks + 14500L                 // LD 0.01 -> 0.76
     let lateNightTicks = nightTicks + 24000L * 32L  // 32 days later -> more local difficulty // LD 0.19 -> 0.94
-    R(sprintf "testfor @p[r=%d,x=0,y=80,z=0]" (DAYLIGHT_RADIUS*3))
+    R("")
+    if CustomizationKnobs.THUNDER then
+        U("weather thunder 999999")
+    U(sprintf "testfor @p[r=%d,x=0,y=80,z=0]" (DAYLIGHT_RADIUS*3))
     C(sprintf "time set %d" nightTicks) // night
     U("testforblock ~ ~2 ~ repeating_command_block -1 {SuccessCount:0}")
     C(sprintf "time set %d" lateNightTicks) // late night when far from spawn
     U("testfor @a {ActiveEffects:[{Id:26b}]}") // if anyone has luck potion
     C(sprintf "time set %d" dayTicks) // day
+    if CustomizationKnobs.THUNDER then
+        C("weather clear 999999")
     U(sprintf "execute @p[r=%d,x=0,y=80,z=0] ~ ~ ~ time set %d" DAYLIGHT_RADIUS dayTicks)  // Note, in multiplayer, if any player is near spawn, stays day (could exploit)
+    if CustomizationKnobs.THUNDER then
+        C("weather clear 999999")
+    // make witch poison not last so long
+    U("""scoreboard players tag @e[type=ThrownPotion] add witchPoison {Potion:{tag:{Potion:"minecraft:poison"}}}""")
+    U("""entitydata @e[tag=witchPoison] {Potion:{tag:{Potion:"",CustomPotionEffects:[{Id:19b,Amplifier:0b,Ambient:0b,Duration:400}]}}}""")
+    U("""scoreboard players tag @e[tag=witchPoison] remove witchPoison""")
     // night vision item
     scoreboard.AddDummyObjective("HoldingNV")
     U("scoreboard players set @a HoldingNV 0")
@@ -3634,25 +3667,26 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let allTrees = ref null
     let vanillaDungeonsInDaylightRing = ref null
     let pillars = ref null
+    let putHiddenElytraChestThunk = ref (fun() -> ())
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
-    time (fun () -> allTrees := treeify(map, hm))
-    time (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
+    xtime (fun () -> allTrees := treeify(map, hm))
+    xtime (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
     time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
     time (fun () -> substituteBlocks(!rng, map, log))
-    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars))
-    time (fun () -> findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees)) // after underground, uses finalEX/finalEZ
-    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
-    time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,biome,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
+    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> putHiddenElytraChestThunk := findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars); (!putHiddenElytraChestThunk)()) // after peaks, uses hiddenX/hiddenZ; then can final finalEX/finalEZ
+    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    xtime (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,biome,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
     time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
-    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    time (fun () -> 
+    xtime (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_MAX)
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 
