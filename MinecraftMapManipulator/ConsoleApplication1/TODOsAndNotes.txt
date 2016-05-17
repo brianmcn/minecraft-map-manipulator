@@ -72,6 +72,9 @@ OK Q: what happens if drink milk while wearing jump boots? A: you no longer have
 OK do I need to put repair cost on jump boots to ensure people don't add prot4? yes, must fix
 OK I found a triple chest bug in the E map. http://imgur.com/a/MEu9O
 OK 'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
+OK give glowing arrows, they are fun and expensive to craft (but also have normal arrows, for infinity)... (random tier2 chest 1/5)
+OK get rid of compass/paper loot, now that maps given?
+OK an alphabet chest of banners would be good loot bonus chest (also stack of empty banners for cloning)
 
 thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
 witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable?
@@ -81,19 +84,22 @@ extinguish lava in green on hard
 more hell biomes on hard? (random ghasts are fun)
 prot4->3 on hard
 more spider jockeys red on hard
+flame2 does not exist (removed, also lessened dungeon bow/util loot a little)
+made DS avail as random loot enchant book
+
 
 TODO: bugs & good ideas
 
 test balance of no-meat&thunderstorm maps
-consider glowing arrows, they are fun (but also have normal, for infinity)... slowness arrows?
-TJ easter egg, something with "dilly dallying"? hates libraries (bookshelves)
+consider mining fatigue 1 outside spawn as a debuff on hard?
 
 something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
 
-random banners in starter chest (can be applied to shields) or as random loot?
 random cool textures on the starting shields?
+add mob heads as random loot
 
 frost walker boots on underground mobs (4N saw in green dungeon)
+slowness arrows?
 
 mossy vanilla spawners inside high mountain (above Y = whatever) are not doubled (but loot chests have replaced loot)
 
@@ -121,6 +127,7 @@ noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again indepe
 
 flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components; right now it only finds a R=20 flat center rather than R=40 flat whole
 
+good troll: button says 'build a bridge' where there's a big gap you need to get across, and it makes a bridge... of blaze spawners :)
 
 COLLECTABLES:
 
@@ -189,6 +196,9 @@ glowstone dust could be a fun loot drop, to accumulate to make glowstone? though
 dreamplane/alternate dimension a la zelda LttP?
 terrain generator with more caves, fewer ravines, diff ore, much higher sea level and deeper underground, my own biomes?
 (wither skellies with bows shoot flame arrows (but I guess are not 'vanilla' mobs that way))
+fun mechanic I saw, 'slime staff', a stick that when held, causes slimes to explode (replace primed tnt), so you could use spawn eggs to place and then explode at range
+
+jahg on vlog: Hello.  Talking of commissioning a custom version of this custom map... I would love a sort of skylands version, floaty islands over void.  Get working on that custom terrain!  Go, go, go!  :D﻿
 
 below this line can probably do without for beta
 ------------------------------------------------

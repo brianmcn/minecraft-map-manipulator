@@ -60,6 +60,36 @@ type Payload =
     | Strings of string[]
     | Compounds of NBT[][]
     | IntArrays of int[][]
+    member this.ToFSharpLiteral() =
+        match this with
+        | Strings(a) ->
+            let sb = new System.Text.StringBuilder("Strings[|")
+            let mutable i = a.Length 
+            for s in a do
+                sb.Append(sprintf "\"%s\"" s) |> ignore
+                if i > 1 then
+                    sb.Append(";") |> ignore
+                    i <- i - 1
+            sb.Append("|]") |> ignore
+            sb.ToString()
+        | Compounds(a) ->
+            let sb = new System.Text.StringBuilder("Compounds[|")
+            let mutable i = a.Length 
+            for nbta in a do
+                sb.Append("[|") |> ignore
+                let mutable j = nbta.Length 
+                for nbt in nbta do
+                    sb.Append(nbt.ToFSharpLiteral() : string) |> ignore
+                    if j > 1 then
+                        sb.Append(";") |> ignore
+                        j <- j - 1
+                sb.Append("|]") |> ignore
+                if i > 1 then
+                    sb.Append(";") |> ignore
+                    i <- i - 1
+            sb.Append("|]") |> ignore
+            sb.ToString()
+        | _ -> failwithf "NYI Payload FSL: %s" (this.ToString())
     
 and NBT =
     | End
@@ -271,6 +301,29 @@ and NBT =
         match diff(this,other,[]) with
         | None -> None
         | Some(path,a,b) -> Some(path |> List.fold (fun s x -> ":" + x + s) "", a, b)
+    member this.ToFSharpLiteral() =
+        match this with
+        | End -> "End"
+        | Byte(n,b) -> sprintf "Byte(\"%s\",%duy)" n b
+        | Short(n,s) -> sprintf "Short(\"%s\",%ds)" n s
+        | Int(n,i) -> sprintf "Int(\"%s\",%d)" n i
+        | Long(n,l) -> sprintf "Long(\"%s\",%dL)" n l
+        | Float(n,f) -> sprintf "Float(\"%s\",%ff)" n f
+        | Double(n,d) -> sprintf "Double(\"%s\",%f)" n d
+        | ByteArray(n,a) -> sprintf "ByteArray(\"%s\",%A)" n a // TODO what if a too long, get "..."?
+        | String(n,s) -> sprintf "String(\"%s\",\"%s\")" n s
+        | List(n,pay) -> sprintf "List(\"%s\",%s)" n (pay.ToFSharpLiteral())
+        | Compound(n,a) -> 
+            let sb = new System.Text.StringBuilder(sprintf "Compound(\"%s\",ResizeArray[|" n)
+            let mutable i = a.Count 
+            for nbt in a do
+                sb.Append(nbt.ToFSharpLiteral()) |> ignore
+                if i > 1 then
+                    sb.Append(";") |> ignore
+                    i <- i - 1
+            sb.Append("|])") |> ignore
+            sb.ToString()
+        | IntArray(n,a) -> sprintf "IntArray(\"%s\",%A)" n a // TODO what if a too long, get "..."?
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -318,3 +371,5 @@ let SimpleDisplay nbt =
     | Compound(_,_) -> null
     | IntArray(_,_) -> "<int array>"
    
+/////////////////////////////////////////////////////////////////////////////
+

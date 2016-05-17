@@ -212,6 +212,7 @@ let NAME_OF_CHEST_ITEM_CONTAINING_MOUNTAIN_PEAK_LOOT = TranslatableString "Mount
 let NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT = TranslatableString "Red Beacon Web Loot"
 let NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT = TranslatableString "Dungeon Loot"
 let NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT = TranslatableString "Green Beacon Cave Loot"
+let NAME_OF_CHEST_ITEM_CONTAINING_ALPHABET_BANNERS = TranslatableString "Alphabet Banners"
 let NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS = TranslatableString "Basic Blocks"
 let NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS = TranslatableString "Nicer Blocks and Fun"
 let NAME_OF_CHEST_ITEM_CONTAINING_PROXIMITY_DETECTOR = TranslatableString "Loot-finding kit"
