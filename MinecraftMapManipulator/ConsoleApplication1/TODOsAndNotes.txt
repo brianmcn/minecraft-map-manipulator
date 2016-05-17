@@ -56,26 +56,15 @@ publish checklist:
 
 TEST
 OK? slightly fewer reds, makes each better and may force more exploration
-OK? too much book loot: dung has boa no smite, and green has smite no boa, and green can give fewer melee but still have 2 dung; also peak only gives red/green, no dung
 OK? still maybe too much diamonds or prot at end, lessened diamonds
 OK? anti-tunneling under peaks too? I did it, but it doesn't dissuade really; make the bedrock below it a little wider, 1 block might do wonders? 2 on mountain? and on mountain, put some air next to it (above bedrock), so can't dig in from side
-OK? peak floating half in a tree, obsidian confused by tree logs: need to remove trees on center of peak, and also have hm ignoring trees
-OK? changes leaves to leavesAndLogs throughout, check for oddities, esp. look at elytra, peaks, and flats
-OK? changed leaf ownership, look at nether/end trees, and teleporter-clear lines
-OK? final dungeon quadrant wrong, because placed book in hiding spot before placing final dungeon
-verify mineshaft beacon path looks ok
 OK? make bedrock roo4 above mountain just a little higher?  just like 2 blocks?  maybe also elevate the loot box those 2 blocks? (700,350 on seed615)
 OK? remove trees at spawn before glowpillar? check the 200 thresh with SL<13 or so? check glow pillars look good
 OK test new dung rate - at 50, seems a little high maybe, but better high than low I think
-OK one use pickaxe doesn't have a huge repair cost, can repair with wood planks e.g., becomes great spawner-breaker
 OK Q: what happens if drink milk while wearing jump boots? A: you no longer have JB, but it returns if you take off and put back on, which is fine
 OK do I need to put repair cost on jump boots to ensure people don't add prot4? yes, must fix
-OK I found a triple chest bug in the E map. http://imgur.com/a/MEu9O
-OK 'dead end' chest generated in the loot box (below loot, overwiting lapis base) in MayA, SE of spawn green
-OK give glowing arrows, they are fun and expensive to craft (but also have normal arrows, for infinity)... (random tier2 chest 1/5)
-OK get rid of compass/paper loot, now that maps given?
-OK an alphabet chest of banners would be good loot bonus chest (also stack of empty banners for cloning)
 
+verify mineshaft beacon path looks ok
 thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
 witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable?
 surround outside border with void for 32 chunks (smaller download, no lag at large render dist)
@@ -88,129 +77,61 @@ flame2 does not exist (removed, also lessened dungeon bow/util loot a little)
 made DS avail as random loot enchant book
 
 
+BUGS I can maybe live with
+
+frost walker boots on underground mobs (4N saw in green dungeon)
+mossy vanilla spawners inside high mountain (above Y = whatever) are not doubled (but loot chests have replaced loot) (and stone is not feesh, which is kinda good)
+even when dungeon reachable, may be in shallow cave, unmarked because pillar says cave is not big enough to warrant pillar
+glowstone pillar algorithm improved, but dungeons-near-them metric is still poor, improve?  ravines and many directions are tough, need a metric where an unbranching narrow cave costs less (have an idea for one)
+can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
+noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again independent events cause too much variance
+ - fixed the SpawnerData.NextSpawnerAt() to bias the rng for more balanced mob types in right proportions, but the number of spawners is harder to bias in dungeons since the percentages vary based on location...
+flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components; right now it only finds a R=20 flat center rather than R=40 flat whole
+deal with "// TODO these probabilities can cause wild swings in variance"
+still some cave-skeleton bugs (screenshots from jan 20)
+
+
+
 TODO: bugs & good ideas
 
 test balance of no-meat&thunderstorm maps
 consider mining fatigue 1 outside spawn as a debuff on hard?
-
-something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
-
-random cool textures on the starting shields?
 add mob heads as random loot
-
-frost walker boots on underground mobs (4N saw in green dungeon)
 slowness arrows?
-
-mossy vanilla spawners inside high mountain (above Y = whatever) are not doubled (but loot chests have replaced loot)
-
-post to /r/minecraftmaps, /r/ctm - done
 post to /r/proceduralgeneration, forum?
+soulsand (over ice?) as challenging terrain/substiution somewhere? v podzol in mega taiga? ...
+obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff (unbreakable leather/gold armor could be useful early and not OP)? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
+snow layers could be an interesting aesthetic or terrain feature?
 
-upside down world below ground? https://www.reddit.com/r/Minecraft/comments/4ivtxi/old_mod_idea_hollow_earth_mod_image/
- - or e.g. nether below ground... can 'reuse' MC terrain gen at a different 'Y' of the world maybe to add content without needing a whole terrain gen maybe
-
-
-(possibly some spellbook that lets you pull up all the 'quest text' to refer back to in chat or something, so don't need to carry/forget books?)
-even when dungeon reachable, may be in shallow cave, unmarked because pillar says cave is not big enough to warrant pillar
-glowstone pillar algorithm improved, but dungeons-near-them metric is still poor, improve?  ravines and many directions are tough, need a metric where an unbranching narrow cave costs less (have an idea for one)
-can find more glowstone pillars now, decide if want to trim them to help find dungeons - ideally need better way to combine & summary pillar/dungeon metrics into a recommendation
-
-any kind of 'progress meter' in cave dungeons?   
-what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
-"Something like cave systems that shift and change flavor as you delve deeper could be really fun in the future - walls changing over from andesite to diorite to granite might be a way of signalling that something new is happening to the player"
-
-bats with a trail of fire particles look cool :)
-something with pushable blocks or moving platforms using shulkers?
-
-noticed variability in flats: 1 to 11 spider jockeys (usually 4-6), again independent events cause too much variance
- - fixed the SpawnerData.NextSpawnerAt() to bias the rng for more balanced mob types in right proportions, but the number of spawners is harder to bias in dungeons since the percentages vary based on location...
-
-flats: TODO consider some simple maximal square algorithm rather than using findBestPeaks and connected components; right now it only finds a R=20 flat center rather than R=40 flat whole
-
-good troll: button says 'build a bridge' where there's a big gap you need to get across, and it makes a bridge... of blaze spawners :)
-
-COLLECTABLES:
-
-even a tiny floating island of like 40 blocks with one tree and a waterfall can be a fun little set piece (with a loot chest)
- - have a crude mockup in 126finished.  over plains/ice-plains/desert could be good
-noisemaker noteblock troll underground? fireworks spawner... that has a secret loot chest (or cmd block with red block above chest, break block turns off repeat cmd)
-deal with "// TODO these probabilities can cause wild swings in variance"
-glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what? (can't due to https://bugs.mojang.com/browse/MC-97094)
-secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
-what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
-
-
----
-
-ice spikes seed: 1440595613939009001  or   442832462593546
-variety: 35267400 or 604443340930998
-mesa: 2347792175013291886 (poor caves nearspawn, poor green beacons)
-   -3200857569343076362 (looks cool, adjust alg. a bit to deal with caves/flats decently)
-   3316589309694287545
-   8225324188694294234
-   -2473410148646685791
-diverse:  8609991750909377810
-	-4926332849099228886
-ocean diverse:
-	-2770714252244906609
-desert spawn:
-	1986368131567302513
-	3801814466817130531
-	8157502875499041714
-	-2629270176277309667  // TJ?
-	5292001791281798257
-south warm, north cold:  -3784735310312308920
-
-consider TNT under one loot chest nearest spawn? then need no more traps :)
+MOBS/COMBAT/PROCS
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
  - mobs that spawn at diff light levels/conditions (e.g. riding invisible silversifh with 0.5 health and withered)
-
-
-more underground flora (ferns, flowers, etc) are usually fun... underground grass? ...
-
-ender crystals?
-soulsand (over ice?) as challenging terrain/substiution somewhere? v podzol in mega taiga? ...
-
-one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
-
-obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff (unbreakable leather/gold armor could be useful early and not OP)? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
-obe would like to 'continue with normal survival' after done
-more variety of random-chest-loot (have some good weapons/armor that will break quickly (e.g. smite V diamond sword with only 50 durability), or other 'collectables'); loot increases with distance from spawn? some traps necessary
- - unrepairable: you can set the RepairCost to a high value (though will also prevent any other usage with an anvil): /give @p minecraft:diamond_shovel 1 40 {display:{Name:"Custom Tool"},RepairCost:1000}
 (the obeslisks in Eventide were effectively 'set pieces', can I think of others? wide area spawners did wonders for them; witch area (light) or guardian area (no water) may be good too?)
-empty chest (with a name?) can be good troll
-snow layers could be an interesting aesthetic or terrain feature?
-treasure maps (actual maps) are neat, a la https://www.youtube.com/watch?v=YMhSt75or2U&t=9m45s or https://www.youtube.com/watch?v=ae2YKOAHtZY&t=1m55s (savanna flat grass, ring of lilypads (on ocean?)) but how make area recognizable/findable? CTM sub-area is smaller, find map in area... for me?
-	another (missing tall grass/flowers for X): https://www.youtube.com/watch?v=fbtlLfEDsFk&t=9m
-end dimension with other biomes allows other things to spawn (useful for lighting? no beds, bedrock fire, has water, lava speed?, what other mechanics in end dimension?)
-when I do start adding any 'structures', they should all have randomness too (e.g. saw a cool big 'candle' whose fire was floating lava blocks, that could be neat to proc generate; more 'organic' stuff)
 what about a mob that can place blocks? like leaves a trail of obsidian as it walks, maybe blocking you in? or something?
 throwable light source (a la arcane bomb, splash pot -> tnt -> fire) is cool; arrows with pot effects for limited ammo special ranged something; limited ranged AoE is cool
-rather than paintings, custom maps/design/info on walls, maybe with traps or secrets behind them
 'charms' that if you have in your inventory (or in a certain slot of inventory) give you some bonus/buff/mechanic
 enemies invisible except if you hold a certain item which makes them visible (glowing?) a short time is a maybe-interesting mechanic (can be transparent, but only non-hostile on same team seeFriendlyInvisibles)
 natural spawn mechanics twiddling, e.g. all witches get replaces by 3 zombies, or some such; filling incaves below ground to spawn-cap surface area, ...
 making all enemies glowing for a short time may be useful mechanic
-(can rename/tag bits of food if want to not be stackable, e.g. treat steak like regen pot almost)
-glowstone dust could be a fun loot drop, to accumulate to make glowstone? though it's already plentiful in the map now, so... maybe not
-dreamplane/alternate dimension a la zelda LttP?
-terrain generator with more caves, fewer ravines, diff ore, much higher sea level and deeper underground, my own biomes?
 (wither skellies with bows shoot flame arrows (but I guess are not 'vanilla' mobs that way))
 fun mechanic I saw, 'slime staff', a stick that when held, causes slimes to explode (replace primed tnt), so you could use spawn eggs to place and then explode at range
+cool proc: walking on path blocks grants a speed buff
+a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
+can have in-ground arrows or in-flight arrows have area effects (brief fire?)
+can give effects when in water (execute detect) or lava
+can have forest -> ice forest, with leaves as packed ice, and have snow golem spawners (which will interact naturally with creepers on occasion)
+obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
+consider all RC3 procs
 
-jahg on vlog: Hello.  Talking of commissioning a custom version of this custom map... I would love a sort of skylands version, floaty islands over void.  Get working on that custom terrain!  Go, go, go!  :D﻿
+
+
+
 
 below this line can probably do without for beta
 ------------------------------------------------
+(can rename/tag bits of food if want to not be stackable, e.g. treat steak like regen pot almost)
 bat spawner in sky, has mob as passenger, bat has wither effect, dies and randomly rains down mobs?
-cool proc: walking on path blocks grants a speed buff
 weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
-a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
-can give effects when in water (execute detect) or lava
-can have in-ground arrows or in-flight arrows have area effects (brief fire?)
-interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs
-more varied terrain (like the end/hell trees) makes exploring more fun; vanilla is vanilla; mycelium?
-can have forest -> ice forest, with leaves as packed ice, and have snow golem spawners (which will interact naturally with creepers on occasion)
 some other block substitutions to make things interesting? cobble stairs/double-slabs to feign stone in caves?
  - glowstone 'ore veins' are fun to find (instead of lava? creepers can wreck? ...) idea: CC the lava/flowing_lava, convert all connected to level 10 to glowstone, if y>10, 50% air, if y <=10 obsidian?
  - biome change-up (to change grass colors)? to what purpose? (prefer to have a mechanic)
@@ -224,13 +145,9 @@ seemd like there may still be some skylight bugs, do more checks versus MC
 ***look of dungeons customized, e.g. moss -> netherrack in hell biome, more spawners per dungeon has better loot
 spawners inside tree leaves are nice simple 'traps', maybe by the tree chests? (how look on fast graphics if inside? or maybe just top center block of '+' e.g.)
 consider language/translation stuff? german/ellpeck? (don't spend too much effort unless clear could be a big payoff)
-obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
 awesome trap idea for underground cave (green/purple), spawners at/in lava layer can be almost ignored, what if trap dispenses a water bucket? or just have ice in ceiling or water sources behind spawners, etc
-spider jockey spawner above the bedrock of mountain peak was kinda 'useful' (spawned mobs, made reason to go atop), consider intentionally putting stuff above it
-still some cave-skeleton bugs (screenshots from jan 20)
 ***witch zones / guardian zones (could be small zone, but when you stand at loot chest, they spawn?)
 ***'themed' mobs, e.g. lots of undead, so smite/IH works, etc, make 'gear options' valuable
-***configurable difficulty (# spawners, amount of loot, limit good foods, mob stats? map size? local difficulty/inhabitedtime? weather? uhc mode?) (somewhat in-progress already)
 spawner underneath dead-end chest?
 ***hyper-spawner (dispenser with eggs)
 ***places where gravel floor falls
@@ -243,15 +160,10 @@ an area made out of chests/furnaces/etc where you want to use your bow is a nice
 trap where lava encased in wood/leaves etc with no air space to start fire, once player breaks blocks, fire may ignite (tnt?)
 anvils sitting on decaying leaf blocks in the sky?
 legendary: seeing x from afar leads to seeing y up close... (telporter path, ...)
-(secret rooms behind walls that look solid (e.g. array of armor stand with hardened clay on head looks like wall))
-have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
-   small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
-   what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
 glowstone behind stairs in wall (like Eventide Trance) highlights part of cave/dungeon without giving light
 TODOs and refactorings...
 undergound: 'giant crystal cave', e.g. you go down a cave and find a huge open space with ice and glass and whatnot. (how to generate 'look', how to place so there's a path, how to get player to find)
 special named chickens that lay emeralds or something: https://www.reddit.com/r/Minecraft/comments/46vf81/diamondlaying_chickens/
-interesting 'proc's
 surface (or underground) structures are fun to find, even if just small rare not-too-useful item, nice to 'see new stuff' that looks interesting (but requires 'builds')
 
 other ideas
@@ -283,3 +195,55 @@ but the drinkable health pot would override completely... might be nice to 'buy 
 overall, not too compelling; those who would avoid suicide don't need the extra challenge, they'll challenge selves; just creating busy work for those who would suicide
 
 
+
+SEEDS
+
+ice spikes seed: 1440595613939009001  or   442832462593546
+variety: 35267400 or 604443340930998
+mesa: 2347792175013291886 (poor caves nearspawn, poor green beacons)
+   -3200857569343076362 (looks cool, adjust alg. a bit to deal with caves/flats decently)
+   3316589309694287545
+   8225324188694294234
+   -2473410148646685791
+diverse:  8609991750909377810
+	-4926332849099228886
+ocean diverse:
+	-2770714252244906609
+desert spawn:
+	1986368131567302513
+	3801814466817130531
+	8157502875499041714
+	-2629270176277309667  // TJ?
+	5292001791281798257
+south warm, north cold:  -3784735310312308920
+
+BIG IDEAS
+
+upside down world below ground? https://www.reddit.com/r/Minecraft/comments/4ivtxi/old_mod_idea_hollow_earth_mod_image/
+ - or e.g. nether below ground... can 'reuse' MC terrain gen at a different 'Y' of the world maybe to add content without needing a whole terrain gen maybe
+something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
+(possibly some spellbook that lets you pull up all the 'quest text' to refer back to in chat or something, so don't need to carry/forget books?)
+bats with a trail of fire particles look cool :)
+something with pushable blocks or moving platforms using shulkers?
+good troll: button says 'build a bridge' where there's a big gap you need to get across, and it makes a bridge... of blaze spawners :)
+glowing underground mob? (invul magma?) spell something out, or have arrow, or be above chest, or what? (can't due to https://bugs.mojang.com/browse/MC-97094)
+secrets hidden behind out-of-place-blocks (e.g. chiseled stone, 3x3gravel, etc in walls of caves)
+what if each of the 16 colors had a one-word name, and the 16 words spelled out a sentence? or?
+any kind of 'progress meter' in cave dungeons?   
+what if in purple dungeon, first 5 spawners are zombie, next 5 are skeleton, creeper, cave spider, wither skel, witch, and then mix after that?
+"Something like cave systems that shift and change flavor as you delve deeper could be really fun in the future - walls changing over from andesite to diorite to granite might be a way of signalling that something new is happening to the player"
+more underground flora (ferns, flowers, etc) are usually fun... underground grass? ...
+ender crystals?
+one-way-home teleport mechanic? something time consuming you can't use in battle? kill iron golem or something? hm... or maybe one-way TPs home at major dungeon chests?
+obe would like to 'continue with normal survival' after done
+have a way to 'go to normal', e.g. turn off world border, (world embedded in normal terrain generator, ores, dungeons, with structures on, 
+   small biomes, same seed, seamless?), turn off night stuff, how fix nether? ...
+   what about drops after game is over? conditionally change all mob drops back to normal based on scoreboard? or? (like nether, have people delete files?)
+maps with stuff written on them (text, pictures, clues, ...)
+rather than paintings, custom maps/design/info on walls, maybe with traps or secrets behind them
+(secret rooms behind walls that look solid (e.g. array of armor stand with hardened clay on head looks like wall))
+end dimension with other biomes allows other things to spawn (useful for lighting? no beds, bedrock fire, has water, lava speed?, what other mechanics in end dimension?)
+when I do start adding any 'structures', they should all have randomness too (e.g. saw a cool big 'candle' whose fire was floating lava blocks, that could be neat to proc generate; more 'organic' stuff)
+interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs
+terrain generator with more caves, fewer ravines, diff ore, much higher sea level and deeper underground, my own biomes?
+jahg on vlog: Hello.  Talking of commissioning a custom version of this custom map... I would love a sort of skylands version, floaty islands over void.  Get working on that custom terrain!  Go, go, go!  :D﻿
