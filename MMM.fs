@@ -667,7 +667,6 @@ let chatToVoiceDemo() =
                 with e ->  
                     printfn "MINECRAFT FAULT> %s" (e.ToString()) 
                     reraise() 
-
         | CONSOLE data -> 
             printfn "C: %s" data
 
@@ -1311,6 +1310,33 @@ let generateSuperLongSnakingCommandBlockChain() =
 
 ////////////////////////////////////////
 
+
+let SERVER_DIRECTORY = """C:\Users\Admin1\Desktop\Server""" 
+let COMMAND_FILE = System.IO.Path.Combine(SERVER_DIRECTORY,"commands_to_run.txt")
+let putCommandBlocks() =
+    let cmds = [|
+        yield P """execute @e[type=Fireball,c=1] ~ ~-0.1 ~ summon Snowball {Motion:[0.0,1.0,0.0]}"""
+        for x in [-2.0; -1.5; -1.0; -0.5; 0.5; 1.0; 1.5; 2.0] do
+            for z in [-2.0; -1.5; -1.0; -0.5; 0.5; 1.0; 1.5; 2.0] do
+                yield U(sprintf """execute @e[type=Fireball,c=1] ~%3f ~-0.1 ~%3f summon Snowball {Motion:[0.0,1.0,0.0]}""" x z)
+        yield U """blockdata ~ ~ ~2 {auto:1b}"""
+        yield U """blockdata ~ ~ ~1 {auto:0b}"""
+        yield O """entitydata @e[type=Snowball] {ownerName:"Lorgon111"}"""
+        |]
+    let mutable x,y,z = 1211, 27, -122 
+    let strings = ResizeArray()
+    for c in cmds do
+        match c with
+        | P cmd -> strings.Add(sprintf """setblock %d %d %d repeating_command_block 3 replace {Command:"%s"}""" x y z (escape cmd)); z <- z + 1
+        | O cmd -> strings.Add(sprintf """setblock %d %d %d command_block 3 replace {Command:"%s"}""" x y z (escape cmd)); z <- z + 1
+        | U cmd -> strings.Add(sprintf """setblock %d %d %d chain_command_block 3 replace {Command:"%s",auto:1b}""" x y z (escape cmd)); z <- z + 1
+        | C cmd -> strings.Add(sprintf """setblock %d %d %d chain_command_block 11 replace {Command:"%s",auto:1b}""" x y z (escape cmd)); z <- z + 1
+    strings.Add(sprintf """setblock %d %d %d air""" x y z)
+    System.IO.File.WriteAllLines(COMMAND_FILE,strings)
+
+////////////////////////////////////////
+
+
 [<System.STAThread()>]  
 do   
     let user = "Admin1"
@@ -1491,7 +1517,7 @@ automatic game start configs (night vision, starting items), customizable
     let brianRngSeed = 0
     //dumpPlayerDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"))
 
-    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
+//    TerrainAnalysisAndManipulation.makeCrazyMap(worldSaveFolder,brianRngSeed,custom,11)
     LootTables.writeAllLootTables(worldSaveFolder)
     // TODO below crashes game to embed world in one with diff level.dat ... but what does work is, gen world with options below, then copy the region files from my custom world to it
     // updateDat(System.IO.Path.Combine(worldSaveFolder, "level.dat"), (fun _pl nbt -> match nbt with |NBT.String("generatorOptions",_oldgo) -> NBT.String("generatorOptions",almostDefault) | _ -> nbt))
@@ -1515,6 +1541,7 @@ automatic game start configs (night vision, starting items), customizable
     //let worldSeed = 14 
     //genTerrainWithMCServer(worldSeed,custom)
 
+    putCommandBlocks()
     (*
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing\region""")
     let colors = [|
