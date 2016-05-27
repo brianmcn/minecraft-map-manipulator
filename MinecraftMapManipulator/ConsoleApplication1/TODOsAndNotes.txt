@@ -31,7 +31,9 @@ May2016C - seed 702, single
 
 May2016E - seed 611, multi-EZ
 
-May2016H - seed tj3, single HARD
+May2016H - seed tj3, single HARD (tj beta)
+May2016J - seed tj3, single HARD (fairy beta)
+May2016X - seed tj3, single HARD
 
 CHECKLIST (automate?)
 make world checklist:
@@ -65,15 +67,15 @@ OK Q: what happens if drink milk while wearing jump boots? A: you no longer have
 OK do I need to put repair cost on jump boots to ensure people don't add prot4? yes, must fix
 
 verify mineshaft beacon path looks ok
-thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
-witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable?
-surround outside border with void for 32 chunks (smaller download, no lag at large render dist)
+OK thunderstorm rather than night outside the ring? https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d1xpa0x
+OK witch poison lasts a long time; can I entitydata the ThrownPotions in the air to make them more reasonable?
+OK surround outside border with void for 32 chunks (smaller download, no lag at large render dist)
 do any of the new commands lag anything? test multiplayer on server
-extinguish lava in green on hard
-more hell biomes on hard? (random ghasts are fun)
-prot4->3 on hard
+OK extinguish lava in green on hard
+OK more hell biomes on hard? (random ghasts are fun)
+OK prot4->3 on hard
 more spider jockeys red on hard
-flame2 does not exist (removed, also lessened dungeon bow/util loot a little)
+OK flame2 does not exist (removed, also lessened dungeon bow/util loot a little)
 made DS avail as random loot enchant book
 
 
@@ -90,18 +92,41 @@ flats: TODO consider some simple maximal square algorithm rather than using find
 deal with "// TODO these probabilities can cause wild swings in variance"
 still some cave-skeleton bugs (screenshots from jan 20)
 
+OK inner aesthetic3 chests maybe have more blocks?
+OK add chest of dye colors
+OK add mob heads as random loot (stack 64, creep, zom, skel, drag)
+OK soulsand (over ice?) as challenging terrain/substiution somewhere? v podzol in mega taiga? ...  in red?
+OK? no SWAMP in daylight
 
+OK add leaf blocks as items (decoration & utility)
+teleporters always randomize villagers same way since re-seed each section
 
 TODO: bugs & good ideas
 
 test balance of no-meat&thunderstorm maps
-consider mining fatigue 1 outside spawn as a debuff on hard?
-add mob heads as random loot
-slowness arrows?
+Note: TJ, like LNG, also made relatively quick work of red, water bucket to get rid of some webs, broke a few spawners, and blitzed in/out
+any easy way to get folks to open starter chest before bonus monument chest?
 post to /r/proceduralgeneration, forum?
-soulsand (over ice?) as challenging terrain/substiution somewhere? v podzol in mega taiga? ...
 obe loves 'utility' custom items (e.g. digging feesh, glass harvester, eff X pick, ...), also unbreakable/spammable stuff (unbreakable leather/gold armor could be useful early and not OP)? 'attribute loot', armor with health boost, knockback resist, etc... consider those... also saw "sharpness -4, smite 7" which "can only harm undead"
 snow layers could be an interesting aesthetic or terrain feature?
+consider mining fatigue 1 outside spawn as a debuff on hard?
+possibly easy red/mtn is too easy? maybe 60/70% spawners on those? start is hardest based on cyrilbt
+RC3 favorites: frost trap, rocket launcher (bow explode arrow), bow whose arrows leave particles that slow/damage mobs
+encase bedrock rooves in 'cloud' veneer for looks? (but then also change text referring to bedrock roof)
+renderxr advice: keep equip low, can have multiple open-world challenging areas where equally-poorly-equipped player will be challenged, trickle rewards more
+fewer spawners harder mobs is one thing; fewer spawners, and some set piece or one-time (when first enter area commands) mobs are another alternative
+
+amplified/elytra: https://www.reddit.com/r/VanillaSwirlCTM/comments/4btdb9/map_request_thread/d3fjq3q
+
+possible next step: turn off caves/ravines/dungeons (maybe tweak other terrain settings) and then make my own (could be wider caves, bigger structures underground, etc)
+my own caves:
+ - random headings, lengths, diameters for segments
+ - starts, boundaries, fail & retry to gen
+ - can track walls (hollowed air next to remain wall) for various things
+ - can add branch side paths (checking against walls after initial sphere-off-branch can ensure no self-collision creating loops)
+ - can add features (decorate walls, hidden passages, traps in ceiling, water flows, vine/moss, ...)
+ - can easily ensure one cave not intersect another (keep hashset of points hollowed, ensure zero intersect with other caves)
+advantages: I know skeleton perfectly, can make dead ends and tree branching as desired; can avoid caves/ravines on surface where unwanted; no analysis of MC caves needed
 
 MOBS/COMBAT/PROCS
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
@@ -122,6 +147,7 @@ can give effects when in water (execute detect) or lava
 can have forest -> ice forest, with leaves as packed ice, and have snow golem spawners (which will interact naturally with creepers on occasion)
 obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
 consider all RC3 procs
+slowness arrows?
 
 
 

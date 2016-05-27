@@ -215,7 +215,7 @@ let diffNBTs(r1:NBT,r2:NBT,h1,h2) =
 let diffDatFileStreams(datFile1,datFile2) =
     let r1 = readDatFileStream(datFile1)
     let r2 = readDatFileStream(datFile2)
-    diffNBTs(r1,r2,datFile1,datFile2)
+    diffNBTs(r1,r2,"1","2")
 
 let diffDatFilesGui(datFile1,datFile2) =
     let tv = diffDatFileStreams(datFile1,datFile2)
@@ -229,7 +229,7 @@ let diffNBTGui(nbt1,nbt2) =
     let app = new Application()
     app.Run(window) |> ignore
 
-let diffDatFilesText(datFile1,datFile2) =
+let diffDatFilesText(datFile1,datFile2,printTheDiff) =
     let tv = diffDatFileStreams(datFile1,datFile2)
     let a = ResizeArray()
     let (===) a b = System.Object.ReferenceEquals(a,b)
@@ -253,8 +253,9 @@ let diffDatFilesText(datFile1,datFile2) =
                 traverse(itemsAsSeq tvi.Items, depth+1)
             | _ -> ()
     traverse(itemsAsSeq tv.Items, 1)
-    for s in a do
-        printfn "%s" s
+    if printTheDiff then
+        for s in a do
+            printfn "%s" s
     a.Count <> 0
 
 let diffStringArrays(a1:_[],a2:_[]) =

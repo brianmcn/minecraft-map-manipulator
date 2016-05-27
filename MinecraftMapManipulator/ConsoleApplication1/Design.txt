@@ -11,6 +11,11 @@ RANDOMLY GENERATED
 I like MC vanilla terrain, CTMs, and roguelikes like spelunky, rogue legacy etc... combine!
 Have not seen this done before (a couple mods or crazy command-block thingies, but of those I've seen, none do 'CTM' at all well IMO)
 customization levers (I can make a new map with X), donation incentive
+also, i can't build :)
+
+RANDOM
+need to curate maps/seeds a lot to deal with random flaws (can't place dungeons, no good caves at spawn, poor biome diversity, too much ocean, ...)
+each new seed finds new bugs and flaws in heuristics :)
 
 OPEN WORLD
 
@@ -20,9 +25,6 @@ How to steer the player and have progression?
  - breadcrumbs (text to explicitly give players goals/quests to look for)
  - command/map mechanics (like divining rod, or other map-like stuff) which direct player to a location
 
-story/lore/building
- - none, but hell/end biomes for flavor, dubious value
-
 PACE
 I really like basic survival in CTMs, and want people to chop a tree, make a pickaxe, and struggle to get stone at the start. (drop, dungeon wall, generator, high mountain, silk touch monster egg)
 felt like needed red to have lots of DoT (poison/fire) to repel under-geared players, so had at least a prot4 in green loot, plus player would have gotten more
@@ -31,15 +33,8 @@ felt like needed red to have lots of DoT (poison/fire) to repel under-geared pla
 
 LORE
 I think backstory books, silly item names/descriptions, etc, are mostly worthless.
-
-BONUS MONUMENT
-  - want to encourage/reward exploration
-  - random loot chests help that, but at some point it's just 'another chest' unless you find ways to make each unique and valuable
-    - stained glass gives strong incentive to find different kinds
-	- proximity detector makes possible to find more and all the kinds
-	- randomizing loot/bonuses/trolls and having variety of 'basic' loot also helps (and helps builders scratch other itches, and players who lost gear re-gear)
- - I could not make 16 dungeons, but nice to have 16-something in CTMs (quite enjoyed making/hiding these)
- - map overview and given maps help encourage travel
+story/lore/building
+ - none, but hell/end biomes for flavor, dubious value
 
 LOOT
 I don't like to force people to play a certain way, give them options
@@ -57,10 +52,15 @@ kind/tiers of random loot chests
 emeralds in dead ends
 The villager trades also reward exploration, make travel faster, and give players who are struggling a way to get stronger (and provide more incentive to explore).
 
-COMMANDS
-  - it's easy to over-use command blocks
-  - a few combat-procs are kind of cool, but I prefer commands for utility/surprise/fun rather than messing with core mechanics
-  - CTM block-detection, daylight cycle, divining rod, proximity detector are almost all the commands (feesh limiter too, and NV/JB on special items)
+FOOD
+To reduce inventory-management issues, I only give 5 types, one of each main 'tier' of food quality.
+Players can farm food, once again giving people option of 'extra gear', as steak is pretty OP (and gapples surely are).
+
+DUNGEONS
+I think I first got main idea from rewatching Z's Inferno Mines and the Lush Ruins which was a mineshaft subtitution... to make a cave dungeon with redstone 'ribbon path'. Knew good algorithms for some of it, had to figure out a lot.
+Red beacon and mountain peak are similar ideas, drop spawners out of sky around a box :) Just on different terrain.  Need bedrock ceiling to deal with multiplayer daylight at spawn, and also gives better ambience with red torches compared to moonlight.
+Green fight downwards (easiest), red fight across flats (middle), mountain fight uphill/fall (hardest) was the main idea.
+Lots of juggling with sizes and spawner distributions and webs and test playing.
 
 CUSTOM MOBS
 Custom mobs can add some flavor, but I don't like how opaque they are:
@@ -69,28 +69,29 @@ I didn't use wither skeletons, guardians, magma cubes, or electrified creepers (
 But without custom mobs, rely on spawner-spam, especially in later dungeons of map.  Not ideal...
 That said I do use local difficulty (dist from spawn, if in dungeon area).
 
-DUNGEONS
-I think I first got main idea from rewatching Z's Inferno Mines and the Lush Ruins which was a mineshaft subtitution... to make a cave dungeon with redstone 'ribbon path'. Knew good algorithms for some of it, had to figure out a lot.
-Red beacon and mountain peak are similar ideas, drop spawners out of sky around a box :) Just on different terrain.  Need bedrock ceiling to deal with multiplayer daylight at spawn, and also gives better ambience with red torches compared to moonlight.
-Green fight downwards (easiest), red fight across flats (middle), mountain fight uphill/fall (hardest) was the main idea.
-Lots of juggling with sizes and spawner distributions and webs and test playing.
-
 POTIONS
 There are some really OP potions, and it is hard to gauge difficulty when players can freely obtain them, so I just chose not to have pots (other than the villager trades, which were added to incent exploration and give late leverage).
 
-FOOD
-To reduce inventory-management issues, I only give 5 types, one of each main 'tier' of food quality.
-Players can farm food, once again giving people option of 'extra gear', as steak is pretty OP (and gapples surely are).
+BONUS MONUMENT
+  - want to encourage/reward exploration
+  - random loot chests help that, but at some point it's just 'another chest' unless you find ways to make each unique and valuable
+    - stained glass gives strong incentive to find different kinds
+	- proximity detector makes possible to find more and all the kinds
+	- randomizing loot/bonuses/trolls and having variety of 'basic' loot also helps (and helps builders scratch other itches, and players who lost gear re-gear)
+ - I could not make 16 dungeons, but nice to have 16-something in CTMs (quite enjoyed making/hiding these)
+ - map overview and given maps help encourage travel
 
-RANDOM
-need to curate maps/seeds a lot to deal with random flaws (can't place dungeons, no good caves at spawn, poor biome diversity, too much ocean, ...)
-each new seed finds new bugs and flaws in heuristics :)
+COMMANDS
+  - it's easy to over-use command blocks
+  - a few combat-procs are kind of cool, but I prefer commands for utility/surprise/fun rather than messing with core mechanics
+  - CTM block-detection, daylight cycle, divining rod, proximity detector are almost all the commands (feesh limiter too, and NV/JB on special items)
 
 MARCH->MAY changes
 
 1st monument block came way too late, halfway thru map, moved it to green beacon, made green chest loot carryable home, moved red up too
  - peak is kinda optional, though only if can somehow find purple on own without quadrant hint and elytra
  - want to ensure red is unskippable, as it's the turning point of the map, and also you have to explore a bit to find one
+ - now all blocks are in beacons
 
 inventory: no one was using enderchests; they were kind of rare, some folks didn't know can silk without diamond pick, so added bonus dung. loot with EC and wood ST
 

@@ -1836,6 +1836,8 @@ let findSomeFlatAreas(rng:System.Random, map:MapFolder,hm:_[,],hmIgnoringLeavesA
                             spawners.Add(ms)
                         elif rng.Next(3) = 0 then
                             map.SetBlockIDAndDamage(x, y, z, 30uy, 0uy) // 30 = cobweb
+                        elif HARD && rng.Next(3) = 0 && map.GetBlockInfo(x,hm.[x,z],z).BlockID=0uy then
+                            map.SetBlockIDAndDamage(x, hm.[x,z]-1, z, 88uy, 0uy) // 88 = soul_sand
                     elif rng.Next(60) = 0 then
                         map.SetBlockIDAndDamage(i,hm.[i,j],j,76uy,5uy) // 76=redstone_torch
                         map.SetBlockIDAndDamage(i,hm.[i,j]-1,j,1uy,5uy) // 1,5=andesite
@@ -1954,8 +1956,8 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
             3
     let putTrappedChestWithLoot(color,x,y,z,tier) =
         let level = level(x,z)
-        let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng,color,level)
-                    elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng,color,level)
+        let items = if tier = 1 then LootTables.NEWaestheticTier1Chest(rng,color,level,false)
+                    elif tier = 2 then LootTables.NEWaestheticTier2Chest(rng,color,level,false)
                     elif tier = 3 then LootTables.NEWaestheticTier3Chest(rng,color,level)
                     else failwith "bad aesthetic tier"
         //if items |> Array.exists(Array.exists (function String("id","minecraft:grass")->true|_->false)) then
@@ -2333,7 +2335,7 @@ let addRandomLootz(rng:System.Random, map:MapFolder,log:EventAndProgressLog,hm:_
                 assert(PIXELS.Length = PIXELS.[0].Length)
                 if x < MINIMUM+LENGTH-1 - DIGMAX && z < MINIMUM+LENGTH-1 - DIGMAX then
                     if map.GetBiome(x,z)=6uy && map.GetBlockInfo(x,y,z).BlockID=9uy && map.GetBlockInfo(x,y+1,z).BlockID=0uy then // swamp, water, air
-                        if noneWithin(120,points.[14],x,y,z) then
+                        if x*x+z*z > (DAYLIGHT_RADIUS+DIGMAX)*(DAYLIGHT_RADIUS+DIGMAX) && noneWithin(120,points.[14],x,y,z) then
                             if rng.Next(40) = 0 then // TODO probability, so don't place on all, or all NE corners, or whatnot (data point: at rng(40), 13 of 17 swamps got covered)
                                 let mutable ok,i = true,0
                                 while ok && i < DIGMAX*DIGMAX do
@@ -2851,8 +2853,8 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
             Compounds[| 
                     for i = 0uy to 8uy do
                         let level = if i<3uy then 1 elif i<6uy then 2 else 3
-                        yield [| yield Byte("Slot",i); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 1 level %d" level),LootTables.NEWaestheticTier1Chest(rng,-1,level)) |]
-                        yield [| yield Byte("Slot",i+9uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 2 level %d" level),LootTables.NEWaestheticTier2Chest(rng,-1,level)) |]
+                        yield [| yield Byte("Slot",i); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 1 level %d" level),LootTables.NEWaestheticTier1Chest(rng,-1,level,false)) |]
+                        yield [| yield Byte("Slot",i+9uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 2 level %d" level),LootTables.NEWaestheticTier2Chest(rng,-1,level,false)) |]
                         yield [| yield Byte("Slot",i+18uy); yield! LootTables.makeChestItemWithNBTItems(Strings.TranslatableString (sprintf "DEBUG aesthetic 3 level %d" level),LootTables.NEWaestheticTier3Chest(rng,-1,level)) |]
                 |]
         putUntrappedChestWithItemsAt(4,h+2,-2,Strings.TranslatableString"DEBUG",chestItems,map,null)
@@ -2912,6 +2914,9 @@ let placeStartingCommands(worldSaveFolder:string,map:MapFolder,hm:_[,],hmIgnorin
     let COMMAND_ROOM_BOTTOM_Y = h-61
     if COMMAND_ROOM_BOTTOM_Y < 1 then
         failwith "command room too low, overwriting glass or going out of world"
+    if HARD then
+        map.SetBlockIDAndDamage(5,h+2,1,63uy,4uy) // 63 = standing_sign
+        map.AddOrReplaceTileEntities [| Strings.makeTextSignTE(5,h+2,1,Strings.HARD_SIGN) |]
     // the TP hub...
     // ...walls and room
     for x = -2 to 4 do
@@ -3325,10 +3330,12 @@ let placeTeleporters(rng:System.Random, map:MapFolder, hm:_[,], hmIgnoringLeaves
         | _ -> failwith "bad villager #"
     let unusedVillagers = ResizeArray [| 0; 1; 2; 3 |]
     let villagers = ResizeArray()
-    for i = 0 to 3 do
-        let n = rng.Next(unusedVillagers.Count)
-        villagers.Add(villagerData(unusedVillagers.[n]))
-        unusedVillagers.RemoveAt(n)
+    do
+        let rng = System.Random() // unseeded for this part
+        for i = 0 to 3 do
+            let n = rng.Next(unusedVillagers.Count)
+            villagers.Add(villagerData(unusedVillagers.[n]))
+            unusedVillagers.RemoveAt(n)
     for xs,zs,dirName,spx,spz,tpdata,vd in [-512,-512,Strings.QUADRANT_NORTHWEST,-1,-1,"~0.5 ~0.2 ~0.5 -45 10",villagers.[0]
                                             -512,+512,Strings.QUADRANT_SOUTHWEST,-1,3,"~0.5 ~0.2 ~-0.5 -135 10",villagers.[1]
                                             +512,+512,Strings.QUADRANT_SOUTHEAST,3,3,"~-0.5 ~0.2 ~-0.5 135 10",villagers.[2]
@@ -3670,23 +3677,23 @@ let makeCrazyMap(worldSaveFolder, rngSeed, customTerrainGenerationOptions, mapTi
     let putHiddenElytraChestThunk = ref (fun() -> ())
     let scoreboard = Utilities.ScoreboardFromScratch(worldSaveFolder)
 //    xtime (fun () -> findMountainToHollowOut(map, hm, hmIgnoringLeavesAndLogs, log, decorations))  // TODO eventually use?
-    xtime (fun () -> allTrees := treeify(map, hm))
-    xtime (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
-    xtime (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
-    xtime (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
-    xtime (fun () -> substituteBlocks(!rng, map, log))
-    xtime (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
-    xtime (fun () -> putHiddenElytraChestThunk := findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
-    xtime (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars); (!putHiddenElytraChestThunk)()) // after peaks, uses hiddenX/hiddenZ; then can final finalEX/finalEZ
-    xtime (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
-    xtime (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
-    xtime (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
-    xtime (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
+    time (fun () -> allTrees := treeify(map, hm))
+    time (fun () -> removeTreesNearSpawn(map,hm,!allTrees)) // must happen before teleporters/cave entrances/commands, as changes HM near spawn and those depend upon
+    time (fun () -> placeTeleporters(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations, !allTrees))
+    time (fun () -> vanillaDungeonsInDaylightRing := doubleSpawners(map, log))
+    time (fun () -> substituteBlocks(!rng, map, log))
+    time (fun () -> pillars := findCaveEntrancesNearSpawn(map,hm,hmIgnoringLeavesAndLogs,log))
+    time (fun () -> putHiddenElytraChestThunk := findSomeMountainPeaks(!rng, map, hm, hmIgnoringLeavesAndLogs, log, biome, decorations, !allTrees))
+    time (fun () -> findUndergroundAirSpaceConnectedComponents(!rng, map, hm, log, decorations, !vanillaDungeonsInDaylightRing, !pillars); (!putHiddenElytraChestThunk)()) // after peaks, uses hiddenX/hiddenZ; then can final finalEX/finalEZ
+    time (fun () -> findSomeFlatAreas(!rng, map, hm, hmIgnoringLeavesAndLogs, log, decorations))
+    time (fun () -> replaceSomeBiomes(!rng, map, log, biome, !allTrees)) // after treeify, so can use allTrees, after placeTeleporters so can do ground-block-substitution cleanly
+    time (fun () -> addRandomLootz(!rng, map, log, hm, hmIgnoringLeavesAndLogs, biome, decorations, !allTrees, colorCount, scoreboard))  // after others, reads decoration locations and replaced biomes
+    time (fun () -> log.LogSummary("COMPASS CMDS"); placeCompassCommands(map,log))   // after hiding spots figured
     time (fun () -> placeStartingCommands(worldSaveFolder,map,hm,hmIgnoringLeavesAndLogs,biome,log,mapTimeInHours, colorCount, scoreboard)) // after hiding spots figured (puts on scoreboard, but not using that, so could remove and then order not matter)
-    xtime (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
-    xtime (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
+    time (fun () -> log.LogSummary("FIXING UP BROKEN TILE ENTITIES"); discoverAndFixTileEntityErrors(map,log)) // right before we relight & save
+    time (fun () -> log.LogSummary("RELIGHTING THE WORLD"); RecomputeLighting.relightTheWorldHelper(map,[-2..1],[-2..1],false)) // right before we save
     time (fun () -> log.LogSummary("SAVING FILES"); map.WriteAll(); printfn "...done!")
-    xtime (fun () -> 
+    time (fun () -> 
         log.LogSummary("WRITING MAP PNG IMAGES")
         let teleporterCenters = decorations |> Seq.filter (fun (c,_,_,_) -> c='T') |> Seq.map(fun (_,x,z,_) -> x,z,TELEPORT_PATH_MAX)
         Utilities.makeBiomeMap(worldSaveFolder+"""\region""", map, origBiome, biome, hmIgnoringLeavesAndLogs, MINIMUM, LENGTH, MINIMUM, LENGTH, 

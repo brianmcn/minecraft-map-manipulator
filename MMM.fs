@@ -165,9 +165,10 @@ let compareMinecraftAssets(jar1, jar2) =
         let entry1 = archive1.GetEntry(name)
         let entry2 = archive2.GetEntry(name)
         if entry1 <> null && entry2 <> null then
-            if System.IO.Path.GetExtension(name) = "nbt" then
+            if System.IO.Path.GetExtension(name).ToLowerInvariant() = ".nbt" then
                 printfn "%s" (name.ToUpper())
-                if diffDatFilesText(entry1.Open(), entry2.Open()) then
+                if diffDatFilesText(entry1.Open(), entry2.Open(),false) then
+                    printfn "CHANGED!"
                     diffCount <- diffCount + 1
                 printfn "=============="
             else
@@ -1310,7 +1311,6 @@ let generateSuperLongSnakingCommandBlockChain() =
 
 ////////////////////////////////////////
 
-
 let SERVER_DIRECTORY = """C:\Users\Admin1\Desktop\Server""" 
 let COMMAND_FILE = System.IO.Path.Combine(SERVER_DIRECTORY,"commands_to_run.txt")
 let putCommandBlocks() =
@@ -1336,6 +1336,95 @@ let putCommandBlocks() =
 
 ////////////////////////////////////////
 
+let interpolate(start, stop, n, steps) = start + (stop-start)*(float(n)/float(steps))
+
+let carveSphere(map:MapFolder, xc, yc, zc, r) = 
+    let sq x = x*x
+    for x = int(xc-r-1.0) to int(xc+r+1.0) do
+        for y = int(yc-r-1.0) to int(yc+r+1.0) do
+            for z = int(zc-r-1.0) to int(zc+r+1.0) do
+                if sq(float(x)-xc)+sq(float(y)-yc)+sq(float(z)-zc) < sq(r) then
+                    map.EnsureSetBlockIDAndDamage(x,y,z,0uy,0uy)
+
+let MAX_INTERPOLATE = 2
+let carvePassage(map:MapFolder, xc1, yc1, zc1, r1, xc2, yc2, zc2, r2) =
+    let MAX = MAX_INTERPOLATE
+    for n in 0..MAX do
+        let xc = interpolate(xc1,xc2,n,MAX)
+        let yc = interpolate(yc1,yc2,n,MAX)
+        let zc = interpolate(zc1,zc2,n,MAX)
+        let r  = interpolate(r1, r2, n,MAX)
+        carveSphere(map, xc, yc, zc, r)
+
+let makeRandomCave(map:MapFolder, xs, ys, zs, rs, initPhi, initTheta, desiredLength, rng:System.Random) =
+    // spherical coordinates (phi=0 is up) to minecraft axes:
+    // x = sin phi * cos theta
+    // z = sin phi * sin theta
+    // y = cos phi
+    let inBounds(x,y,z,r) =
+        x-r > -400.0 && x+r < 400.0 &&
+        y-r >   10.0 && y+r < 130.0 &&
+        z-r > -400.0 && z+r < 400.0
+    let computeNextXYZ(curX, curY, curZ, nextPhi, nextTheta, nextLength) =
+        let nextX = curX + (sin(nextPhi)*cos(nextTheta)*nextLength)
+        let nextZ = curZ + (sin(nextPhi)*sin(nextTheta)*nextLength)
+        let nextY = curY + (cos(nextPhi)*nextLength)
+        nextX, nextY, nextZ
+    let mutable curX, curY, curZ, curR, curPhi, curTheta, totalLength = xs, ys, zs, rs, initPhi, initTheta, 0.0
+    let mutable failCount = 0
+    while totalLength < desiredLength do
+        // choose a next heading, r, & segment length
+        let nextPhi = curPhi + (rng.NextDouble()-0.5)*1.0 // +/- half radian
+        let nextTheta = curTheta + (rng.NextDouble()-0.5)*2.0
+        let nextR = curR + (rng.NextDouble()-0.5)*1.0
+        let nextLength = rng.NextDouble()*7.0 + 5.0 // 5 to 12
+        // (ensure connected)
+        let minR = min nextR curR
+        let maxLen = minR * 2.0 * float(MAX_INTERPOLATE)
+        let nextLength = min nextLength maxLen
+        // validate
+        let mutable ok = true
+        if nextR < 1.5 || nextR > 5.0 then
+            ok <- false
+            printfn "R out of bounds"
+        let nextX,nextY,nextZ = computeNextXYZ(curX, curY, curZ, nextPhi, nextTheta, nextLength)
+        if not(inBounds(nextX,nextY,nextZ,nextR)) then
+            ok <- false
+            printfn "out of bounds: (%3.0f, %3.0f, %3.0f) (%2.1f, %1.2f, %1.2f)" nextX nextY nextZ nextR nextPhi nextTheta
+        // heuristic to avoid steering at a wall we later can't avoid
+        for tries = 8 downto 1 do
+            if ok then
+                let nextX,nextY,nextZ = computeNextXYZ(curX, curY, curZ, nextPhi, nextTheta, nextLength * float(tries))
+                if not(inBounds(nextX,nextY,nextZ,nextR)) then
+                    if rng.Next(tries+4) <= 4 then
+                        ok <- false
+                        printfn "steering towards bounds %d: (%3.0f, %3.0f, %3.0f) (%2.1f, %1.2f, %1.2f)" tries nextX nextY nextZ nextR nextPhi nextTheta
+                    else
+                        printfn "steering towards bounds %d but ignoring" tries
+        if ok then
+            // make next segment
+            carvePassage(map, curX, curY, curZ, curR, nextX, nextY, nextZ, nextR)
+            curX <- nextX
+            curY <- nextY
+            curZ <- nextZ
+            curR <- nextR
+            curPhi <- nextPhi
+            curTheta <- nextTheta
+            totalLength <- totalLength + nextLength
+            printfn "making segment: (%3.0f, %3.0f, %3.0f) (%2.1f, %1.2f, %1.2f)" nextX nextY nextZ nextR nextPhi nextTheta
+            failCount <- 0
+        else
+            failCount <- failCount + 1
+        if failCount = 16 then
+            printfn "failed 16 times in a row, picking a new random heading to escape"
+            curPhi <- rng.NextDouble()*2.0*System.Math.PI 
+            curTheta <- rng.NextDouble()*2.0*System.Math.PI 
+            failCount <- 0
+        
+////////////////////////////////////////
+
+
+
 
 [<System.STAThread()>]  
 do   
@@ -1348,14 +1437,6 @@ do
 
 
 TO TEST
-
-on each map TP, was clipping down into block stood atop (kinda, just usual lag bug)
-based on tech.map convo, type=X (or team=) is a probably good filter on @e[]s to reduce numbers
-
-
-obe died, now has no maps - hm, the ICB in the cmdsNoMoreMaps row was stuck 'on' (this is clearly impossible)
- - happened to me once in singleplayer too!  /blockdata 104 3 13 {auto:0b} fixes, but how!
- - shook, timer stopped, /blockdata 3 6 48 {auto:0b}
 
 prep map, e.g. 
 
@@ -1494,8 +1575,9 @@ automatic game start configs (night vision, starting items), customizable
     //chatToVoiceDemo()
 
 
+    //dumpPlayerDat("""C:\Users\Admin1\Desktop\ship.nbt""")
     (*
-    compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.1.zip""","""C:\Users\Admin1\Desktop\1.9.4.zip""")
+    compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.4.zip""","""C:\Users\Admin1\Desktop\16w20a.zip""")
     // compare sounds.json
     let currentSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\AppData\Roaming\.minecraft\assets\objects\54\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
     let oldSoundsJson = System.IO.File.ReadAllLines("""C:\Users\Admin1\Desktop\54511a168f5960dd36ff46ef7a9fd1d4b1edee4a""")
@@ -1510,7 +1592,7 @@ automatic game start configs (night vision, starting items), customizable
 
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let levelDat = System.IO.Path.Combine(worldSaveFolder, "level.dat")
-//    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - May 2016 \u00A7aH\u00A7r ")
+//    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - May 2016 \u00A7aX\u00A7r ")
     let biomeSize = 3
     let custom = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,50,25,80,false,false,false,false,(*ravine*)true,TerrainAnalysisAndManipulation.oreSpawnCustom)
     //let almostDefault = MC_Constants.defaultWorldWithCustomOreSpawns(biomeSize,8,4,80,true,true,true,true,true,MC_Constants.oreSpawnDefaults) // biome size kept, but otherwise default
@@ -1541,7 +1623,22 @@ automatic game start configs (night vision, starting items), customizable
     //let worldSeed = 14 
     //genTerrainWithMCServer(worldSeed,custom)
 
-    putCommandBlocks()
+
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\solidCopy\region""")
+    //carveSphere(map, 20.0, 115.0, 20.0, 15.0)
+    //carvePassage(map, 40.0, 115.0, 40.0, 15.0, 60.0, 105.0, 50.0, 8.0)
+    let rng = new System.Random(0)
+    makeRandomCave(map, 40.0, 120.0, 40.0, 5.0, 1.8, 1.0, 300.0, rng)
+    makeRandomCave(map, -40.0, 120.0, 40.0, 5.0, 1.8, 1.0, 300.0, rng)
+    makeRandomCave(map, 40.0, 120.0, -40.0, 5.0, 1.8, 1.0, 300.0, rng)
+    // TODO noise?
+    // TODO track walls
+    // TODO occasional round rooms?
+    //RecomputeLighting.relightTheWorld(map)
+    map.WriteAll()
+
+
+    //putCommandBlocks()
     (*
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing\region""")
     let colors = [|

@@ -14,7 +14,7 @@ let THUNDER = HARD
 
 /////
 
-let DEBUG_CHESTS = true
+let DEBUG_CHESTS = false
 
 do
     if EASY then

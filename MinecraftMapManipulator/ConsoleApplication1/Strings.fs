@@ -213,6 +213,7 @@ let NAME_OF_CHEST_ITEM_CONTAINING_RED_BEACON_WEB_LOOT = TranslatableString "Red 
 let NAME_OF_CHEST_ITEM_CONTAINING_DUNGEON_LOOT = TranslatableString "Dungeon Loot"
 let NAME_OF_CHEST_ITEM_CONTAINING_GREEN_BEACON_LOOT = TranslatableString "Green Beacon Cave Loot"
 let NAME_OF_CHEST_ITEM_CONTAINING_ALPHABET_BANNERS = TranslatableString "Alphabet Banners"
+let NAME_OF_CHEST_ITEM_CONTAINING_DYES = TranslatableString "Colorful decor"
 let NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS = TranslatableString "Basic Blocks"
 let NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS = TranslatableString "Nicer Blocks and Fun"
 let NAME_OF_CHEST_ITEM_CONTAINING_PROXIMITY_DETECTOR = TranslatableString "Loot-finding kit"
@@ -257,6 +258,13 @@ let TELLRAW_GOT_EBM(color) =
     sprintf """tellraw @a ["You found a %s stained glass block! This has been recorded; thus far you've placed ",{"score":{"name":"total","objective":"EverHad"}}," of ",{"score":{"name":"max","objective":"EverHad"}}," different colors in the Explorer Bonus Monument chest."]""" colorString
 let TELLRAW_FINISHED_EBM = """tellraw @a ["You found all the colors for the Explorer Bonus Monument! Congratulations!"]"""
 
+let HARD_SIGN = 
+    [|
+        "This is a more"
+        "difficult version"
+        "of the map."
+        "Good luck!"
+    |]
 let CB_TEST_SIGN1 = 
     [|
         ""

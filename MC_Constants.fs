@@ -340,6 +340,7 @@ let TILE_ENTITY_BID_ID = [| // an incomplete (TODO) list of tile entities
     52uy, "MobSpawner"
     54uy, "Chest"
     61uy, "Furnace"
+    63uy, "Sign"
     68uy, "Sign"
     130uy, "Enderchest"
     137uy, "Control"

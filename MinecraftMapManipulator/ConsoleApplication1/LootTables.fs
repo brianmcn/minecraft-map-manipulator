@@ -457,6 +457,22 @@ let makeMultiBook(rng:System.Random) =  // makes a low-level multi-book suitable
             |]); End |] |> ResizeArray); End |]
 *)
 let alphabetBannersChestItems = [|[|Byte("Slot",0uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",1uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|String("id","Banner");List("Patterns",Compounds[|[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","cbo");Int("Color",15);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","bl");Int("Color",0);End|];[|String("Pattern","tl");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);Int("Base",15);End|]);Compound("display",ResizeArray[|List("Lore",Strings[|"(+NBT)"|]);End|]);End|]);Short("Damage",0s);End|];[|Byte("Slot",2uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",3uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","cbo");Int("Color",15);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",4uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",5uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",6uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","rud");Int("Color",0);End|];[|String("Pattern","hh");Int("Color",15);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",7uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",8uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","cs");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",9uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","hh");Int("Color",15);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",10uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","drs");Int("Color",0);End|];[|String("Pattern","hh");Int("Color",15);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","dls");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",11uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",12uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","tt");Int("Color",0);End|];[|String("Pattern","tts");Int("Color",15);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",13uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","drs");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",14uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","mr");Int("Color",15);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",0s);End|];[|Byte("Slot",15uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","hh");Int("Color",0);End|];[|String("Pattern","cs");Int("Color",15);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",16uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","mr");Int("Color",15);End|];[|String("Pattern","br");Int("Color",0);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",0s);End|];[|Byte("Slot",17uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|String("id","Banner");List("Patterns",Compounds[|[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","rud");Int("Color",15);End|];[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","hh");Int("Color",0);End|];[|String("Pattern","cs");Int("Color",15);End|];[|String("Pattern","drs");Int("Color",0);End|];[|String("Pattern","mc");Int("Color",0);End|];[|String("Pattern","tt");Int("Color",15);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","ms");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);Int("Base",15);End|]);Compound("display",ResizeArray[|List("Lore",Strings[|"(+NBT)"|]);End|]);End|]);Short("Damage",0s);End|];[|Byte("Slot",18uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|String("id","Banner");List("Patterns",Compounds[|[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","rud");Int("Color",15);End|];[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","mr");Int("Color",15);End|];[|String("Pattern","drs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);Int("Base",15);End|]);Compound("display",ResizeArray[|List("Lore",Strings[|"(+NBT)"|]);End|]);End|]);Short("Damage",0s);End|];[|Byte("Slot",19uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","cs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",20uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",21uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","bl");Int("Color",15);End|];[|String("Pattern","dls");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",22uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","bt");Int("Color",0);End|];[|String("Pattern","bts");Int("Color",15);End|];[|String("Pattern","ls");Int("Color",0);End|];[|String("Pattern","rs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",23uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","cr");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|];[|String("Pattern","cbo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",24uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","drs");Int("Color",0);End|];[|String("Pattern","br");Int("Color",15);End|];[|String("Pattern","rs");Int("Color",15);End|];[|String("Pattern","vhr");Int("Color",15);End|];[|String("Pattern","dls");Int("Color",0);End|];[|String("Pattern","cbo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",25uy);String("id","minecraft:banner");Byte("Count",16uy);Compound("tag",ResizeArray[|Compound("BlockEntityTag",ResizeArray[|List("Patterns",Compounds[|[|String("Pattern","ts");Int("Color",0);End|];[|String("Pattern","dls");Int("Color",0);End|];[|String("Pattern","bs");Int("Color",0);End|];[|String("Pattern","bo");Int("Color",15);End|]|]);End|]);End|]);Short("Damage",15s);End|];[|Byte("Slot",26uy);String("id","minecraft:banner");Byte("Count",16uy);Short("Damage",15s);End|]|]
+let dyesAndMobHeadsChestItems = 
+    [|
+        for i = 0uy to 15uy do
+            yield [| Byte("Slot",i); String("id","minecraft:dye"); Byte("Count",64uy); Short("Damage",int16 i); End |]
+        yield [| Byte("Slot",16uy); String("id","minecraft:skull"); Byte("Count",64uy); Short("Damage",0s); End |]
+        yield [| Byte("Slot",17uy); String("id","minecraft:skull"); Byte("Count",64uy); Short("Damage",2s); End |]
+        yield [| Byte("Slot",18uy); String("id","minecraft:skull"); Byte("Count",64uy); Short("Damage",4s); End |]
+        yield [| Byte("Slot",19uy); String("id","minecraft:skull"); Byte("Count",64uy); Short("Damage",5s); End |]
+        yield [| Byte("Slot",20uy); String("id","minecraft:wool"); Byte("Count",64uy); Short("Damage",0s); End |]
+        yield [| Byte("Slot",21uy); String("id","minecraft:wool"); Byte("Count",64uy); Short("Damage",0s); End |]
+        yield [| Byte("Slot",22uy); String("id","minecraft:hardened_clay"); Byte("Count",64uy); Short("Damage",0s); End |]
+        yield [| Byte("Slot",23uy); String("id","minecraft:hardened_clay"); Byte("Count",64uy); Short("Damage",0s); End |]
+        yield [| Byte("Slot",24uy); String("id","minecraft:glass"); Byte("Count",64uy); Short("Damage",0s); End |]
+        yield [| Byte("Slot",25uy); String("id","minecraft:glass"); Byte("Count",64uy); Short("Damage",0s); End |]
+        yield [| Byte("Slot",26uy); String("id","minecraft:glass"); Byte("Count",64uy); Short("Damage",0s); End |]
+    |]
 let makeRandomBookBasedOnAestheticLevel(rng:System.Random,level) =
     let possibles = 
         match level with
@@ -567,7 +583,7 @@ let NEWsampleTier3Chest(rng:System.Random,haveInnerChestsAndInstructions) = // g
 
 let NEWsampleTier4Chest(rng:System.Random,haveInnerChestsAndInstructions) = // flat dungeon
     let F = CustomizationKnobs.LOOT_FUNCTION
-    let tier4ArmorBooks = [PROT[3..4]; BP[3..4]; PROJ[3..4]]
+    let tier4ArmorBooks = [PROT[3..(if CustomizationKnobs.HARD then 3 else 4)]; BP[3..4]; PROJ[3..4]]
     let tier4MeleeBooks = [SHARP[4..5]; SMITE[5]; BOA[5]]
     let tier4UtilBooks = [EFF[5]; UNBR[3]; MEND[1]]
     let tier4BowBooks = [POW[4..5]; PUNCH[2]; INF[1]]
@@ -666,13 +682,13 @@ let occasionalGreatBonus(rng:System.Random,level,tier) =
         | _ -> failwith "bad level"
     else [| |]
 
-let NEWaestheticTier1Chest(rng:System.Random, color, level) =
+let NEWaestheticTier1Chest(rng:System.Random, color, level, moreBlocks) =
     let F = CustomizationKnobs.LOOT_FUNCTION
     let SS = stackSize(level)
     let items =
         [|  yield! occasionalGreatBonus(rng,level,1)
             // blocks
-            yield! Algorithms.pickNnonindependently(rng,countSize(level,2),[
+            yield! Algorithms.pickNnonindependently(rng,(if moreBlocks then 8 else countSize(level,2)),[
                 yield makeItem(rng,"stone",SS,SS,1s) // granite
                 yield makeItem(rng,"brick_block",SS,SS,0s)
                 yield makeItem(rng,"stonebrick",SS,SS,0s)
@@ -686,7 +702,7 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
                 yield makeItem(rng,"ice",SS,SS,0s)
                 ])
             // utility blocks
-            yield! Algorithms.pickNnonindependently(rng,countSize(level,2),[
+            yield! Algorithms.pickNnonindependently(rng,(if moreBlocks then 4 else countSize(level,2)),[
                 makeItem(rng,"log",SS,SS,0s) // oak
                 makeItem(rng,"log",SS,SS,1s) // spruce
                 makeItem(rng,"log",SS,SS,2s) // birch
@@ -698,7 +714,7 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
             if rng.Next(4)=0 then
                 yield makeItem(rng,"name_tag",3,10,0s)
             // alphabet banners
-            if rng.Next(4)=0 then
+            if moreBlocks || rng.Next(4)=0 then
                 yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_ALPHABET_BANNERS,alphabetBannersChestItems)
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
@@ -712,13 +728,13 @@ let NEWaestheticTier1Chest(rng:System.Random, color, level) =
         |]
     addSlotTags items 
 
-let NEWaestheticTier2Chest(rng:System.Random, color, level) =
+let NEWaestheticTier2Chest(rng:System.Random, color, level, moreBlocks) =
     let F = CustomizationKnobs.LOOT_FUNCTION
     let SS = stackSize(level)
     let items =
         [|  yield! occasionalGreatBonus(rng,level,2)
             // blocks
-            yield! Algorithms.pickNnonindependently(rng,countSize(level,3),[
+            yield! Algorithms.pickNnonindependently(rng,(if moreBlocks then 6 else countSize(level,3)),[
                 makeItem(rng,"bookshelf",SS,SS,0s)
                 makeItem(rng,"glass",SS,SS,0s)
                 makeItem(rng,"glowstone",SS,SS,0s)
@@ -728,13 +744,21 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
                 makeItem(rng,"dirt",SS,SS,2s)  // podzol
                 ])
             // utility blocks
-            yield! Algorithms.pickNnonindependently(rng,1,[
+            yield! Algorithms.pickNnonindependently(rng,(if moreBlocks then 3 else 1),[
                 makeItem(rng,"log",SS,SS,0s) // oak
                 makeItem(rng,"log",SS,SS,1s) // spruce
                 makeItem(rng,"log",SS,SS,2s) // birch
                 makeItem(rng,"log",SS,SS,3s) // jungle
                 makeItem(rng,"log2",SS,SS,0s) // acacia
                 makeItem(rng,"log2",SS,SS,1s) // dark oak
+                ])
+            yield! Algorithms.pickNnonindependently(rng,(if moreBlocks then 3 else 1),[
+                makeItem(rng,"leaves",SS,SS,0s) // oak
+                makeItem(rng,"leaves",SS,SS,1s) // spruce
+                makeItem(rng,"leaves",SS,SS,2s) // birch
+                makeItem(rng,"leaves",SS,SS,3s) // jungle
+                makeItem(rng,"leaves2",SS,SS,0s) // acacia
+                makeItem(rng,"leaves2",SS,SS,1s) // dark oak
                 ])
             // fun
             yield! Algorithms.pickNnonindependently(rng,level,[
@@ -749,12 +773,12 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
                                 |]));End|]|>ResizeArray);End|]|>ResizeArray)|])
                     ])
             // rail & redstone
-            if rng.Next(3)=0 then
+            if rng.Next(3)=0 && not moreBlocks then
                 yield makeItem(rng,"rail",64,64,0s)  // keep rail at 64-stacks regardless of level
                 yield makeItem(rng,"rail",64,64,0s)
                 yield makeItem(rng,"golden_rail",64,64,0s)
                 yield makeItem(rng,"redstone_block",SS,SS,0s)
-            elif rng.Next(2)=0 then   // only give music if not give rail, so chest not seem 'too full'
+            elif rng.Next(2)=0 && not moreBlocks then   // only give music if not give rail, so chest not seem 'too full'
                 yield makeItem(rng,"jukebox",1,1,0s)
                 yield! Algorithms.pickNnonindependently(rng,level+1,[
                         makeItem(rng,"record_13",1,1,0s)
@@ -775,6 +799,9 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
                     makeItem(rng,"piston",SS,SS,0s)
                     makeItem(rng,"slime",SS,SS,0s)
                     ])
+            // colorful decor
+            if moreBlocks || rng.Next(4)=0 then
+                yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_DYES,dyesAndMobHeadsChestItems)
             // tradeable
             yield makeItem(rng,"emerald",1,F 1,0s)
             // useful
@@ -789,7 +816,6 @@ let NEWaestheticTier2Chest(rng:System.Random, color, level) =
         |]
     addSlotTags items 
 
-// TODO 16 dyes? (would also be lapis)
 let NEWaestheticTier3Chest(rng:System.Random, color, level) =
     let SS = stackSize(level)
     let items =
@@ -803,8 +829,8 @@ let NEWaestheticTier3Chest(rng:System.Random, color, level) =
                     yield makeItem(rng,"hay_block",SS,SS,0s)
                 ])
             // other chests
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1,level))
-            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng,-1,level))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_BASIC_BLOCKS,NEWaestheticTier1Chest(rng,-1,level,true))
+            yield makeChestItemWithNBTItems(Strings.NAME_OF_CHEST_ITEM_CONTAINING_AESTHETIC_NICER_BLOCKS,NEWaestheticTier2Chest(rng,-1,level,true))
             if color <> -1 then
                 yield [| Byte("Count", 1uy); Short("Damage",int16(color)); String("id","minecraft:stained_glass"); Compound("tag", [|Strings.NameAndLore.BONUS_ACTUAL; End|]|>ResizeArray); End |]
         |]
