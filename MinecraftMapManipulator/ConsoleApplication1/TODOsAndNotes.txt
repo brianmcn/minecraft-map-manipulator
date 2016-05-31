@@ -103,6 +103,8 @@ teleporters always randomize villagers same way since re-seed each section
 
 TODO: bugs & good ideas
 
+something like a prot3 mending gold chestplate with high repaircost is an interesting item (or even unbr3, mend, leather?)
+
 test balance of no-meat&thunderstorm maps
 Note: TJ, like LNG, also made relatively quick work of red, water bucket to get rid of some webs, broke a few spawners, and blitzed in/out
 any easy way to get folks to open starter chest before bonus monument chest?

@@ -5,14 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>f73e293e-5180-40f0-93ef-55ae899b5eb8</ProjectGuid>
+    <ProjectGuid>77c39da7-cbc1-404c-b71e-e1e793bc277c</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>LocalMCServer</RootNamespace>
-    <AssemblyName>LocalMCServer</AssemblyName>
+    <RootNamespace>FSServerLogic</RootNamespace>
+    <AssemblyName>FSServerLogic</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>LocalMCServer</Name>
+    <Name>FSServerLogic</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,7 +23,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\LocalMCServer.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSServerLogic.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -34,7 +34,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Release\LocalMCServer.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSServerLogic.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
@@ -46,10 +46,10 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ServiceModel" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CaveGeneration.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

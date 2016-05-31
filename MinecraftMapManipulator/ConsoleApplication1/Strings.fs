@@ -44,6 +44,7 @@ let PROXIMITY_WARMER = "VERY WARM!"
 let PROXIMITY_WARM = "WARM"
 let PROXIMITY_COLD = "COLD"
 let DIVINING_TIME_TO_DIG = "Dig here, atop mountain"
+// note: also DIG in the ice, hmm
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
 let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4gvelu/may_2016_maps_feedback_thread/"""
