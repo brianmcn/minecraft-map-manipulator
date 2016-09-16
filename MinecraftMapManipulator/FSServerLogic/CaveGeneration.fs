@@ -37,9 +37,10 @@ let computeSphere(xc, yc, zc, r) =
 
 let interpolate(start, stop, n, steps) = start + (stop-start)*(float(n)/float(steps))
 
-let MAX_INTERPOLATE = 2
+let numInterpolations(r1,r2) = if min r1 r2 < 3.0 then 3 else 2
+
 let computePassage(xc1, yc1, zc1, r1, xc2, yc2, zc2, r2) =
-    let MAX = MAX_INTERPOLATE
+    let MAX = numInterpolations(r1,r2)
     let result = newHS()
     for n in 0..MAX do
         let xc = interpolate(xc1,xc2,n,MAX)
@@ -52,21 +53,24 @@ let computePassage(xc1, yc1, zc1, r1, xc2, yc2, zc2, r2) =
 type CaveState(existingAirSpace,existingWalls,recentAirSpace,recentWalls) =
     let WALL_THICKNESS = 3.0
     let mutable outOfBounds = fun(x,y,z) -> false
-    let collisions       = newHS()
+    let collisions = newHS()
+    let entities = newHS()
     new() = CaveState(newHS(),newHS(),newHS(),newHS())
     member this.SetBoundaryFunction(f) = outOfBounds <- f
     member this.AsCommands() =
         let r = ResizeArray()
-        let air = new System.Collections.Generic.HashSet<_>(existingAirSpace)
-        air.UnionWith(recentAirSpace)
-        for x,y,z in air do
+        for x,y,z in existingAirSpace do
             r.Add(sprintf "setblock %d %d %d air" x y z)
-        let walls = new System.Collections.Generic.HashSet<_>(existingWalls)
-        walls.UnionWith(recentWalls)
-        for x,y,z in walls do
+        for x,y,z in recentAirSpace do
+            r.Add(sprintf "setblock %d %d %d glass" x y z)
+        for x,y,z in existingWalls do
             r.Add(sprintf "setblock %d %d %d stone" x y z)
+        for x,y,z in recentWalls do
+            r.Add(sprintf "setblock %d %d %d stained_glass 15" x y z)
         for x,y,z in collisions do
             r.Add(sprintf "setblock %d %d %d stained_glass 14" x y z)
+        for x,y,z in entities do
+            r.Add(sprintf "summon ArmorStand %d %d %d {Small:1,NoGravity:1}" x y z)
         r
     member this.TryAddAirRegion(airRegion : System.Collections.Generic.HashSet<_>) =
         let collisionWithExistingWalls = new System.Collections.Generic.HashSet<_>(airRegion)
@@ -92,9 +96,11 @@ type CaveState(existingAirSpace,existingWalls,recentAirSpace,recentWalls) =
                 for x,y,z in wallSpace do
                     if not(allAirSpace.Contains(x,y,z)) then
                         recentWalls.Add((x,y,z)) |> ignore
+            existingWalls.ExceptWith(recentWalls) // if a wall is recent, forget that that it was also older, we may skirt an edge multiple segments in a row
             true
         else
-            collisions.UnionWith(collisionWithExistingWalls)
+            //collisions.UnionWith(collisionWithExistingWalls)
+            (*
             // not ok, but make changes for a visualization
             existingAirSpace.UnionWith(recentAirSpace)
 
@@ -112,8 +118,13 @@ type CaveState(existingAirSpace,existingWalls,recentAirSpace,recentWalls) =
                 for x,y,z in wallSpace do
                     if not(allAirSpace.Contains(x,y,z)) then
                         recentWalls.Add((x,y,z)) |> ignore
+            *)
+            //entities.Clear()
+            //entities.UnionWith(airRegion)
             false
 
+let MINR = 2.0
+let MAXR = 6.0
 let makeRandomCave(xs, ys, zs, rs, initPhi, initTheta, desiredLength, rng:System.Random) =
     // spherical coordinates (phi=0 is up) to minecraft axes:
     // x = sin phi * cos theta
@@ -143,15 +154,52 @@ let makeRandomCave(xs, ys, zs, rs, initPhi, initTheta, desiredLength, rng:System
         nextX, nextY, nextZ
     let mutable curX, curY, curZ, curR, curPhi, curTheta, totalLength = xs, ys, zs, rs, initPhi, initTheta, 0.0
     let mutable ok, firstTime = true, true
+    let mutable failCount = 0
     while ok && totalLength < desiredLength do
+        let BIAS = 5
         // choose a next heading, r, & segment length
-        let nextPhi = curPhi + (rng.NextDouble()-0.5)*1.0 // +/- half radian
+        let nextPhi = 
+            let d = (rng.NextDouble()-0.5)*1.0 // +/- half radian
+            if abs(cos curPhi) > 0.7 then // currently rather vertical
+                
+                // TODO better number-choosing declarative forms (e.g. want d to not be too close to zero), need ranges, guassians, etc
+                
+                let d = (rng.NextDouble()-0.5)*1.5 // +/- 3/4 radian
+                if abs(cos(curPhi+d)) > abs(cos curPhi) then
+                    if rng.Next(BIAS)=0 then
+                        curPhi+d
+                    else
+                        printfn "flatten (chose %2.2f rather than %2.2f)" (cos(curPhi-d)) (cos(curPhi+d))
+                        curPhi-d
+                else
+                    if rng.Next(BIAS)<>0 then
+                        printfn "flatten (chose %2.2f rather than %2.2f)" (cos(curPhi+d)) (cos(curPhi-d))
+                        curPhi+d
+                    else
+                        curPhi-d
+            elif (curY > 80.0 && cos curPhi > -0.2) ||  // currently too upwards
+                    (curY > 40.0 && cos curPhi > 0.0) then  // currently too upwards
+                let d = (rng.NextDouble()-0.5)*1.5 // +/- 3/4 radian
+                if cos(curPhi+d) > cos curPhi then
+                    if rng.Next(BIAS)=0 then
+                        curPhi+d
+                    else
+                        printfn "aim down (chose %2.2f rather than %2.2f)" (cos(curPhi-d)) (cos(curPhi+d))
+                        curPhi-d
+                else
+                    if rng.Next(BIAS)<>0 then
+                        printfn "aim down (chose %2.2f rather than %2.2f)" (cos(curPhi+d)) (cos(curPhi-d))
+                        curPhi+d
+                    else
+                        curPhi-d
+            else
+                curPhi+d
         let nextTheta = curTheta + (rng.NextDouble()-0.5)*2.0
-        let nextR = curR + (rng.NextDouble()-0.5)*1.0
+        let nextR = max MINR (min MAXR (curR + (rng.NextDouble()-0.5)*1.5))
         let nextLength = rng.NextDouble()*7.0 + 5.0 // 5 to 12
         // (ensure connected)
         let minR = min nextR curR
-        let maxLen = minR * 2.0 * float(MAX_INTERPOLATE)
+        let maxLen = minR * 2.0 * float(2) // numInterpolations(curR,nextR)
         let nextLength = min nextLength maxLen
         let nextX,nextY,nextZ = computeNextXYZ(curX, curY, curZ, nextPhi, nextTheta, nextLength)
         // make next segment
@@ -165,13 +213,23 @@ let makeRandomCave(xs, ys, zs, rs, initPhi, initTheta, desiredLength, rng:System
             curTheta <- nextTheta
             totalLength <- totalLength + nextLength
             printfn "making segment: (%3.0f, %3.0f, %3.0f) (%2.1f, %1.2f, %1.2f)" nextX nextY nextZ nextR nextPhi nextTheta
+            failCount <- 0
+        elif failCount > 10 then
+            printfn "failed 10 times in a row, picking a new random heading to escape"
+            curPhi <- rng.NextDouble()*2.0*System.Math.PI 
+            curTheta <- rng.NextDouble()*2.0*System.Math.PI 
+            failCount <- failCount + 1
         else
-            ok <- false
-            printfn "FAILED WHILE making segment: (%3.0f, %3.0f, %3.0f) (%2.1f, %1.2f, %1.2f)" nextX nextY nextZ nextR nextPhi nextTheta
+            failCount <- failCount + 1
+            if failCount > 20 then
+                ok <- false
+                printfn "FAILED WHILE making segment: (%3.0f, %3.0f, %3.0f) (%2.1f, %1.2f, %1.2f)" nextX nextY nextZ nextR nextPhi nextTheta
         if firstTime then
             // after we've plunged into the earth, make top earth surface become a new boundary
             caveState.SetBoundaryFunction(fun(x,y,z) -> hardBoundaryWalls.Contains(x,y,z) || softBoundaryWalls.Contains(x,y,z))
             firstTime <- false
+    if ok then
+        printfn "SUCCESS - total length: %f" totalLength
     // affect the world
     let cmds = caveState.AsCommands()
     let SERVER_DIRECTORY = """C:\Users\Admin1\Desktop\Server""" 

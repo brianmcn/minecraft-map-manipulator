@@ -44,7 +44,7 @@ let PROXIMITY_WARMER = "VERY WARM!"
 let PROXIMITY_WARM = "WARM"
 let PROXIMITY_COLD = "COLD"
 let DIVINING_TIME_TO_DIG = "Dig here, atop mountain"
-// note: also DIG in the ice, hmm
+// note: also DIG in the ice, hmm - pixel art of shovel? bigger X?
 
 let donationLink = """https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=457JUZA5FV924"""
 let feedbackLink = """https://www.reddit.com/r/VanillaSwirlCTM/comments/4gvelu/may_2016_maps_feedback_thread/"""
@@ -246,7 +246,7 @@ let TELLRAW_GOT_EBM(color) =
         | 4 -> "yellow"
         | 5 -> "lime"    
         | 6 -> "pink"       
-        | 7 -> "dark gray"
+        | 7 -> "gray"
         | 8 -> "light gray" 
         | 9 -> "cyan"
         | 10 -> "purple"

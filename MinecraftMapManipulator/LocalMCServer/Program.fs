@@ -106,7 +106,7 @@ let startServerEventLoop() =
                         | "run" ->
                             let x,y,z = int(words.[1]),int(words.[2]),int(words.[3])
                             //makeRandomCave(map, float(x), float(y), float(z), 5.0, 1.8, 1.0, 300.0, rng)
-                            sendMessage(sprintf "%f %f %f %f %f %f %f" (float x) (float y) (float z) 5.0 1.8 1.0 300.0)
+                            sendMessage(sprintf "%f %f %f %f %f %f %f" (float x) (float y) (float z) 4.0 1.8 1.0 300.0)
                         | _ -> ()
                 with e ->  
                     printfn "MINECRAFT FAULT> %s" (e.ToString()) 

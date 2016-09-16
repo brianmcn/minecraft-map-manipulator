@@ -31,8 +31,6 @@ May2016C - seed 702, single
 
 May2016E - seed 611, multi-EZ
 
-May2016H - seed tj3, single HARD (tj beta)
-May2016J - seed tj3, single HARD (fairy beta)
 May2016X - seed tj3, single HARD
 
 CHECKLIST (automate?)
@@ -97,13 +95,25 @@ OK add chest of dye colors
 OK add mob heads as random loot (stack 64, creep, zom, skel, drag)
 OK soulsand (over ice?) as challenging terrain/substiution somewhere? v podzol in mega taiga? ...  in red?
 OK? no SWAMP in daylight
-
 OK add leaf blocks as items (decoration & utility)
 teleporters always randomize villagers same way since re-seed each section
 
 TODO: bugs & good ideas
 
+put standing map on north side of monument, so it's oriented so past it is north, more natural
 something like a prot3 mending gold chestplate with high repaircost is an interesting item (or even unbr3, mend, leather?)
+wide-area spawners with a good MaxNearbyEntities cap could possibly prevent e.g. green beacon from getting too flooded with zombies, maybe (Y coord still dodgy)
+'hard mode', after beating/getting something, all monsters get tougher, drops get better, etc... (but this means existing monster grinder is OP?)
+hard to get item frames/leather on HARD, also wool, add to lootz
+eggs give meat in HARD
+war likes the named item floating entities that don't despawn/move and can't be picked up as decorative names (riding?) in a CTM he played
+renderxr's cannon: F&S with knockback, and creeper eggs that spawn high-explosive long-fuse creepers - renderXR : wait I have a better idea Lorgon . I give the eggs knockback II and they are already ignited, so you put the egg down and hit the creeper with the egg to its destination. Thats even less inventory space. the only problem is the last egg. 
+chests with silverfish block atop and lava underneath, hard to open?
+to avoid re-traversal of conquered green dungeon, something like if you (light up?) break (almost) all spawners, an exit TP appears at end https://www.reddit.com/r/MinecraftCommands/comments/4nhsc4/checking_for_broken_spawners/
+remote lighting: if all walls were redstone ore by default, could have e.g. arrows cause temp light by having command block detect arrows in red ore and update it (e.g. summon and remove invisible AS in it will cause it to light up)
+have spawners in later dungeons spawn mobs with loot tables that rarely drop something nice, and also rarely call back to old 'garbage' loot table, so less garbage at end
+item frames as good loot
+in no-meat, sco could not heal dog (also found no saddles), and have not seen anyone find grass block in chest, was it there?
 
 test balance of no-meat&thunderstorm maps
 Note: TJ, like LNG, also made relatively quick work of red, water bucket to get rid of some webs, broke a few spawners, and blitzed in/out
@@ -275,3 +285,10 @@ when I do start adding any 'structures', they should all have randomness too (e.
 interesting idea is the 'alternate world'/'dream plane'/etc, where you get TPd to different region of map that's "same but different" a la Zelda:LttP and a couple CTMs
 terrain generator with more caves, fewer ravines, diff ore, much higher sea level and deeper underground, my own biomes?
 jahg on vlog: Hello.  Talking of commissioning a custom version of this custom map... I would love a sort of skylands version, floaty islands over void.  Get working on that custom terrain!  Go, go, go!  :D﻿
+
+
+
+Free map idea combining bonus objectives, lore, and custom mobs:
+Instead of emeralds, have the player complete a "bestiary." Give them books describing the custom mobs that they'll encounter in future areas. The incentive for exploration and perceptiveness will be useful strategic information.
+
+
