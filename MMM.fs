@@ -1590,6 +1590,7 @@ automatic game start configs (night vision, starting items), customizable
         printfn "no sound json diff"
     *)
 
+#if VANILLA_SWIRL_STUFF
     let worldSaveFolder = """C:\Users\""" + user + """\AppData\Roaming\.minecraft\saves\RandomCTM"""
     let levelDat = System.IO.Path.Combine(worldSaveFolder, "level.dat")
 //    Utilities.renamer(levelDat,"\u00A7l\u00A7fVanilla \u00A7aS\u00A79w\u00A7ci\u00A7dr\u00A7el \u00A7bCTM\u00A77 - May 2016 \u00A7aX\u00A7r ")
@@ -1622,8 +1623,9 @@ automatic game start configs (night vision, starting items), customizable
 //    System.Windows.Clipboard.SetText(custom)   // AFK pregen: http://pastebin.com/uq09kFNW
     //let worldSeed = 14 
     //genTerrainWithMCServer(worldSeed,custom)
+#endif
 
-
+#if MAKE_RANDOM_CAVES
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\solidCopy\region""")
     //carveSphere(map, 20.0, 115.0, 20.0, 15.0)
     //carvePassage(map, 40.0, 115.0, 40.0, 15.0, 60.0, 105.0, 50.0, 8.0)
@@ -1636,8 +1638,9 @@ automatic game start configs (night vision, starting items), customizable
     // TODO occasional round rooms?
     //RecomputeLighting.relightTheWorld(map)
     map.WriteAll()
+#endif
 
-
+    EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testfw\region""")
     //putCommandBlocks()
     (*
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing\region""")

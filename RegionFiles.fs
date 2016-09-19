@@ -594,6 +594,7 @@ type RegionFile(filename) =
                 | U s -> 211uy,3uy,1uy,s,null
                 | C s -> 211uy,11uy,1uy,s,null
             this.EnsureSetBlockIDAndDamage(x,y,z,bid,bd)
+            let au,s = if s.StartsWith("AUTO ") then 1uy,s.Substring(5) else au,s
             let nbts = if s = DUMMY then [||] else [|mkCmd(x,y,z,au,s,txt)|]
             if (x+51200)/512 <> rx+100 || (z+51200)/512 <> rz+100 then failwith "coords outside this region"
             let xx = ((x+51200)%512)/16
