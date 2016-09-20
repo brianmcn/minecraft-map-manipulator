@@ -1,9 +1,18 @@
 ﻿module EandT
 
+let COINS_PER_RAIL = 1
+let COINS_PER_EMERALD = 20
+
+let RECIPE_PRICE = 300
+let CHEST_PRICE = 240
+let SPEED_PRICE = 200
+let HASTE_PRICE = 200
+let STRENGTH_PRICE = 200
+
 open LootTables
 //dungeon loot: what books would I want? (sample of 15 dungeons: 10 had 2 chests, 5 had 1 chest, so a 60% rate of upgrades is appropriate)
 
-let dungeonLoot = Pools [Pool(Roll(1,1),[Item("minecraft:emerald",[SetCount(8,12)]),1,0,[]])]
+let dungeonLoot = Pools [Pool(Roll(1,1),[Item("minecraft:emerald",[SetCount(7,13)]),1,0,[]])]
 
 let boonLoot = 
     Pools [
@@ -39,49 +48,20 @@ let LOOT_TABLES =
         "brianloot:boon", boonLoot
     |]
 
+//bows offset the weakness... arrow ingedients or arrows? (will there be animals and feathers?)
 
-
-
-(*
-bows offset the weakness... arrow ingedients or arrows? (will there be animals and feathers?)
-
-book allows you to pick one of 3:
-	recipe tree:
-	 - furnace
-	 - iron armor -> diamond armor
-	 - bucket -> diamond pickaxe  // until one, no nether; until DP, no enchant table
-	upgrade tree:                                             can go past default, reset on death?
-	 - speed, speed     // slow 2 -> slow 1 -> none           --?--> speed1
-	 - strength         // w2+s2 -> none                      --?--> str2
-	 - haste, haste     // mf1 -> mf1+h2 -> none              --?--> haste2
-	 boon tree:
-	  - loot (??? 24 gold, 12 iron, 4 diamonds, food?, other? books?)
-
-For book to show current stats, since text not conditional, we need 4x3x4x5 = 240 separate books to display stats... how to 'distribute'? 
-May be better to have book that you can click to bring up stats text on the screen? How much text fits in your chat? ... about 9 lines of 50 chars on my screen, hmm
-(or 20 lines when bring up chat with 't')
-Speed:       -2   -1    0    +1
-Strength:         -1    0    +1
-Haste:       -2   -1    0    +1
-Recipe: furnace -> iron armor -> 
-  diamond armor -> bucket -> diamond pickaxe
-Click to buy upgrade:
-SPEED(100) STRENGTH(100) HASTE(100) RECIPE(150)   
-Coins available: XXX
-Can use \u0020 to display multiple spaces without them converting down to one space.
-
-*)
 
 open RegionFiles
 
 // SCOREBOARD INIT
 
 let initCmds = [|
-    //O "AUTO "
     O ""
     U "gamerule logAdminCommands false"
     U "gamerule commandBlockOutput false"
+    U "gamerule sendCommandFeedback false"
     U "gamerule disableElytraMovementCheck true"
+    U "gamerule keepInventory true"
 
     U """scoreboard objectives add statSpeed dummy"""
     U """scoreboard objectives add statHaste dummy"""
@@ -89,10 +69,12 @@ let initCmds = [|
     U """scoreboard objectives add coins dummy"""
     U """scoreboard objectives add recipe dummy"""
     U """scoreboard objectives add chest dummy"""
+    U """scoreboard objectives add numBought dummy"""
 
     U """scoreboard objectives add Deaths stat.deaths"""
     U """scoreboard objectives add Rails stat.craftItem.minecraft.rail"""
 
+    U """scoreboard objectives add display trigger"""
     U """scoreboard objectives add buyRecipe trigger"""
     U """scoreboard objectives add buyChest trigger"""
     U """scoreboard objectives add buySpeed trigger"""
@@ -120,11 +102,13 @@ let initCmds = [|
     U """scoreboard players set @a Deaths 0"""
     U """scoreboard players set @a Rails 0"""
 
+    U """scoreboard players set @a display 0"""
     U """scoreboard players set @a buyRecipe 0"""
     U """scoreboard players set @a buyChest 0"""
     U """scoreboard players set @a buySpeed 0"""
     U """scoreboard players set @a buyHaste 0"""
     U """scoreboard players set @a buyStrength 0"""
+    U """scoreboard players set @a numBought 0"""
     
     U """scoreboard players set @a craftFurnace 0"""
     U """scoreboard players set @a craftIHelmet 0"""
@@ -139,63 +123,102 @@ let initCmds = [|
     U """scoreboard players set @a craftDPick 0"""
     |]
 
+// tag a buyer first
+let computePRICE(basePrice) = [|
+    U(sprintf """scoreboard players set PRICE coins %d""" basePrice)
+    U(sprintf """scoreboard players set TAX coins 10""")
+    U(sprintf """scoreboard players operation TAX coins *= @p[tag=buyer] numBought""")
+    U(sprintf """scoreboard players operation PRICE coins += TAX coins""")
+    |]
 
 //DISPLAY
 
 let displayCmds = [|
-    O ""
-    U """tellraw @a [""]"""
+    yield P ""
+    yield U "scoreboard players test @a display 1 *"
+    yield C "scoreboard players set @a display 0"
+    yield C "blockdata ~ ~ ~2 {auto:1b}"
+    yield C "blockdata ~ ~ ~1 {auto:0b}"
+    yield O ""
+    yield U """tellraw @a [""]"""
 
-    U("""execute @a[score_statSpeed_min=-2,score_statSpeed=-2] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statSpeed_min=-1,score_statSpeed=-1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statSpeed_min=0,score_statSpeed=0] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statSpeed_min=1,score_statSpeed=1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+    yield U("""execute @a[score_statSpeed_min=-2,score_statSpeed=-2] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statSpeed_min=-1,score_statSpeed=-1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statSpeed_min=0,score_statSpeed=0] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statSpeed_min=1,score_statSpeed=1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
 
-    U("""execute @a[score_statHaste_min=-2,score_statHaste=-2] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statHaste_min=-1,score_statHaste=-1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statHaste_min=0,score_statHaste=0] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statHaste_min=1,score_statHaste=1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+    yield U("""execute @a[score_statHaste_min=-2,score_statHaste=-2] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statHaste_min=-1,score_statHaste=-1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statHaste_min=0,score_statHaste=0] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statHaste_min=1,score_statHaste=1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
 
-    U("""execute @a[score_statStrength_min=-1,score_statStrength=-1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statStrength_min=0,score_statStrength=0] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    U("""execute @a[score_statStrength_min=1,score_statStrength=1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+    yield U("""execute @a[score_statStrength_min=-1,score_statStrength=-1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statStrength_min=0,score_statStrength=0] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statStrength_min=1,score_statStrength=1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
 
-    U("""execute @a[score_recipe_min=0,score_recipe=0] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":""},{"color":"gray","text":"Furnace, I. Armor, D. Armor, Bucket, D. Pick"}]""")
-    U("""execute @a[score_recipe_min=1,score_recipe=1] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace"},{"color":"gray","text":", I. Armor, D. Armor, Bucket, D. Pick"}]""")
-    U("""execute @a[score_recipe_min=2,score_recipe=2] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor"},{"color":"gray","text":", D. Armor, Bucket, D. Pick"}]""")
-    U("""execute @a[score_recipe_min=3,score_recipe=3] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor"},{"color":"gray","text":", Bucket, D. Pick"}]""")
-    U("""execute @a[score_recipe_min=4,score_recipe=4] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor, Bucket"},{"color":"gray","text":", D. Pick"}]""")
-    U("""execute @a[score_recipe_min=5,score_recipe=5] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor, Bucket, D. Pick"},{"color":"gray","text":""}]""")
+    yield U("""execute @a[score_recipe_min=0,score_recipe=0] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":""},{"color":"gray","text":"Furnace, I. Armor, D. Armor, Bucket, D. Pick"}]""")
+    yield U("""execute @a[score_recipe_min=1,score_recipe=1] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace"},{"color":"gray","text":", I. Armor, D. Armor, Bucket, D. Pick"}]""")
+    yield U("""execute @a[score_recipe_min=2,score_recipe=2] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor"},{"color":"gray","text":", D. Armor, Bucket, D. Pick"}]""")
+    yield U("""execute @a[score_recipe_min=3,score_recipe=3] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor"},{"color":"gray","text":", Bucket, D. Pick"}]""")
+    yield U("""execute @a[score_recipe_min=4,score_recipe=4] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor, Bucket"},{"color":"gray","text":", D. Pick"}]""")
+    yield U("""execute @a[score_recipe_min=5,score_recipe=5] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor, Bucket, D. Pick"},{"color":"gray","text":""}]""")
     
-    U("""tellraw @a ["You have ",{"color":"yellow","score":{"name":"@a","objective":"coins"}}," coins"]""")
+    yield U("""tellraw @a ["You have ",{"color":"yellow","score":{"name":"@a","objective":"coins"}}," coins"]""")
 
-    U("""tellraw @a [{"text":"[Buy Speed]","clickEvent":{"action":"run_command","value":"/trigger buySpeed set 1"}}]""")
-    U("""tellraw @a [{"text":"[Buy Loot Chest]","clickEvent":{"action":"run_command","value":"/trigger buyChest set 1"}}]""")
+    yield U("""scoreboard players tag @p add buyer""")
+    yield! computePRICE(SPEED_PRICE)
+    yield U("""scoreboard players operation SPEED_PRICE coins = PRICE coins""")
+    yield! computePRICE(HASTE_PRICE)
+    yield U("""scoreboard players operation HASTE_PRICE coins = PRICE coins""")
+    yield! computePRICE(STRENGTH_PRICE)
+    yield U("""scoreboard players operation STRENGTH_PRICE coins = PRICE coins""")
+    yield! computePRICE(RECIPE_PRICE)
+    yield U("""scoreboard players operation RECIPE_PRICE coins = PRICE coins""")
+    yield! computePRICE(CHEST_PRICE)
+    yield U("""scoreboard players operation CHEST_PRICE coins = PRICE coins""")
+    yield U("""scoreboard players tag @p[tag=buyer] remove buyer""")
+
+    yield U("""tellraw @a [{"text":"[Buy Speed (","extra":[{"score":{"name":"SPEED_PRICE","objective":"coins"}},")]"],"clickEvent":{"action":"run_command","value":"/trigger buySpeed set 1"}},"\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"text":"[Buy Next Recipe (","extra":[{"score":{"name":"RECIPE_PRICE","objective":"coins"}},")]"],"clickEvent":{"action":"run_command","value":"/trigger buyRecipe set 1"}}]""")
+    yield U("""tellraw @a [{"text":"[Buy Haste (","extra":[{"score":{"name":"HASTE_PRICE","objective":"coins"}},")]"],"clickEvent":{"action":"run_command","value":"/trigger buyHaste set 1"}},"\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"text":"[Buy Loot Chest (","extra":[{"score":{"name":"CHEST_PRICE","objective":"coins"}},")]"],"clickEvent":{"action":"run_command","value":"/trigger buyChest set 1"}}]""")
+    yield U("""tellraw @a [{"text":"[Buy Strength (","extra":[{"score":{"name":"STRENGTH_PRICE","objective":"coins"}},")]"],"clickEvent":{"action":"run_command","value":"/trigger buyStrength set 1"}}]""")
     |]
-
 
 //BUY
 
-let cmdsToBuy(buyObjectiveName,price,displayName,objectiveName,maxValue) = [|
-    P ""
-    U(sprintf """scoreboard players tag @p[score_%s_min=1] add buyer""" buyObjectiveName)
-    U(sprintf """scoreboard players set @p[tag=buyer] %s 0""" buyObjectiveName)
-    U(sprintf """scoreboard players test @p[tag=buyer] coins * %d""" (price-1))
-    C(sprintf """tellraw @p[tag=buyer] ["You can't afford this, you only have ",{"score":{"name":"@p[tag=buyer]","objective":"coins"}}," coins"]""")
-    U(sprintf """scoreboard players test @p[tag=buyer] coins %d *""" price)
-    C(sprintf """scoreboard players test @p[tag=buyer] %s %d *""" objectiveName maxValue)
-    C(sprintf """tellraw @p[tag=buyer] ["You can't buy more %s, it's already maxxed out"]""" displayName)
-    U(sprintf """scoreboard players test @p[tag=buyer] coins %d *""" price)
-    C(sprintf """scoreboard players test @p[tag=buyer] %s * %d""" objectiveName (maxValue-1))
-    C(sprintf """scoreboard players remove @p[tag=buyer] coins %d""" price)
-    C(sprintf """scoreboard players add @p[tag=buyer] %s 1""" objectiveName)
-    U(sprintf """scoreboard players tag @p[tag=buyer] remove buyer""")
+let cmdsToBuy(buyObjectiveName,basePrice,displayName,objectiveName,maxValue) = [|
+    yield P ""
+    yield U(sprintf """testfor @p[score_%s_min=1]""" buyObjectiveName)
+    yield C "blockdata ~ ~ ~2 {auto:1b}"
+    yield C "blockdata ~ ~ ~1 {auto:0b}"
+    yield O ""
+
+    yield U(sprintf """scoreboard players tag @p[score_%s_min=1] add buyer""" buyObjectiveName)
+    yield U(sprintf """scoreboard players set @p[tag=buyer] %s 0""" buyObjectiveName)
+
+    yield! computePRICE(basePrice)
+
+    yield U(sprintf """scoreboard players operation DIFF coins = @p[tag=buyer] coins""")
+    yield U(sprintf """scoreboard players operation DIFF coins -= PRICE coins""")
+    yield U(sprintf """scoreboard players test DIFF coins * -1""")
+    yield C(sprintf """tellraw @p[tag=buyer] ["You can't afford this, you only have ",{"score":{"name":"@p[tag=buyer]","objective":"coins"}}," coins"]""")
+
+    yield U(sprintf """scoreboard players test DIFF coins 0 *""")
+    yield C(sprintf """scoreboard players test @p[tag=buyer] %s %d *""" objectiveName maxValue)
+    yield C(sprintf """tellraw @p[tag=buyer] ["You can't buy more %s, it's already maxxed out"]""" displayName)
+
+    yield U(sprintf """scoreboard players test DIFF coins 0 *""")
+    yield C(sprintf """scoreboard players test @p[tag=buyer] %s * %d""" objectiveName (maxValue-1))
+    yield C(sprintf """scoreboard players operation @p[tag=buyer] coins -= PRICE coins""")
+    yield C(sprintf """scoreboard players add @p[tag=buyer] %s 1""" objectiveName)
+    yield C(sprintf """scoreboard players add @p[tag=buyer] numBought 1""")
+    yield C(sprintf """scoreboard players set @p[tag=buyer] display 1""")
+
+    yield U(sprintf """scoreboard players tag @p[tag=buyer] remove buyer""")
     |]
 
 //EFFECTS
 
 let ongoingStatusEffects = [|
-    //P "AUTO "
     P ""
     // speed -2
     U """effect @a[score_statSpeed_min=-2,score_statSpeed=-2] slowness 5 1 true"""
@@ -223,6 +246,7 @@ let ongoingStatusEffects = [|
 let ongoingCoinsRules(coinsPerRailSetCrafted, coinsPerEmerald) = [|
     P ""
     // (for lack of a better place to put this code)
+    U """scoreboard players enable @a display"""
     U """scoreboard players enable @a buyRecipe"""
     U """scoreboard players enable @a buyChest"""
     U """scoreboard players enable @a buySpeed"""
@@ -234,43 +258,25 @@ let ongoingCoinsRules(coinsPerRailSetCrafted, coinsPerEmerald) = [|
     
     U(sprintf """scoreboard players add @a[score_Rails_min=1] coins %d""" coinsPerRailSetCrafted)
     // todo sounds/text
+    U """scoreboard players set @a[score_Rails_min=1] display 1"""
     U """scoreboard players remove @a[score_Rails_min=1] Rails 1"""
 
-    // TODO loot tables
-    
-    // TODO emeralds   
     U """clear @a minecraft:emerald 0 1"""
     C(sprintf """scoreboard players add @a coins %d""" coinsPerEmerald)
+    C """scoreboard players set @a display 1"""
     // todo sounds/text
     |]
-(*
 
-LOOT TABLES
-// dung loot: placeable command block, command summons invisible AS inside it tagged loot
-execute @e[tag=loot] ~ ~ ~ scoreboard players add @a coins 100  // ? fixed number?  or put emeralds in chest below? in which case, just have dung loot table with misc crap and a bunch of emeralds?
-execute @e[tag=loot] ~ ~ ~ setblock ~ ~ ~ chest 2 {LootTable:blah}  // what loot?
-kill @e[tag=loot]
+//DEATH CHECK
 
-what loot in dung chests? gold? anvil? book?
-what loot in 'buy loot bag'? (??? 24 gold, 12 iron, 4 diamonds, food?, other? books? anvils?)
-
-DEATH CHECK
-
-scoreboard players tag @a[score_Deaths_min=1] add justdied
-scoreboard players set @a[tag=justdied] Deaths 0
-scoreboard players set @a[tag=justdied] coins 0
-scoreboard players tag @a[tag=justdied] remove justdied
-// todo sounds/text
-
-
-custom terrain: no village/mineshaft/pyramid/oceanmonument, turn up dungeon rate to 25 or 30 (turn down lakes as usual, biome size as usual)
-
-
-keepInventory=true?
-goals, constraints, and penalties - what penalty for death?
- - lose 'points' where points gotten from kills, digging, xp, emeralds, and lots from dungeon chests, and points redeemable for upgrades?
- - make it for me and E&T - points for dungeons, crafting rails, and sure, emeralds
-*)
+let ongoingDeathCheck = [|
+    P ""
+    U """scoreboard players tag @a[score_Deaths_min=1] add justdied"""
+    U """scoreboard players set @a[tag=justdied] Deaths 0"""
+    U """scoreboard players set @a[tag=justdied] coins 0"""
+    U """tellraw @p[tag=justdied] ["Upon respawning, you discover you've lost all your coins"]"""
+    U """scoreboard players tag @p[tag=justdied] remove justdied"""
+    |]
 
 // RECIPE ENFORCEMENT
 
@@ -302,22 +308,23 @@ let ongoingRecipeEnforcement = [|
 
 //////////////////////////////////////
 
+// TODO balance loot
+
 let populateWorld(regionDir) =
     let map = new MapFolder(regionDir)
     let r = map.GetRegion(0,0)
-    r.PlaceCommandBlocksStartingAtSelfDestruct(0,202,0,[|O"fill 1 201 0 1 192 0 redstone_block"|],"kickoff")
+    r.PlaceCommandBlocksStartingAtSelfDestruct(0,202,0,[|O"fill 1 201 0 1 191 0 air";U"fill 1 201 0 1 191 0 redstone_block"|],"kickoff")
     r.PlaceCommandBlocksStartingAtSelfDestruct(0,201,0,initCmds,"init")
-    //r.AddTileTick("minecraft:command_block",100,0,0,201,0)
     r.PlaceCommandBlocksStartingAt(0,200,0,ongoingStatusEffects,"status effects",false,true)
-    //r.AddTileTick("minecraft:repeating_command_block",100,0,0,200,0)
     r.PlaceCommandBlocksStartingAt(0,199,0,ongoingRecipeEnforcement,"recipes",false,true)
-    r.PlaceCommandBlocksStartingAt(0,198,0,ongoingCoinsRules(10,10),"coins",false,true)
+    r.PlaceCommandBlocksStartingAt(0,198,0,ongoingCoinsRules(COINS_PER_RAIL,COINS_PER_EMERALD),"coins",false,true)
     r.PlaceCommandBlocksStartingAt(0,197,0,displayCmds,"display",false,true)
-    r.PlaceCommandBlocksStartingAt(0,196,0,cmdsToBuy("buyRecipe",150,"next recipe","recipe",4),"buy recipe",false,true)
-    r.PlaceCommandBlocksStartingAt(0,195,0,cmdsToBuy("buyChest",120,"loot chest","chest",999),"buy boon",false,true)
-    r.PlaceCommandBlocksStartingAt(0,194,0,cmdsToBuy("buySpeed",100,"speed upgrade","statSpeed",1),"buy speed",false,true)
-    r.PlaceCommandBlocksStartingAt(0,193,0,cmdsToBuy("buyHaste",100,"haste upgrade","statHaste",1),"buy haste",false,true)
-    r.PlaceCommandBlocksStartingAt(0,192,0,cmdsToBuy("buyStrength",100,"strength upgrade","statStrength",1),"buy strength",false,true)
+    r.PlaceCommandBlocksStartingAt(0,196,0,cmdsToBuy("buyRecipe",RECIPE_PRICE,"next recipe","recipe",5),"buy recipe",false,true)
+    r.PlaceCommandBlocksStartingAt(0,195,0,cmdsToBuy("buyChest",CHEST_PRICE,"loot chest","chest",999),"buy boon",false,true)
+    r.PlaceCommandBlocksStartingAt(0,194,0,cmdsToBuy("buySpeed",SPEED_PRICE,"speed upgrade","statSpeed",1),"buy speed",false,true)
+    r.PlaceCommandBlocksStartingAt(0,193,0,cmdsToBuy("buyHaste",HASTE_PRICE,"haste upgrade","statHaste",1),"buy haste",false,true)
+    r.PlaceCommandBlocksStartingAt(0,192,0,cmdsToBuy("buyStrength",STRENGTH_PRICE,"strength upgrade","statStrength",1),"buy strength",false,true)
+    r.PlaceCommandBlocksStartingAt(0,191,0,ongoingDeathCheck,"death check",false,true)
     map.WriteAll()
     let worldSaveFolder = System.IO.Path.GetDirectoryName(regionDir)
     writeLootTables(LOOT_TABLES, worldSaveFolder)

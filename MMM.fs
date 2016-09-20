@@ -1641,6 +1641,8 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
     EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testfw\region""")
+    //EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testdung30\region""")
+
     //putCommandBlocks()
     (*
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing\region""")
