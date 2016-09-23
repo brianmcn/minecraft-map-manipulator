@@ -35,11 +35,11 @@ let boonLoot =
                 ] do
                     yield Item("minecraft:enchanted_book",     [SetNbt(sprintf "{StoredEnchantments:[{id:%ds,lvl:%ds}]}" id lvl)]), 1, 0, []
             ])
-        Pool(Roll(1,1),[Item("minecraft:anvil",[]),1,0,[]])
         Pool(Roll(1,1),[Item("minecraft:gold_ingot",[SetCount(10,15)]),1,0,[]])
         Pool(Roll(1,1),[Item("minecraft:iron_ingot",[SetCount(4,8)]),1,0,[]])
         Pool(Roll(1,1),[Item("minecraft:diamond",[SetCount(0,2)]),1,0,[]])
         Pool(Roll(1,1),[Item("minecraft:ender_chest",[SetCount(0,1)]),1,0,[]])
+        Pool(Roll(1,1),[Item("minecraft:stone_pickaxe",[SetCount(0,1);SetNbt("{ench:[{id:33s,lvl:1s}]}")]),1,0,[]])  // silk touch, to help with enderchests
     ]
 
 let LOOT_TABLES =
@@ -82,20 +82,24 @@ let initCmds = [|
     U """scoreboard objectives add buyStrength trigger"""
     
     U """scoreboard objectives add craftFurnace stat.craftItem.minecraft.furnace"""
+    U """scoreboard objectives add craftBed stat.craftItem.minecraft.bed"""
+    U """scoreboard objectives add craftAnvil stat.craftItem.minecraft.anvil"""
     U """scoreboard objectives add craftIHelmet stat.craftItem.minecraft.iron_helmet"""
     U """scoreboard objectives add craftIChestplate stat.craftItem.minecraft.iron_chestplate"""
     U """scoreboard objectives add craftILeggings stat.craftItem.minecraft.iron_leggings"""
     U """scoreboard objectives add craftIBoots stat.craftItem.minecraft.iron_boots"""
+    U """scoreboard objectives add craftBow stat.craftItem.minecraft.bow"""
     U """scoreboard objectives add craftDHelmet stat.craftItem.minecraft.diamond_helmet"""
     U """scoreboard objectives add craftDChestplate stat.craftItem.minecraft.diamond_chestplate"""
     U """scoreboard objectives add craftDLeggings stat.craftItem.minecraft.diamond_leggings"""
     U """scoreboard objectives add craftDBoots stat.craftItem.minecraft.diamond_boots"""
     U """scoreboard objectives add craftBucket stat.craftItem.minecraft.bucket"""
+    U """scoreboard objectives add craftShield stat.craftItem.minecraft.shield"""
     U """scoreboard objectives add craftDPick stat.craftItem.minecraft.diamond_pickaxe"""
 
     U """scoreboard players set @a statSpeed -2"""
     U """scoreboard players set @a statHaste -2"""
-    U """scoreboard players set @a statStrength -1"""
+    U """scoreboard players set @a statStrength -2"""
     U """scoreboard players set @a coins 0"""
     U """scoreboard players set @a recipe 0"""
     U """scoreboard players set @a chest 0"""
@@ -111,15 +115,19 @@ let initCmds = [|
     U """scoreboard players set @a numBought 0"""
     
     U """scoreboard players set @a craftFurnace 0"""
+    U """scoreboard players set @a craftBed 0"""
+    U """scoreboard players set @a craftAnvil 0"""
     U """scoreboard players set @a craftIHelmet 0"""
     U """scoreboard players set @a craftIChestplate 0"""
     U """scoreboard players set @a craftILeggings 0"""
     U """scoreboard players set @a craftIBoots 0"""
+    U """scoreboard players set @a craftBow 0"""
     U """scoreboard players set @a craftDHelmet 0"""
     U """scoreboard players set @a craftDChestplate 0"""
     U """scoreboard players set @a craftDLeggings 0"""
     U """scoreboard players set @a craftDBoots 0"""
     U """scoreboard players set @a craftBucket 0"""
+    U """scoreboard players set @a craftShield 0"""
     U """scoreboard players set @a craftDPick 0"""
     |]
 
@@ -152,17 +160,41 @@ let displayCmds = [|
     yield U("""execute @a[score_statHaste_min=0,score_statHaste=0] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
     yield U("""execute @a[score_statHaste_min=1,score_statHaste=1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
 
-    yield U("""execute @a[score_statStrength_min=-1,score_statStrength=-1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statStrength_min=0,score_statStrength=0] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statStrength_min=1,score_statStrength=1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+    yield U("""execute @a[score_statStrength_min=-2,score_statStrength=-2] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statStrength_min=-1,score_statStrength=-1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statStrength_min=0,score_statStrength=0] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+    yield U("""execute @a[score_statStrength_min=1,score_statStrength=1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
 
-    yield U("""execute @a[score_recipe_min=0,score_recipe=0] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":""},{"color":"gray","text":"Furnace, I. Armor, D. Armor, Bucket, D. Pick"}]""")
-    yield U("""execute @a[score_recipe_min=1,score_recipe=1] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace"},{"color":"gray","text":", I. Armor, D. Armor, Bucket, D. Pick"}]""")
-    yield U("""execute @a[score_recipe_min=2,score_recipe=2] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor"},{"color":"gray","text":", D. Armor, Bucket, D. Pick"}]""")
-    yield U("""execute @a[score_recipe_min=3,score_recipe=3] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor"},{"color":"gray","text":", Bucket, D. Pick"}]""")
-    yield U("""execute @a[score_recipe_min=4,score_recipe=4] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor, Bucket"},{"color":"gray","text":", D. Pick"}]""")
-    yield U("""execute @a[score_recipe_min=5,score_recipe=5] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, I. Armor, D. Armor, Bucket, D. Pick"},{"color":"gray","text":""}]""")
-    
+    yield U("""execute @a[score_recipe_min=0,score_recipe=0] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":""},{"color":"gray","text":"Furnace, Bed, Anvil, I. Armor, Bow"}]""")
+    yield U("""execute @a[score_recipe_min=0,score_recipe=0] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":""},{"color":"gray","text":"D. Armor, Bucket, Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=1,score_recipe=1] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace"},{"color":"gray","text":", Bed, Anvil, I. Armor, Bow"}]""")
+    yield U("""execute @a[score_recipe_min=1,score_recipe=1] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":""},{"color":"gray","text":"D. Armor, Bucket, Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=2,score_recipe=2] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed"},{"color":"gray","text":", Anvil, I. Armor, Bow"}]""")
+    yield U("""execute @a[score_recipe_min=2,score_recipe=2] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":""},{"color":"gray","text":"D. Armor, Bucket, Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=3,score_recipe=3] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed, Anvil"},{"color":"gray","text":", I. Armor, Bow"}]""")
+    yield U("""execute @a[score_recipe_min=3,score_recipe=3] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":""},{"color":"gray","text":"D. Armor, Bucket, Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=4,score_recipe=4] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed, Anvil, I. Armor"},{"color":"gray","text":", Bow"}]""")
+    yield U("""execute @a[score_recipe_min=4,score_recipe=4] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":""},{"color":"gray","text":"D. Armor, Bucket, Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=5,score_recipe=5] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed, Anvil, I. Armor, Bow"},{"color":"gray","text":""}]""")
+    yield U("""execute @a[score_recipe_min=5,score_recipe=5] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":""},{"color":"gray","text":"D. Armor, Bucket, Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=6,score_recipe=6] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed, Anvil, I. Armor, Bow"},{"color":"gray","text":""}]""")
+    yield U("""execute @a[score_recipe_min=6,score_recipe=6] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"D. Armor"},{"color":"gray","text":", Bucket, Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=7,score_recipe=7] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed, Anvil, I. Armor, Bow"},{"color":"gray","text":""}]""")
+    yield U("""execute @a[score_recipe_min=7,score_recipe=7] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"D. Armor, Bucket"},{"color":"gray","text":", Shield, D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=8,score_recipe=8] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed, Anvil, I. Armor, Bow"},{"color":"gray","text":""}]""")
+    yield U("""execute @a[score_recipe_min=8,score_recipe=8] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"D. Armor, Bucket, Shield"},{"color":"gray","text":", D. Pick"}]""")
+
+    yield U("""execute @a[score_recipe_min=9,score_recipe=9] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":"Furnace, Bed, Anvil, I. Armor, Bow"},{"color":"gray","text":""}]""")
+    yield U("""execute @a[score_recipe_min=9,score_recipe=9] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"D. Armor, Bucket, Shield, D. Pick"},{"color":"gray","text":""}]""")
+
     yield U("""tellraw @a ["You have ",{"color":"yellow","score":{"name":"@a","objective":"coins"}}," coins"]""")
 
     yield U("""scoreboard players tag @p add buyer""")
@@ -235,11 +267,13 @@ let ongoingStatusEffects = [|
     // haste +1
     U """effect @a[score_statHaste_min=1,score_statHaste=1] haste 5 1 true"""
 
+    // strength -2
+    U """effect @a[score_statStrength_min=-2,score_statStrength=-2] weakness 5 0 true"""    // -4
     // strength -1
-    U """effect @a[score_statStrength_min=-1,score_statStrength=-1] weakness 5 1 true"""
+    U """effect @a[score_statStrength_min=-1,score_statStrength=-1] weakness 5 1 true"""    // -2
     U """effect @a[score_statStrength_min=-1,score_statStrength=-1] strength 5 1 true"""
     // strength +1
-    U """effect @a[score_statStrength_min=1,score_statStrength=1] strength 5 1 true"""
+    U """effect @a[score_statStrength_min=1,score_statStrength=1] strength 5 1 true"""      // +3
     |]
 
 //GAIN COINS
@@ -291,19 +325,27 @@ let ongoingRecipeEnforcement = [|
     yield P ""
     yield! recipeHelp(0,"craftFurnace","furnace","cobblestone",8)
 
-    yield! recipeHelp(1,"craftIHelmet","iron_helmet","iron_ingot",5)
-    yield! recipeHelp(1,"craftIChestplate","iron_chestplate","iron_ingot",8)
-    yield! recipeHelp(1,"craftILeggings","iron_leggings","iron_ingot",7)
-    yield! recipeHelp(1,"craftIBoots","iron_boots","iron_ingot",4)
+    yield! recipeHelp(1,"craftBed","bed","wool",3)
 
-    yield! recipeHelp(2,"craftDHelmet","diamond_helmet","diamond",5)
-    yield! recipeHelp(2,"craftDChestplate","diamond_chestplate","diamond",8)
-    yield! recipeHelp(2,"craftDLeggings","diamond_leggings","diamond",7)
-    yield! recipeHelp(2,"craftDBoots","diamond_boots","diamond",4)
+    yield! recipeHelp(2,"craftAnvil","anvil","iron_ingot",31)
 
-    yield! recipeHelp(3,"craftBucket","bucket","iron_ingot",3)
+    yield! recipeHelp(3,"craftIHelmet","iron_helmet","iron_ingot",5)
+    yield! recipeHelp(3,"craftIChestplate","iron_chestplate","iron_ingot",8)
+    yield! recipeHelp(3,"craftILeggings","iron_leggings","iron_ingot",7)
+    yield! recipeHelp(3,"craftIBoots","iron_boots","iron_ingot",4)
 
-    yield! recipeHelp(4,"craftDPick","diamond_pickaxe","diamond",3)
+    yield! recipeHelp(4,"craftBow","bow","string",3)
+
+    yield! recipeHelp(5,"craftDHelmet","diamond_helmet","diamond",5)
+    yield! recipeHelp(5,"craftDChestplate","diamond_chestplate","diamond",8)
+    yield! recipeHelp(5,"craftDLeggings","diamond_leggings","diamond",7)
+    yield! recipeHelp(5,"craftDBoots","diamond_boots","diamond",4)
+
+    yield! recipeHelp(6,"craftBucket","bucket","iron_ingot",3)
+
+    yield! recipeHelp(7,"craftShield","shield","iron_ingot",1)
+
+    yield! recipeHelp(8,"craftDPick","diamond_pickaxe","diamond",3)
     |]
 
 //////////////////////////////////////
@@ -319,7 +361,7 @@ let populateWorld(regionDir) =
     r.PlaceCommandBlocksStartingAt(0,199,0,ongoingRecipeEnforcement,"recipes",false,true)
     r.PlaceCommandBlocksStartingAt(0,198,0,ongoingCoinsRules(COINS_PER_RAIL,COINS_PER_EMERALD),"coins",false,true)
     r.PlaceCommandBlocksStartingAt(0,197,0,displayCmds,"display",false,true)
-    r.PlaceCommandBlocksStartingAt(0,196,0,cmdsToBuy("buyRecipe",RECIPE_PRICE,"next recipe","recipe",5),"buy recipe",false,true)
+    r.PlaceCommandBlocksStartingAt(0,196,0,cmdsToBuy("buyRecipe",RECIPE_PRICE,"next recipe","recipe",9),"buy recipe",false,true)
     r.PlaceCommandBlocksStartingAt(0,195,0,cmdsToBuy("buyChest",CHEST_PRICE,"loot chest","chest",999),"buy boon",false,true)
     r.PlaceCommandBlocksStartingAt(0,194,0,cmdsToBuy("buySpeed",SPEED_PRICE,"speed upgrade","statSpeed",1),"buy speed",false,true)
     r.PlaceCommandBlocksStartingAt(0,193,0,cmdsToBuy("buyHaste",HASTE_PRICE,"haste upgrade","statHaste",1),"buy haste",false,true)
@@ -328,3 +370,13 @@ let populateWorld(regionDir) =
     map.WriteAll()
     let worldSaveFolder = System.IO.Path.GetDirectoryName(regionDir)
     writeLootTables(LOOT_TABLES, worldSaveFolder)
+
+// TODO playtest ideas
+
+
+///////////////////////
+
+// VS bonus monument chests related to death penalty (heal-you-back for finding or something?)
+// VS losing coins, getting from bonus, ...
+// VS idea of breaking N% of spawners in an area earns something
+// breaking spawner earns coins?
