@@ -487,12 +487,14 @@ type RegionFile(filename) =
         let cz = ((z+51200)%512)/16
         chunkInhabitedTimeCache.[cx,cz] <- it
     member this.PlaceCommandBlocksStartingAtSelfDestruct(c:Coords,cmds:_[],comment) =
-        this.PlaceCommandBlocksStartingAtSelfDestruct(c.X,c.Y,c.Z,cmds,comment)
+        this.PlaceCommandBlocksStartingAtSelfDestruct(c.X,c.Y,c.Z,cmds,comment,true,false)
     member this.PlaceCommandBlocksStartingAt(c:Coords,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAt(c.X,c.Y,c.Z,cmds,comment)
     member this.PlaceCommandBlocksStartingAtSelfDestruct(x,y,startz,cmds:_[],comment) =
+        this.PlaceCommandBlocksStartingAtSelfDestruct(x,y,startz,cmds,comment,true,true)
+    member this.PlaceCommandBlocksStartingAtSelfDestruct(x,y,startz,cmds:_[],comment,checkForOverwrites,putDummyAirAtEnd) =
         let cmds = [| yield! cmds; yield U (sprintf "fill ~ ~ ~-%d ~ ~ ~ air" cmds.Length) |]
-        this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment)
+        this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment,checkForOverwrites,putDummyAirAtEnd)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment,true,true)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment,checkForOverwrites,putDummyAirAtEnd) =
@@ -557,7 +559,7 @@ type RegionFile(filename) =
             if txt = null then
                 [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
                    NBT.Byte("conditionMet",0uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);
-                   NBT.String("id","Control"); NBT.Int("SuccessCount",0); 
+                   NBT.String("id","minecraft:command_block"); NBT.Int("SuccessCount",0); 
 #if DEBUG
                    NBT.Byte("TrackOutput",1uy);   // TODO for release, use release mode
 #else
@@ -613,18 +615,17 @@ type RegionFile(filename) =
                 prevwcz <- z/16
             // accumulate payload in this chunk
             let thisz = z
-            if checkForOverwrites then
-                tepayload <-  
-                    tepayload 
-                    |> Seq.filter (fun te -> 
-                        let alreadyThere = Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te
-                        if alreadyThere then
+            tepayload <-  
+                tepayload 
+                |> Seq.filter (fun te -> 
+                    let alreadyThere = Array.exists (fun o -> o=Int("x",x)) te && Array.exists (fun o -> o=Int("y",y)) te && Array.exists (fun o -> o=Int("z",thisz)) te
+                    if alreadyThere then
+                        if checkForOverwrites then
                             failwith "uh-oh, overwriting blocks"
-                            //printfn "******WARN***** overwriting blocks"
-                        not(alreadyThere) )
-                    |> Seq.append nbts |> (fun x -> ResizeArray x)
-            else
-                tepayload.AddRange(nbts)
+                        else
+                            printfn "******WARN***** overwriting blocks"
+                    not(alreadyThere) )
+                |> Seq.append nbts |> (fun x -> ResizeArray x)
             z <- z + 1
         storeIt(prevcx,prevcz,prevwcx,prevwcz,tepayload)
     member this.NumCommandBlocksPlaced = numCommandBlocksPlaced

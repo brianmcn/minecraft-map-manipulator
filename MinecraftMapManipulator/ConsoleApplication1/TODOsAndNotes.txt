@@ -100,6 +100,7 @@ teleporters always randomize villagers same way since re-seed each section
 
 TODO: bugs & good ideas
 
+tntn randomly in cave walls is another way to make creeper explosions dangerous, set off reactions... with lots of gravel pockets, can also make falling/suffocating possible
 put standing map on north side of monument, so it's oriented so past it is north, more natural
 something like a prot3 mending gold chestplate with high repaircost is an interesting item (or even unbr3, mend, leather?)
 wide-area spawners with a good MaxNearbyEntities cap could possibly prevent e.g. green beacon from getting too flooded with zombies, maybe (Y coord still dodgy)

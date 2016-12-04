@@ -644,7 +644,7 @@ let chatToVoiceDemo() =
                 inputEvents.CompleteAdding() 
         let t = new System.Threading.Thread(sendloop) 
         t.Start() 
-    let ss = System.Speech.Synthesis.SpeechSynthesizer()
+    use ss = new System.Speech.Synthesis.SpeechSynthesizer()
     // MAIN LOOP 
     for e in inputEvents.GetConsumingEnumerable() do 
         match e with 
@@ -763,43 +763,43 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
                            | 397,5 -> "dragon head"
                            | _ -> name
                 let cmd = sprintf """summon ItemFrame ~%d ~%d ~%d {Facing:%db,Item:{id:"%s",Count:1b,Damage:%ds,tag:{display:{Name:"%s"}}}}""" (AR (x+2*dx) cx) (AR y cy) (AR (z+0*dz) cz) facing itemName dmg name
-                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","minecraft:command_block"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",cmd); End |]
                 // backing commands
                 let cmdFacing = [| 2uy; 5uy; 3uy; 4uy |].[facing]  // convert item-frame-facing to opposite command-block-facing
                 let cx,cy,cz = x+0*dx, y, z+2*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,210uy,cmdFacing) // 210=repeating
-                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","minecraft:command_block"); 
                             Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",sprintf """testfor @a {Inventory:[{id:"%s"%s}]}""" itemName (if hasNonZeroDamage.[bid] then sprintf ",Damage:%ds" dmg else "")); End |]
                 // setblock emerald
                 let cx,cy,cz = x+ -1*dx, y, z+3*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
-                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","minecraft:command_block"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",sprintf """setblock ~%d ~ ~%d emerald_block""" (2*dx) (-2*dz)); End |]
                 // chat announce name
                 let cx,cy,cz = x+ -2*dx, y, z+4*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
-                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","minecraft:command_block"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",sprintf """tellraw @a ["Got %s"]""" name); End |]
                 // score++
                 let cx,cy,cz = x+ -3*dx, y, z+5*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
-                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","minecraft:command_block"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command","""scoreboard players add Have Items 1"""); End |]
                 // sound
                 let cx,cy,cz = x+ -4*dx, y, z+6*dz
                 map.EnsureSetBlockIDAndDamage(cx,cy,cz,211uy,cmdFacing+8uy) // 211=chain (conditional)
-                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","minecraft:command_block"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command","""execute @a ~ ~ ~ playsound entity.firework.launch voice @p ~ ~ ~"""); End |]
             else 
                 // empty command, just to ensure overwriting blocks
-                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","Control"); 
+                tes.Add [|Int("x",cx); Int("y",cy); Int("z",cz); String("id","minecraft:command_block"); 
                             Byte("auto",1uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                             String("Command",""); End |]
                 // TODO filled_map looks weird
@@ -810,7 +810,7 @@ let makeGetAllItemsGame(map:MapFolder, minxRoom, minyRoom, minzRoom, minxCmds, m
         let y = minyCmds + dy
         map.SetBlockIDAndDamage(x,y,z,137uy,3uy)
         let cmd = ""
-        tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","Control"); 
+        tes.Add [|Int("x",x); Int("y",y); Int("z",z); String("id","minecraft:command_block"); 
                     Byte("auto",0uy); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); 
                     String("Command",cmd); End |]
     let cx,cy,cz = minxRoom+10, minyRoom, minzRoom+5
@@ -1294,18 +1294,18 @@ let generateSuperLongSnakingCommandBlockChain() =
             for dz = 0 to 99 do
                 let z = z + dz
                 map.EnsureSetBlockIDAndDamage(x,y,z,211uy,3uy)
-                tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+                tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","minecraft:command_block"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
             let z = z + 100
             map.EnsureSetBlockIDAndDamage(x,y,z,211uy,5uy)
-            tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+            tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","minecraft:command_block"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
         else
             for dz = 100 downto 1 do
                 let z = z + dz
                 map.EnsureSetBlockIDAndDamage(x,y,z,211uy,2uy)
-                tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+                tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","minecraft:command_block"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
             let z = z + 0
             map.EnsureSetBlockIDAndDamage(x,y,z,211uy,5uy)
-            tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","Control"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
+            tes.Add [| Int("x",x); Int("y",y); Int("z",z); String("id","minecraft:command_block"); Byte("auto",1uy); String("Command",command); Byte("conditionMet",1uy); String("CustomName","@"); Byte("powered",0uy); Int("SuccessCount",1); Byte("TrackOutput",0uy); End |]
     map.AddOrReplaceTileEntities(tes)
     map.WriteAll()
 

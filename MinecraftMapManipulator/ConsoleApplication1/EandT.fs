@@ -10,7 +10,11 @@ let HASTE_PRICE = 200
 let STRENGTH_PRICE = 200
 
 open LootTables
+// TODO if keep mineshafts, probably give them same emerald table as dungeons, and not make dungeon rate as high...
 //dungeon loot: what books would I want? (sample of 15 dungeons: 10 had 2 chests, 5 had 1 chest, so a 60% rate of upgrades is appropriate)
+// desert temples off, which also controls igloos and jungle temples, village chests? (mansions on)
+
+// world suggestions: biome 4 (default), water lake rarity up, dungeon rate up to 28, temples off - actually, can leave temples on, no huge issue, right? recipes still block progress?
 
 let dungeonLoot = Pools [Pool(Roll(1,1),[Item("minecraft:emerald",[SetCount(7,13)]),1,0,[]])]
 
@@ -29,7 +33,7 @@ let boonLoot =
                     EFF[2]
                     FORT[2]
                     UNBR[3]
-                    POW[2]
+                    //POW[2]
                     PUNCH[2]
                     INF[1]
                 ] do
@@ -45,6 +49,8 @@ let boonLoot =
 let LOOT_TABLES =
     [|
         "minecraft:chests/simple_dungeon", dungeonLoot
+//        "minecraft:chests/abandoned_mineshaft", dungeonLoot    // leave as normal, to have normal loot avail - ok to find diamonds, still can't craft much with them unless unlocked
+        "minecraft:chests/village_blacksmith", dungeonLoot   // no obsdian
         "brianloot:boon", boonLoot
     |]
 
@@ -150,20 +156,35 @@ let displayCmds = [|
     yield O ""
     yield U """tellraw @a [""]"""
 
-    yield U("""execute @a[score_statSpeed_min=-2,score_statSpeed=-2] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statSpeed_min=-1,score_statSpeed=-1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statSpeed_min=0,score_statSpeed=0] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statSpeed_min=1,score_statSpeed=1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+//    yield U("""execute @a[score_statSpeed_min=-2,score_statSpeed=-2] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statSpeed_min=-1,score_statSpeed=-1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statSpeed_min=0,score_statSpeed=0] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statSpeed_min=1,score_statSpeed=1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+//
+//    yield U("""execute @a[score_statHaste_min=-2,score_statHaste=-2] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statHaste_min=-1,score_statHaste=-1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statHaste_min=0,score_statHaste=0] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statHaste_min=1,score_statHaste=1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+//
+//    yield U("""execute @a[score_statStrength_min=-2,score_statStrength=-2] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statStrength_min=-1,score_statStrength=-1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statStrength_min=0,score_statStrength=0] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
+//    yield U("""execute @a[score_statStrength_min=1,score_statStrength=1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
 
-    yield U("""execute @a[score_statHaste_min=-2,score_statHaste=-2] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statHaste_min=-1,score_statHaste=-1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statHaste_min=0,score_statHaste=0] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statHaste_min=1,score_statHaste=1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+    yield U("""execute @a[score_statSpeed_min=-2,score_statSpeed=-2] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
+    yield U("""execute @a[score_statSpeed_min=-1,score_statSpeed=-1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
+    yield U("""execute @a[score_statSpeed_min=0,score_statSpeed=0] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},""]""")
+    yield U("""execute @a[score_statSpeed_min=1,score_statSpeed=1] ~ ~ ~ tellraw @a ["Speed:\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
 
-    yield U("""execute @a[score_statStrength_min=-2,score_statStrength=-2] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statStrength_min=-1,score_statStrength=-1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statStrength_min=0,score_statStrength=0] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"+1"},""]""")
-    yield U("""execute @a[score_statStrength_min=1,score_statStrength=1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"+1"},""]""")
+    yield U("""execute @a[score_statHaste_min=-2,score_statHaste=-2] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
+    yield U("""execute @a[score_statHaste_min=-1,score_statHaste=-1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
+    yield U("""execute @a[score_statHaste_min=0,score_statHaste=0] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},""]""")
+    yield U("""execute @a[score_statHaste_min=1,score_statHaste=1] ~ ~ ~ tellraw @a ["Haste:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
+
+    yield U("""execute @a[score_statStrength_min=-2,score_statStrength=-2] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
+    yield U("""execute @a[score_statStrength_min=-1,score_statStrength=-1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"green","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
+    yield U("""execute @a[score_statStrength_min=0,score_statStrength=0] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"green","text":"0"},""]""")
+    yield U("""execute @a[score_statStrength_min=1,score_statStrength=1] ~ ~ ~ tellraw @a ["Strength:\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"gray","text":"-2"},"\u0020\u0020\u0020",{"color":"gray","text":"-1"},"\u0020\u0020\u0020\u0020",{"color":"gray","text":"0"},""]""")
 
     yield U("""execute @a[score_recipe_min=0,score_recipe=0] ~ ~ ~ tellraw @a ["Recipe: ",{"color":"green","text":""},{"color":"gray","text":"Furnace, Bed, Anvil, I. Armor, Bow"}]""")
     yield U("""execute @a[score_recipe_min=0,score_recipe=0] ~ ~ ~ tellraw @a ["\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020\u0020",{"color":"green","text":""},{"color":"gray","text":"D. Armor, Bucket, Shield, D. Pick"}]""")
@@ -355,17 +376,19 @@ let ongoingRecipeEnforcement = [|
 let populateWorld(regionDir) =
     let map = new MapFolder(regionDir)
     let r = map.GetRegion(0,0)
-    r.PlaceCommandBlocksStartingAtSelfDestruct(0,202,0,[|O"fill 1 201 0 1 191 0 air";U"fill 1 201 0 1 191 0 redstone_block"|],"kickoff")
-    r.PlaceCommandBlocksStartingAtSelfDestruct(0,201,0,initCmds,"init")
+    let bi = r.GetBlockInfo(0,200,1)
+    printfn "%A" bi.BlockID 
+    r.PlaceCommandBlocksStartingAtSelfDestruct(0,202,0,[|O"fill 1 201 0 1 191 0 air";U"fill 1 201 0 1 191 0 redstone_block"|],"kickoff",false,true)
+    r.PlaceCommandBlocksStartingAtSelfDestruct(0,201,0,initCmds,"init",false,true)
     r.PlaceCommandBlocksStartingAt(0,200,0,ongoingStatusEffects,"status effects",false,true)
     r.PlaceCommandBlocksStartingAt(0,199,0,ongoingRecipeEnforcement,"recipes",false,true)
     r.PlaceCommandBlocksStartingAt(0,198,0,ongoingCoinsRules(COINS_PER_RAIL,COINS_PER_EMERALD),"coins",false,true)
     r.PlaceCommandBlocksStartingAt(0,197,0,displayCmds,"display",false,true)
     r.PlaceCommandBlocksStartingAt(0,196,0,cmdsToBuy("buyRecipe",RECIPE_PRICE,"next recipe","recipe",9),"buy recipe",false,true)
     r.PlaceCommandBlocksStartingAt(0,195,0,cmdsToBuy("buyChest",CHEST_PRICE,"loot chest","chest",999),"buy boon",false,true)
-    r.PlaceCommandBlocksStartingAt(0,194,0,cmdsToBuy("buySpeed",SPEED_PRICE,"speed upgrade","statSpeed",1),"buy speed",false,true)
-    r.PlaceCommandBlocksStartingAt(0,193,0,cmdsToBuy("buyHaste",HASTE_PRICE,"haste upgrade","statHaste",1),"buy haste",false,true)
-    r.PlaceCommandBlocksStartingAt(0,192,0,cmdsToBuy("buyStrength",STRENGTH_PRICE,"strength upgrade","statStrength",1),"buy strength",false,true)
+    r.PlaceCommandBlocksStartingAt(0,194,0,cmdsToBuy("buySpeed",SPEED_PRICE,"speed upgrade","statSpeed",0),"buy speed",false,true)
+    r.PlaceCommandBlocksStartingAt(0,193,0,cmdsToBuy("buyHaste",HASTE_PRICE,"haste upgrade","statHaste",0),"buy haste",false,true)
+    r.PlaceCommandBlocksStartingAt(0,192,0,cmdsToBuy("buyStrength",STRENGTH_PRICE,"strength upgrade","statStrength",0),"buy strength",false,true)
     r.PlaceCommandBlocksStartingAt(0,191,0,ongoingDeathCheck,"death check",false,true)
     map.WriteAll()
     let worldSaveFolder = System.IO.Path.GetDirectoryName(regionDir)

@@ -336,18 +336,18 @@ let blockIdToMinecraftName =
     |]
 let toMinecraftName(bid:byte) = blockIdToMinecraftName |> Array.pick (fun (b,n) -> if b=int bid then Some n else None)
 
-let TILE_ENTITY_BID_ID = [| // an incomplete (TODO) list of tile entities
+let TILE_ENTITY_BID_ID = [| // an incomplete (TODO) list of tile entities  // TODO these probably changed now sometime after 1.9.4?
     52uy, "MobSpawner"
     54uy, "Chest"
     61uy, "Furnace"
     63uy, "Sign"
     68uy, "Sign"
     130uy, "Enderchest"
-    137uy, "Control"
+    137uy, "minecraft:command_block" // previously was "Control"
     146uy, "Chest"
     209uy, "EndGateway"
-    210uy, "Control"
-    211uy, "Control"
+    210uy, "minecraft:command_block"
+    211uy, "minecraft:command_block"
     |]
 
 let BLOCKIDS_THAT_EMIT_LIGHT =
