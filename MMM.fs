@@ -1434,8 +1434,6 @@ do
 #if BINGO
 
 (*
-
-
 TO TEST
 
 prep map, e.g. 
@@ -1469,7 +1467,6 @@ There are other game modes and customization options; if you want to learn more,
 
 You can [download the map here](http://www.minecraftworldmap.com/worlds/MgmI_) - MinecraftBINGO runs on vanilla 1.9 command blocks (no mods or resource packs required).
 
-
 --------------
 
 feature list:
@@ -1484,35 +1481,34 @@ up to 4 teams in SMP, collab or compete
 lockout mode
 seeded cards & spawns (90000 possible)
 automatic game start configs (night vision, starting items), customizable
-
-
-
 *)
 
     let readInSomeArt = false
     if readInSomeArt then
-        let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
+        //let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
+        let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\bingo111\region\r.0.0.mca"""
         let r = new RegionFile(fil)
         let arr = ResizeArray()
-        let s = ArtAssets.readZoneIntoString(r,165,3,39,16,1,16)
+        //let s = ArtAssets.readZoneIntoString(r,165,3,111,16,1,16)
+        let s = ArtAssets.readZoneIntoString(r,64,19,0,63,1,63)
         arr.Add(sprintf """let cw = "%s" """ s)
         let writePath = """C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\Temp.txt"""
         System.IO.File.WriteAllLines(writePath, arr)
+        failwith "done"
 
+    printfn "bingo seed is 8126031 preset to clipboard..."
+    System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(1,100,4,80,true,true,false,true,true,true,MC_Constants.oreSpawnBingo))
 
 (*
-    let tmp3LevelDat = sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\tmp3\level.dat""" user
-    dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Eventide Trance v1.0.2\level.dat""")
-    dumpPlayerDat(tmp3LevelDat)
-    Utilities.renamer(tmp3LevelDat,"\u00A7l\u00A76Minecraft\u00A7dBINGO \u00A79v3.0 \u00A7aby \u00A7eLorgon111\u00A7r ")
+    let tmp3LevelDat = sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\tmp3_111\level.dat""" user
+    //dumpPlayerDat("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Eventide Trance v1.0.2\level.dat""")
+    //dumpPlayerDat(tmp3LevelDat)
+    Utilities.renamer(tmp3LevelDat,"\u00A7l\u00A76Minecraft\u00A7dBINGO \u00A79v3.1 \u00A7aby \u00A7eLorgon111\u00A7r ")
     failwith "bang"
 *)
 
-    printfn "bingo seed is 8126030 preset to clipboard..."
-    System.Windows.Clipboard.SetText(MC_Constants.defaultWorldWithCustomOreSpawns(1,100,4,80,true,true,true,true,MC_Constants.oreSpawnBingo))
-
     let onlyArt = false
-    let save = if onlyArt then "BingoArt" else "tmp9"
+    let save = if onlyArt then "BingoArt" else "bingo111"
     //dumpTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     //removeAllTileTicks(sprintf """C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\%s\region\r.0.0.mca""" save)
     for x in [-2..1] do
@@ -1536,9 +1532,9 @@ automatic game start configs (night vision, starting items), customizable
     System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp4\data\map_1.dat.new""",
                         sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\data\map_1.dat""" user save, true)
     if not onlyArt then
-        System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\level.dat""",
+        System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3_111\level.dat""",
                             sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\level.dat""" user save, true)
-        System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3\icon.png""",
+        System.IO.File.Copy("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp3_111\icon.png""",
                             sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\%s\icon.png""" user save, true)
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\tmp9\region\r.0.0.mca""")
     //dumpSomeCommandBlocks("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\Seed9917 - Copy35e\region\r.0.0.mca""")
@@ -1640,7 +1636,9 @@ automatic game start configs (night vision, starting items), customizable
     map.WriteAll()
 #endif
 
-    EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testfw\region""")
+
+    //EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Like E&T 10\region""")
+    //EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\E&T Season 9\region""")
     //EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testdung30\region""")
     //EandT.populateWorld("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\dung30alpha1seed17\region""")
     

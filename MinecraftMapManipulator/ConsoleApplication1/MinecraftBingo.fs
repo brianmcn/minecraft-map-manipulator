@@ -25,6 +25,8 @@
 //  - 10596 downloads, 350 subreddit
 // (4/18)
 //  - 11100 downloads, 355 subreddit
+// (2/18/2017)
+//  - 29700 dowloads, 370 subreddit
 //
 // FUTURE SUGGESTIONS:
 //
@@ -32,6 +34,20 @@
 // Would be a cool way to see which specific member was responsible for each item.
 //  - possible, but challenging to not create more perf overhead, and also may spam chat e.g. if break open dungeon chest... consider
 // game counter (suggests when to delete chunks or download fresh map?)
+
+// possible 1.11 items
+// - firework rocket (probably 2/3 rocket, 1/3 gunpowder, since GP so easy)
+// - remove hated emeralds?
+// - cocoa bean as easier cookie?
+// - beetroot (must bonemeal it)? beetroot soup (diff enough art from mush stew?)?  can get from village, as oppose to bonemeal from dungeon maybe? (too many dungeon items? review dung stuff?... nametag and saddle redundant maybe)
+// - lead? (slimeball already too hard, a way to inject more slimes seamlessly? more endermen too?)
+// - turn off mineshafts (and remove web)? mesa no longer OP?
+// 1.11 mode
+// - elytra now with rockets rather than stacked potions
+// 1.11 data - in 15 mins of flying, saw 3 villages, 1 igloo, and 5 mesas (3 of which had surface mineshafts)
+
+// update art/file to say 3.1, give the right seed, ...
+// use new title bar sometimes to pollute chat less? actual titles for 3..2..1, actionbar for 'birds eye' etc? may need a darker color in multiplayer wait room... think thru all text...
 
 module MinecraftBingo
 
@@ -68,9 +84,9 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 #if DEBUG_NTICKSLATER
             yield U (sprintf """tellraw @a ["schedule nTickLater %d at ",{"score":{"name":"Tick","objective":"Score"}}]""" n)
 #endif
-            yield U "summon ArmorStand ~ ~ ~3 {Tags:[\"nTicksLaterNewArmor\"],NoGravity:1,Marker:1}"
-            yield U (sprintf "scoreboard players set @e[type=ArmorStand,tag=nTicksLaterNewArmor] S -%d" n)
-            yield U "entitydata @e[type=ArmorStand,tag=nTicksLaterNewArmor] {Tags:[\"nTicksLaterScoredArmor\"]}"
+            yield U "summon armor_stand ~ ~ ~3 {Tags:[\"nTicksLaterNewArmor\"],NoGravity:1,Marker:1}"
+            yield U (sprintf "scoreboard players set @e[type=armor_stand,tag=nTicksLaterNewArmor] S -%d" n)
+            yield U "entitydata @e[type=armor_stand,tag=nTicksLaterNewArmor] {Tags:[\"nTicksLaterScoredArmor\"]}"
             yield O ""
         |]
 
@@ -80,23 +96,23 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  -1, "diamond", AA.diamond                   ; -1, "diamond_hoe", AA.diamond_hoe         ; -1, "diamond_axe", AA.diamond_axe         |]
             [|  -1, "bone", AA.bone                         ; +8, "dye", AA.gray_dye                    ; +8, "dye", AA.gray_dye                    |]
             [|  -1, "ender_pearl", AA.ender_pearl           ; -1, "ender_pearl", AA.ender_pearl         ; -1, "slime_ball", AA.slime_ball           |]
-            [|  -1, "vine", AA.vine                         ; -1, "deadbush", AA.deadbush               ; -1, "web", AA.web                         |]
+            [|  +2, "tallgrass", AA.fern                    ; -1, "vine", AA.vine                       ; -1, "deadbush", AA.deadbush               |]
             [|  -1, "brick", AA.brick                       ; -1, "flower_pot", AA.flower_pot           ; -1, "flower_pot", AA.flower_pot           |]
             [|  -1, "glass_bottle", AA.glass_bottle         ; -1, "glass_bottle", AA.glass_bottle       ; -1, "glass_bottle", AA.glass_bottle       |]
             [|  -1, "melon", AA.melon_slice                 ; -1, "melon", AA.melon_slice               ; -1, "speckled_melon", AA.speckled_melon   |]
             [|  +0, "dye", AA.ink_sac                       ; -1, "book", AA.book                       ; -1, "writable_book", AA.book_and_quill    |]
             [|  -1, "apple", AA.apple                       ; -1, "golden_shovel", AA.golden_shovel     ; -1, "golden_apple", AA.golden_apple       |]
             [|  -1, "flint", AA.flint                       ; -1, "flint", AA.flint                     ; -1, "flint_and_steel", AA.flint_and_steel |]
-            [|  -1, "cookie", AA.cookie                     ; -1, "cookie", AA.cookie                   ; -1, "cookie", AA.cookie                   |]
+            [|  +3, "dye", AA.cocoa_bean                    ; -1, "cookie", AA.cookie                   ; -1, "cookie", AA.cookie                   |]
             [|  -1, "pumpkin_seeds", AA.pumpkin_seeds       ; -1, "pumpkin_seeds", AA.pumpkin_seeds     ; -1, "pumpkin_pie", AA.pumpkin_pie         |]
             [|  -1, "rail", AA.rail                         ; -1, "rail", AA.rail                       ; -1, "rail", AA.rail                       |]
             [|  -1, "mushroom_stew", AA.mushroom_stew       ; -1, "mushroom_stew", AA.mushroom_stew     ; -1, "mushroom_stew", AA.mushroom_stew     |]
             [|  -1, "sugar", AA.sugar                       ; -1, "spider_eye", AA.spider_eye           ; -1, "fermented_spider_eye", AA.fermented_spider_eye |]
             [|  +2, "dye", AA.cactus_dye                    ; +2, "dye", AA.cactus_dye                  ;+10, "dye", AA.lime_dye                    |]
             [|  +4, "dye", AA.lapis                         ; +5, "dye", AA.purple_dye                  ; +6, "dye", AA.cyan_dye                    |]
-            [|  -1, "emerald", AA.emerald                   ; -1, "emerald", AA.emerald                 ; -1, "emerald", AA.emerald                 |]
+            [|  -1, "beetroot_soup", AA.beetroot_soup       ; -1, "emerald", AA.emerald                 ; -1, "emerald", AA.emerald                 |]
             [|  -1, "minecart", AA.minecart                 ; -1, "chest_minecart", AA.chest_minecart   ; -1, "tnt_minecart", AA.tnt_minecart       |]
-            [|  -1, "gunpowder", AA.gunpowder               ; -1, "gunpowder", AA.gunpowder             ; -1, "gunpowder", AA.gunpowder             |]
+            [|  -1, "gunpowder", AA.gunpowder               ; -1, "fireworks", AA.fireworks             ; -1, "fireworks", AA.fireworks             |]
             [|  -1, "compass", AA.compass                   ; -1, "compass", AA.compass                 ; -1, "map", AA.empty_map                   |]
             [|  +1, "sapling", AA.spruce_sapling            ; +1, "sapling", AA.spruce_sapling          ; +4, "sapling", AA.acacia_sapling          |]
             [|  -1, "cauldron", AA.cauldron                 ; -1, "cauldron", AA.cauldron               ; -1, "cauldron", AA.cauldron               |]
@@ -326,8 +342,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %d %d %d chest 5" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+1) (LOBBYY) (LOBBYZ+1)) // wool under chest
             // put heads
-            yield U (sprintf "/summon ArmorStand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+1) - 0.0))
-            yield U (sprintf "/summon ArmorStand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+14) - 0.0))
+            yield U (sprintf "/summon armor_stand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+1) - 0.0))
+            yield U (sprintf "/summon armor_stand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+14) - 0.0))
             yield! nTicksLater(1)
             yield U "tp @e[tag=asToReverse] ~ ~ ~-0.01 180 0"
             // put enabled signs
@@ -723,13 +739,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 #if DEBUG
         yield U "scoreboard players add Tick Score 1"
 #endif
-        yield U "scoreboard players add @e[type=ArmorStand,tag=nTicksLaterScoredArmor] S 1"
-        yield U "execute @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
-        yield U "execute @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
+        yield U "scoreboard players add @e[type=armor_stand,tag=nTicksLaterScoredArmor] S 1"
+        yield U "execute @e[type=armor_stand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
+        yield U "execute @e[type=armor_stand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ blockdata ~ ~ ~ {auto:0b}"
 #if DEBUG_NTICKSLATER
-        yield U """execute @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ tellraw @a ["nTickLater armor-awaken at ",{"score":{"name":"Tick","objective":"Score"}}]"""
+        yield U """execute @e[type=armor_stand,tag=nTicksLaterScoredArmor,score_S_min=-1] ~ ~ ~ tellraw @a ["nTickLater armor-awaken at ",{"score":{"name":"Tick","objective":"Score"}}]"""
 #endif
-        yield U "kill @e[type=ArmorStand,tag=nTicksLaterScoredArmor,score_S_min=-1]"
+        yield U "kill @e[type=armor_stand,tag=nTicksLaterScoredArmor,score_S_min=-1]"
         |]
     let timerCmds = 
         [|
@@ -766,7 +782,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // clear the 'wanting' flags
         yield U "scoreboard players tag @a[tag=playerThatWantsToUpdate] remove playerThatWantsToUpdate"
         // start the TP sequence for the chosen guy
-        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Tags:[\"whereToTpBackTo\"],Duration:1000}"  // summon now, need to wait a tick to TP
+        yield U "execute @p[tag=playerThatIsMapUpdating] ~ ~ ~ summon area_effect_cloud ~ ~ ~ {Tags:[\"whereToTpBackTo\"],Duration:1000}"  // summon now, need to wait a tick to TP
         yield U "testfor @p[tag=playerThatIsMapUpdating]"
         yield C "blockdata ~ ~ ~3 {auto:1b}"
         yield C "blockdata ~ ~ ~2 {auto:0b}"
@@ -952,10 +968,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 #if DEBUG
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
 #endif
-        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999999,Tags:["TimeKeeper"]}"""
+        yield U """summon area_effect_cloud ~ ~ ~ {Duration:999999999,Tags:["TimeKeeper"]}"""
 #if DEBUG
         // start ticklagdebug // TODO eventually remove this
-        yield U """summon AreaEffectCloud ~ ~ ~ {Duration:999999999,Tags:["TickLagDebug"]}"""
+        yield U """summon area_effect_cloud ~ ~ ~ {Duration:999999999,Tags:["TickLagDebug"]}"""
         yield U "fill 100 4 6 100 4 16 wool"  // todo coords
         yield U "fill 100 4 6 100 4 16 redstone_block"  // todo coords
 #endif
@@ -1021,7 +1037,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield O ""
         // make AECs for teleportBasedOnScore, e.g. to move N spaces with a score of N
         for i = 60 downto 1 do  // 60 is nice, not too many, divides 1-6, makes the 300 X/Z spawns manageable
-            yield U (sprintf "summon AreaEffectCloud %d 1 1 {Duration:999999999,Tags:[\"Z\"]}" i)
+            yield U (sprintf "summon area_effect_cloud %d 1 1 {Duration:999999999,Tags:[\"Z\"]}" i)
             yield U "scoreboard players add @e[tag=Z] S 1"
         yield U (sprintf "fill %d %d %d %d %d %d stone" 0 MAPY (MAPZ-1) 127 MAPY (MAPZ-1)) // stone above top row, to prevent shading on top line
         |]
@@ -1049,7 +1065,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let makeActualCardInit() =
         [|
         yield U "scoreboard players set macCol S 1"
-        yield U (sprintf "summon ArmorStand %d %d %d {NoGravity:1,Tags:[\"whereToPlacePixelArt\"]}" (MAPX+7) MAPY (MAPZ+3)) 
+        yield U (sprintf "summon armor_stand %d %d %d {NoGravity:1,Tags:[\"whereToPlacePixelArt\"]}" (MAPX+7) MAPY (MAPZ+3)) 
         |]
     let makeActualCard() =
         [|
@@ -1138,7 +1154,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %s wool" (GOT_LOCKOUT_REDSTONE(t).STR))
             yield U (sprintf "setblock %s wool" (GOT_MEGA_BINGO_REDSTONE(t).STR))
         // ensure long-lived AECs stay alive
-        yield U "entitydata @e[type=AreaEffectCloud] {Duration:999999999}"
+        yield U "entitydata @e[type=area_effect_cloud] {Duration:999999999}"
         |]
     region.PlaceCommandBlocksStartingAt(RESET_SCORES_LOGIC,resetScoresLogic,"reset scores")
 
@@ -1157,7 +1173,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U (sprintf "blockdata %s {auto:1b}" RESET_SCORES_LOGIC.STR)
         yield U (sprintf "blockdata %s {auto:0b}" RESET_SCORES_LOGIC.STR)
         yield! nTicksLater(3)  // let reset score print some text before we print ours
-        yield U "scoreboard players operation Z Calc += @r[type=AreaEffectCloud,tag=Z] S"  // this will insert some 'real' randomness by adding rand(60) before re-PRNG
+        yield U "scoreboard players operation Z Calc += @r[type=area_effect_cloud,tag=Z] S"  // this will insert some 'real' randomness by adding rand(60) before re-PRNG
         yield U """tellraw @a ["Choosing random seed..."]"""
         yield U "scoreboard players set modRandomSeed S 899"
         yield! PRNG("seed","is","modRandomSeed","S")
@@ -1583,13 +1599,27 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U """tellraw @a ["You can keep playing, or"]"""
         yield U """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
         // fireworks
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~3 ~0 ~0 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}"""
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~3 ~0 ~0 {LifeTime:20}"""
         yield! nTicksLater(8)
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~3 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:0,Trail:1,Colors:[13172728],FadeColors:[16777215]},]}}}}"""
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~0 ~0 ~3 {LifeTime:20}"""
         yield! nTicksLater(8)
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~-3 ~0 ~0 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:0,Colors:[16777074],FadeColors:[16777215]},]}}}}"""
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~-3 ~0 ~0 {LifeTime:20}"""
         yield! nTicksLater(8)
-        yield U """execute @a ~ ~ ~ summon FireworksRocketEntity ~0 ~0 ~-3 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:3,Flicker:1,Trail:1,Colors:[6160227],FadeColors:[16777215]}]}}}}"""
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~0 ~0 ~-3 {LifeTime:20}"""
+        yield! nTicksLater(8)
+        yield U """execute @a ~ ~ ~ playsound entity.firework.blast ambient @p ~ ~ ~"""
+        yield! nTicksLater(8)
+        yield U """execute @a ~ ~ ~ playsound entity.firework.twinkle ambient @p ~ ~ ~"""
+(*
+        // fireworks explosions now damage players, so e.g. getting a bingo during a 25 min challenge could hurt you...
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~3 ~0 ~0 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}"""
+        yield! nTicksLater(8)
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~0 ~0 ~3 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:1,Flicker:0,Trail:1,Colors:[13172728],FadeColors:[16777215]},]}}}}"""
+        yield! nTicksLater(8)
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~-3 ~0 ~0 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:2,Flicker:1,Trail:0,Colors:[16777074],FadeColors:[16777215]},]}}}}"""
+        yield! nTicksLater(8)
+        yield U """execute @a ~ ~ ~ summon fireworks_rocket ~0 ~0 ~-3 {LifeTime:20,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:3,Flicker:1,Trail:1,Colors:[6160227],FadeColors:[16777215]}]}}}}"""
+*)
         |]
     region.PlaceCommandBlocksStartingAt(GOT_WIN_COMMON_LOGIC,gotAWinCommonLogic,"someone won coda")
     let timekeeperLogic =
@@ -1601,9 +1631,9 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             C "blockdata ~ ~ ~1 {auto:0b}"
             O ""
             U "worldborder get"
-            U "scoreboard players operation @e[type=AreaEffectCloud,tag=TimeKeeper] S -= TenMillion Calc"
-            U "scoreboard players operation @e[type=AreaEffectCloud,tag=TimeKeeper] S /= Twenty Calc"
-            U "scoreboard players operation Time Score = @e[type=AreaEffectCloud,tag=TimeKeeper] S"
+            U "scoreboard players operation @e[type=area_effect_cloud,tag=TimeKeeper] S -= TenMillion Calc"
+            U "scoreboard players operation @e[type=area_effect_cloud,tag=TimeKeeper] S /= Twenty Calc"
+            U "scoreboard players operation Time Score = @e[type=area_effect_cloud,tag=TimeKeeper] S"
             U "scoreboard players test Time Score 1500 *"
             C (sprintf "setblock %s redstone_block" TIMEKEEPER_25MIN_REDSTONE.STR)
         |]
@@ -1620,7 +1650,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let checkForItemsInit() =
         [|
         yield U "scoreboard players set cfiCol S 1"
-        yield U (sprintf "summon ArmorStand %s {NoGravity:1,Tags:[\"whereToCloneCommandTo\"]}" (ITEM_CHECKERS_REDSTONE_LOW(0).Offset(0,4,1).STR))
+        yield U (sprintf "summon armor_stand %s {NoGravity:1,Tags:[\"whereToCloneCommandTo\"]}" (ITEM_CHECKERS_REDSTONE_LOW(0).Offset(0,4,1).STR))
         |]
     let checkForItems() =
         [|
@@ -1657,7 +1687,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         // note, we need these short-lived AECs, because these are killed as removed from candidate set
         yield U "kill @e[tag=bingoItem]"
         for i = 1 to bingoItems.Length do
-            yield U (sprintf "summon AreaEffectCloud %d %d %d {Duration:999999999,Tags:[\"bingoItem\"]}" (bingoItems.Length - i + BINGO_ITEMS_LOW.X) BINGO_ITEMS_LOW.Y BINGO_ITEMS_LOW.Z)
+            yield U (sprintf "summon area_effect_cloud %d %d %d {Duration:999999999,Tags:[\"bingoItem\"]}" (bingoItems.Length - i + BINGO_ITEMS_LOW.X) BINGO_ITEMS_LOW.Y BINGO_ITEMS_LOW.Z)
             yield U "scoreboard players add @e[tag=bingoItem] S 1"
         yield U "scoreboard players remove @e[tag=bingoItem] S 1"
         // init other vars
@@ -1668,7 +1698,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! makeActualCardInit()
             yield! checkForItemsInit()
         // prepare loop
-        yield U "summon ArmorStand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
+        yield U "summon armor_stand ~ ~ ~2 {NoGravity:1,Tags:[\"purple\"]}"
         yield U "execute @e[tag=purple] ~ ~ ~ blockdata ~ ~ ~ {auto:1b}"
         // loop - could be inlined, but not for now, to avoid too many blocks
         yield P ""
@@ -1738,7 +1768,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         region.PlaceCommandBlocksStartingAt(TPY_LOW.Offset(0,y,0),tpYCmds, "tp Y")
 
     // pick spawn from seed
-    let pillarUpTheArmorStand =
+    let pillarUpThearmor_stand =
         [|
             yield O ""
             for _i = 0 to 30 do
@@ -1747,13 +1777,13 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
                 yield C "tp @e[tag=tpas] ~ ~2 ~"
                 yield C "execute @e[tag=tpas] ~ ~ ~ fill ~ ~-2 ~ ~ ~-1 ~ dirt"
         |]
-    region.PlaceCommandBlocksStartingAt(PILLAR_UP_THE_ARMOR_STAND,pillarUpTheArmorStand, "pillar up the armor stand")
+    region.PlaceCommandBlocksStartingAt(PILLAR_UP_THE_ARMOR_STAND,pillarUpThearmor_stand, "pillar up the armor stand")
     // compute Y coordinate of armor stand
     let computeYCoordinateInit =
         [|
             yield O ""
-            yield U """execute @e[tag=tpas] ~ ~ ~ summon AreaEffectCloud ~ ~ ~ {Duration:999999999,Tags:["findASY"]}"""
-            yield U (sprintf """summon AreaEffectCloud %s {Duration:999999999,Tags:["findYCmd"]}""" TPY_LOW.STR)
+            yield U """execute @e[tag=tpas] ~ ~ ~ summon area_effect_cloud ~ ~ ~ {Duration:999999999,Tags:["findASY"]}"""
+            yield U (sprintf """summon area_effect_cloud %s {Duration:999999999,Tags:["findYCmd"]}""" TPY_LOW.STR)
             yield U """setblock 1 1 1 chain_command_block 3 {auto:1b,Command:"tp @a[tag=oneGuyToTeleport] ~ 68 ~"}"""  // choose a safe-ish default; if the player DCs during startup, need to at least have a CCB so chains are not broken
             yield U "blockdata ~ ~ ~2 {auto:1b}"
             yield U "blockdata ~ ~ ~1 {auto:0b}"
@@ -1809,7 +1839,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U "scoreboard players operation z2 S = whichZ S"
             yield U "scoreboard players operation z2 S %= mod S"
             // find the tpX block to clone
-            yield U (sprintf "summon ArmorStand %s {Tags:[\"findblock\"]}" TPX_LOW.STR)
+            yield U (sprintf "summon armor_stand %s {Tags:[\"findblock\"]}" TPX_LOW.STR)
             yield! teleportBasedOnScore("findblock", "x2", "S", "z")
             yield! teleportBasedOnScore("findblock", "x1", "S", "y")
             let tpxCmd = SPAWN_LOCATION_COMMANDS(t)
@@ -1837,7 +1867,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U "say THIS SHOULD HAVE BEEN REPLACED"
             yield U (sprintf "execute @p[tag=oneGuyToTeleport] ~ ~ ~ fill ~-1 %d ~-1 ~1 %d ~1 barrier 0 hollow" (SPAWN_START_HEIGHT-2) (SPAWN_START_HEIGHT+3))
             yield U (sprintf "tp @p[tag=oneGuyToTeleport] ~ %d ~" SPAWN_START_HEIGHT)
-            yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ summon ArmorStand ~ ~-4 ~ {Invulnerable:1,Marker:1,Tags:[\"tpas\"]}"
+            yield U "execute @p[tag=oneGuyToTeleport] ~ ~ ~ summon armor_stand ~ ~-4 ~ {Invulnerable:1,Marker:1,Tags:[\"tpas\"]}"
             yield U (sprintf """tellraw @a ["Giving ",{"selector":"@p[tag=oneGuyToTeleport]"}," a birds-eye view of %s spawn as terrain generates..."]""" team)
             yield! nTicksLater(400) // TODO adjust timing?
             // call out to pillar-armor-stand (takes 1 tick to pillar, 7 ticks to compute Y)

@@ -100,6 +100,11 @@ teleporters always randomize villagers same way since re-seed each section
 
 TODO: bugs & good ideas
 
+Instead of end stone bricks or purpur blocks, have colored shulker boxes be the monument items.  No enderchests! Monjument blocks are inventory-utility, you want to 
+  carry around, but if you lose them, you must re-conquer a dungeon.
+Mending+Binding on lousy early armor :)
+
+If use coins/unlocking like E&T, have start of map have a chest with emeralds and ability to buy e.g. torch/crafting table recipe, so people can experience the basic idea at the start.
 tntn randomly in cave walls is another way to make creeper explosions dangerous, set off reactions... with lots of gravel pockets, can also make falling/suffocating possible
 put standing map on north side of monument, so it's oriented so past it is north, more natural
 something like a prot3 mending gold chestplate with high repaircost is an interesting item (or even unbr3, mend, leather?)
