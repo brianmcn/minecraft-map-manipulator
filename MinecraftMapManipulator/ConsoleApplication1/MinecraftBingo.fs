@@ -47,7 +47,6 @@
 // 1.11 data - in 15 mins of flying, saw 3 villages, 1 igloo, and 5 mesas (3 of which had surface mineshafts)
 
 // update art/file to say 3.1, give the right seed, ...
-// use new title bar sometimes to pollute chat less? actual titles for 3..2..1, actionbar for 'birds eye' etc? may need a darker color in multiplayer wait room... think thru all text...
 
 module MinecraftBingo
 
@@ -241,8 +240,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
     let FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision and frost walker at start & respawn"
     let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10), "Players get night vision at start & respawn, and each team starts with chest of items"
     let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10), "Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
-    let ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and jump boost potions at start & respawn"
-    let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; FROST_WALKER_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT]
+    let ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and fireworks rockets at start & respawn"
+    let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; FROST_WALKER_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT]
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -437,6 +436,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             |] )
     let thanksBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Thanks", [|
             """{"text":"I've spent more than 200 hours developing MinecraftBINGO, but I got a lot of help along the way.\n\nThanks to..."}"""
+            // TODO 3.1 testers?
             sprintf """{"text":"Version 3.0 playtesters:\n\n%s"}""" (formatBingoTesters bingo30testers)
             sprintf """{"text":"Version 2.x playtesters:\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[0..9] ["..."]))
             sprintf """{"text":"Version 2.x playtesters (cont'd):\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[10..19] ["..."]))
@@ -446,7 +446,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"And of course, to you, current player, thanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
             |] )
     let versionInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Versions", [|
-            """{"text":"You're playing MinecraftBINGO\n\nVersion ","extra":[{"text":"3.0",color:"red"},{"text":"\n\nTo get the latest version, click\n\n"},{"text":"@MinecraftBINGO","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
+            """{"text":"You're playing MinecraftBINGO\n\nVersion ","extra":[{"text":"3.1",color:"red"},{"text":"\n\nTo get the latest version, click\n\n"},{"text":"@MinecraftBINGO","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
+            """{"text":"Version History\n\n3.1 - 2017/0x/xx\n\nUpdated for 1.11 - removed abandonded mineshafts, added 3 new items"}"""
             """{"text":"Version History\n\n3.0 - 2016/02/29\n\nRewrote everything from scratch using new Minecraft 1.9 command blocks. So much more efficient!"}"""
             """{"text":"Version History\n\n2.5 - 2014/11/27\n\nUpdate for Minecraft 1.8.1, which changed map colors.\n\n2.4 - 2014/09/12\n\nAdded 'seed' game mode to specify card and spawn point via a seed number."}"""
             """{"text":"Version History\n\n2.3 - 2014/06/17\n\nAdded more items and lockout mode.\n\n2.2 - 2014/05/29\n\nAdded multiplayer team gameplay."}"""
@@ -485,7 +486,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "Night Vision" "" "" NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "Spammable" "Iron Sword" "+Night Vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "Frost Walker" "+Night Vision" "" FROST_WALKER_NIGHT_VISION_LOADOUT
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "Elytra" "+Frost Walker" "+Night Vision" ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "Elytra" "+Frost Walker" "+Night Vision" ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "Starting Chest" "Per Team" "+Night Vision" STARTING_CHEST_NIGHT_VISION_LOADOUT
             // interior layout - main room
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "Make RANDOM" "card" RANDOM_SEED_BUTTON true "black"
@@ -583,21 +584,21 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         |], 
         fst SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT, "spammableSwordNightVisionLoadout"
     loadout(spammableSwordNightVisionLoadout)
-    let elytraJumpBoostFrostWalkerNightVisionLoadout =
+    let elytraFireworksFrostWalkerNightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
-            U """replaceitem entity @a slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
+            U """replaceitem entity @a slot.hotbar.7 minecraft:fireworks 64 0 {}"""
             U """replaceitem entity @a slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
-            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s},{lvl:3s,id:2s}]}"""  // frost walker and some feather falling
         |],
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
-            U """replaceitem entity @a[tag=justRespawned] slot.hotbar.7 minecraft:splash_potion 64 0 {CustomPotionEffects:[{Id:8,Amplifier:39,Duration:60}]}"""
+            U """replaceitem entity @a[tag=justRespawned] slot.hotbar.7 minecraft:fireworks 64 0 {}"""
             U """replaceitem entity @a[tag=justRespawned] slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
-            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s},{lvl:3s,id:2s}]}"""
         |], 
-        fst ELYTRA_JUMP_BOOST_FROST_WALKER_NIGHT_VISION_LOADOUT, "elytraJumpBoostFrostWalkerNightVisionLoadout"
-    loadout(elytraJumpBoostFrostWalkerNightVisionLoadout)
+        fst ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT, "elytraFireworksFrostWalkerNightVisionLoadout"
+    loadout(elytraFireworksFrostWalkerNightVisionLoadout)
 
     //////////////////////////////
     // tutorial
@@ -656,7 +657,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,-1).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,-1).STR)) // z is -1, x changes
             yield U (sprintf "fill %s %s barrier" (NEW_MAP_PLATFORM_LO.Offset(-1,1,11).STR) (NEW_MAP_PLATFORM_LO.Offset(11,2,11).STR)) // z is 11, x changes
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+1) 4 "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111"
-            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "This is version" "3.0" "of the map." ""
+            yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+2) 4 "This is version" "3.1" "of the map." ""
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+3) 4 "Do you have" "the latest" "version?" ""
             yield! makeSign "standing_sign" (NEW_MAP_PLATFORM_LO.X+7) (NEW_MAP_PLATFORM_LO.Y+1) (NEW_MAP_PLATFORM_LO.Z+4) 4 "Find out by" "visiting the" "official site!" ""
             let downloadUrl = "https://twitter.com/MinecraftBINGO"
