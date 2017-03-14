@@ -1485,12 +1485,12 @@ automatic game start configs (night vision, starting items), customizable
 
     let readInSomeArt = false
     if readInSomeArt then
-        //let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
-        let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\bingo111\region\r.0.0.mca"""
+        let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoArt\region\r.0.0.mca"""
+        //let fil = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\bingo111\region\r.0.0.mca"""
         let r = new RegionFile(fil)
         let arr = ResizeArray()
-        //let s = ArtAssets.readZoneIntoString(r,165,3,111,16,1,16)
-        let s = ArtAssets.readZoneIntoString(r,64,19,0,63,1,63)
+        let s = ArtAssets.readZoneIntoString(r,183,3,39,16,1,16)
+        //let s = ArtAssets.readZoneIntoString(r,64,19,0,63,1,63)
         arr.Add(sprintf """let cw = "%s" """ s)
         let writePath = """C:\Users\Admin1\Documents\GitHubVisualStudio\minecraft-map-manipulator\MinecraftMapManipulator\ConsoleApplication1\Temp.txt"""
         System.IO.File.WriteAllLines(writePath, arr)

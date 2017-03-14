@@ -35,18 +35,7 @@
 //  - possible, but challenging to not create more perf overhead, and also may spam chat e.g. if break open dungeon chest... consider
 // game counter (suggests when to delete chunks or download fresh map?)
 
-// possible 1.11 items
-// - firework rocket (probably 2/3 rocket, 1/3 gunpowder, since GP so easy)
-// - remove hated emeralds?
-// - cocoa bean as easier cookie?
-// - beetroot (must bonemeal it)? beetroot soup (diff enough art from mush stew?)?  can get from village, as oppose to bonemeal from dungeon maybe? (too many dungeon items? review dung stuff?... nametag and saddle redundant maybe)
-// - lead? (slimeball already too hard, a way to inject more slimes seamlessly? more endermen too?)
-// - turn off mineshafts (and remove web)? mesa no longer OP?
-// 1.11 mode
-// - elytra now with rockets rather than stacked potions
-// 1.11 data - in 15 mins of flying, saw 3 villages, 1 igloo, and 5 mesas (3 of which had surface mineshafts)
-
-// update art/file to say 3.1, give the right seed, ...
+// possible easter eggs (e.g. 4or certain seeds; 4ish useless -> other 4ish useless, e.g. lilypad -> book with jokes or something? no, book is item, just renamed lilypad with funny name?; bingo31->win31)
 
 module MinecraftBingo
 
@@ -110,7 +99,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  +2, "dye", AA.cactus_dye                    ; +2, "dye", AA.cactus_dye                  ;+10, "dye", AA.lime_dye                    |]
             [|  +4, "dye", AA.lapis                         ; +5, "dye", AA.purple_dye                  ; +6, "dye", AA.cyan_dye                    |]
             [|  -1, "beetroot_soup", AA.beetroot_soup       ; -1, "emerald", AA.emerald                 ; -1, "emerald", AA.emerald                 |]
-            [|  -1, "minecart", AA.minecart                 ; -1, "chest_minecart", AA.chest_minecart   ; -1, "tnt_minecart", AA.tnt_minecart       |]
+            [|  -1, "furnace_minecart", AA.furnace_minecart ; -1, "chest_minecart", AA.chest_minecart   ; -1, "tnt_minecart", AA.tnt_minecart       |]
             [|  -1, "gunpowder", AA.gunpowder               ; -1, "fireworks", AA.fireworks             ; -1, "fireworks", AA.fireworks             |]
             [|  -1, "compass", AA.compass                   ; -1, "compass", AA.compass                 ; -1, "map", AA.empty_map                   |]
             [|  +1, "sapling", AA.spruce_sapling            ; +1, "sapling", AA.spruce_sapling          ; +4, "sapling", AA.acacia_sapling          |]
@@ -120,7 +109,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             [|  -1, "fish", AA.fish                         ; -1, "fish", AA.fish                       ; -1, "fish", AA.fish                       |]
             [|  -1, "sign", AA.sign                         ; -1, "item_frame", AA.item_frame           ; -1, "painting", AA.painting               |]
             [|  -1, "golden_sword", AA.golden_sword         ; -1, "clock", AA.clock                     ; -1, "golden_rail", AA.golden_rail         |]
-            [|  -1, "hopper", AA.hopper                     ; -1, "hopper", AA.hopper                   ; -1, "hopper", AA.hopper                   |]
+            [|  -1, "hopper", AA.hopper                     ; -1, "hopper", AA.hopper                   ; -1, "hopper_minecart", AA.hopper_minecart |]
             [|  -1, "repeater", AA.repeater                 ; -1, "repeater", AA.repeater               ; -1, "repeater", AA.repeater               |]
         |]
     // store bingo art in the world
@@ -237,11 +226,11 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
 
     let VANILLA_LOADOUT = Coords(70,3,10), "Vanilla gameplay (no on-start/on-respawn commands)"
     let NIGHT_VISION_LOADOUT = Coords(71,3,10), "Players get night vision at start & respawn"
-    let FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision and frost walker at start & respawn"
+    let DEPTH_STRIDER_NIGHT_VISION_LOADOUT = Coords(72,3,10), "Players get night vision and depth strider at start & respawn"
     let STARTING_CHEST_NIGHT_VISION_LOADOUT = Coords(73,3,10), "Players get night vision at start & respawn, and each team starts with chest of items"
     let SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT = Coords(74,3,10), "Players get night vision at start & respawn, as well as a spammable unbreakable iron sword at game start"
-    let ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, frost walker, elytra, and fireworks rockets at start & respawn"
-    let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; FROST_WALKER_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT]
+    let ELYTRA_FIREWORKS_DEPTH_STRIDER_NIGHT_VISION_LOADOUT = Coords(75,3,10), "Players get night vision, depth strider, elytra, and fireworks rockets at start & respawn"
+    let ALL_LOADOUTS = [VANILLA_LOADOUT; NIGHT_VISION_LOADOUT; DEPTH_STRIDER_NIGHT_VISION_LOADOUT; STARTING_CHEST_NIGHT_VISION_LOADOUT; SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT; ELYTRA_FIREWORKS_DEPTH_STRIDER_NIGHT_VISION_LOADOUT]
 
     let PILLAR_UP_THE_ARMOR_STAND = Coords(90,3,10)
     let COMPUTE_Y_ARMOR_STAND_LOW = Coords(91,3,10)
@@ -327,6 +316,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "fill %d %d %d %d %d %d wool 13" (LOBBYX+CFG_ROOM_IWIDTH/2+0) (LOBBYY) (LOBBYZ-1) (LOBBYX+CFG_ROOM_IWIDTH/2+2) (LOBBYY) (LOBBYZ-1))
             yield U (sprintf "setblock %d %d %d purpur_slab 8" (LOBBYX+CFG_ROOM_IWIDTH) (LOBBYY+2) (LOBBYZ+1)) // for standing sign to rest atop
             // floor & ceiling
+            yield U (sprintf "fill %d %d %d %d %d %d bedrock" LOBBYX (LOBBYY-1) LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY-1) (LOBBYZ+LENGTH-1)) // note cmds are cloned to LOBBYY-1, so some bedrock gets replaced, but that's ok
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX LOBBYY LOBBYZ (LOBBYX+TOTAL_WIDTH-1) LOBBYY (LOBBYZ+LENGTH-1))
             yield U (sprintf "fill %d %d %d %d %d %d sea_lantern" LOBBYX (LOBBYY+HEIGHT) LOBBYZ (LOBBYX+TOTAL_WIDTH-1) (LOBBYY+HEIGHT) (LOBBYZ+LENGTH-1))
             // carpet
@@ -485,8 +475,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+11) 5 "Vanilla" "(no extra" "commands)" VANILLA_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+9) 5 "Night Vision" "" "" NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+7) 5 "Spammable" "Iron Sword" "+Night Vision" SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "Frost Walker" "+Night Vision" "" FROST_WALKER_NIGHT_VISION_LOADOUT
-            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "Elytra" "+Frost Walker" "+Night Vision" ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+5) 5 "Depth Strider" "+Night Vision" "" DEPTH_STRIDER_NIGHT_VISION_LOADOUT
+            yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+3) 5 "Elytra" "+Depth Strider" "+Night Vision" ELYTRA_FIREWORKS_DEPTH_STRIDER_NIGHT_VISION_LOADOUT
             yield! mkLoadout (LOBBYX+1) (LOBBYY+2) (LOBBYZ+1) 5 "Starting Chest" "Per Team" "+Night Vision" STARTING_CHEST_NIGHT_VISION_LOADOUT
             // interior layout - main room
             yield! makeWallSignActivate (LOBBYX+CFG_ROOM_IWIDTH+3) (LOBBYY+2) (LOBBYZ+8) 5 "Make RANDOM" "card" RANDOM_SEED_BUTTON true "black"
@@ -549,17 +539,17 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         |], 
         fst NIGHT_VISION_LOADOUT, "nightVisionLoadout"
     loadout(nightVisionLoadout)
-    let frostWalkerNightVisionLoadout =
+    let depthStriderNightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
-            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:3s,id:8s}]}"""
         |],
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
-            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s}]}"""
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:3s,id:8s}]}"""
         |], 
-        fst FROST_WALKER_NIGHT_VISION_LOADOUT, "frostWalkerNightVisionLoadout"
-    loadout(frostWalkerNightVisionLoadout)
+        fst DEPTH_STRIDER_NIGHT_VISION_LOADOUT, "depthStriderNightVisionLoadout"
+    loadout(depthStriderNightVisionLoadout)
     let startingChestNightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
@@ -584,21 +574,21 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         |], 
         fst SPAMMABLE_SWORD_NIGHT_VISION_LOADOUT, "spammableSwordNightVisionLoadout"
     loadout(spammableSwordNightVisionLoadout)
-    let elytraFireworksFrostWalkerNightVisionLoadout =
+    let elytraFireworksDepthStriderNightVisionLoadout =
         [|
             U "effect @a night_vision 9999 1 true"
             U """replaceitem entity @a slot.hotbar.7 minecraft:fireworks 64 0 {}"""
             U """replaceitem entity @a slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
-            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s},{lvl:3s,id:2s}]}"""  // frost walker and some feather falling
+            U """replaceitem entity @a slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:3s,id:2s}]}"""  // Depth Strider and some feather falling
         |],
         [|
             U "effect @a[tag=justRespawned] night_vision 9999 1 true"
             U """replaceitem entity @a[tag=justRespawned] slot.hotbar.7 minecraft:fireworks 64 0 {}"""
             U """replaceitem entity @a[tag=justRespawned] slot.armor.chest minecraft:elytra 1 0 {Unbreakable:1}"""
-            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:2s,id:9s},{lvl:3s,id:2s}]}"""
+            U """replaceitem entity @a[tag=justRespawned] slot.armor.feet minecraft:leather_boots 1 0 {Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:3s,id:2s}]}"""
         |], 
-        fst ELYTRA_FIREWORKS_FROST_WALKER_NIGHT_VISION_LOADOUT, "elytraFireworksFrostWalkerNightVisionLoadout"
-    loadout(elytraFireworksFrostWalkerNightVisionLoadout)
+        fst ELYTRA_FIREWORKS_DEPTH_STRIDER_NIGHT_VISION_LOADOUT, "elytraFireworksDepthStriderNightVisionLoadout"
+    loadout(elytraFireworksDepthStriderNightVisionLoadout)
 
     //////////////////////////////
     // tutorial
@@ -815,7 +805,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         O ""
         U """scoreboard players remove @a hasMaps 1"""
         U """scoreboard players set @a hasMaps 5 {Inventory:[{id:"minecraft:filled_map",Damage:0s}]}"""
-        U """give @a[score_hasMaps=0] filled_map 32 0 {display:{Name:"BINGO Card"}}"""
+        U """scoreboard players set @a offhandHasItem 0"""
+        U """scoreboard players set @a offhandHasItem 1 {Inventory:[{Slot:-106b}]}"""
+        U """/replaceitem entity @a[score_hasMaps=0,score_offhandHasItem=0] slot.weapon.offhand filled_map 32 0 {display:{Name:"BINGO Card"}}"""
+        U """give @a[score_hasMaps=0,score_offhandHasItem_min=1] filled_map 32 0 {display:{Name:"BINGO Card"}}"""
         // The intent below was that 'drop all your maps' was a new way to be able to TP back to lobby. However it's unintuitive, and now that '/tp 150 150 150' works, unneeded.
         // And this was breaking some things in the start sequence.  So remove it:
         // U """tellraw @a[63,7,57,rm=30,score_hasMaps=0] ["(If you need to quit before getting BINGO, you can"]"""
@@ -945,6 +938,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "kill @e[type=!Player]"
         // set up scoreboard objectives & initial values
         yield U "scoreboard objectives add hasMaps dummy"
+        yield U "scoreboard objectives add offhandHasItem dummy"
         yield U "scoreboard objectives add Score dummy"
         yield U "scoreboard objectives setdisplay sidebar Score"
         yield U "scoreboard players set @a Score 0"
