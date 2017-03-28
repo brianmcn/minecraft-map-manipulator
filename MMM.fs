@@ -1438,11 +1438,13 @@ TO TEST
 
 prep map, e.g. 
 
+click button to set night vision config
+ensure version info/date all updated
 /scoreboard players set HasTheMapEverBeenLoadedBefore Calc 0   
 /scoreboard players tag @a remove playerHasBeenSeen
 /scoreboard players reset Lorgon111
 /scoreboard teams leave
-click button to set night vision config
+clear unnecessary files out of directories
 
 --------------
 
@@ -1481,6 +1483,7 @@ up to 4 teams in SMP, collab or compete
 lockout mode
 seeded cards & spawns (90000 possible)
 automatic game start configs (night vision, starting items), customizable
+3.1 changes: https://www.reddit.com/r/minecraftbingo/comments/5vimhp/bingo_31_beta_for_minecraft_1112/dexozib/
 *)
 
     let readInSomeArt = false
@@ -1572,6 +1575,7 @@ automatic game start configs (night vision, starting items), customizable
 
 
     //dumpPlayerDat("""C:\Users\Admin1\Desktop\ship.nbt""")
+    dumpPlayerDat """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\stats\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
     (*
     compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.4.zip""","""C:\Users\Admin1\Desktop\16w20a.zip""")
     // compare sounds.json

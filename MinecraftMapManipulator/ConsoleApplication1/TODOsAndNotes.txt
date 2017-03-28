@@ -100,6 +100,9 @@ teleporters always randomize villagers same way since re-seed each section
 
 TODO: bugs & good ideas
 
+start in corner of map near border, progression starts narrow, opens up, then focuses in towards end across map diagonal
+spawners that spawn more frequently (and with less delay between spawns) but have a low max-nearby-cap
+
 Instead of end stone bricks or purpur blocks, have colored shulker boxes be the monument items.  No enderchests! Monjument blocks are inventory-utility, you want to 
   carry around, but if you lose them, you must re-conquer a dungeon.
 Mending+Binding on lousy early armor :)

@@ -1,11 +1,4 @@
-﻿// BUGS
-// "choosing random seed... got N in 25 mins... generating card..."   // when gen card after a 25+ min card game
-// in resetScoresLogic, turns off timekeeper, but if at right moment in cycle, timekeeper_25 goes off just after
-// this means that both (a) it beeps and prints msg during cardgen, and (b) 25 min stuff will not work in directly subsequent game
-// ----------------------------------------------------
-
-
-// STATS:
+﻿// STATS:
 //
 // after 1 week:
 //  - 2000 downloads
@@ -28,14 +21,6 @@
 // (2/18/2017)
 //  - 29700 dowloads, 370 subreddit
 //
-// FUTURE SUGGESTIONS:
-//
-// Question: is there a way to print in the chat only the name of the person who got each item, rather than all of the team members? 
-// Would be a cool way to see which specific member was responsible for each item.
-//  - possible, but challenging to not create more perf overhead, and also may spam chat e.g. if break open dungeon chest... consider
-// game counter (suggests when to delete chunks or download fresh map?)
-
-// possible easter eggs (e.g. 4or certain seeds; 4ish useless -> other 4ish useless, e.g. lilypad -> book with jokes or something? no, book is item, just renamed lilypad with funny name?; bingo31->win31)
 
 module MinecraftBingo
 
@@ -331,8 +316,8 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %d %d %d chest 5" (LOBBYX+1) (LOBBYY+1) (LOBBYZ+1))
             yield U (sprintf "setblock %d %d %d wool 13" (LOBBYX+1) (LOBBYY) (LOBBYZ+1)) // wool under chest
             // put heads
-            yield U (sprintf "/summon armor_stand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+1) - 0.0))
-            yield U (sprintf "/summon armor_stand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Damage:3,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+14) - 0.0))
+            yield U (sprintf "/summon armor_stand %f %f %f {NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Count:1b,Damage:3b,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+TOTAL_WIDTH-5) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+1) - 0.0))
+            yield U (sprintf "/summon armor_stand %f %f %f {Tags:[\"asToReverse\"],NoGravity:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:skull,Count:1b,Damage:3b,tag:{SkullOwner:Lorgon111}}]}" (float (LOBBYX+CFG_ROOM_IWIDTH+MAIN_ROOM_IWIDTH/2+3) + 0.5) (float (LOBBYY+2) - 1.0) (float (LOBBYZ+14) - 0.0))
             yield! nTicksLater(1)
             yield U "tp @e[tag=asToReverse] ~ ~ ~-0.01 180 0"
             // put enabled signs
@@ -419,14 +404,14 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             """{"text":"But you're free to make your own rules; if you see a nice mountain and want to build a cabin instead, do it! Minecraft is very flexible :)"}"""
             |] )
     let customTerrainBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Custom terrain", [|
-            """{"text":"Minecraft BINGO is played in a normal Minecraft world, with just 3 small changes to default world generation..."}"""
+            """{"text":"Minecraft BINGO is played in a normal Minecraft world, with just 4 small changes to default world generation..."}"""
             """{"text":"First, the biome size is set to 'tiny', so that you do not need to travel for hours to find a jungle or a swamp; most biomes are close by..."}"""
             """{"text":"Second, dungeons frequency is increased to maximum, so that all players have a good chance of finding dungeon loot in the first 10 minutes..."}"""
-            """{"text":"Finally, granite, diorite, and andesite are removed, so that your inventory is not cluttered with extra stone types while trying to collect items."}"""
+            """{"text":"Third, granite, diorite, and andesite are removed, so that your inventory is not cluttered with extra stone types while trying to collect items..."}"""
+            """{"text":"Finally, abandoned mineshafts are turned off, so that finding a rare mesa does not give a huge advantage based on terrain luck."}"""
             |] )
     let thanksBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Thanks", [|
             """{"text":"I've spent more than 200 hours developing MinecraftBINGO, but I got a lot of help along the way.\n\nThanks to..."}"""
-            // TODO 3.1 testers?
             sprintf """{"text":"Version 3.0 playtesters:\n\n%s"}""" (formatBingoTesters bingo30testers)
             sprintf """{"text":"Version 2.x playtesters:\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[0..9] ["..."]))
             sprintf """{"text":"Version 2.x playtesters (cont'd):\n\n%s"}""" (formatBingoTesters (Seq.append bingo20testers.[10..19] ["..."]))
@@ -437,7 +422,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             |] )
     let versionInfoBookCmd = makeCommandGivePlayerWrittenBook("Lorgon111","Versions", [|
             """{"text":"You're playing MinecraftBINGO\n\nVersion ","extra":[{"text":"3.1",color:"red"},{"text":"\n\nTo get the latest version, click\n\n"},{"text":"@MinecraftBINGO","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
-            """{"text":"Version History\n\n3.1 - 2017/0x/xx\n\nUpdated for 1.11 - removed abandonded mineshafts, added 3 new items"}"""
+            """{"text":"Version History\n\n3.1 - 2017/03/24\n\nUpdated for 1.11 - removed abandonded mineshafts & cobweb, added 6 new items"}"""
             """{"text":"Version History\n\n3.0 - 2016/02/29\n\nRewrote everything from scratch using new Minecraft 1.9 command blocks. So much more efficient!"}"""
             """{"text":"Version History\n\n2.5 - 2014/11/27\n\nUpdate for Minecraft 1.8.1, which changed map colors.\n\n2.4 - 2014/09/12\n\nAdded 'seed' game mode to specify card and spawn point via a seed number."}"""
             """{"text":"Version History\n\n2.3 - 2014/06/17\n\nAdded more items and lockout mode.\n\n2.2 - 2014/05/29\n\nAdded multiplayer team gameplay."}"""
@@ -1150,6 +1135,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             yield U (sprintf "setblock %s wool" (GOT_MEGA_BINGO_REDSTONE(t).STR))
         // ensure long-lived AECs stay alive
         yield U "entitydata @e[type=area_effect_cloud] {Duration:999999999}"
+        // let time pass to...
+        yield! nTicksLater(3)
+        // ...re-init 25min, as it may go off spuriously during wait from previous line
+        yield U (sprintf "setblock %s wool" TIMEKEEPER_25MIN_REDSTONE.STR)
         |]
     region.PlaceCommandBlocksStartingAt(RESET_SCORES_LOGIC,resetScoresLogic,"reset scores")
 
@@ -1297,6 +1286,10 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players operation Z Calc = Seed Score"
         yield U (sprintf "blockdata %s {auto:1b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
         yield U (sprintf "blockdata %s {auto:0b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
+        // it will be a few ticks before everyone is teleported out of the lobby.  even though we just cleared inventories, there may be items lying on the lobby floor
+        // that players pick up now.  we need to clear them again after players have been teleported out, which will happen shortly due to the call above.
+        yield! nTicksLater(20)  // let the teleports to waiting room and spawn begin
+        yield U "clear @a"      // re-clear inventory
         |]
     let startGameButtonPart2 =
         [|
