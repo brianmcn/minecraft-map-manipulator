@@ -20,7 +20,7 @@
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;BINGO</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;xBINGO</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\ConsoleApplication1.XML</DocumentationFile>
@@ -81,6 +81,8 @@
     <Compile Include="CustomizationKnobs.fs" />
     <Compile Include="Strings.fs" />
     <Compile Include="LootTables.fs" />
+    <Compile Include="Recipes.fs" />
+    <Compile Include="Advancements.fs" />
     <Compile Include="TerrainAnalysisAndManipulation.fs" />
     <Compile Include="MinecraftBingo.fs" />
     <Compile Include="EandT.fs" />

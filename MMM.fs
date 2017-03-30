@@ -1424,7 +1424,8 @@ let makeRandomCave(map:MapFolder, xs, ys, zs, rs, initPhi, initTheta, desiredLen
 ////////////////////////////////////////
 
 
-
+open Recipes
+open Advancements
 
 [<System.STAThread()>]  
 do   
@@ -1575,7 +1576,23 @@ automatic game start configs (night vision, starting items), customizable
 
 
     //dumpPlayerDat("""C:\Users\Admin1\Desktop\ship.nbt""")
-    dumpPlayerDat """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\stats\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
+    //dumpPlayerDat """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\stats\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
+    let recipes = 
+        ["book",ShapelessCrafting([|MS"paper";MS"paper";MS"paper";MS"leather"|],MS"book")
+         "golden_axe",ShapedCrafting(PatternKey([|"XX";"#X";" #"|],[|'#',MS"stick";'X',MS"gold_ingot"|]),MS"golden_axe")
+         ]
+    writeRecipes(recipes,"""C:\Users\Admin1\Desktop\RecipeSamples""")
+    let advancements =
+        ["chest_recipe",Reward([|MS"chest"|],
+                               [|Criterion("slightly_full_inventory",MS"inventory_changed",[|NumInventorySlotsFull 9|])
+                                 Criterion("already_has_recipe",MS"recipe_unlocked",[|HasRecipe(MS"chest")|])|],
+                                 [|[|"slightly_full_inventory"|];[|"already_has_recipe"|]|])
+         "upgrade_tools",Display(MS"stone_pickaxe","Upgrade tools",MS"story/mine_stone",
+                                 [|Criterion("stone_pickaxe",MS"inventory_changed",[|HasItems[|MS"stone_pickaxe"|]|])|])                        
+         ]
+    writeAdvancements(advancements,"""C:\Users\Admin1\Desktop\RecipeSamples""")
+
+
     (*
     compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.4.zip""","""C:\Users\Admin1\Desktop\16w20a.zip""")
     // compare sounds.json
