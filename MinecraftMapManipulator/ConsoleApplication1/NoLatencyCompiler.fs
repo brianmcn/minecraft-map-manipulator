@@ -1,0 +1,97 @@
+﻿module NoLatencyCompiler
+
+open System.Collections.Generic 
+
+////////////////////////////////////////////////
+
+module ScoreboardNameConstants =
+    let IP = "IP"  // objective name where basic block names say 1 or 0 for whether they are current instruction pointer
+
+////////////////////////////////////////////////
+
+type BasicBlockName = 
+    | BBN of string
+    member this.Name = match this with BBN(s) -> s
+type FinalAbstractCommand =
+    | DirectTailCall of BasicBlockName
+    | ConditionalDirectTailCalls of ((*andedTestCommands*)string[]*(*if-all-then*)BasicBlockName)[] * (*catch-all-else*)BasicBlockName
+    | Halt
+type AbstractCommand =
+    | AtomicCommand of string // e.g. "say blah", "scoreboard players ..."
+type BasicBlock = BasicBlock of AbstractCommand[] * FinalAbstractCommand
+type Program = Program of (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
+
+////////////////////////////////////////////////
+
+type ChainCommandBlockType = U | C
+
+let linearize(Program(entrypoint,blockDict)) =
+    let initialization = ResizeArray()
+    let mutable foundEntryPointInDictionary = false
+    for KeyValue(bbn,_) in blockDict do
+        if bbn.Name.Length > 15 then
+            failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
+        if bbn = entrypoint then
+            initialization.Add(sprintf "scoreboard players set %s %s 1" bbn.Name ScoreboardNameConstants.IP)
+            foundEntryPointInDictionary <- true
+        else
+            initialization.Add(sprintf "scoreboard players set %s %s 0" bbn.Name ScoreboardNameConstants.IP)
+    if not(foundEntryPointInDictionary) then
+        failwith "did not find entrypoint in basic block dictionary"
+
+    let visited = new HashSet<_>()
+    let instructions = ResizeArray()
+    let q = new Queue<_>()
+    q.Enqueue(entrypoint)
+    while q.Count <> 0 do
+        let currentBBN = q.Dequeue()
+        if not(visited.Contains(currentBBN)) then
+            visited.Add(currentBBN) |> ignore
+            let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
+            for c in cmds do
+                match c with 
+                | AtomicCommand s ->
+                    instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                    instructions.Add(C,s)
+            match finish with
+            | DirectTailCall(nextBBN) ->
+                if not(blockDict.ContainsKey(nextBBN)) then
+                    failwithf "bad DirectTailCall goto %s" nextBBN.Name
+                q.Enqueue(nextBBN) |> ignore
+                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "scoreboard players set %s %s 1" nextBBN.Name ScoreboardNameConstants.IP)
+            | ConditionalDirectTailCalls(switches,catchAllBBN) ->
+                if not(blockDict.ContainsKey(catchAllBBN)) then
+                    failwithf "bad ConditionalDirectTailCalls catchall %s" catchAllBBN.Name
+                q.Enqueue(catchAllBBN) |> ignore
+                // first set catchall to 1
+                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "scoreboard players set %s %s 1" catchAllBBN.Name ScoreboardNameConstants.IP)
+                // then do each test, and if match, set it 1, and catchall to 0
+                for (conds,bbn) in switches do
+                    if not(blockDict.ContainsKey(bbn)) then
+                        failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
+                    q.Enqueue(bbn) |> ignore
+                    instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                    for c in conds do
+                        instructions.Add(C,c)
+                    instructions.Add(C,sprintf "scoreboard players set %s %s 0" catchAllBBN.Name ScoreboardNameConstants.IP)
+                    instructions.Add(C,sprintf "scoreboard players set %s %s 1" bbn.Name ScoreboardNameConstants.IP)
+                // finally, say this one is done
+                instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
+            | Halt ->
+                // TODO
+                failwith "todo"
+    let allBBNs = new HashSet<_>(blockDict.Keys)
+    allBBNs.ExceptWith(visited)
+    if allBBNs.Count <> 0 then
+        failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+    initialization, instructions
+
+
+////////////////////////////////////////////////
+
+// TODO module convert straight line to square
+// TODO runner logic for Unroll to change UpdateLastExecution:false
+// TODO runner logic for PulseICB (new atomic command and translation)

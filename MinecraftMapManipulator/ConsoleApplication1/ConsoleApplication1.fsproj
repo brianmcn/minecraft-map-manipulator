@@ -86,6 +86,8 @@
     <Compile Include="TerrainAnalysisAndManipulation.fs" />
     <Compile Include="MinecraftBingo.fs" />
     <Compile Include="EandT.fs" />
+    <Compile Include="NoLatencyCompiler.fs" />
+    <Compile Include="Mandelbrot.fs" />
     <Compile Include="..\..\MMM.fs">
       <Link>MMM.fs</Link>
     </Compile>

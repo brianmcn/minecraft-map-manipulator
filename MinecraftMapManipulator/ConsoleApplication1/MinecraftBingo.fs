@@ -1,4 +1,7 @@
-﻿// STATS:
+﻿// BUGS
+// waiting-to-spawn and card-update lobby signs are WALL signs but not right-clickable, violating convention
+
+// STATS:
 //
 // after 1 week:
 //  - 2000 downloads
@@ -21,6 +24,9 @@
 // (2/18/2017)
 //  - 29700 dowloads, 370 subreddit
 //
+// 3.1
+// after 1 week:   - 327 downloads, subreddit has 374 subs
+// after 2 weeks:  - 514 downloads, subreddit has 372 subs
 
 module MinecraftBingo
 
@@ -725,12 +731,20 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         |]
     let timerCmds = 
         [|
+            // timer for most game mechanics
             P "scoreboard players add Time S 1"
             U "scoreboard players operation Time S -= TIMER_CYCLE_LENGTH Calc"
             U "scoreboard players test Time S 0 *"
             C "scoreboard players set Time S 0"
             C "scoreboard players operation Time S -= TIMER_CYCLE_LENGTH Calc"
             U "scoreboard players operation Time S += TIMER_CYCLE_LENGTH Calc"
+            // timer for visual "seconds" updating on screen
+            U "scoreboard players add OtherTime S 1"
+            U "scoreboard players operation OtherTime S -= OTHER_TIMER_LENGTH Calc"
+            U "scoreboard players test OtherTime S 0 *"
+            C "scoreboard players set OtherTime S 0"
+            C "scoreboard players operation OtherTime S -= OTHER_TIMER_LENGTH Calc"
+            U "scoreboard players operation OtherTime S += OTHER_TIMER_LENGTH Calc"
         |]
     let cmdsFindPlayerWhoDroppedMap =
         [|
@@ -945,6 +959,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         yield U "scoreboard players set isCardGenerationInProgress S 0"
         // TODO consider just re-hardcoding TIMER_CYCLE_LENGTH
         yield U "scoreboard players set TIMER_CYCLE_LENGTH Calc 12"  // TODO best default?  Note: lockout seems to require a value of at least 12
+        yield U "scoreboard players set OTHER_TIMER_LENGTH Calc 10"  // something that divides evenly into 20, for screen 'seconds' updating
 #if DEBUG
         yield U "scoreboard players set Tick Score 0"  // TODO eventually get rid of this, good for debugging
 #endif
@@ -1614,7 +1629,7 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
         [|
             O "stats block ~ ~ ~6 set QueryResult @e[tag=TimeKeeper] S"
             U "say this gets replaced by redstone/wool"
-            P "scoreboard players test Time S 0 0"
+            P "scoreboard players test OtherTime S 0 0"
             C "blockdata ~ ~ ~2 {auto:1b}"
             C "blockdata ~ ~ ~1 {auto:0b}"
             O ""
@@ -1622,6 +1637,17 @@ let placeCommandBlocksInTheWorld(fil,onlyPlaceArtThenFail) =
             U "scoreboard players operation @e[type=area_effect_cloud,tag=TimeKeeper] S -= TenMillion Calc"
             U "scoreboard players operation @e[type=area_effect_cloud,tag=TimeKeeper] S /= Twenty Calc"
             U "scoreboard players operation Time Score = @e[type=area_effect_cloud,tag=TimeKeeper] S"
+            
+            // actionbar pretty timer
+            U "scoreboard players operation Minutes S = Time Score"
+            U "scoreboard players operation Minutes S /= Sixty Calc"
+            U "scoreboard players operation Seconds S = Time Score"
+            U "scoreboard players operation Seconds S %= Sixty Calc"
+            U "scoreboard players test Seconds S 0 9"
+            C """title @a actionbar ["",{"score":{"name":"Minutes","objective":"S"}},":0",{"score":{"name":"Seconds","objective":"S"}}]"""
+            U "testforblock ~ ~ ~-2 chain_command_block -1 {SuccessCount:0}"
+            C """title @a actionbar ["",{"score":{"name":"Minutes","objective":"S"}},":",{"score":{"name":"Seconds","objective":"S"}}]"""
+
             U "scoreboard players test Time Score 1500 *"
             C (sprintf "setblock %s redstone_block" TIMEKEEPER_25MIN_REDSTONE.STR)
         |]

@@ -1,9 +1,19 @@
 ﻿module Recipes
 
-type MS = 
-    | MS of string // MinecraftString, e.g. "golden_axe" which will become "minecraft:golden_axe"
+type MS = // MinecraftString
+    | MC of string // e.g. "golden_axe" which will become "minecraft:golden_axe"
+    | PATH of string
+    member private this.Validate() =
+        let v (s:string) = if s.ToLowerInvariant() <> s then failwith "path strings must be all lowercase!"
+        match this with 
+        | MC s -> v s
+        | PATH s -> v s
     override this.ToString() =
-        match this with MS s -> sprintf "\"minecraft:%s\"" s
+        this.Validate()
+        match this with 
+        | MC s -> sprintf "minecraft:%s" s
+        | PATH s -> s
+
 type PatternKey =
     | PatternKey of string[] *          // e.g. [ "XX"; "X#"; " #" ]
                     (char*MS)[]         // e.g. [ '#',MS"stick"; 'X',MS"gold_ingot" ]
@@ -14,7 +24,7 @@ type Recipe =
         let ICH s = s |> Seq.toArray |> (fun a -> Array.init a.Length (fun i -> a.[i], if i<>a.Length-1 then "," else "")) // interspersed comma helper
         w.WriteLine("""{""")
         match this with
-        | ShapelessCrafting(ingreds,MS result) ->
+        | ShapelessCrafting(ingreds,result) ->
             w.WriteLine("""    "type": "crafting_shapeless",""")
             w.WriteLine("""    "ingredients": [""")
             for i,c in ICH ingreds do

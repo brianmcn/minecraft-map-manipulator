@@ -1452,10 +1452,43 @@ clear unnecessary files out of directories
 with release, pin tweet with video link, map link, subreddit
 update twitter profile to have link to map, donate, etc
 
-http://www.minecraftworldmap.com/worlds/MgmI_
+3.0 http://www.minecraftworldmap.com/worlds/MgmI_
+3.1 https://www.minecraftworldmap.com/worlds/k0c6d
 http://www.minecraftforum.net/forums/mapping-and-modding/maps/1557706-14w11b-mini-game-surv-minecraft-bingo-vanilla
+now http://www.minecraftforum.net/forums/mapping-and-modding/maps/1557706-minecraft-bingo-vanilla-survival-scavenger-hunt
 https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXRZS
 https://youtu.be/3V3nDkAuMQ0
+https://youtu.be/x-udqNYXBJw
+
+MB 3.1 now available, DL link in description
+In this video, i'll discuss what's new/different in 3.1.  If new to bingo and want overview please see the 3.0 video linked in desc.
+--
+The 3.1 features fall in 3 main categories: what's different in MC, new items on the card, and other usability features
+--
+Minecraft - MB 3.1 now runs in MC 1.11.2.  
+That means you may encounter new mobs like llamas or polar bears, and are more likely to encounter villages which can now span across biomes in Minecraft.
+However abandoned mineshafts are now disabled, because otherwise they could appear on the surface of Mesa biomes, 
+  offering a very unfair advantage to players who spawned near these in multi-player.
+--
+Items - There are 6 new items that can appear on MB 3.1 cards.
+fireworks rocket and fern, cocoa bean and beetroot stew, furnace minecart and hopper minecart
+Two items were also removed: the normal plain minecart (which now has more variants) and the cobweb (which is removed since mineshafts are removed).
+598194 fern/fwr, 169499 c/b, 466363 f/hmc
+--
+Features - There are a few minor feature upgrades in MB 3.1
+A minutes&seconds timer now appears on the statusbar, making it easier to see the current game time at a glance
+Maps now start in your offhand at the start of the game, so you can see the card while you explore
+The floor of the lobby is now double-thick, to make it less likely you'll glitch through the floor when horsing around in boats
+Frost Walker has been changed to Depth Strider in the custom configuration options, and the elytra option now starts you with fireworks rockets
+--
+That's the summary of what's new & different in MB 3.1; download the map and have fun! 
+If you're looking to compete against others, join us on the minecraftbingo subreddit (linked below) for weekly seed competitions.
+--
+This is the 9th release of MB I've published in 3.5 years of development.  If you enjoy the game and would like to leave me a tip for my programming work, you can find a donation link
+in the description below, or in-game by clicking this sign on the wall of the lobby.  Thanks!
+--
+(probably outro of me in lobby - music throughout?)
+
 
 https://gfycat.com/EcstaticTerribleAngelwingmussel
 
@@ -1484,7 +1517,7 @@ up to 4 teams in SMP, collab or compete
 lockout mode
 seeded cards & spawns (90000 possible)
 automatic game start configs (night vision, starting items), customizable
-3.1 changes: https://www.reddit.com/r/minecraftbingo/comments/5vimhp/bingo_31_beta_for_minecraft_1112/dexozib/
+3.1 changes: https://www.reddit.com/r/minecraftbingo/comments/5vimhp/bingo_31_beta_for_minecraft_1112/dexozib/ (and maybe new timer)
 *)
 
     let readInSomeArt = false
@@ -1577,21 +1610,47 @@ automatic game start configs (night vision, starting items), customizable
 
     //dumpPlayerDat("""C:\Users\Admin1\Desktop\ship.nbt""")
     //dumpPlayerDat """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\tmp9\stats\6fbefbde-67a9-4f72-ab2d-2f3ee5439bc0.dat"""
+
+#if ADVANCEMENTS
     let recipes = 
-        ["book",ShapelessCrafting([|MS"paper";MS"paper";MS"paper";MS"leather"|],MS"book")
-         "golden_axe",ShapedCrafting(PatternKey([|"XX";"#X";" #"|],[|'#',MS"stick";'X',MS"gold_ingot"|]),MS"golden_axe")
+        ["book",ShapelessCrafting([|MC"paper";MC"paper";MC"paper";MC"leather"|],MC"book")
+         "golden_axe",ShapedCrafting(PatternKey([|"XX";"#X";" #"|],[|'#',MC"stick";'X',MC"gold_ingot"|]),MC"golden_axe")
          ]
     writeRecipes(recipes,"""C:\Users\Admin1\Desktop\RecipeSamples""")
+    let dummyCriteria = [|Criterion("cx",MC"recipe_unlocked",[|HasRecipe(MC"chest")|])|]
     let advancements =
-        ["chest_recipe",Reward([|MS"chest"|],
+        ["pink_wool/root",Advancement(None,Display("Winterbound","What does a desc do here?",MC"wool",Task,Some(MC"textures/blocks/wool_colored_pink.png")),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "pink_wool/emerald_1",Advancement(Some(PATH"pink_wool:root"),Display("Emerald #1","",MC"emerald",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "pink_wool/music",Advancement(Some(PATH"pink_wool:root"),Display("Tune of Gale","",MC"record_strad",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "pink_wool/wool",Advancement(Some(PATH"pink_wool:root"),Display("Pink Wool","",MC"wool",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "magenta_wool/root",Advancement(None,Display("Aurora Valley","",MC"wool",Task,Some(MC"textures/blocks/wool_colored_magenta.png")),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "magenta_wool/emerald_3",Advancement(Some(PATH"magenta_wool:root"),Display("Emerald #3","",MC"emerald",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "magenta_wool/emerald_4",Advancement(Some(PATH"magenta_wool:emerald_3"),Display("Emerald #4","",MC"emerald",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "magenta_wool/emerald_5",Advancement(Some(PATH"magenta_wool:emerald_4"),Display("Emerald #5","",MC"emerald",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "magenta_wool/dummy",Advancement(Some(PATH"magenta_wool:emerald_5"),NoDisplay,NoReward,dummyCriteria,[|[|"cx"|]|])
+         "magenta_wool/music",Advancement(Some(PATH"magenta_wool:root"),Display("Tune of Blessing","",MC"record_far",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+         "magenta_wool/wool",Advancement(Some(PATH"magenta_wool:root"),Display("Magenta Wool","This is what happens if you type a ridiculously long description that is probably going to fill the screen with tons of text and maybe wrap poorly or look weird or something, who knows, right?",MC"wool",Task,None),NoReward,dummyCriteria,[|[|"cx"|]|])
+(*        
+        Reward([|MS"chest"|],
                                [|Criterion("slightly_full_inventory",MS"inventory_changed",[|NumInventorySlotsFull 9|])
                                  Criterion("already_has_recipe",MS"recipe_unlocked",[|HasRecipe(MS"chest")|])|],
                                  [|[|"slightly_full_inventory"|];[|"already_has_recipe"|]|])
          "upgrade_tools",Display(MS"stone_pickaxe","Upgrade tools",MS"story/mine_stone",
                                  [|Criterion("stone_pickaxe",MS"inventory_changed",[|HasItems[|MS"stone_pickaxe"|]|])|])                        
+*)
          ]
     writeAdvancements(advancements,"""C:\Users\Admin1\Desktop\RecipeSamples""")
+#endif
 
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Mandelbrot\region""")
+    let region = map.GetRegion(0,0)
+    region.PlaceCommandBlocksStartingAt(100,4,0,[|
+        O "say start"
+        U "say 1"
+        U "say 2"
+        U "say 3"
+        |],"blah")
+    map.WriteAll()
 
     (*
     compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.4.zip""","""C:\Users\Admin1\Desktop\16w20a.zip""")

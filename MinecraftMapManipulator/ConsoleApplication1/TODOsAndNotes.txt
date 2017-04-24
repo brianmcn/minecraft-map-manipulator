@@ -100,6 +100,22 @@ teleporters always randomize villagers same way since re-seed each section
 
 TODO: bugs & good ideas
 
+tech tree: no early pickaxe? f&s rather than sword/axe? no torch recipe? villagers sell 3 choice of recipe? late bow/shield? early tnt? what foods? armor logic?
+recipes: iron nuggets on tip stone pick -> weak iron pick, can mine gold; iron/gold ore smelt furance -> nuggets; iron/gold nuggets in recipe for chain mail
+
+terrain changes: depthbasesize up (to like 13) and sea level up (to like 100) gives more underground (also bring ore distributions up higher), but
+ - connectedness of caves/mineshafts below ground is still a big issue... maybe i carve out more air? idea to compute skeleton, and then have 'ends' search spherically for a 
+   different airspace CC within like 10 blocks or something, and if found, connect with an air tunnel? also need a way to open up more tunnels to surface...
+ - or maybe can get more with other settings, e.g. increase lower limit scale to 850? 3000? even upper height limit 3000? ...
+     - lower limit down to 70 makes amplified-like crazy overhangy tall bits; upper limit down to 170, similar, not as many caves? both down to 212, not much land above sea level
+ - or maybe can overlay cave air from a separate world with even larger cave-height, which creates more holes to surface and adds more caves?
+     - yeah, depthbase 20, sea level 150, turn off mineshafts/lakes/dungeons/ravines, just grab cave air, overlay, seems plausible
+(could replace large pockets of dirt/gravel/ore with glass/air, as another possible way to 'connect' caves?)
+render's idea for advancements as 'tome of knowledge', e.g. tab for 'yellow wool', names that area, shows how many emeralds or other side objectives there are, etc.
+render's sprint mechanic - if player not near any hostile mobs (could mark all hostiles as spawn in? and check 1Hz? dist>16?) for some time (10s?) then give sprint back?
+render's consumable idea - craft tulip into food, then e.g. can give non-renewable food 'in world' rather than in a chest; also e.g. shrubs drop sticks, starve of wood, have craft table in environment
+using glass/panes tactically is fun
+
 start in corner of map near border, progression starts narrow, opens up, then focuses in towards end across map diagonal
 spawners that spawn more frequently (and with less delay between spawns) but have a low max-nearby-cap
 
