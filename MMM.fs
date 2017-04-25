@@ -1642,14 +1642,42 @@ automatic game start configs (night vision, starting items), customizable
     writeAdvancements(advancements,"""C:\Users\Admin1\Desktop\RecipeSamples""")
 #endif
 
-    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Mandelbrot\region""")
+    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2\region""")
     let region = map.GetRegion(0,0)
-    region.PlaceCommandBlocksStartingAt(100,4,0,[|
-        O "say start"
-        U "say 1"
-        U "say 2"
-        U "say 3"
-        |],"blah")
+
+    let init, cmds = NoLatencyCompiler.linearize(Mandelbrot.program)
+    printfn "MAND %d" Mandelbrot.objectivesAndConstants.Length
+    for s in Mandelbrot.objectivesAndConstants do
+        printfn "%s" s
+    printfn "INIT %d" init.Count 
+    for s in init do
+        printfn "%s" s
+    printfn "CMDS %d" cmds.Count 
+    for t,s in cmds do
+        printfn "%s %s" (match t with NoLatencyCompiler.U -> " " | _ -> "C" ) s
+
+    region.PlaceCommandBlocksStartingAt(2,4,2,[|
+        yield O ""
+        yield! (Mandelbrot.objectivesAndConstants |> Seq.map (fun s -> U s))
+        |],"m startup",false,false)
+    region.PlaceCommandBlocksStartingAt(5,4,2,[|
+        yield O ""
+        yield! (init |> Seq.map (fun s -> U s))
+        |],"init",false,false)
+    let allcmds = cmds |> Seq.map (fun (t,s) -> match t with NoLatencyCompiler.U -> U s | _ -> C s) |> Array.ofSeq 
+    let mutable i = allcmds.Length / 2
+    while allcmds.[i].IsConditional do
+        i <- i + 1
+    // i is now an index it's safe to 'break' right before, without changing conditional logic
+    let part1    = allcmds.[0..i-1]
+    let part2rev = allcmds.[i..] |> Array.rev 
+    region.PlaceCommandBlocksStartingAt(8,4,2,[|
+        yield O ""
+        yield! part1
+        |],"part1",false,true)
+    region.PlaceCommandBlocksStartingAt(9,4,4,[|
+        yield! part2rev
+        |],"part2",false,true,2uy)
     map.WriteAll()
 
     (*

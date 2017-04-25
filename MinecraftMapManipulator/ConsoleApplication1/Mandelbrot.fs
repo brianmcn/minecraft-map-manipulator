@@ -4,20 +4,28 @@ open NoLatencyCompiler
 
 let objectivesAndConstants = [|
     // objectives
-    "scoreboard objectives add A dummy"  // variables
-    "scoreboard objectives add K dummy"  // constants
+    yield "scoreboard objectives add A dummy"  // variables
+    yield "scoreboard objectives add K dummy"  // constants
     // constants
-    "scoreboard players set FOURISSQ K 64000000"
-    "scoreboard players set INTSCALE K 4000"
-    "scoreboard players set MAXH K 128"
-    "scoreboard players set MAXW K 128"
-    "scoreboard players set XSCALE K 109"
-    "scoreboard players set YSCALE K 62"
-    "scoreboard players set XMIN K -4000"
-    "scoreboard players set YMIN K -10000"
+    yield "scoreboard players set FOURISSQ K 64000000"
+    yield "scoreboard players set INTSCALE K 4000"
+    yield "scoreboard players set MAXH K 128"
+    yield "scoreboard players set MAXW K 128"
+    yield "scoreboard players set XSCALE K 109"
+    yield "scoreboard players set YSCALE K 62"
+    yield "scoreboard players set XMIN K -4000"
+    yield "scoreboard players set YMIN K -10000"
+    // color stuff
+    yield "scoreboard objectives add AS dummy"  // armor stands
+    yield "kill @e[type=armor_stand]"  // armor stands
+    for i = 0 to 15 do
+        let y,z = 4,-2
+        yield sprintf "setblock %d %d %d wool %d" i y z i
+        yield sprintf "summon armor_stand %d %d %d" i y z
+        yield sprintf "scoreboard players set @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] AS %d" i y z i
+    yield "scoreboard players tag @e[type=armor_stand] add color"
+    yield "summon armor_stand 0 4 0 {CustomName:Cursor}"
     |]
-
-// TODO other init, e.g. armor stands
 
 let cpsIStart = BBN"cpsIStart"
 let cpsJStart = BBN"cpsJStart"
@@ -74,7 +82,7 @@ let program =
             AtomicCommand "scoreboard players operation y A += y0 A"
             AtomicCommand "scoreboard players operation x A = xtemp A"
             AtomicCommand "scoreboard players add n A 1"
-            |],DirectTailCall(whileTest))
+            |],DirectTailCall(whileTest)) // TODO it may be an optimization (or pessimization) to re-unroll/inline whileTest here, measure
         cpsInnerFinish,BasicBlock([|
             AtomicCommand "scoreboard players operation @e[tag=color] AS -= n A"
             AtomicCommand "execute @e[tag=color,score_AS=-1,score_AS_min=-1] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 0 4 0"

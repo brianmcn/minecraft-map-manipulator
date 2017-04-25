@@ -12,6 +12,8 @@ type CommandBlock =     // the useful subset I plan to map anything into
     | O of string  // orange (pointing positive Z, unconditional, auto:0)
     | U of string  // green (pointing positive Z, unconditional, auto:1)
     | C of string  // green (pointing positive Z, conditional, auto:1)
+    member this.IsConditional =
+        match this with C _ -> true | _ -> false
 
 type Coords(x:int,y:int,z:int) = 
     member this.X = x
@@ -498,6 +500,8 @@ type RegionFile(filename) =
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment) =
         this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment,true,true)
     member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment,checkForOverwrites,putDummyAirAtEnd) =
+        this.PlaceCommandBlocksStartingAt(x,y,startz,cmds,comment,checkForOverwrites,putDummyAirAtEnd,3uy)
+    member this.PlaceCommandBlocksStartingAt(x,y,startz,cmds:_[],comment,checkForOverwrites,putDummyAirAtEnd,facing) =
         if comment <> "" then
             printfn "%s%d commands being placed - %s" (if startz + cmds.Length > 180 then "***WARN*** - " else "") cmds.Length comment
         let preprocessForBackpatching(a:_[]) =
@@ -560,6 +564,7 @@ type RegionFile(filename) =
                 [| NBT.Int("x",x); NBT.Int("y",y); NBT.Int("z",z); NBT.Byte("auto",auto); NBT.String("Command",s); 
                    NBT.Byte("conditionMet",0uy); NBT.String("CustomName","@"); NBT.Byte("powered",0uy);
                    NBT.String("id","minecraft:command_block"); NBT.Int("SuccessCount",0); 
+                   NBT.Byte("UpdateLastExecution",0uy);
 #if DEBUG
                    NBT.Byte("TrackOutput",1uy);   // TODO for release, use release mode
 #else
@@ -590,11 +595,11 @@ type RegionFile(filename) =
         for c in cmds do
             let bid, bd, au, s,txt = 
                 match c with
-                | P s -> 210uy,3uy,0uy,s,null
+                | P s -> 210uy,facing,0uy,s,null
                 | O DUMMY -> 0uy,0uy,0uy,DUMMY,null
-                | O s -> 137uy,3uy,0uy,s,null
-                | U s -> 211uy,3uy,1uy,s,null
-                | C s -> 211uy,11uy,1uy,s,null
+                | O s -> 137uy,facing,0uy,s,null
+                | U s -> 211uy,facing,1uy,s,null
+                | C s -> 211uy,facing+8uy,1uy,s,null
             this.EnsureSetBlockIDAndDamage(x,y,z,bid,bd)
             let au,s = if s.StartsWith("AUTO ") then 1uy,s.Substring(5) else au,s
             let nbts = if s = DUMMY then [||] else [|mkCmd(x,y,z,au,s,txt)|]
