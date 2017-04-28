@@ -20,6 +20,7 @@ type FinalAbstractCommand =
     | Halt
 type AbstractCommand =
     | AtomicCommand of string // e.g. "say blah", "scoreboard players ..."
+    | Yield // express desire to yield CPU back to minecraft to run a tick after this block (cooperative multitasking)
 type BasicBlock = BasicBlock of AbstractCommand[] * FinalAbstractCommand
 type Program = Program of (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
 
@@ -64,6 +65,9 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 | AtomicCommand s ->
                     instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
                     instructions.Add(C,s)
+                | Yield ->
+                    instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                    instructions.Add(C,sprintf "scoreboard players set %s %s 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
             match finish with
             | DirectTailCall(nextBBN) ->
                 if not(blockDict.ContainsKey(nextBBN)) then
@@ -109,6 +113,10 @@ let linearize(Program(entrypoint,blockDict), isTracing,
 
 ////////////////////////////////////////////////
 
-// TODO module convert straight line to square
-// TODO runner logic for Unroll to change UpdateLastExecution:false
-// TODO runner logic for PulseICB (new atomic command and translation)
+
+// TODO compile a program into advancements
+(*
+e.g. 16x loop1/2/3/4 that conditionally-call-down if not halted to get 65k loop without recursion
+root module to switch based on currently active function and call it
+writing advancement for each function, ungranting itself at start
+*)

@@ -11,10 +11,10 @@ let objectivesAndConstants = [|
     yield "scoreboard players set INTSCALE K 4000"
     yield "scoreboard players set MAXH K 128"
     yield "scoreboard players set MAXW K 128"
-    yield "scoreboard players set XSCALE K 109"
+    yield "scoreboard players set XSCALE K 96"
     yield "scoreboard players set YSCALE K 62"
-    yield "scoreboard players set XMIN K -4000"
-    yield "scoreboard players set YMIN K -10000"
+    yield "scoreboard players set XMIN K -8400"
+    yield "scoreboard players set YMIN K -4000"
     // color stuff
     yield "scoreboard objectives add AS dummy"  // armor stands
     yield "kill @e[type=armor_stand]"  // armor stands
@@ -90,7 +90,7 @@ let program =
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ clone 0 4 0 0 4 0 ~ ~ ~"
             AtomicCommand "scoreboard players add J A 1"
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~ ~ ~1"
-            AtomicCommand "scoreboard players set PulseICB IP 0" // TODO PULSE (atomicCmd)
+            //Yield
             AtomicCommand "scoreboard players operation r1 A = J A"
             AtomicCommand "scoreboard players operation r1 A -= MAXH K"
             |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
@@ -99,7 +99,7 @@ let program =
         cpsJFinish,BasicBlock([|
             AtomicCommand "scoreboard players add I A 1"
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~1 ~ ~"
-            AtomicCommand "scoreboard players set PulseICB IP 1" // TODO PULSE (atomicCmd)
+            Yield
             AtomicCommand "scoreboard players operation r1 A = I A"
             AtomicCommand "scoreboard players operation r1 A -= MAXW K"
             |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
