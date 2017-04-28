@@ -27,6 +27,7 @@
 // 3.1
 // after 1 week:   - 327 downloads, subreddit has 374 subs
 // after 2 weeks:  - 514 downloads, subreddit has 372 subs
+// after 3 weeks:  - 703 downloads, subreddit has 372 subs
 
 module MinecraftBingo
 

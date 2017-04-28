@@ -90,7 +90,7 @@ let program =
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ clone 0 4 0 0 4 0 ~ ~ ~"
             AtomicCommand "scoreboard players add J A 1"
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~ ~ ~1"
-            AtomicCommand "scoreboard players set PulseICB A 0" // TODO PULSE (atomicCmd)
+            AtomicCommand "scoreboard players set PulseICB IP 0" // TODO PULSE (atomicCmd)
             AtomicCommand "scoreboard players operation r1 A = J A"
             AtomicCommand "scoreboard players operation r1 A -= MAXH K"
             |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
@@ -99,7 +99,7 @@ let program =
         cpsJFinish,BasicBlock([|
             AtomicCommand "scoreboard players add I A 1"
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~1 ~ ~"
-            AtomicCommand "scoreboard players set PulseICB A 1" // TODO PULSE (atomicCmd)
+            AtomicCommand "scoreboard players set PulseICB IP 1" // TODO PULSE (atomicCmd)
             AtomicCommand "scoreboard players operation r1 A = I A"
             AtomicCommand "scoreboard players operation r1 A -= MAXW K"
             |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"

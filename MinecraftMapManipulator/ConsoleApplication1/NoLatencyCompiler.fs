@@ -6,6 +6,8 @@ open System.Collections.Generic
 
 module ScoreboardNameConstants =
     let IP = "IP"  // objective name where basic block names say 1 or 0 for whether they are current instruction pointer
+    let PulseICB = "PulseICB"  // player name in objective IP saying whether to pulse starter ICB next tick (let a game tick run)
+    let Halt = "Halt"  // player name in objective IP saying whether to halt the machine
 
 ////////////////////////////////////////////////
 
@@ -25,9 +27,15 @@ type Program = Program of (*entrypoint*)BasicBlockName * IDictionary<BasicBlockN
 
 type ChainCommandBlockType = U | C
 
-let linearize(Program(entrypoint,blockDict)) =
+let linearize(Program(entrypoint,blockDict), isTracing,
+              x,y,z) = // x,y,z is ICB with BD{auto:0b}
+                       // z+1 is CCB with set PulseICB to 0
+                       // z+2 is CCB with setblock(z+4) to CCB (not stone)
+                       // z+3 is CCB with blockdata(z+4) to ULE:false (can't setblock that way)
+                       // z+4 is empty instruction that is first in loop and may get stoned
     let initialization = ResizeArray()
     let mutable foundEntryPointInDictionary = false
+    initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.IP)
     for KeyValue(bbn,_) in blockDict do
         if bbn.Name.Length > 15 then
             failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
@@ -48,6 +56,9 @@ let linearize(Program(entrypoint,blockDict)) =
         if not(visited.Contains(currentBBN)) then
             visited.Add(currentBBN) |> ignore
             let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
+            if isTracing then
+                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name)
             for c in cmds do
                 match c with 
                 | AtomicCommand s ->
@@ -81,8 +92,14 @@ let linearize(Program(entrypoint,blockDict)) =
                 // finally, say this one is done
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
             | Halt ->
-                // TODO
-                failwith "todo"
+                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "scoreboard players set %s %s 0" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
+                // instructions below aren't really 'part of halt', rather just must be executed every loop, so put unguarded here
+                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
+                instructions.Add(C,sprintf "blockdata %d %d %d {auto:1b}" x y z)
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)
     if allBBNs.Count <> 0 then

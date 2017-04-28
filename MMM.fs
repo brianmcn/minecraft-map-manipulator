@@ -1645,7 +1645,8 @@ automatic game start configs (night vision, starting items), customizable
     let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2\region""")
     let region = map.GetRegion(0,0)
 
-    let init, cmds = NoLatencyCompiler.linearize(Mandelbrot.program)
+    let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
+    let init, cmds = NoLatencyCompiler.linearize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
     printfn "MAND %d" Mandelbrot.objectivesAndConstants.Length
     for s in Mandelbrot.objectivesAndConstants do
         printfn "%s" s
@@ -1671,11 +1672,16 @@ automatic game start configs (night vision, starting items), customizable
     // i is now an index it's safe to 'break' right before, without changing conditional logic
     let part1    = allcmds.[0..i-1]
     let part2rev = allcmds.[i..] |> Array.rev 
-    region.PlaceCommandBlocksStartingAt(8,4,2,[|
-        yield O ""
+    region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,[|
+        yield O "blockdata ~ ~ ~ {auto:0b}"
+        yield U (sprintf "scoreboard players set %s %s 0" NoLatencyCompiler.ScoreboardNameConstants.PulseICB NoLatencyCompiler.ScoreboardNameConstants.IP)
+        yield U "setblock ~ ~ ~2 chain_command_block 3 {auto:1b}"
+        yield U "blockdata ~ ~ ~1 {UpdateLastExecution:0b}"
+        yield U ""  // may get stoned
         yield! part1
         |],"part1",false,true)
-    region.PlaceCommandBlocksStartingAt(9,4,4,[|
+    region.PlaceCommandBlocksStartingAt(CMDICBX+1,4,CMDICBZ+5,[|
+        yield O ""  // dummy to manually break and link up
         yield! part2rev
         |],"part2",false,true,2uy)
     map.WriteAll()
