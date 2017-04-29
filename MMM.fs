@@ -1643,6 +1643,7 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
 
+(*
     let impossibleCriteria = [|Criterion("cx",MC"impossible",[||])|]
     let advancements =
         ["functions/root",Advancement(None,NoDisplay,Reward([||],[||],0,[|
@@ -1701,7 +1702,7 @@ automatic game start configs (night vision, starting items), customizable
             |]),impossibleCriteria,[|[|"cx"|]|])
          ]
     writeAdvancements(advancements,"""C:\Users\Admin1\Desktop\RecipeSamples""")
-
+*)
 
 
 
@@ -1737,11 +1738,11 @@ automatic game start configs (night vision, starting items), customizable
     region.PlaceCommandBlocksStartingAt(2,4,2,[|
         yield O ""
         yield! (Mandelbrot.objectivesAndConstants |> Seq.map (fun s -> U s))
-        |],"m startup",false,false)
+        |],"m startup",false,true)
     region.PlaceCommandBlocksStartingAt(5,4,2,[|
         yield O ""
         yield! (init |> Seq.map (fun s -> U s))
-        |],"init",false,false)
+        |],"init",false,true)
 #if ADVANCEMENTS
     region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,repump,"repump",false,true)
     writeAdvancements(advancements,worldFolder)
