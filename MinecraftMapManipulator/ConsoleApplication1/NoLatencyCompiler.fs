@@ -84,8 +84,6 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                     advancementBBs.[currentBBN].Add(s)
                 | Yield ->
                     advancementBBs.[currentBBN].Add(sprintf "scoreboard players set %s %s 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
-            instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
-            instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
 #else
             for c in cmds do
                 match c with 
@@ -102,6 +100,10 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                     failwithf "bad DirectTailCall goto %s" nextBBN.Name
                 q.Enqueue(nextBBN) |> ignore
                 instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+#if HYBRID
+                instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+#endif
+
                 // TODO possible better implementation of IP, like advancements, just use one IP variable with values 1-N rather than N variables? Can overwrite in one command rather than two?
                 // Yes, but ConditionalDirectTailCalls implementation gets a little more tricky, though still doable.
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
@@ -112,6 +114,9 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 q.Enqueue(catchAllBBN) |> ignore
                 // first set catchall to 1
                 instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+#if HYBRID
+                instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+#endif
                 instructions.Add(C,sprintf "scoreboard players set %s %s 1" catchAllBBN.Name ScoreboardNameConstants.IP)
                 // then do each test, and if match, set it 1, and catchall to 0
                 for (conds,bbn) in switches do
@@ -127,6 +132,9 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
             | Halt ->
                 instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+#if HYBRID
+                instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+#endif
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
                 instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
