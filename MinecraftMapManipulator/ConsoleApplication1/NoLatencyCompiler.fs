@@ -38,6 +38,44 @@ type Program = Program of (*entrypoint*)BasicBlockName * IDictionary<BasicBlockN
 
 ////////////////////////////////////////////////
 
+let inlineAllDirectTailCallsOptimization(p) =
+    match p with
+    | Program(entrypoint,origBlockDict) ->
+        let finalBlockDict = new Dictionary<_,_>()
+        let referencedBBNs = new HashSet<_>()
+        referencedBBNs.Add(entrypoint) |> ignore
+        for KeyValue(bbn,block) in origBlockDict do
+            match block with
+            | BasicBlock(cmds,DirectTailCall(nextBBN)) ->
+                let finalCmds = ResizeArray(cmds)
+                let mutable finished,nextBBN = false,nextBBN
+                while not finished do
+                    let nextBB = origBlockDict.[nextBBN]
+                    match nextBB with
+                    | BasicBlock(nextCmds,DirectTailCall(nextNextBBN)) ->
+                        finalCmds.AddRange(nextCmds)
+                        nextBBN <- nextNextBBN 
+                    | BasicBlock(nextCmds,fac) ->
+                        finalCmds.AddRange(nextCmds)
+                        finalBlockDict.Add(bbn,BasicBlock(finalCmds.ToArray(),fac))
+                        finished <- true
+            | BasicBlock(_,fac) ->
+                finalBlockDict.Add(bbn,block)
+                match fac with
+                | ConditionalDirectTailCalls(a,cabbn) ->
+                    referencedBBNs.UnionWith[cabbn]
+                    for _conds,bbn in a do
+                        referencedBBNs.UnionWith[bbn]
+                | _ -> ()
+        let allBBNs = new HashSet<_>(origBlockDict.Keys)
+        allBBNs.ExceptWith(referencedBBNs)
+        for unusedBBN in allBBNs do
+            printfn "removing unused state '%s' after optimization" unusedBBN.Name 
+            finalBlockDict.Remove(unusedBBN) |> ignore
+        Program(entrypoint,finalBlockDict)
+
+////////////////////////////////////////////////
+
 type ChainCommandBlockType = U | C
 
 let linearize(Program(entrypoint,blockDict), isTracing,
@@ -101,9 +139,8 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 q.Enqueue(nextBBN) |> ignore
                 instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
 #if HYBRID
-                instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+                instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name) // codegen to invoke AtomicCommands without needlessly replicating the IP test
 #endif
-
                 // TODO possible better implementation of IP, like advancements, just use one IP variable with values 1-N rather than N variables? Can overwrite in one command rather than two?
                 // Yes, but ConditionalDirectTailCalls implementation gets a little more tricky, though still doable.
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
@@ -118,8 +155,11 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
 #endif
                 instructions.Add(C,sprintf "scoreboard players set %s %s 1" catchAllBBN.Name ScoreboardNameConstants.IP)
+                if switches.Length = 0 then
+                    failwith "ConditionalDirectTailCalls with zero switch conditions, use DirectTailCall instead"
                 // then do each test, and if match, set it 1, and catchall to 0
                 for (conds,bbn) in switches do
+                    // TODO if assume switches.Length=1, can do above TODO optimization more easily, maybe choose that
                     if not(blockDict.ContainsKey(bbn)) then
                         failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
                     q.Enqueue(bbn) |> ignore
@@ -128,8 +168,10 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                         instructions.Add(C,c)
                     instructions.Add(C,sprintf "scoreboard players set %s %s 0" catchAllBBN.Name ScoreboardNameConstants.IP)
                     instructions.Add(C,sprintf "scoreboard players set %s %s 1" bbn.Name ScoreboardNameConstants.IP)
-                // finally, say this one is done
-                instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
+                    // finally, for each branch say this one is done
+                    // but be careful about case where we direct loop to ourselves!
+                    if currentBBN.Name <> bbn.Name then
+                        instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
             | Halt ->
                 instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
 #if HYBRID

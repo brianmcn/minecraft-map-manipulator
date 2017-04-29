@@ -1716,7 +1716,9 @@ automatic game start configs (night vision, starting items), customizable
 #else
 #if HYBRID
     let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
-    let init, cmds, advancements = NoLatencyCompiler.linearize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+    let p = Mandelbrot.program
+    let p = NoLatencyCompiler.inlineAllDirectTailCallsOptimization(p)
+    let init, cmds, advancements = NoLatencyCompiler.linearize(p,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
 #else
     let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
     let init, cmds = NoLatencyCompiler.linearize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
@@ -1754,14 +1756,15 @@ automatic game start configs (night vision, starting items), customizable
     // i is now an index it's safe to 'break' right before, without changing conditional logic
     let part1    = allcmds.[0..i-1]
     let part2rev = allcmds.[i..] |> Array.rev 
-    region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,[|
+    let firstHalf = [|
         yield O "blockdata ~ ~ ~ {auto:0b}"
         yield U (sprintf "scoreboard players set %s %s 0" NoLatencyCompiler.ScoreboardNameConstants.PulseICB NoLatencyCompiler.ScoreboardNameConstants.IP)
         yield U "setblock ~ ~ ~2 chain_command_block 3 {auto:1b}"
         yield U "blockdata ~ ~ ~1 {UpdateLastExecution:0b}"
         yield U ""  // may get stoned
         yield! part1
-        |],"part1",false,true)
+        |]
+    region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,firstHalf,"part1",false,true)
     region.PlaceCommandBlocksStartingAt(CMDICBX+1,4,CMDICBZ+5,[|
         yield O ""  // dummy to manually break and link up
         yield! part2rev

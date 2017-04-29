@@ -27,7 +27,7 @@ let objectivesAndConstants = [|
         yield sprintf "summon armor_stand %d %d %d" i y z
         yield sprintf "scoreboard players set @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] AS %d" i y z i
     yield "scoreboard players tag @e[type=armor_stand] add color"
-    yield "summon armor_stand 0 4 0 {CustomName:Cursor}"
+    yield "summon armor_stand 0 4 0 {CustomName:Cursor,NoGravity:1}"
     |]
 
 let cpsIStart = BBN"cpsistart"
@@ -96,7 +96,7 @@ let program =
             AtomicCommand "scoreboard players operation y A += y0 A"
             AtomicCommand "scoreboard players operation x A = xtemp A"
             AtomicCommand "scoreboard players add n A 1"
-            |],DirectTailCall(whileTest)) // TODO it may be an optimization (or pessimization) to re-unroll/inline whileTest here, measure
+            |],DirectTailCall(whileTest))
         cpsInnerFinish,BasicBlock([|
             AtomicCommand "scoreboard players operation @e[tag=color] AS -= n A"
             AtomicCommand "execute @e[tag=color,score_AS=-1,score_AS_min=-1] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 0 4 0"
