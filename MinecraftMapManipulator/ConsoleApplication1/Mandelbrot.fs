@@ -5,6 +5,9 @@ open NoLatencyCompiler
 let objectivesAndConstants = [|
     // objectives
     yield "scoreboard objectives add A dummy"  // variables
+#if ADVANCEMENTS
+    yield "scoreboard objectives add B dummy"  // variables
+#endif
     yield "scoreboard objectives add K dummy"  // constants
     // constants
     yield "scoreboard players set FOURISSQ K 64000000"
@@ -27,14 +30,14 @@ let objectivesAndConstants = [|
     yield "summon armor_stand 0 4 0 {CustomName:Cursor}"
     |]
 
-let cpsIStart = BBN"cpsIStart"
-let cpsJStart = BBN"cpsJStart"
-let cpsInnerStart = BBN"cpsInnerStart"
-let whileTest= BBN"whileTest"
-let cpsInnerInner = BBN"cpsInnerInner"
-let cpsInnerFinish = BBN"cpsInnerFinish"
-let cpsJFinish = BBN"cpsJFinish"
-let cpsIFinish = BBN"cpsIFinish"
+let cpsIStart = BBN"cpsistart"
+let cpsJStart = BBN"cpsjstart"
+let cpsInnerStart = BBN"cpsinnerstart"
+let whileTest= BBN"whiletest"
+let cpsInnerInner = BBN"cpsinnerinner"
+let cpsInnerFinish = BBN"cpsinnerfinish"
+let cpsJFinish = BBN"cpsjfinish"
+let cpsIFinish = BBN"cpsifinish"
 
 let program = 
     Program(cpsIStart, dict [
@@ -67,8 +70,15 @@ let program =
             AtomicCommand "scoreboard players operation r1 A = xsq A"
             AtomicCommand "scoreboard players operation r1 A += ysq A"
             AtomicCommand "scoreboard players operation r1 A -= FOURISSQ K"
+#if ADVANCEMENTS
+            AtomicCommand "scoreboard players operation @p A = r1 A"
+            AtomicCommand "scoreboard players operation @p B = n A"
+            |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1,score_B=15] ~ ~ ~"
+#else
+
             |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
                                               "scoreboard players test n A * 15"
+#endif
                                             |],cpsInnerInner
                                           |],cpsInnerFinish))
         cpsInnerInner,BasicBlock([|
@@ -93,7 +103,12 @@ let program =
             //Yield
             AtomicCommand "scoreboard players operation r1 A = J A"
             AtomicCommand "scoreboard players operation r1 A -= MAXH K"
+#if ADVANCEMENTS
+            AtomicCommand "scoreboard players operation @p A = r1 A"
+            |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1] ~ ~ ~"
+#else
             |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
+#endif
                                             |],cpsInnerStart
                                           |],cpsJFinish))
         cpsJFinish,BasicBlock([|
@@ -102,7 +117,12 @@ let program =
             Yield
             AtomicCommand "scoreboard players operation r1 A = I A"
             AtomicCommand "scoreboard players operation r1 A -= MAXW K"
+#if ADVANCEMENTS
+            AtomicCommand "scoreboard players operation @p A = r1 A"
+            |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1] ~ ~ ~"
+#else
             |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
+#endif
                                             |],cpsJStart
                                           |],cpsIFinish))
         cpsIFinish,BasicBlock([|

@@ -10,7 +10,7 @@ type Condition =
 type Criterion =
     | Criterion of (*name*) string * (*trigger*) MS * Condition[]
 type Reward =
-    | Reward of (*recipes*) MS[] * (*loottables*) MS[] * (*experience*) int
+    | Reward of (*recipes*) MS[] * (*loottables*) MS[] * (*experience*) int * (*commands*) string[]
     | NoReward
 type Display =
     | NoDisplay
@@ -47,12 +47,19 @@ type Advancement =
             // reward
             match reward with
             | NoReward -> ()
-            | Reward(recipes, loottables, experience) ->
+            | Reward(recipes, loottables, experience, commands) ->
                 w.WriteLine(sprintf """    "rewards": {""")
                 if recipes.Length<>0 then w.WriteLine(sprintf """        "recipes": [%s],""" (intersperse recipes))
                 if loottables.Length<>0 then w.WriteLine(sprintf """        "loot": [%s],""" (intersperse loottables))
                 if experience<>0 then w.WriteLine(sprintf """        "experience": %d,""" experience)
-                w.WriteLine("""        "comma": 0 }""")
+                if commands.Length<>0 then 
+                    w.WriteLine(sprintf """        "commands": [""")
+                    let escape (s:string) =
+                        s.Replace("\"","\\\"") // TODO what-all needs to be escaped in JSON strings?
+                    for i,c in ICH commands do
+                        w.WriteLine(sprintf """                    "%s"%s""" (escape i) c)
+                    w.WriteLine(sprintf """        ],""")
+                w.WriteLine("""        "comma": 0 },""")
             // criteria
             w.WriteLine("""    "criteria": {""")
             for Criterion(name,trigger,conditions),c in ICH criteria do

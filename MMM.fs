@@ -1642,20 +1642,92 @@ automatic game start configs (night vision, starting items), customizable
     writeAdvancements(advancements,"""C:\Users\Admin1\Desktop\RecipeSamples""")
 #endif
 
-    let map = new MapFolder("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2\region""")
+
+    let impossibleCriteria = [|Criterion("cx",MC"impossible",[||])|]
+    let advancements =
+        ["functions/root",Advancement(None,NoDisplay,Reward([||],[||],0,[|
+            """advancement revoke @p only functions:root"""
+            """tellraw @a ["start root"]"""
+            """advancement grant @p only functions:f"""
+            """tellraw @a ["end root"]"""
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         "functions/f",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+            """advancement revoke @p only functions:f"""
+            """tellraw @a ["start f"]"""
+            """advancement grant @p only functions:g"""
+            """advancement grant @p only functions:g"""
+            """tellraw @a ["end f"]"""
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         "functions/g",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+            """advancement revoke @p only functions:g"""
+            """tellraw @a ["start g"]"""
+            """tellraw @a ["end g"]"""
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         // runner loop idea
+         "functions/pump1",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+            // TODO remove
+            yield """stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A"""
+            yield """scoreboard player set @e[name=Cursor] A 1""" // need initial value before can trigger a stat
+            yield """worldborder set 10000000"""
+            yield """worldborder add 1000000 1000"""
+            // real stuff below
+            yield """advancement revoke @p only functions:pump1"""
+            for _i = 0 to 15 do yield sprintf """execute @p[score_%s=0] ~ ~ ~ advancement grant @p only functions:pump2""" NoLatencyCompiler.ScoreboardNameConstants.Stop 
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         "functions/pump2",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+            yield """advancement revoke @p only functions:pump2"""
+            for _i = 0 to 15 do yield sprintf """execute @p[score_%s=0] ~ ~ ~ advancement grant @p only functions:pump3""" NoLatencyCompiler.ScoreboardNameConstants.Stop 
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         "functions/pump3",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+            yield """advancement revoke @p only functions:pump3"""
+            for _i = 0 to 15 do yield sprintf """execute @p[score_%s=0] ~ ~ ~ advancement grant @p only functions:pump4""" NoLatencyCompiler.ScoreboardNameConstants.Stop 
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         "functions/pump4",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+            yield """advancement revoke @p only functions:pump4"""
+            for _i = 0 to 15 do yield sprintf """execute @p[score_%s=0] ~ ~ ~ advancement grant @p only functions:chooser""" NoLatencyCompiler.ScoreboardNameConstants.Stop 
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         "functions/chooser",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+            """advancement revoke @p only functions:chooser"""
+            """scoreboard players add Count A 1"""
+            """scoreboard players operation r1 A = Count A"""
+            """scoreboard players operation r1 A %= MAXH K"""
+            """scoreboard players operation @p A = r1 A"""
+            """execute @p[score_A=0,score_A_min=0] ~ ~ ~ tellraw @a ["boop"]"""
+            """execute @p[score_A=0,score_A_min=0] ~ ~ ~ execute @e[name=Cursor] ~ ~ ~ worldborder get"""
+            """execute @p[score_A=0,score_A_min=0] ~ ~ ~ tellraw @a ["wb = ",{"score":{"name":"@e[name=Cursor]","objective":"A"}}]"""
+            """scoreboard players operation @p A = Count A"""
+            """execute @p[score_A_min=1000] ~ ~ ~ tellraw @a ["done"]"""
+            sprintf """execute @p[score_A_min=1000] ~ ~ ~ scoreboard players set @p %s 1""" NoLatencyCompiler.ScoreboardNameConstants.Stop 
+            |]),impossibleCriteria,[|[|"cx"|]|])
+         ]
+    writeAdvancements(advancements,"""C:\Users\Admin1\Desktop\RecipeSamples""")
+
+
+
+
+    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""
+    let map = new MapFolder(worldFolder+"""\region""")
     let region = map.GetRegion(0,0)
 
+#if ADVANCEMENTS
+    let CMDICBX,CMDICBY,CMDICBZ = 20,4,2
+    let init, repump, advancements = NoLatencyCompiler.advancementize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+#else
     let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
     let init, cmds = NoLatencyCompiler.linearize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+#endif
     printfn "MAND %d" Mandelbrot.objectivesAndConstants.Length
     for s in Mandelbrot.objectivesAndConstants do
         printfn "%s" s
     printfn "INIT %d" init.Count 
     for s in init do
         printfn "%s" s
+#if ADVANCEMENTS
+#else
     printfn "CMDS %d" cmds.Count 
     for t,s in cmds do
         printfn "%s %s" (match t with NoLatencyCompiler.U -> " " | _ -> "C" ) s
+#endif
 
     region.PlaceCommandBlocksStartingAt(2,4,2,[|
         yield O ""
@@ -1665,6 +1737,11 @@ automatic game start configs (night vision, starting items), customizable
         yield O ""
         yield! (init |> Seq.map (fun s -> U s))
         |],"init",false,false)
+#if ADVANCEMENTS
+    region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,repump,"repump",false,true)
+    writeAdvancements(advancements,worldFolder)
+
+#else
     let allcmds = cmds |> Seq.map (fun (t,s) -> match t with NoLatencyCompiler.U -> U s | _ -> C s) |> Array.ofSeq 
     let mutable i = allcmds.Length / 2
     while allcmds.[i].IsConditional do
@@ -1684,6 +1761,7 @@ automatic game start configs (night vision, starting items), customizable
         yield O ""  // dummy to manually break and link up
         yield! part2rev
         |],"part2",false,true,2uy)
+#endif
     map.WriteAll()
 
     (*
