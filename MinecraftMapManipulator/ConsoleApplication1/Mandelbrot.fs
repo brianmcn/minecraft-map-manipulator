@@ -77,7 +77,7 @@ let program =
 #if ADVANCEMENTS
             AtomicCommand "scoreboard players operation @p A = r1 A"
             AtomicCommand "scoreboard players operation @p B = n A"
-            |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1,score_B=15] ~ ~ ~"
+            |],ConditionalDirectTailCalls(([|"execute @p[score_A=-1,score_B=15] ~ ~ ~"
 #else
 
             |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
@@ -109,7 +109,7 @@ let program =
             AtomicCommand "scoreboard players operation r1 A -= MAXH K"
 #if ADVANCEMENTS
             AtomicCommand "scoreboard players operation @p A = r1 A"
-            |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1] ~ ~ ~"
+            |],ConditionalDirectTailCalls(([|"execute @p[score_A=-1] ~ ~ ~"
 #else
             |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
 #endif
@@ -123,7 +123,7 @@ let program =
             AtomicCommand "scoreboard players operation r1 A -= MAXW K"
 #if ADVANCEMENTS
             AtomicCommand "scoreboard players operation @p A = r1 A"
-            |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1] ~ ~ ~"
+            |],ConditionalDirectTailCalls(([|"execute @p[score_A=-1] ~ ~ ~"
 #else
             |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
 #endif

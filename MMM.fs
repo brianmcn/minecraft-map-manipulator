@@ -1712,7 +1712,9 @@ automatic game start configs (night vision, starting items), customizable
 
 #if ADVANCEMENTS
     let CMDICBX,CMDICBY,CMDICBZ = 20,4,2
-    let init, repump, advancements = NoLatencyCompiler.advancementize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+    let p = Mandelbrot.program
+    let p = NoLatencyCompiler.inlineAllDirectTailCallsOptimization(p)
+    let init, repump, advancements = NoLatencyCompiler.advancementize(p,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
 #else
 #if HYBRID
     let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
