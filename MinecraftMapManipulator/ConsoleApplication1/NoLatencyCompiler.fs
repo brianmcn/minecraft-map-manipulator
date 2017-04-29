@@ -153,8 +153,11 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 instructions.Add(U,sprintf "scoreboard players test %s %s %d %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[currentBBN] bbnNumbers.[currentBBN])
 #if HYBRID
                 instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
-#endif
+                // code below is technically control flow, but can be lifted into 'effect' code without conditionals, so may as well do it
+                advancementBBs.[currentBBN].Add(sprintf "scoreboard players set %s %s %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[catchAllBBN])
+#else
                 instructions.Add(C,sprintf "scoreboard players set %s %s %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[catchAllBBN])
+#endif
                 if not(blockDict.ContainsKey(ifbbn)) then
                     failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
                 q.Enqueue(ifbbn) |> ignore
@@ -286,10 +289,11 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
     advancements.Add(root)
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
+    let MAX_PUMP_WIDTH = 10   // (width ^ depth) is max iters
     for i = 1 to MAX_PUMP_DEPTH do
         advancements.Add(makeAdvancement(sprintf"pump%d"i,[|
                 yield sprintf """advancement revoke @p only %s:pump%d""" PREFIX i
-                for _x = 0 to 15 do yield sprintf """execute %s[score_%s=0] ~ ~ ~ advancement grant @p only %s:pump%d""" ENTITY_IP ScoreboardNameConstants.Stop PREFIX (i+1)
+                for _x = 1 to MAX_PUMP_WIDTH do yield sprintf """execute %s[score_%s=0] ~ ~ ~ advancement grant @p only %s:pump%d""" ENTITY_IP ScoreboardNameConstants.Stop PREFIX (i+1)
             |]))
     // chooser
     advancements.Add(makeAdvancement(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
