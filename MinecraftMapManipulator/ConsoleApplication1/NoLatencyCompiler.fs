@@ -6,7 +6,9 @@ open System.Collections.Generic
 
 module ScoreboardNameConstants =
     // for the command-block compiler
-    let IP = "IP"  // objective name where basic block names say 1 or 0 for whether they are current instruction pointer
+//    let IP = "IP"  // objective name where basic block names say 1 or 0 for whether they are current instruction pointer
+    let IP = "IP"  // objective name where basic block names say a value, and CurrentIP says which block is now
+    let CurrentIP = "CurrentIP"  // currentIP says which is active now
     let PulseICB = "PulseICB"  // player name in objective IP saying whether to pulse starter ICB next tick (let a game tick run)
     let Halt = "Halt"  // player name in objective IP saying whether to halt the machine
     
@@ -28,7 +30,7 @@ type BasicBlockName =
     member this.Name = match this with BBN(s) -> s
 type FinalAbstractCommand =
     | DirectTailCall of BasicBlockName
-    | ConditionalDirectTailCalls of ((*andedTestCommands*)string[]*(*if-all-then*)BasicBlockName)[] * (*catch-all-else*)BasicBlockName
+    | ConditionalDirectTailCalls of ((*andedTestCommands*)string[]*(*if-all-then*)BasicBlockName) * (*catch-all-else*)BasicBlockName
     | Halt
 type AbstractCommand =
     | AtomicCommand of string // e.g. "say blah", "scoreboard players ..."
@@ -62,10 +64,9 @@ let inlineAllDirectTailCallsOptimization(p) =
             | BasicBlock(_,fac) ->
                 finalBlockDict.Add(bbn,block)
                 match fac with
-                | ConditionalDirectTailCalls(a,cabbn) ->
+                | ConditionalDirectTailCalls((_conds,ifbbn),cabbn) ->
                     referencedBBNs.UnionWith[cabbn]
-                    for _conds,bbn in a do
-                        referencedBBNs.UnionWith[bbn]
+                    referencedBBNs.UnionWith[ifbbn]
                 | _ -> ()
         let allBBNs = new HashSet<_>(origBlockDict.Keys)
         allBBNs.ExceptWith(referencedBBNs)
@@ -88,14 +89,17 @@ let linearize(Program(entrypoint,blockDict), isTracing,
     let mutable foundEntryPointInDictionary = false
     initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.IP)
     initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.Stop)
+    let mutable nextBBNNumber = 1
+    let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
         if bbn.Name.Length > 15 then
             failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
+        bbnNumbers.Add(bbn, nextBBNNumber)
+        nextBBNNumber <- nextBBNNumber + 1
         if bbn = entrypoint then
-            initialization.Add(sprintf "scoreboard players set %s %s 1" bbn.Name ScoreboardNameConstants.IP)
+            initialization.Add(sprintf "scoreboard players set %s %s %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[bbn])
             foundEntryPointInDictionary <- true
-        else
-            initialization.Add(sprintf "scoreboard players set %s %s 0" bbn.Name ScoreboardNameConstants.IP)
+        initialization.Add(sprintf "scoreboard players set %s %s %d" bbn.Name ScoreboardNameConstants.IP bbnNumbers.[bbn])
     if not(foundEntryPointInDictionary) then
         failwith "did not find entrypoint in basic block dictionary"
 
@@ -137,53 +141,38 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 if not(blockDict.ContainsKey(nextBBN)) then
                     failwithf "bad DirectTailCall goto %s" nextBBN.Name
                 q.Enqueue(nextBBN) |> ignore
-                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(U,sprintf "scoreboard players test %s %s %d %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[currentBBN] bbnNumbers.[currentBBN])
 #if HYBRID
                 instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name) // codegen to invoke AtomicCommands without needlessly replicating the IP test
 #endif
-                // TODO possible better implementation of IP, like advancements, just use one IP variable with values 1-N rather than N variables? Can overwrite in one command rather than two?
-                // Yes, but ConditionalDirectTailCalls implementation gets a little more tricky, though still doable.
-                instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
-                instructions.Add(C,sprintf "scoreboard players set %s %s 1" nextBBN.Name ScoreboardNameConstants.IP)
-            | ConditionalDirectTailCalls(switches,catchAllBBN) ->
+                instructions.Add(C,sprintf "scoreboard players set %s %s %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[nextBBN])
+            | ConditionalDirectTailCalls((conds,ifbbn),catchAllBBN) ->
                 if not(blockDict.ContainsKey(catchAllBBN)) then
                     failwithf "bad ConditionalDirectTailCalls catchall %s" catchAllBBN.Name
                 q.Enqueue(catchAllBBN) |> ignore
-                // first set catchall to 1
-                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(U,sprintf "scoreboard players test %s %s %d %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[currentBBN] bbnNumbers.[currentBBN])
 #if HYBRID
                 instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
 #endif
-                instructions.Add(C,sprintf "scoreboard players set %s %s 1" catchAllBBN.Name ScoreboardNameConstants.IP)
-                if switches.Length = 0 then
-                    failwith "ConditionalDirectTailCalls with zero switch conditions, use DirectTailCall instead"
-                // then do each test, and if match, set it 1, and catchall to 0
-                for (conds,bbn) in switches do
-                    // TODO if assume switches.Length=1, can do above TODO optimization more easily, maybe choose that
-                    if not(blockDict.ContainsKey(bbn)) then
-                        failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
-                    q.Enqueue(bbn) |> ignore
-                    instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
-                    for c in conds do
-                        instructions.Add(C,c)
-                    instructions.Add(C,sprintf "scoreboard players set %s %s 0" catchAllBBN.Name ScoreboardNameConstants.IP)
-                    instructions.Add(C,sprintf "scoreboard players set %s %s 1" bbn.Name ScoreboardNameConstants.IP)
-                    // finally, for each branch say this one is done
-                    // but be careful about case where we direct loop to ourselves!
-                    if currentBBN.Name <> bbn.Name then
-                        instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(C,sprintf "scoreboard players set %s %s %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[catchAllBBN])
+                if not(blockDict.ContainsKey(ifbbn)) then
+                    failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
+                q.Enqueue(ifbbn) |> ignore
+                for c in conds do
+                    instructions.Add(C,c)
+                instructions.Add(C,sprintf "scoreboard players set %s %s %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[ifbbn])
             | Halt ->
-                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+                instructions.Add(U,sprintf "scoreboard players test %s %s %d %d" ScoreboardNameConstants.CurrentIP ScoreboardNameConstants.IP bbnNumbers.[currentBBN] bbnNumbers.[currentBBN])
 #if HYBRID
                 instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
 #endif
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
                 instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
-                // instructions below aren't really 'part of halt', rather just must be executed every loop, so put unguarded here
-                instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
-                instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
-                instructions.Add(C,sprintf "blockdata %d %d %d {auto:1b}" x y z)
+    // instructions below aren't part of any basic block, but must be executed every loop, so put unguarded at end
+    instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+    instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
+    instructions.Add(C,sprintf "blockdata %d %d %d {auto:1b}" x y z)
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)
     if allBBNs.Count <> 0 then
@@ -261,21 +250,20 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
                     failwithf "bad DirectTailCall goto %s" nextBBN.Name
                 q.Enqueue(nextBBN) |> ignore
                 instructions.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[nextBBN])
-            | ConditionalDirectTailCalls(switches,catchAllBBN) ->
+            | ConditionalDirectTailCalls((conds,bbn),catchAllBBN) ->
                 if not(blockDict.ContainsKey(catchAllBBN)) then
                     failwithf "bad ConditionalDirectTailCalls catchall %s" catchAllBBN.Name
                 q.Enqueue(catchAllBBN) |> ignore
                 // first set catchall
                 instructions.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[catchAllBBN])
-                // then do each test, and if match overwrite
-                for (conds,bbn) in switches do
-                    if not(blockDict.ContainsKey(bbn)) then
-                        failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
-                    q.Enqueue(bbn) |> ignore
-                    let mutable executePrefixes = ""
-                    for c in conds |> Seq.rev do
-                        executePrefixes <- c + " " + executePrefixes
-                    instructions.Add(sprintf "%sscoreboard players set %s %s %d" executePrefixes ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[bbn])
+                // then do test, and if match overwrite
+                if not(blockDict.ContainsKey(bbn)) then
+                    failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
+                q.Enqueue(bbn) |> ignore
+                let mutable executePrefixes = ""
+                for c in conds |> Seq.rev do
+                    executePrefixes <- c + " " + executePrefixes
+                instructions.Add(sprintf "%sscoreboard players set %s %s %d" executePrefixes ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[bbn])
             | Halt ->
                 instructions.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 1)
             advancements.Add(makeAdvancement(currentBBN.Name,instructions))

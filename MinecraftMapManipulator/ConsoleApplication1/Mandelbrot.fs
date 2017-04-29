@@ -80,11 +80,11 @@ let program =
             |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1,score_B=15] ~ ~ ~"
 #else
 
-            |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
-                                              "scoreboard players test n A * 15"
+            |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
+                                             "scoreboard players test n A * 15"
 #endif
                                             |],cpsInnerInner
-                                          |],cpsInnerFinish))
+                                          ),cpsInnerFinish))
         cpsInnerInner,BasicBlock([|
             AtomicCommand "scoreboard players operation xtemp A = xsq A"
             AtomicCommand "scoreboard players operation xtemp A -= ysq A"
@@ -111,10 +111,10 @@ let program =
             AtomicCommand "scoreboard players operation @p A = r1 A"
             |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1] ~ ~ ~"
 #else
-            |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
+            |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
 #endif
                                             |],cpsInnerStart
-                                          |],cpsJFinish))
+                                          ),cpsJFinish))
         cpsJFinish,BasicBlock([|
             AtomicCommand "scoreboard players add I A 1"
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~1 ~ ~"
@@ -125,10 +125,10 @@ let program =
             AtomicCommand "scoreboard players operation @p A = r1 A"
             |],ConditionalDirectTailCalls([|[|"execute @p[score_A=-1] ~ ~ ~"
 #else
-            |],ConditionalDirectTailCalls([|[|"scoreboard players test r1 A * -1"
+            |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
 #endif
                                             |],cpsJStart
-                                          |],cpsIFinish))
+                                          ),cpsIFinish))
         cpsIFinish,BasicBlock([|
             AtomicCommand """tellraw @a ["done!"]"""
             // time measurement
