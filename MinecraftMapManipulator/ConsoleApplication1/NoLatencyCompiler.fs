@@ -13,6 +13,14 @@ module ScoreboardNameConstants =
     // for the advancements compiler
     let Stop = "Stop" // name of an objective where @p has 1 or 0 depending on if time to stop the loop runner
 
+open Recipes 
+open Advancements
+let PREFIX = "functions" // advancements folder name
+let makeAdvancement(name,instructions) =
+    sprintf "%s/%s" PREFIX name, Advancement(Some(PATH(sprintf"%s:root"PREFIX)),NoDisplay,Reward([||],[||],0,[|
+        yield! instructions
+        |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
+
 ////////////////////////////////////////////////
 
 type BasicBlockName = 
@@ -53,6 +61,9 @@ let linearize(Program(entrypoint,blockDict), isTracing,
     if not(foundEntryPointInDictionary) then
         failwith "did not find entrypoint in basic block dictionary"
 
+#if HYBRID
+    let advancementBBs = new Dictionary<_,_>()
+#endif
     let visited = new HashSet<_>()
     let instructions = ResizeArray()
     let q = new Queue<_>()
@@ -65,6 +76,17 @@ let linearize(Program(entrypoint,blockDict), isTracing,
             if isTracing then
                 instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
                 instructions.Add(C,sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name)
+#if HYBRID
+            advancementBBs.Add(currentBBN,ResizeArray())
+            for c in cmds do
+                match c with 
+                | AtomicCommand s ->
+                    advancementBBs.[currentBBN].Add(s)
+                | Yield ->
+                    advancementBBs.[currentBBN].Add(sprintf "scoreboard players set %s %s 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+            instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
+            instructions.Add(C,sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+#else
             for c in cmds do
                 match c with 
                 | AtomicCommand s ->
@@ -73,6 +95,7 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 | Yield ->
                     instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
                     instructions.Add(C,sprintf "scoreboard players set %s %s 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+#endif
             match finish with
             | DirectTailCall(nextBBN) ->
                 if not(blockDict.ContainsKey(nextBBN)) then
@@ -80,6 +103,7 @@ let linearize(Program(entrypoint,blockDict), isTracing,
                 q.Enqueue(nextBBN) |> ignore
                 instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" currentBBN.Name ScoreboardNameConstants.IP)
                 // TODO possible better implementation of IP, like advancements, just use one IP variable with values 1-N rather than N variables? Can overwrite in one command rather than two?
+                // Yes, but ConditionalDirectTailCalls implementation gets a little more tricky, though still doable.
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
                 instructions.Add(C,sprintf "scoreboard players set %s %s 1" nextBBN.Name ScoreboardNameConstants.IP)
             | ConditionalDirectTailCalls(switches,catchAllBBN) ->
@@ -114,7 +138,18 @@ let linearize(Program(entrypoint,blockDict), isTracing,
     allBBNs.ExceptWith(visited)
     if allBBNs.Count <> 0 then
         failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+#if HYBRID
+    let advancements = [|
+        for KeyValue(bbn,cmds) in advancementBBs do
+            yield makeAdvancement(bbn.Name,[|
+                yield sprintf "advancement revoke @p only %s:%s" PREFIX bbn.Name
+                yield! cmds
+                |])
+        |]
+    initialization, instructions, advancements
+#else
     initialization, instructions
+#endif
 
 
 ////////////////////////////////////////////////
@@ -126,9 +161,6 @@ e.g. 16x loop1/2/3/4 that conditionally-call-down if not halted to get 65k loop 
 root module to switch based on currently active function and call it
 writing advancement for each function, ungranting itself at start
 *)
-
-open Recipes 
-open Advancements
 
 let advancementize(Program(entrypoint,blockDict), isTracing, 
             x, y, z) =   // x,y,z is where the repumpAfterTick (PulseICB) is located
@@ -152,11 +184,6 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
     if not(foundEntryPointInDictionary) then
         failwith "did not find entrypoint in basic block dictionary"
 
-    let PREFIX = "functions"
-    let makeAdvancement(name,instructions) =
-        sprintf "%s/%s" PREFIX name, Advancement(Some(PATH(sprintf"%s:root"PREFIX)),NoDisplay,Reward([||],[||],0,[|
-            yield! instructions
-            |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
     let visited = new HashSet<_>()
     let advancements = ResizeArray()
     // runner infrastructure advancements at bottom of code further below

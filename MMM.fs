@@ -1713,8 +1713,13 @@ automatic game start configs (night vision, starting items), customizable
     let CMDICBX,CMDICBY,CMDICBZ = 20,4,2
     let init, repump, advancements = NoLatencyCompiler.advancementize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
 #else
+#if HYBRID
+    let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
+    let init, cmds, advancements = NoLatencyCompiler.linearize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+#else
     let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
     let init, cmds = NoLatencyCompiler.linearize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+#endif
 #endif
     printfn "MAND %d" Mandelbrot.objectivesAndConstants.Length
     for s in Mandelbrot.objectivesAndConstants do
@@ -1740,7 +1745,6 @@ automatic game start configs (night vision, starting items), customizable
 #if ADVANCEMENTS
     region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,repump,"repump",false,true)
     writeAdvancements(advancements,worldFolder)
-
 #else
     let allcmds = cmds |> Seq.map (fun (t,s) -> match t with NoLatencyCompiler.U -> U s | _ -> C s) |> Array.ofSeq 
     let mutable i = allcmds.Length / 2
@@ -1761,6 +1765,9 @@ automatic game start configs (night vision, starting items), customizable
         yield O ""  // dummy to manually break and link up
         yield! part2rev
         |],"part2",false,true,2uy)
+#if HYBRID
+    writeAdvancements(advancements,worldFolder)
+#endif
 #endif
     map.WriteAll()
 
