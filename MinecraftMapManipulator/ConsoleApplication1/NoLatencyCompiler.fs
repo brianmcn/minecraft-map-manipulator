@@ -237,7 +237,7 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
         if not(visited.Contains(currentBBN)) then
             visited.Add(currentBBN) |> ignore
             let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
-            instructions.Add(sprintf "advancement revoke @p only %s:%s" PREFIX currentBBN.Name)
+            instructions.Add(sprintf "advancement revoke @s only %s:%s" PREFIX currentBBN.Name)
             if isTracing then
                 instructions.Add(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name)
             for c in cmds do
@@ -245,20 +245,20 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
                 | AtomicCommand s ->
                     instructions.Add(s)
                 | Yield ->
-                    instructions.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 1)
+                    instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.Stop 1)
                     instructions.Add(sprintf "blockdata %d %d %d {auto:1b}" x y z)
             match finish with
             | DirectTailCall(nextBBN) ->
                 if not(blockDict.ContainsKey(nextBBN)) then
                     failwithf "bad DirectTailCall goto %s" nextBBN.Name
                 q.Enqueue(nextBBN) |> ignore
-                instructions.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[nextBBN])
+                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.IP bbnNumbers.[nextBBN])
             | ConditionalDirectTailCalls((conds,bbn),catchAllBBN) ->
                 if not(blockDict.ContainsKey(catchAllBBN)) then
                     failwithf "bad ConditionalDirectTailCalls catchall %s" catchAllBBN.Name
                 q.Enqueue(catchAllBBN) |> ignore
                 // first set catchall
-                instructions.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[catchAllBBN])
+                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.IP bbnNumbers.[catchAllBBN])
                 // then do test, and if match overwrite
                 if not(blockDict.ContainsKey(bbn)) then
                     failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
@@ -268,7 +268,7 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
                     executePrefixes <- c + " " + executePrefixes
                 instructions.Add(sprintf "%sscoreboard players set %s %s %d" executePrefixes ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[bbn])
             | Halt ->
-                instructions.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 1)
+                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.Stop 1)
             advancements.Add(makeAdvancement(currentBBN.Name,instructions))
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)
@@ -278,7 +278,7 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
     // advancement runner infrastructure
     // root
     let root = "functions/root",Advancement(None,NoDisplay,Reward([||],[||],0,[|
-                    """advancement revoke @p only functions:root"""
+                    """advancement revoke @s only functions:root"""
                     (* TODO remove
                     """stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A"""
                     """scoreboard player set @e[name=Cursor] A 1""" // need initial value before can trigger a stat
@@ -292,21 +292,21 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
     let MAX_PUMP_WIDTH = 10   // (width ^ depth) is max iters
     for i = 1 to MAX_PUMP_DEPTH do
         advancements.Add(makeAdvancement(sprintf"pump%d"i,[|
-                yield sprintf """advancement revoke @p only %s:pump%d""" PREFIX i
-                for _x = 1 to MAX_PUMP_WIDTH do yield sprintf """execute %s[score_%s=0] ~ ~ ~ advancement grant @p only %s:pump%d""" ENTITY_IP ScoreboardNameConstants.Stop PREFIX (i+1)
+                yield sprintf """advancement revoke @s only %s:pump%d""" PREFIX i
+                for _x = 1 to MAX_PUMP_WIDTH do yield sprintf """advancement grant @s[score_%s=0] only %s:pump%d""" ScoreboardNameConstants.Stop PREFIX (i+1)
             |]))
     // chooser
     advancements.Add(makeAdvancement(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
-            yield sprintf """advancement revoke @p only %s:pump%d""" PREFIX (MAX_PUMP_DEPTH+1)
+            yield sprintf """advancement revoke @s only %s:pump%d""" PREFIX (MAX_PUMP_DEPTH+1)
             for KeyValue(bbn,num) in bbnNumbers do 
-                yield sprintf """execute %s[score_%s_min=%d,score_%s=%d] ~ ~ ~ advancement grant @p only %s:%s""" 
-                                    ENTITY_IP ScoreboardNameConstants.IP num ScoreboardNameConstants.IP num PREFIX bbn.Name 
+                yield sprintf """advancement grant @s[score_%s_min=%d,score_%s=%d] only %s:%s""" 
+                                    ScoreboardNameConstants.IP num ScoreboardNameConstants.IP num PREFIX bbn.Name 
         |]))
 
     let repumpAfterTick = [|
         RegionFiles.CommandBlock.O "blockdata ~ ~ ~ {auto:0b}"
         RegionFiles.CommandBlock.U (sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 0)
-        RegionFiles.CommandBlock.U (sprintf "advancement grant @p only %s:pump1" PREFIX)
+        RegionFiles.CommandBlock.U (sprintf "advancement grant %s only %s:pump1" ENTITY_IP PREFIX)
         |]
 
     initialization, repumpAfterTick, advancements
