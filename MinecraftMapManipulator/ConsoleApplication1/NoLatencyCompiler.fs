@@ -263,10 +263,10 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
                 if not(blockDict.ContainsKey(bbn)) then
                     failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
                 q.Enqueue(bbn) |> ignore
-                let mutable executePrefixes = ""
-                for c in conds |> Seq.rev do
-                    executePrefixes <- c + " " + executePrefixes
-                instructions.Add(sprintf "%sscoreboard players set %s %s %d" executePrefixes ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[bbn])
+                match conds with
+                | [|selector|] ->
+                    instructions.Add(sprintf "scoreboard players set %s %s %d" selector ScoreboardNameConstants.IP bbnNumbers.[bbn])
+                | _ -> failwith "there should be exactly one conditional selector in advancements' ConditionalDirectTailCalls"
             | Halt ->
                 instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.Stop 1)
             advancements.Add(makeAdvancement(currentBBN.Name,instructions))
