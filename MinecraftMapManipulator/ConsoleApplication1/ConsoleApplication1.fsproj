@@ -33,7 +33,7 @@
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;xBINGO;ADVANCEMENTS;xHYBRID</DefineConstants>
+    <DefineConstants>TRACE;xBINGO;ADVANCEMENTS;xHYBRID;PREEMPT</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Release\ConsoleApplication1.XML</DocumentationFile>

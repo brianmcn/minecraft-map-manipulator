@@ -43,8 +43,8 @@ let program =
     Program(cpsIStart, dict [
         cpsIStart,BasicBlock([|
             // time measurement
-            AtomicCommand "worldborder set 10000000"
-            AtomicCommand "worldborder add 1000000 1000000"
+//            AtomicCommand "worldborder set 10000000"
+//            AtomicCommand "worldborder add 1000000 1000000"
             // actual code
             AtomicCommand "scoreboard players set I A 0"
             AtomicCommand "tp @e[name=Cursor] 0 14 0"
@@ -132,11 +132,9 @@ let program =
         cpsIFinish,BasicBlock([|
             AtomicCommand """tellraw @a ["done!"]"""
             // time measurement
-            AtomicCommand "stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A"
-            AtomicCommand "scoreboard players set @e[name=Cursor] A 1" // need initial value before can trigger a stat
-            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ worldborder get"
-            AtomicCommand "scoreboard players set Time A -10000000"
-            AtomicCommand "scoreboard players operation Time A += @e[name=Cursor] A"
-            AtomicCommand """tellraw @a ["took ",{"score":{"name":"Time","objective":"A"}}," seconds"]"""
+//            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ worldborder get"
+//            AtomicCommand "scoreboard players set Time A -10000000"
+//            AtomicCommand "scoreboard players operation Time A += @e[name=Cursor] A"
+//            AtomicCommand """tellraw @a ["took ",{"score":{"name":"Time","objective":"A"}}," seconds"]"""
             |],Halt)
         ])

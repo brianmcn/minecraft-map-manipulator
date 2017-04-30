@@ -18,8 +18,9 @@ module ScoreboardNameConstants =
 open Recipes 
 open Advancements
 let PREFIX = "functions" // advancements folder name
-let makeAdvancement(name,instructions) =
-    sprintf "%s/%s" PREFIX name, Advancement(Some(PATH(sprintf"%s:root"PREFIX)),NoDisplay,Reward([||],[||],0,[|
+let makeAdvancement(name,instructions) = // TODO ensure fauxroot
+//    sprintf "%s/%s" PREFIX name, Advancement(None,NoDisplay,Reward([||],[||],0,[|
+    sprintf "%s/%s" PREFIX name, Advancement(Some(PATH(sprintf"%s:fauxroot"PREFIX)),NoDisplay,Reward([||],[||],0,[|
         yield! instructions
         |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
 
@@ -81,14 +82,18 @@ type ChainCommandBlockType = U | C
 
 let linearize(Program(entrypoint,blockDict), isTracing,
               x,y,z) = // x,y,z is ICB with BD{auto:0b}
-                       // z+1 is CCB with set PulseICB to 0
-                       // z+2 is CCB with setblock(z+4) to CCB (not stone)
-                       // z+3 is CCB with blockdata(z+4) to ULE:false (can't setblock that way)
-                       // z+4 is empty instruction that is first in loop and may get stoned
+                       // z+1,z+2 set up worldborder for timing measurement
+                       // z+3 is CCB with set PulseICB to 0
+                       // z+4 is CCB with setblock(z+6) to CCB (not stone)
+                       // z+5 is CCB with blockdata(z+6) to ULE:false (can't setblock that way)
+                       // z+6 is empty instruction that is first in loop and may get stoned
     let initialization = ResizeArray()
     let mutable foundEntryPointInDictionary = false
     initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.IP)
     initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.Stop)
+    initialization.Add("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A") // TODO Cursor/A do not belong to the compiler
+    initialization.Add("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
+
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -171,10 +176,18 @@ let linearize(Program(entrypoint,blockDict), isTracing,
 #endif
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
                 instructions.Add(C,sprintf "scoreboard players set %s %s 0" currentBBN.Name ScoreboardNameConstants.IP)
-                instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
+                instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+6))
     // instructions below aren't part of any basic block, but must be executed every loop, so put unguarded at end
+#if PREEMPT
+    // TODO most of this code could be moved to an advancement
+    // measure time, pre-empt
+    instructions.Add(U,sprintf "execute @e[name=Cursor] ~ ~ ~ worldborder get")
+    instructions.Add(U,sprintf "scoreboard players test @e[name=Cursor] A 10000015 *")  // TODO decide time slice
+    instructions.Add(C,sprintf "scoreboard players set %s %s 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+#endif
+    // if pre-empt or Yield, do thing
     instructions.Add(U,sprintf "scoreboard players test %s %s 1 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
-    instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+4))
+    instructions.Add(C,sprintf "setblock %d %d %d stone" x y (z+6))
     instructions.Add(C,sprintf "blockdata %d %d %d {auto:1b}" x y z)
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)
@@ -213,6 +226,11 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
     initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.IP)
     initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.Stop)
     initialization.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 0)
+#if PREEMPT
+    // timer setup
+    initialization.Add("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A") // TODO Cursor/A do not belong to the compiler
+    initialization.Add("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
+#endif
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -278,15 +296,14 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
     // advancement runner infrastructure
     // root
     let root = "functions/root",Advancement(None,NoDisplay,Reward([||],[||],0,[|
-                    """advancement revoke @s only functions:root"""
-                    (* TODO remove
-                    """stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A"""
-                    """scoreboard player set @e[name=Cursor] A 1""" // need initial value before can trigger a stat
-                    """worldborder set 10000000"""
-                    """worldborder add 1000000 1000"""
-                    *)
                     |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
     advancements.Add(root)
+    let root2 = "functions/root2",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
+                    |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
+    advancements.Add(root2)
+    let fauxroot = "functions/fauxroot",Advancement(Some(PATH"functions:root2"),NoDisplay,Reward([||],[||],0,[|
+                    |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
+    advancements.Add(fauxroot)
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
     let MAX_PUMP_WIDTH = 10   // (width ^ depth) is max iters
@@ -301,11 +318,21 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
             for KeyValue(bbn,num) in bbnNumbers do 
                 yield sprintf """advancement grant @s[score_%s_min=%d,score_%s=%d] only %s:%s""" 
                                     ScoreboardNameConstants.IP num ScoreboardNameConstants.IP num PREFIX bbn.Name 
+#if PREEMPT
+            // measure time, pre-empt
+            yield "execute @e[name=Cursor] ~ ~ ~ worldborder get"
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000017] ~ ~ ~ scoreboard players set @p %s %d" ScoreboardNameConstants.Stop 1  // TODO note must use @p, since @s would target cursor
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000017] ~ ~ ~ blockdata %d %d %d {auto:1b}" x y z  // TODO decide time slice
+#endif
         |]))
 
     let repumpAfterTick = [|
         RegionFiles.CommandBlock.O "blockdata ~ ~ ~ {auto:0b}"
         RegionFiles.CommandBlock.U (sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 0)
+#if PREEMPT
+        RegionFiles.CommandBlock.U "worldborder set 10000000"
+        RegionFiles.CommandBlock.U "worldborder add 1000000 1000"
+#endif
         RegionFiles.CommandBlock.U (sprintf "advancement grant %s only %s:pump1" ENTITY_IP PREFIX)
         |]
 

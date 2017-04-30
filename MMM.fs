@@ -1760,6 +1760,8 @@ automatic game start configs (night vision, starting items), customizable
     let part2rev = allcmds.[i..] |> Array.rev 
     let firstHalf = [|
         yield O "blockdata ~ ~ ~ {auto:0b}"
+        yield U "worldborder set 10000000"
+        yield U "worldborder add 1000000 1000"
         yield U (sprintf "scoreboard players set %s %s 0" NoLatencyCompiler.ScoreboardNameConstants.PulseICB NoLatencyCompiler.ScoreboardNameConstants.IP)
         yield U "setblock ~ ~ ~2 chain_command_block 3 {auto:1b}"
         yield U "blockdata ~ ~ ~1 {UpdateLastExecution:0b}"
@@ -1767,7 +1769,7 @@ automatic game start configs (night vision, starting items), customizable
         yield! part1
         |]
     region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,firstHalf,"part1",false,true)
-    region.PlaceCommandBlocksStartingAt(CMDICBX+1,4,CMDICBZ+5,[|
+    region.PlaceCommandBlocksStartingAt(CMDICBX+1,CMDICBY,CMDICBZ+7,[|
         yield O ""  // dummy to manually break and link up
         yield! part2rev
         |],"part2",false,true,2uy)
