@@ -5,9 +5,7 @@ open NoLatencyCompiler
 let objectivesAndConstants = [|
     // objectives
     yield "scoreboard objectives add A dummy"  // variables
-#if ADVANCEMENTS
     yield "scoreboard objectives add B dummy"  // variables
-#endif
     yield "scoreboard objectives add K dummy"  // constants
     // constants
     yield "scoreboard players set FOURISSQ K 64000000"
@@ -43,8 +41,11 @@ let program =
     Program(cpsIStart, dict [
         cpsIStart,BasicBlock([|
             // time measurement
-//            AtomicCommand "worldborder set 10000000"
-//            AtomicCommand "worldborder add 1000000 1000000"
+#if PREEMPT
+#else
+            AtomicCommand "worldborder set 10000000"
+            AtomicCommand "worldborder add 1000000 1000000"
+#endif
             // actual code
             AtomicCommand "scoreboard players set I A 0"
             AtomicCommand "tp @e[name=Cursor] 0 14 0"
@@ -79,9 +80,20 @@ let program =
             AtomicCommand "scoreboard players operation @s B = n A"
             |],ConditionalDirectTailCalls(([|"@s[score_A=-1,score_B=15]"
 #else
-
+#if CLONEMACHINE
+#if USEEXECUTEIF
+            AtomicCommand "scoreboard players operation @s A = r1 A"
+            AtomicCommand "scoreboard players operation @s B = n A"
+            |],ConditionalDirectTailCalls(([|"@p[score_A=-1,score_B=15]"
+#else
+            AtomicCommand "scoreboard players operation @s A = r1 A"
+            AtomicCommand "scoreboard players operation @s B = n A"
+            |],ConditionalDirectTailCalls(([|"testfor @p[score_A=-1,score_B=15]"
+#endif
+#else
             |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
                                              "scoreboard players test n A * 15"
+#endif
 #endif
                                             |],cpsInnerInner
                                           ),cpsInnerFinish))
@@ -111,7 +123,12 @@ let program =
             AtomicCommand "scoreboard players operation @s A = r1 A"
             |],ConditionalDirectTailCalls(([|"@s[score_A=-1]"
 #else
+#if USEEXECUTEIF
+            AtomicCommand "scoreboard players operation @s A = r1 A"
+            |],ConditionalDirectTailCalls(([|"@p[score_A=-1]"
+#else
             |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
+#endif
 #endif
                                             |],cpsInnerStart
                                           ),cpsJFinish))
@@ -125,16 +142,26 @@ let program =
             AtomicCommand "scoreboard players operation @s A = r1 A"
             |],ConditionalDirectTailCalls(([|"@s[score_A=-1]"
 #else
+#if USEEXECUTEIF
+            AtomicCommand "scoreboard players operation @s A = r1 A"
+            |],ConditionalDirectTailCalls(([|"@p[score_A=-1]"
+#else
             |],ConditionalDirectTailCalls(([|"scoreboard players test r1 A * -1"
+#endif
 #endif
                                             |],cpsJStart
                                           ),cpsIFinish))
         cpsIFinish,BasicBlock([|
             AtomicCommand """tellraw @a ["done!"]"""
             // time measurement
-//            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ worldborder get"
-//            AtomicCommand "scoreboard players set Time A -10000000"
-//            AtomicCommand "scoreboard players operation Time A += @e[name=Cursor] A"
-//            AtomicCommand """tellraw @a ["took ",{"score":{"name":"Time","objective":"A"}}," seconds"]"""
+#if PREEMPT
+#else
+            AtomicCommand("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A")
+            AtomicCommand("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
+            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ worldborder get"
+            AtomicCommand "scoreboard players set Time A -10000000"
+            AtomicCommand "scoreboard players operation Time A += @e[name=Cursor] A"
+            AtomicCommand """tellraw @a ["took ",{"score":{"name":"Time","objective":"A"}}," seconds"]"""
+#endif
             |],Halt)
         ])

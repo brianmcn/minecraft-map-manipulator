@@ -1722,8 +1722,15 @@ automatic game start configs (night vision, starting items), customizable
     let p = NoLatencyCompiler.inlineAllDirectTailCallsOptimization(p)
     let init, cmds, advancements = NoLatencyCompiler.linearize(p,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
 #else
+#if CLONEMACHINE
+    let CMDICBX,CMDICBY,CMDICBZ = 30,4,2
+    let p = Mandelbrot.program
+    let p = NoLatencyCompiler.inlineAllDirectTailCallsOptimization(p)
+    let init, advancements = NoLatencyCompiler.makeCloneMachineInTheWorld(p,(*isTracing*)false,region,CMDICBX,CMDICBY,CMDICBZ)
+#else    
     let CMDICBX,CMDICBY,CMDICBZ = 8,4,2
     let init, cmds = NoLatencyCompiler.linearize(Mandelbrot.program,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+#endif
 #endif
 #endif
     printfn "MAND %d" Mandelbrot.objectivesAndConstants.Length
@@ -1734,9 +1741,12 @@ automatic game start configs (night vision, starting items), customizable
         printfn "%s" s
 #if ADVANCEMENTS
 #else
+#if CLONEMACHINE
+#else
     printfn "CMDS %d" cmds.Count 
     for t,s in cmds do
         printfn "%s %s" (match t with NoLatencyCompiler.U -> " " | _ -> "C" ) s
+#endif
 #endif
 
     region.PlaceCommandBlocksStartingAt(2,4,2,[|
@@ -1747,8 +1757,26 @@ automatic game start configs (night vision, starting items), customizable
         yield O ""
         yield! (init |> Seq.map (fun s -> U s))
         |],"init",false,true)
+    let linearAndCloneMachineStartupSequence = [|
+        yield O "blockdata ~ ~ ~ {auto:0b}"
+#if PREEMPT
+        yield U "worldborder set 10000000"
+        yield U "worldborder add 1000000 1000"
+#else
+        yield U ""
+        yield U ""
+#endif
+        yield U (sprintf "scoreboard players set %s %s 0" NoLatencyCompiler.ScoreboardNameConstants.PulseICB NoLatencyCompiler.ScoreboardNameConstants.IP)
+        yield U "setblock ~ ~ ~2 chain_command_block 3 {auto:1b}"
+        yield U "blockdata ~ ~ ~1 {UpdateLastExecution:0b}"
+        yield U ""  // may get stoned
+        |]
 #if ADVANCEMENTS
     region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,repump,"repump",false,true)
+    writeAdvancements(advancements,worldFolder)
+#else
+#if CLONEMACHINE
+    region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,linearAndCloneMachineStartupSequence,"startup prefix",false,false)
     writeAdvancements(advancements,worldFolder)
 #else
     let allcmds = cmds |> Seq.map (fun (t,s) -> match t with NoLatencyCompiler.U -> U s | _ -> C s) |> Array.ofSeq 
@@ -1759,13 +1787,7 @@ automatic game start configs (night vision, starting items), customizable
     let part1    = allcmds.[0..i-1]
     let part2rev = allcmds.[i..] |> Array.rev 
     let firstHalf = [|
-        yield O "blockdata ~ ~ ~ {auto:0b}"
-        yield U "worldborder set 10000000"
-        yield U "worldborder add 1000000 1000"
-        yield U (sprintf "scoreboard players set %s %s 0" NoLatencyCompiler.ScoreboardNameConstants.PulseICB NoLatencyCompiler.ScoreboardNameConstants.IP)
-        yield U "setblock ~ ~ ~2 chain_command_block 3 {auto:1b}"
-        yield U "blockdata ~ ~ ~1 {UpdateLastExecution:0b}"
-        yield U ""  // may get stoned
+        yield! linearAndCloneMachineStartupSequence
         yield! part1
         |]
     region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,firstHalf,"part1",false,true)
@@ -1775,6 +1797,7 @@ automatic game start configs (night vision, starting items), customizable
         |],"part2",false,true,2uy)
 #if HYBRID
     writeAdvancements(advancements,worldFolder)
+#endif
 #endif
 #endif
     map.WriteAll()

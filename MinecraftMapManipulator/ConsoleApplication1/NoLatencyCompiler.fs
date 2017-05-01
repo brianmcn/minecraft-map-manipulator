@@ -12,8 +12,11 @@ module ScoreboardNameConstants =
     let PulseICB = "PulseICB"  // player name in objective IP saying whether to pulse starter ICB next tick (let a game tick run)
     let Halt = "Halt"  // player name in objective IP saying whether to halt the machine
     
-    // for the advancements compiler
+    // for the advancements & clone compilers
     let Stop = "Stop" // name of an objective where @p has 1 or 0 depending on if time to stop the loop runner
+
+    // for the clone compiler
+    let PlayerClonedIf = "PlayerClonedIf"  // did the player just clone the IF part (then don't also clone the ELSE)
 
 open Recipes 
 open Advancements
@@ -210,12 +213,6 @@ let linearize(Program(entrypoint,blockDict), isTracing,
 ////////////////////////////////////////////////
 
 
-// TODO compile a program into advancements
-(*
-e.g. 16x loop1/2/3/4 that conditionally-call-down if not halted to get 65k loop without recursion
-root module to switch based on currently active function and call it
-writing advancement for each function, ungranting itself at start
-*)
 
 let advancementize(Program(entrypoint,blockDict), isTracing, 
             x, y, z) =   // x,y,z is where the repumpAfterTick (PulseICB) is located
@@ -337,3 +334,137 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
         |]
 
     initialization, repumpAfterTick, advancements
+
+/////////////////////////////////////////////////
+
+#if CLONEMACHINE
+let makeCloneMachineInTheWorld(Program(entrypoint,blockDict), isTracing, region:RegionFiles.RegionFile,
+              x,y,z) = // x,y,z is ICB with BD{auto:0b}
+                       // will use lots of space in +x direction and +z direction, have that clear
+                       // z+1,z+2 set up worldborder for timing measurement
+                       // z+3 is CCB with set PulseICB to 0
+                       // z+4 is CCB with setblock(z+6) to CCB (not stone)
+                       // z+5 is CCB with blockdata(z+6) to ULE:false (can't setblock that way)
+                       // z+6 is empty instruction that is first in loop and may get stoned
+    let initialization = ResizeArray()
+    let mutable foundEntryPointInDictionary = false
+    initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.IP)  // just used for PulseICB
+//    initialization.Add("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A") // TODO Cursor/A do not belong to the compiler
+//    initialization.Add("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
+#if USEEXECUTEIF
+    initialization.Add(sprintf "stats entity @p set SuccessCount @p %s" ScoreboardNameConstants.PlayerClonedIf)
+    initialization.Add(sprintf "scoreboard players set @p %s 1" ScoreboardNameConstants.PlayerClonedIf) // need init val for stats to work
+#endif
+
+    let mutable nextBBNNumber = 1
+    let bbnNumbers = new Dictionary<_,_>()
+    let X(bbn) =  // location in the world where we store the 'master' copy of this bbn's instruction chain
+        x + 5 + bbnNumbers.[bbn]
+    for KeyValue(bbn,_) in blockDict do
+        if bbn.Name.Length > 15 then
+            failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
+        bbnNumbers.Add(bbn, nextBBNNumber)
+        nextBBNNumber <- nextBBNNumber + 1
+        if bbn = entrypoint then
+            foundEntryPointInDictionary <- true
+            initialization.Add(sprintf "clone %d %d %d %d %d %d %d %d %d" (X entrypoint) y (z+7) (X entrypoint) y (z+11) x y (z+7))  // TODO with exceute-if, can change 11 to 9, generalize
+    if not(foundEntryPointInDictionary) then
+        failwith "did not find entrypoint in basic block dictionary"
+
+    let advancementBBs = new Dictionary<_,_>()
+    let visited = new HashSet<_>()
+    let q = new Queue<_>()
+    q.Enqueue(entrypoint)
+    while q.Count <> 0 do
+        let currentBBN = q.Dequeue()
+        if not(visited.Contains(currentBBN)) then
+            visited.Add(currentBBN) |> ignore
+            let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
+            advancementBBs.Add(currentBBN,ResizeArray())
+            if isTracing then
+                advancementBBs.[currentBBN].Add(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name)
+            for c in cmds do
+                match c with 
+                | AtomicCommand s ->
+                    advancementBBs.[currentBBN].Add(s)
+                | Yield ->
+                    advancementBBs.[currentBBN].Add(sprintf "scoreboard players set %s %s 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+            match finish with
+            | DirectTailCall(_nextBBN) ->
+                failwith "should not have direct calls, not supported"
+            | ConditionalDirectTailCalls((conds,ifbbn),catchAllBBN) ->
+                if not(blockDict.ContainsKey(catchAllBBN)) then
+                    failwithf "bad ConditionalDirectTailCalls catchall %s" catchAllBBN.Name
+                if conds.Length <> 1 then
+                    failwith "must have exactly one conds in this compiler"
+                q.Enqueue(catchAllBBN) |> ignore
+#if USEEXECUTEIF
+                region.PlaceCommandBlocksStartingAt(X(currentBBN),y,z+7,[|
+                    RegionFiles.U(sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+                    RegionFiles.U(sprintf "execute %s ~ ~ ~ clone %d %d %d %d %d %d %d %d %d" conds.[0] (X ifbbn) y (z+7) (X ifbbn) y (z+9) x y (z+7))
+                    RegionFiles.U(sprintf "execute @p[score_%s=0] ~ ~ ~ clone %d %d %d %d %d %d %d %d %d" ScoreboardNameConstants.PlayerClonedIf (X catchAllBBN) y (z+7) (X catchAllBBN) y (z+9) x y (z+7))
+                    |],currentBBN.Name,false,true)
+                region.SetBlockIDAndDamage(X(currentBBN),y,z+9,211uy,5uy)
+
+#else
+                region.PlaceCommandBlocksStartingAt(X(currentBBN),y,z+7,[|
+                    RegionFiles.U(sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+                    RegionFiles.U(conds.[0])
+                    RegionFiles.C(sprintf "clone %d %d %d %d %d %d %d %d %d" (X ifbbn) y (z+7) (X ifbbn) y (z+11) x y (z+7))
+                    RegionFiles.U(sprintf "testforblock ~ ~ ~-2 chain_command_block -1 {SuccessCount:0}")
+                    RegionFiles.C(sprintf "clone %d %d %d %d %d %d %d %d %d" (X catchAllBBN) y (z+7) (X catchAllBBN) y (z+11) x y (z+7))
+                    |],currentBBN.Name,false,true)
+                initialization.Add(sprintf "blockdata %d %d %d {SuccessCount:1}" (X currentBBN) y (z+8))  // set success so if clone IF overtop, ELSE will not immediately run
+#endif
+                if not(blockDict.ContainsKey(ifbbn)) then
+                    failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
+                q.Enqueue(ifbbn) |> ignore
+            | Halt ->
+                region.PlaceCommandBlocksStartingAt(X(currentBBN),y,z+7,[|
+                    RegionFiles.U(sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
+                    RegionFiles.U(sprintf "scoreboard players set %s %s 0" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+                    RegionFiles.U(sprintf "setblock %d %d %d stone" x y (z+6))
+#if USEEXECUTEIF
+#else
+                    RegionFiles.U(sprintf "")
+                    RegionFiles.U(sprintf "")
+#endif
+                    |],currentBBN.Name,false,true)
+#if USEEXECUTEIF
+    region.PlaceCommandBlocksStartingAt(x+1,y,z+6,[|
+        RegionFiles.U("")
+        // read below in reverse order
+        RegionFiles.C(sprintf "blockdata %d %d %d {auto:1b}" x y z)
+        RegionFiles.C(sprintf "setblock %d %d %d stone" x y (z+6))
+        RegionFiles.U(sprintf "scoreboard players test %s %s 1 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+        |],"rest of machine",false,true,2uy)
+#else
+    region.PlaceCommandBlocksStartingAt(x+1,y,z+6,[|
+        RegionFiles.U("")
+        RegionFiles.U("")
+        // read below in reverse order
+        RegionFiles.C(sprintf "blockdata %d %d %d {auto:1b}" x y z)
+        RegionFiles.C(sprintf "setblock %d %d %d stone" x y (z+6))
+        RegionFiles.U(sprintf "scoreboard players test %s %s 1 1" ScoreboardNameConstants.PulseICB ScoreboardNameConstants.IP)
+        RegionFiles.U("")
+        RegionFiles.U("")
+        |],"rest of machine",false,true,2uy)
+    region.PlaceCommandBlocksStartingAt(x,y,z+12,[|
+        RegionFiles.U("")
+        |],"rest of machine",false,true,5uy)
+#endif
+    region.SetBlockIDAndDamage(x+1,y,z+6,211uy,4uy)
+
+    let allBBNs = new HashSet<_>(blockDict.Keys)
+    allBBNs.ExceptWith(visited)
+    if allBBNs.Count <> 0 then
+        failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+    let advancements = [|
+        for KeyValue(bbn,cmds) in advancementBBs do
+            yield makeAdvancement(bbn.Name,[|
+                yield sprintf "advancement revoke @p only %s:%s" PREFIX bbn.Name
+                yield! cmds
+                |])
+        |]
+    initialization, advancements
+#endif
