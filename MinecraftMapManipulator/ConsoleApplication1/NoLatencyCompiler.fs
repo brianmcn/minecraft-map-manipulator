@@ -352,6 +352,7 @@ let makeCloneMachineInTheWorld(Program(entrypoint,blockDict), isTracing, region:
 //    initialization.Add("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A") // TODO Cursor/A do not belong to the compiler
 //    initialization.Add("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
 #if USEEXECUTEIF
+    initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.PlayerClonedIf)
     initialization.Add(sprintf "stats entity @p set SuccessCount @p %s" ScoreboardNameConstants.PlayerClonedIf)
     initialization.Add(sprintf "scoreboard players set @p %s 1" ScoreboardNameConstants.PlayerClonedIf) // need init val for stats to work
 #endif
@@ -401,7 +402,8 @@ let makeCloneMachineInTheWorld(Program(entrypoint,blockDict), isTracing, region:
 #if USEEXECUTEIF
                 region.PlaceCommandBlocksStartingAt(X(currentBBN),y,z+7,[|
                     RegionFiles.U(sprintf "advancement grant @p only %s:%s" PREFIX currentBBN.Name)
-                    RegionFiles.U(sprintf "execute %s ~ ~ ~ clone %d %d %d %d %d %d %d %d %d" conds.[0] (X ifbbn) y (z+7) (X ifbbn) y (z+9) x y (z+7))
+                    // line below is tricky, we need to exec @p _always_ to get stats, and then exec @p[score] which is _conditional_ to run rest
+                    RegionFiles.U(sprintf "execute @p ~ ~ ~ execute %s ~ ~ ~ clone %d %d %d %d %d %d %d %d %d" conds.[0] (X ifbbn) y (z+7) (X ifbbn) y (z+9) x y (z+7))
                     RegionFiles.U(sprintf "execute @p[score_%s=0] ~ ~ ~ clone %d %d %d %d %d %d %d %d %d" ScoreboardNameConstants.PlayerClonedIf (X catchAllBBN) y (z+7) (X catchAllBBN) y (z+9) x y (z+7))
                     |],currentBBN.Name,false,true)
                 region.SetBlockIDAndDamage(X(currentBBN),y,z+9,211uy,5uy)
