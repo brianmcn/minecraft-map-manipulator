@@ -127,15 +127,21 @@ let program =
             AtomicCommand "scoreboard players add @s n 1"
             |],DirectTailCall(whileTest))
         cpsInnerFinish,BasicBlock([|
-            AtomicCommand "scoreboard players operation @e[tag=color] AS -= @s n"  // TODO @s or @p?
-            AtomicCommand "execute @e[tag=color,score_AS=-1,score_AS_min=-1] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 0 4 0"
-            AtomicCommand "scoreboard players operation @e[tag=color] AS += @s n"  // TODO @s or @p?
-            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ clone 0 4 0 0 4 0 ~ ~ ~"
-            AtomicCommand "scoreboard players add @s j 1"
-            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~ ~ ~1"
-            //Yield
-            AtomicCommand "scoreboard players operation @s r1 = @s j"
-            AtomicCommand "scoreboard players operation @s r1 -= @s MAXH"
+#if DIRECT16COLORTEST
+            yield AtomicCommand "scoreboard players operation @e[name=Cursor] n = @s n"
+            for zzz = 0 to 15 do
+                yield AtomicCommand(sprintf "execute @e[name=Cursor,score_n=%d,score_n_min=%d] ~ ~ ~ setblock ~ ~ ~ wool %d" (zzz+1) (zzz+1) zzz)
+#else
+            yield AtomicCommand "scoreboard players operation @e[tag=color] AS -= @s n"
+            yield AtomicCommand "execute @e[tag=color,score_AS=-1,score_AS_min=-1] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 0 4 0"
+            yield AtomicCommand "scoreboard players operation @e[tag=color] AS += @s n"
+            yield AtomicCommand "execute @e[name=Cursor] ~ ~ ~ clone 0 4 0 0 4 0 ~ ~ ~"
+#endif
+            yield AtomicCommand "scoreboard players add @s j 1"
+            yield AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~ ~ ~1"
+            //yield Yield  // inner loop yield
+            yield AtomicCommand "scoreboard players operation @s r1 = @s j"
+            yield AtomicCommand "scoreboard players operation @s r1 -= @s MAXH"
 #if ADVANCEMENTS
             |],ConditionalDirectTailCalls(([|"@s[score_r1=-1]"
 #else

@@ -227,6 +227,11 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
     // timer setup
     initialization.Add("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A") // TODO Cursor/A do not belong to the compiler
     initialization.Add("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
+#if PREEMPT_PERCENTAGE
+#else
+    initialization.Add("worldborder set 10000000")
+    initialization.Add("worldborder add 1000000 1000")
+#endif
 #endif
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
@@ -262,6 +267,13 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
                 | Yield ->
                     instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.Stop 1)
                     instructions.Add(sprintf "blockdata %d %d %d {auto:1b}" x y z)
+#if PREEMPT
+#if PREEMPT_PERCENTAGE
+#else
+                    instructions.Add("worldborder set 10000000")
+                    instructions.Add("worldborder add 1000000 1000")
+#endif
+#endif
             match finish with
             | DirectTailCall(nextBBN) ->
                 if not(blockDict.ContainsKey(nextBBN)) then
@@ -318,8 +330,18 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
 #if PREEMPT
             // measure time, pre-empt
             yield "execute @e[name=Cursor] ~ ~ ~ worldborder get"
-            yield sprintf "execute @e[name=Cursor,score_A_min=10000017] ~ ~ ~ scoreboard players set @p %s %d" ScoreboardNameConstants.Stop 1  // TODO note must use @p, since @s would target cursor
-            yield sprintf "execute @e[name=Cursor,score_A_min=10000017] ~ ~ ~ blockdata %d %d %d {auto:1b}" x y z  // TODO decide time slice
+#if PREEMPT_PERCENTAGE
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000040] ~ ~ ~ scoreboard players set @p %s %d" ScoreboardNameConstants.Stop 1  // TODO note must use @p, since @s would target cursor
+            // TODO final Halt block called twice, because I call pump below even if Stop was already set... how to avoid?
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000040] ~ ~ ~ blockdata %d %d %d {auto:1b}" x y z  // TODO decide time slice
+#else
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ scoreboard players set @p %s %d" ScoreboardNameConstants.Stop 1  // TODO note must use @p, since @s would target cursor
+            // TODO final Halt block called twice, because I call pump below even if Stop was already set... how to avoid?
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ blockdata %d %d %d {auto:1b}" x y z
+            // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
+            yield "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder set 10000000"
+            yield "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder add 1000000 1000"
+#endif
 #endif
         |]))
 
@@ -327,8 +349,19 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
         RegionFiles.CommandBlock.O "blockdata ~ ~ ~ {auto:0b}"
         RegionFiles.CommandBlock.U (sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 0)
 #if PREEMPT
+#if PREEMPT_PERCENTAGE
         RegionFiles.CommandBlock.U "worldborder set 10000000"
         RegionFiles.CommandBlock.U "worldborder add 1000000 1000"
+#else
+        // TODO could clean this up and probably make it better
+        RegionFiles.CommandBlock.U "execute @e[name=Cursor] ~ ~ ~ worldborder get"
+        RegionFiles.CommandBlock.U (sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ scoreboard players set @p %s %d" ScoreboardNameConstants.Stop 1)
+        RegionFiles.CommandBlock.U "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ setblock 0 15 0 wool 14"
+        RegionFiles.CommandBlock.U "execute @e[name=Cursor,score_A=10000049] ~ ~ ~ setblock 0 15 0 wool 5"
+        RegionFiles.CommandBlock.U (sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ blockdata %d %d %d {auto:1b}" x y z)
+        RegionFiles.CommandBlock.U "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder set 10000000"
+        RegionFiles.CommandBlock.U "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder add 1000000 1000"
+#endif
 #endif
         RegionFiles.CommandBlock.U (sprintf "advancement grant %s only %s:pump1" ENTITY_IP PREFIX)
         |]

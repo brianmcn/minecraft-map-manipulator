@@ -1711,6 +1711,8 @@ automatic game start configs (night vision, starting items), customizable
         |]
 #if ADVANCEMENTS
     region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,repump,"repump",false,true)
+    let summonzombies = NoLatencyCompiler.makeAdvancement("summonzombies",[|yield "advancement revoke @p only functions:summonzombies"; for x = 1 to 40 do for z = 1 to 40 do yield sprintf "execute @s ~%d ~ ~%d summon zombie" (10+x) (10+z)|])
+    let advancements = [| yield! advancements; yield summonzombies |]
     writeAdvancements(advancements,worldFolder)
 #else
 #if CLONEMACHINE
