@@ -296,6 +296,8 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
                 | _ -> failwith "there should be exactly one conditional selector in advancements' ConditionalDirectTailCalls"
             | Halt ->
                 instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.Stop 1)
+                // TODO line below is a hack to fix duplicate 'done'
+                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.IP -1)
             advancements.Add(makeAdvancement(currentBBN.Name,instructions))
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)

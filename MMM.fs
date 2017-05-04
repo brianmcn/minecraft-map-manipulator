@@ -1644,6 +1644,12 @@ automatic game start configs (night vision, starting items), customizable
 
 
 
+    let folder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\MouseCursor"""
+    MouseCursorUtilties.putItAllInTheWorld(folder)
+
+
+
+
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""
     let map = new MapFolder(worldFolder+"""\region""")
     let region = map.GetRegion(0,0)

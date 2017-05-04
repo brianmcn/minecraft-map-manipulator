@@ -88,6 +88,7 @@
     <Compile Include="EandT.fs" />
     <Compile Include="NoLatencyCompiler.fs" />
     <Compile Include="Mandelbrot.fs" />
+    <Compile Include="MouseCursorUtilties.fs" />
     <Compile Include="..\..\MMM.fs">
       <Link>MMM.fs</Link>
     </Compile>
