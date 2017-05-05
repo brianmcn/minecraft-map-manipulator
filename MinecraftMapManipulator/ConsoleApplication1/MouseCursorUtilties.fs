@@ -169,6 +169,8 @@ let putItAllInTheWorld(worldFolder:string) =
         yield U "setblock -10 8 1 air"
         yield U "setblock -6 4 1 air"
         yield U "setblock -6 8 1 air"
+        // tick counter
+        yield U "scoreboard players set tick z 0"
         |],"init",false,true)
     region.PlaceCommandBlocksStartingAt(5,4,3,[|
         yield P ""
@@ -215,6 +217,14 @@ let putItAllInTheWorld(worldFolder:string) =
         yield U("execute @e[type=armor_stand,score_z_min=1] ~ ~2 ~ setblock ~ ~ ~ wool 14")
         yield U("execute @e[type=armor_stand,score_z_min=2] ~-2 ~ ~ clone -10 4 1 -6 8 1 ~ ~ ~ masked")
 
+        // basic fruitninja ideas
+        yield U("scoreboard players add tick z 1")
+        yield U("scoreboard players operation ticktmp z = tick z")
+        yield U(sprintf "scoreboard players operation ticktmp z %%= @p %s" Objectives.ONE_HUNDRED)
+        yield U("scoreboard players test ticktmp z 0 0")
+        yield C("""summon minecraft:item 10 4 1 {Item:{id:"minecraft:apple",Count:1b},Age:5920s,Motion:[0.2,1.0,0.0]}""")
+        yield U("""execute @e[type=armor_stand] ~ ~ ~ execute @e[type=item,r=1] ~ ~ ~ summon minecraft:fireworks_rocket ~ ~ ~ {LifeTime:0,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}""")
+        yield U("""execute @e[type=armor_stand] ~ ~ ~ execute @e[type=item,r=1] ~ ~ ~ kill @e[type=item]""")
         |],"run",false,true)
     writeAdvancements(advancements,worldFolder)
     map.WriteAll()
