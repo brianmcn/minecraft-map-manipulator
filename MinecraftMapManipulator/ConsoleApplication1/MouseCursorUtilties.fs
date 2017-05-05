@@ -14,12 +14,15 @@ module Objectives =
     let z = "z"
     let rx = "rx"
     let ry = "ry"
-    let ONE_THOUSAND = "ONE_THOUSAND"
+    let sqrttemp = "sqrttemp"
+    let FIFTY = "FIFTY"
+    let ONE_HUNDRED = "ONE_HUNDRED"
     let init = [|
-        for o in [x;y;z;rx;ry;ONE_THOUSAND] do
+        for o in [x;y;z;rx;ry;sqrttemp;FIFTY;ONE_HUNDRED] do
             yield sprintf "scoreboard objectives add %s dummy" o
         // constants
-        yield sprintf "scoreboard players set @p %s %d" ONE_THOUSAND 1000
+        yield sprintf "scoreboard players set @p %s %d" ONE_HUNDRED 100
+        yield sprintf "scoreboard players set @p %s %d" FIFTY 50
         |]
 
 let rec makeDiffMeasurement(selectorName,outputObjectiveName,lo,hi) =
@@ -78,9 +81,59 @@ let rec makeMinMaxMeasurement(selectorName,outputObjectiveName,f,lo,hi) =
             |]))
         name
 
+
 let deg2rad x = float x * System.Math.PI / 180.0
-let makeRXmeasurement(lo,hi) = makeMinMaxMeasurement("rx",Objectives.rx,(fun x -> tan(deg2rad(0-x))*1000.0 |> int),lo,hi)
-let makeRYmeasurement(lo,hi) = makeMinMaxMeasurement("ry",Objectives.ry,(fun x -> tan(deg2rad(x-180))*1000.0 |> int),lo,hi)
+let makeRXmeasurement(lo,hi) = makeMinMaxMeasurement("rx",Objectives.rx,(fun x -> tan(deg2rad(0-x))*100.0 |> int),lo,hi)
+let makeRYmeasurement(lo,hi) = makeMinMaxMeasurement("ry",Objectives.ry,(fun x -> tan(deg2rad(x-180))*100.0 |> int),lo,hi)
+
+
+let rec makeSqrt(player,objective,lo,hi) =
+    let name = sprintf "sqrt%03dto%03d" lo hi
+    if lo = hi || lo+1 = hi then
+        advancements.Add(NoLatencyCompiler.makeAdvancement(name,[|
+            sprintf "advancement revoke @s only %s:%s" NoLatencyCompiler.PREFIX name
+            sprintf "scoreboard players set @s %s %d" Objectives.sqrttemp lo
+            |]))
+        name
+    else
+        let mid = (hi+lo)/2
+        let left  = makeSqrt(player,objective,lo,mid)
+        let right = makeSqrt(player,objective,mid+1,hi)
+        advancements.Add(NoLatencyCompiler.makeAdvancement(name,[|
+            sprintf "advancement revoke @s only %s:%s" NoLatencyCompiler.PREFIX name
+            sprintf "scoreboard players set @s %s %d" Objectives.sqrttemp mid
+            sprintf "scoreboard players operation @s %s *= @s %s" Objectives.sqrttemp Objectives.sqrttemp
+            sprintf "scoreboard players operation @s %s -= %s %s" Objectives.sqrttemp player objective 
+            sprintf "advancement grant @s[score_%s_min=1] only %s:%s" Objectives.sqrttemp NoLatencyCompiler.PREFIX left
+            sprintf "advancement grant @s[score_%s=0] only %s:%s" Objectives.sqrttemp NoLatencyCompiler.PREFIX right
+            |]))
+        name
+
+
+
+let maketpToCursorXY(hi) =
+    let name = "tptoxy"
+    let mutable i = 1
+    while i < hi do
+        i <- i * 2
+    let instructions = ResizeArray()
+    while i >= 1 do
+        instructions.Add(sprintf "execute @s[score_x_min=%d] ~ ~ ~ tp @e[type=armor_stand] ~%d ~ ~" i i)
+        instructions.Add(sprintf "execute @s[score_y_min=%d] ~ ~ ~ tp @e[type=armor_stand] ~ ~%d ~" i i)
+        //instructions.Add(sprintf "execute @s[score_z_min=%d] ~ ~ ~ tp @e[type=armor_stand] ~ ~ ~%d" i i)
+        instructions.Add(sprintf "scoreboard players remove @s[score_x_min=%d] x %d" i i)
+        instructions.Add(sprintf "scoreboard players remove @s[score_y_min=%d] y %d" i i)
+        //instructions.Add(sprintf "scoreboard players remove @s[score_z_min=%d] z %d" i i)
+        i <- i / 2
+    advancements.Add(NoLatencyCompiler.makeAdvancement(name,[|
+        yield sprintf "advancement revoke @s only %s:%s" NoLatencyCompiler.PREFIX name
+        yield "tp @e[type=armor_stand] 0 0 0.9"
+        yield! instructions
+        yield "tp @e[type=armor_stand] ~ ~-1.4 ~"
+        |]))
+    name
+
+    
         
 let initializationCommands = [|
     yield! Objectives.init
@@ -91,6 +144,8 @@ let rootY = makeYmeasurement(0,63)
 let rootZ = makeZmeasurement(0,99)
 let rootRX = makeRXmeasurement(-89,89)
 let rootRY = makeRYmeasurement(91,269)
+let tpToCursorXY = maketpToCursorXY(63)
+let computeSqrtDyZ = makeSqrt("dy","z",0,128)
 
 open RegionFiles
 open Advancements
@@ -106,6 +161,8 @@ let putItAllInTheWorld(worldFolder:string) =
         yield O ""
         for c in initializationCommands do
             yield U c
+        yield U "kill @e[type=armor_stand]"
+        yield U "summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,ArmorItems:[{},{},{},{id:skull,Count:1b,Damage:1b}]}"
         |],"init",false,true)
     region.PlaceCommandBlocksStartingAt(5,4,3,[|
         yield P ""
@@ -115,19 +172,36 @@ let putItAllInTheWorld(worldFolder:string) =
         yield U(sprintf "advancement grant @p only %s:%s" NoLatencyCompiler.PREFIX rootRX)
         yield U(sprintf "advancement grant @p only %s:%s" NoLatencyCompiler.PREFIX rootRY)
 
+        // cursorX = z * tan theta
         yield U(sprintf "scoreboard players operation dx z = @p z")
         yield U(sprintf "scoreboard players operation dx z *= @p ry")
-        yield U(sprintf "scoreboard players operation dx z /= @p %s" Objectives.ONE_THOUSAND)
+        yield U(sprintf "scoreboard players operation dx z -= @p %s" Objectives.FIFTY)  // computation is off by half-block (aims at corner rather than center)
+        yield U(sprintf "scoreboard players operation hundreddx z = dx z")
+        yield U(sprintf "scoreboard players operation dx z /= @p %s" Objectives.ONE_HUNDRED)
         yield U(sprintf "scoreboard players operation cursorX z = @p x")
         yield U(sprintf "scoreboard players operation cursorX z += dx z")
 
+        // cursorY = sqrt(z^2+dx^2) * tan theta
+        yield U(sprintf "scoreboard players operation hundreddx z *= hundreddx z")
         yield U(sprintf "scoreboard players operation dy z = @p z")
+        yield U(sprintf "scoreboard players operation dy z *= @p %s" Objectives.ONE_HUNDRED)
+        yield U(sprintf "scoreboard players operation dy z *= dy z")
+        yield U(sprintf "scoreboard players operation dy z += hundreddx z")  // (100dx)^2 + (100z)^2
+        yield U(sprintf "scoreboard players operation dy z /= @p %s" Objectives.ONE_HUNDRED)
+        yield U(sprintf "scoreboard players operation dy z /= @p %s" Objectives.ONE_HUNDRED) // dx^2 + z^2 (preserving decimals while squaring dx)
+        yield U(sprintf "advancement grant @p only %s:%s" NoLatencyCompiler.PREFIX computeSqrtDyZ)
+        yield U(sprintf "scoreboard players operation dy z = @p %s" Objectives.sqrttemp)
         yield U(sprintf "scoreboard players operation dy z *= @p rx")
-        yield U(sprintf "scoreboard players operation dy z /= @p %s" Objectives.ONE_THOUSAND)
+        yield U(sprintf "scoreboard players operation dy z /= @p %s" Objectives.ONE_HUNDRED)
         yield U(sprintf "scoreboard players operation cursorY z = @p y")
         yield U(sprintf "scoreboard players operation cursorY z += dy z")
 
-        yield U(sprintf """tellraw @a ["looking at ",{"score":{"name":"cursorX","objective":"z"}},",",{"score":{"name":"cursorY","objective":"z"}}]""")
+        yield U(sprintf "scoreboard players operation @p x = cursorX z")
+        yield U(sprintf "scoreboard players operation @p y = cursorY z")
+        yield U(sprintf "advancement grant @p only %s:%s" NoLatencyCompiler.PREFIX tpToCursorXY)
+
+        //yield U(sprintf """tellraw @a ["looking at ",{"score":{"name":"cursorX","objective":"z"}},",",{"score":{"name":"cursorY","objective":"z"}}]""")
+        yield U("execute @e[type=armor_stand] ~ ~2 ~ setblock ~ ~ ~ wool 14")
 
         |],"run",false,true)
     writeAdvancements(advancements,worldFolder)
