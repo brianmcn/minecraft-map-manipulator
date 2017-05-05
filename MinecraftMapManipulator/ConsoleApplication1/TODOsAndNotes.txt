@@ -165,6 +165,7 @@ my own caves:
  - can easily ensure one cave not intersect another (keep hashset of points hollowed, ensure zero intersect with other caves)
 advantages: I know skeleton perfectly, can make dead ends and tree branching as desired; can avoid caves/ravines on surface where unwanted; no analysis of MC caves needed
 
+
 MOBS/COMBAT/PROCS
 ideas for 'harder' mobs: armored, thorns, carrying sharp weapons, wither skellies, flame bow skellies (or jockeys), having regen/strength, knockback resistance, increased follow distance, (do fire spiders inflict onFire?)... wither skellies with bows (shoot fire arrows: /summon Skeleton ~ ~ ~ {SkeletonType:1b,HandItems:[{id:"minecraft:bow"}]})
  - mobs that spawn at diff light levels/conditions (e.g. riding invisible silversifh with 0.5 health and withered)
@@ -178,7 +179,7 @@ making all enemies glowing for a short time may be useful mechanic
 (wither skellies with bows shoot flame arrows (but I guess are not 'vanilla' mobs that way))
 fun mechanic I saw, 'slime staff', a stick that when held, causes slimes to explode (replace primed tnt), so you could use spawn eggs to place and then explode at range
 cool proc: walking on path blocks grants a speed buff
-a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, hm... need an air block to replace of course... ghast fireball with limited explosion?
+a really useful proc would be temp throwable light, e.g. arrow that lights fire where it lands, or puts temp light there somehow, or even permanent redstone torch, hm... need an air block to replace of course... ghast fireball with limited explosion?
 can have in-ground arrows or in-flight arrows have area effects (brief fire?)
 can give effects when in water (execute detect) or lava
 can have forest -> ice forest, with leaves as packed ice, and have snow golem spawners (which will interact naturally with creepers on occasion)

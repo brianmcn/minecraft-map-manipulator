@@ -163,6 +163,12 @@ let putItAllInTheWorld(worldFolder:string) =
             yield U c
         yield U "kill @e[type=armor_stand]"
         yield U "summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,ArmorItems:[{},{},{},{id:skull,Count:1b,Damage:1b}]}"
+        // big brush template for cloning
+        yield U "fill -10 4 1 -6 8 1 wool 14"
+        yield U "setblock -10 4 1 air"
+        yield U "setblock -10 8 1 air"
+        yield U "setblock -6 4 1 air"
+        yield U "setblock -6 8 1 air"
         |],"init",false,true)
     region.PlaceCommandBlocksStartingAt(5,4,3,[|
         yield P ""
@@ -201,7 +207,13 @@ let putItAllInTheWorld(worldFolder:string) =
         yield U(sprintf "advancement grant @p only %s:%s" NoLatencyCompiler.PREFIX tpToCursorXY)
 
         //yield U(sprintf """tellraw @a ["looking at ",{"score":{"name":"cursorX","objective":"z"}},",",{"score":{"name":"cursorY","objective":"z"}}]""")
-        yield U("execute @e[type=armor_stand] ~ ~2 ~ setblock ~ ~ ~ wool 14")
+        yield C("scoreboard players set @e[type=armor_stand] z 0")
+        yield U("""testfor @p {SelectedItem:{id:"minecraft:carpet"}}""")
+        yield C("scoreboard players set @e[type=armor_stand] z 1")
+        yield U("""testfor @p {SelectedItem:{id:"minecraft:wool"}}""")
+        yield C("scoreboard players set @e[type=armor_stand] z 2")
+        yield U("execute @e[type=armor_stand,score_z_min=1] ~ ~2 ~ setblock ~ ~ ~ wool 14")
+        yield U("execute @e[type=armor_stand,score_z_min=2] ~-2 ~ ~ clone -10 4 1 -6 8 1 ~ ~ ~ masked")
 
         |],"run",false,true)
     writeAdvancements(advancements,worldFolder)
