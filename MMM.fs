@@ -1648,6 +1648,7 @@ automatic game start configs (night vision, starting items), customizable
     MouseCursorUtilties.putItAllInTheWorld(folder)
 
 
+#if DO_NOLATENCY_COMPILER_STUFF
 
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""
@@ -1747,6 +1748,11 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 #endif
     map.WriteAll()
+
+
+#endif
+
+
 
     (*
     compareMinecraftAssets("""C:\Users\Admin1\Desktop\1.9.4.zip""","""C:\Users\Admin1\Desktop\16w20a.zip""")

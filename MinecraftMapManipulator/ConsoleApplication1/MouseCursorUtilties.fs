@@ -26,7 +26,7 @@ module Objectives =
         |]
 
 let rec makeDiffMeasurement(selectorName,outputObjectiveName,lo,hi) =
-    let name = sprintf "%s%02dto%02d" selectorName lo hi
+    let name = sprintf "%s%04dto%04d" selectorName lo hi
     if lo = hi then
         advancements.Add(NoLatencyCompiler.makeAdvancement(name,[|
             sprintf "advancement revoke @s only %s:%s" NoLatencyCompiler.PREFIX name
@@ -56,7 +56,7 @@ let rec makeYmeasurement(lo,hi) = makeDiffMeasurement("y",Objectives.y,lo,hi)
 let rec makeZmeasurement(lo,hi) = makeDiffMeasurement("z",Objectives.z,lo,hi)
 
 let rec makeMinMaxMeasurement(selectorName,outputObjectiveName,f,lo,hi) =
-    let name = sprintf "%s%02dto%02d" selectorName lo hi
+    let name = sprintf "%s%04dto%04d" selectorName lo hi
     if lo = hi then
         advancements.Add(NoLatencyCompiler.makeAdvancement(name,[|
             sprintf "advancement revoke @s only %s:%s" NoLatencyCompiler.PREFIX name
@@ -83,12 +83,12 @@ let rec makeMinMaxMeasurement(selectorName,outputObjectiveName,f,lo,hi) =
 
 
 let deg2rad x = float x * System.Math.PI / 180.0
-let makeRXmeasurement(lo,hi) = makeMinMaxMeasurement("rx",Objectives.rx,(fun x -> tan(deg2rad(0-x))*100.0 |> int),lo,hi)
-let makeRYmeasurement(lo,hi) = makeMinMaxMeasurement("ry",Objectives.ry,(fun x -> tan(deg2rad(x-180))*100.0 |> int),lo,hi)
+let makeRXmeasurement(lo,hi) = makeMinMaxMeasurement("rx",Objectives.rx,(fun x -> System.Math.Round(tan(deg2rad(0-x))*100.0) |> int),lo,hi)
+let makeRYmeasurement(lo,hi) = makeMinMaxMeasurement("ry",Objectives.ry,(fun x -> System.Math.Round(tan(deg2rad(x-180))*100.0) |> int),lo,hi)
 
 
 let rec makeSqrt(player,objective,lo,hi) =
-    let name = sprintf "sqrt%03dto%03d" lo hi
+    let name = sprintf "sqrt%04dto%04d" lo hi
     if lo = hi || lo+1 = hi then
         advancements.Add(NoLatencyCompiler.makeAdvancement(name,[|
             sprintf "advancement revoke @s only %s:%s" NoLatencyCompiler.PREFIX name
@@ -129,7 +129,7 @@ let maketpToCursorXY(hi) =
         yield sprintf "advancement revoke @s only %s:%s" NoLatencyCompiler.PREFIX name
         yield "tp @e[type=armor_stand] 0 0 0.9"
         yield! instructions
-        yield "tp @e[type=armor_stand] ~ ~-1.4 ~"
+        yield "tp @e[type=armor_stand] ~ ~-1.3 ~"
         |]))
     name
 
@@ -137,13 +137,13 @@ let maketpToCursorXY(hi) =
         
 let initializationCommands = [|
     yield! Objectives.init
-    yield sprintf "fill %d %d %d %d %d %d wool 0" SCREEN_LO_X SCREEN_LO_Y SCREEN_Z SCREEN_HI_X SCREEN_HI_Y SCREEN_Z 
+    yield sprintf "fill %d %d %d %d %d %d stone 4" SCREEN_LO_X SCREEN_LO_Y SCREEN_Z SCREEN_HI_X SCREEN_HI_Y SCREEN_Z 
     |]
 let rootX = makeXmeasurement(0,63)
 let rootY = makeYmeasurement(0,63)
 let rootZ = makeZmeasurement(0,99)
 let rootRX = makeRXmeasurement(-89,89)
-let rootRY = makeRYmeasurement(91,269)
+let rootRY = makeRYmeasurement(-179,180)
 let tpToCursorXY = maketpToCursorXY(63)
 let computeSqrtDyZ = makeSqrt("dy","z",0,128)
 
@@ -183,8 +183,10 @@ let putItAllInTheWorld(worldFolder:string) =
         // cursorX = z * tan theta
         yield U(sprintf "scoreboard players operation dx z = @p z")
         yield U(sprintf "scoreboard players operation dx z *= @p ry")
-        yield U(sprintf "scoreboard players operation dx z -= @p %s" Objectives.FIFTY)  // computation is off by half-block (aims at corner rather than center)
         yield U(sprintf "scoreboard players operation hundreddx z = dx z")
+        // Next 2 lines: rounding towards zero problem, to fix, subtract 1 from any negatives so always rounds down rather than towards zero (OR subtract 0.5 from negatives and add 0.5 to positives)
+        yield U(sprintf "scoreboard players test dx z * -1")
+        yield C(sprintf "scoreboard players operation dx z -= @p %s" Objectives.ONE_HUNDRED)
         yield U(sprintf "scoreboard players operation dx z /= @p %s" Objectives.ONE_HUNDRED)
         yield U(sprintf "scoreboard players operation cursorX z = @p x")
         yield U(sprintf "scoreboard players operation cursorX z += dx z")
@@ -200,6 +202,9 @@ let putItAllInTheWorld(worldFolder:string) =
         yield U(sprintf "advancement grant @p only %s:%s" NoLatencyCompiler.PREFIX computeSqrtDyZ)
         yield U(sprintf "scoreboard players operation dy z = @p %s" Objectives.sqrttemp)
         yield U(sprintf "scoreboard players operation dy z *= @p rx")
+        // Next 2 lines: rounding towards zero problem, to fix, subtract 1 from any negatives so always rounds down rather than towards zero (OR subtract 0.5 from negatives and add 0.5 to positives)
+        yield U(sprintf "scoreboard players test dy z * -1")
+        yield C(sprintf "scoreboard players operation dy z -= @p %s" Objectives.ONE_HUNDRED)
         yield U(sprintf "scoreboard players operation dy z /= @p %s" Objectives.ONE_HUNDRED)
         yield U(sprintf "scoreboard players operation cursorY z = @p y")
         yield U(sprintf "scoreboard players operation cursorY z += dy z")
@@ -223,8 +228,16 @@ let putItAllInTheWorld(worldFolder:string) =
         yield U(sprintf "scoreboard players operation ticktmp z %%= @p %s" Objectives.ONE_HUNDRED)
         yield U("scoreboard players test ticktmp z 0 0")
         yield C("""summon minecraft:item 10 4 1 {Item:{id:"minecraft:apple",Count:1b},Age:5920s,Motion:[0.2,1.0,0.0]}""")
-        yield U("""execute @e[type=armor_stand] ~ ~ ~ execute @e[type=item,r=1] ~ ~ ~ summon minecraft:fireworks_rocket ~ ~ ~ {LifeTime:0,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}""")
-        yield U("""execute @e[type=armor_stand] ~ ~ ~ execute @e[type=item,r=1] ~ ~ ~ kill @e[type=item]""")
+        yield U("""execute @e[type=armor_stand] ~ ~1.1 ~ execute @e[type=item,r=1] ~ ~ ~ summon minecraft:fireworks_rocket ~ ~ ~ {LifeTime:0,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}""")
+        yield U("""execute @e[type=armor_stand] ~ ~1.1 ~ execute @e[type=item,r=1] ~ ~ ~ kill @e[type=item]""")
+        
+        // TODO jeff bridges paint
         |],"run",false,true)
+    let mutable totalCmds = 0
+    for _,a in advancements do
+        match a with
+        | Advancement(_,_,Reward(_,_,_,cmds),_,_) -> totalCmds <- totalCmds + cmds.Length 
+        | _ -> ()
+    printfn "%d total commands in advancements" totalCmds
     writeAdvancements(advancements,worldFolder)
     map.WriteAll()
