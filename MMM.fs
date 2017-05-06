@@ -1646,6 +1646,10 @@ automatic game start configs (night vision, starting items), customizable
 
     let folder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\MouseCursor"""
     MouseCursorUtilties.putItAllInTheWorld(folder)
+    let mf = new MapFolder(folder+"""\region\""")
+    Utilities.placePhotoAtConstantZ(0,4,-1,mf)
+    mf.WriteAll()
+
 
 
 #if DO_NOLATENCY_COMPILER_STUFF

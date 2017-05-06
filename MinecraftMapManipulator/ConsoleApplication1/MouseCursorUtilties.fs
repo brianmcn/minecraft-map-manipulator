@@ -219,8 +219,11 @@ let putItAllInTheWorld(worldFolder:string) =
         yield C("scoreboard players set @e[type=armor_stand] z 1")
         yield U("""testfor @p {SelectedItem:{id:"minecraft:wool"}}""")
         yield C("scoreboard players set @e[type=armor_stand] z 2")
-        yield U("execute @e[type=armor_stand,score_z_min=1] ~ ~2 ~ setblock ~ ~ ~ wool 14")
-        yield U("execute @e[type=armor_stand,score_z_min=2] ~-2 ~ ~ clone -10 4 1 -6 8 1 ~ ~ ~ masked")
+        yield U("""testfor @p {SelectedItem:{id:"minecraft:fence"}}""")
+        yield C("scoreboard players set @e[type=armor_stand] z 3")
+        yield U("execute @e[type=armor_stand,score_z_min=1,score_z=1] ~ ~2 ~ setblock ~ ~ ~ wool 14")
+        yield U("execute @e[type=armor_stand,score_z_min=2,score_z=2] ~-2 ~ ~ clone -10 4 1 -6 8 1 ~ ~ ~ masked")
+        yield U("execute @e[type=armor_stand,score_z_min=3,score_z=3] ~ ~2 ~ clone ~-5 ~-5 ~-1 ~5 ~5 ~-1 ~-5 ~-5 ~")
 
         // basic fruitninja ideas
         yield U("scoreboard players add tick z 1")

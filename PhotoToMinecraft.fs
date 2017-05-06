@@ -15,10 +15,10 @@ let blocksDirSuffix = ".png"
 //let targetImage = """C:\Users\brianmcn\Desktop\charliebrown.jpg"""
 //let targetImage = """C:\Users\brianmcn\Desktop\KurtBrianPic.jpg"""
 //let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\jeff-bridges.jpg"""
-//let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\Jeff-Bridges2.png"""
+let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\Jeff-Bridges2.png"""
 //let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\Jeff-Bridges7.jpg"""
 //let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\ConfusedTravolta.png"""
-let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\MCSeth.png"""
+//let targetImage = """C:\Users\Admin1\Desktop\MC pixel art pics\MCSeth.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\pi.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\brian_and_mooshrooms_by_terra_wah-d5k8rgb.png"""
 //let targetImage = """C:\Users\brianmcn\Desktop\TSMS.jpg"""
@@ -275,8 +275,8 @@ let grid = // do essential computations, even as a library
 
 //let finalBmp = computeMinecraft(86,48)
 //let finalBmp = computeMinecraft(55,30)
-let finalBmp = computeMinecraft(128,128,targetImage)
 //let finalBmp = computeMinecraft(64,64)
+let finalBmp = computeMinecraft(65,37,targetImage)
 
 let MakeSolidColorBMP(r,g,b) =
     //let mapColorDir = """C:\Users\brianmcn\Desktop\MCjustMapSolidColors"""
@@ -344,11 +344,10 @@ type MyWPFWindow() as this =
             this.SizeToContent <- SizeToContent.WidthAndHeight 
             this.Content <- bmpToImage(finalBmp, 0.5)
 
-#if IS_MAIN_PROGRAM
 
+#if IS_MAIN_PROGRAM
 [<System.STAThread()>]  
 do   
     let app =  new Application()  
     app.Run(new MyWPFWindow()) |> ignore 
-
 #endif

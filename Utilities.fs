@@ -620,6 +620,17 @@ let placeCertainBlocksInTheSky() =
             regionFile.SetBlockIDAndDamage( x+64, 237, z+64, byte bid, byte dmg)
     regionFile.Write(filename+".new")
 
+let placePhotoAtConstantZ(xmin,ymin,z,mapFolder:MapFolder) =
+    // uses image/size constants hardcoded in PhotoToMinecraft.fs
+    printfn "%A" (PhotoToMinecraft.finalBmp = null)  // force evaluation
+    for x = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(0)-1 do
+        for y = 0 to PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 do
+            let filename = System.IO.Path.GetFileNameWithoutExtension(PhotoToMinecraft.pictureBlockFilenames.[x,y]).ToLower()
+            let (_,bid,dmg) = textureFilenamesToBlockIDandDataMapping |> Array.find (fun (n,_,_) -> n = filename)
+            let screeny = PhotoToMinecraft.pictureBlockFilenames.GetLength(1)-1 - y  // flip so not upside-down
+            mapFolder.EnsureSetBlockIDAndDamage( x+xmin, screeny+ymin, z, byte bid, byte dmg)
+
+
 let dumpTileTicks(file) =
     let region = new RegionFile(file)
     for x = 0 to 31 do
