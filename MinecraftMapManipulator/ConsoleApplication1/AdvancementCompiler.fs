@@ -102,9 +102,17 @@ and ScoreboardOperationCommand =
         | ScoreboardPlayersSet(v,x) -> sprintf "scoreboard players set %s %d" (v.AsCommandFragment()) x
         | ScoreboardOperationCommand(a,op,b) -> sprintf "scoreboard players operation %s %s %s" (a.AsCommandFragment()) (op.AsCommandFragment()) (b.AsCommandFragment())
 
-type AdvancementGrant = 
-    | AdvancementGrant of string
-    | ConditionalAdvancementGrant of Conditional*string
+//type AdvancementGrant = 
+//    | AdvancementGrant of string
+//    | ConditionalAdvancementGrant of Conditional*string
+
+type Scope() =
+    let vars = ResizeArray()
+    member this.RegisterVar(s) =
+        let r = Var(s)
+        vars.Add(r)
+        r
+    member this.All() = vars |> Seq.toArray 
 
 ////////////////////////
 
@@ -120,14 +128,19 @@ type AbstractCommand =
     | SB of ScoreboardOperationCommand
 //    | AG of AdvancementGrant 
     | Yield // express desire to yield CPU back to minecraft to run a tick after this block (cooperative multitasking)
+    member this.AsCommand() =
+        match this with
+        | AtomicCommand s -> s
+        | SB soc -> soc.AsCommand()
+        | Yield -> failwith "should not get here Yield"
 type BasicBlock = BasicBlock of AbstractCommand[] * FinalAbstractCommand
-type Program = Program of (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
+type Program = Program of (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
 
 ////////////////////////
 
 let inlineAllDirectTailCallsOptimization(p) =
     match p with
-    | Program(entrypoint,origBlockDict) ->
+    | Program(init,entrypoint,origBlockDict) ->
         let finalBlockDict = new Dictionary<_,_>()
         let referencedBBNs = new HashSet<_>()
         referencedBBNs.Add(entrypoint) |> ignore
@@ -158,28 +171,27 @@ let inlineAllDirectTailCallsOptimization(p) =
         for unusedBBN in allBBNs do
             printfn "removing unused state '%s' after optimization" unusedBBN.Name 
             finalBlockDict.Remove(unusedBBN) |> ignore
-        Program(entrypoint,finalBlockDict)
+        Program(init,entrypoint,finalBlockDict)
 
 ////////////////////////
 
-module ScoreboardNameConstants =
-    let IP = "IP"  // objective name where basic block names say a value, and CurrentIP says which block is now
-    //let CurrentIP = "CurrentIP"  // currentIP says which is active now
-    //let PulseICB = "PulseICB"  // player name in objective IP saying whether to pulse starter ICB next tick (let a game tick run)
-    //let Halt = "Halt"  // player name in objective IP saying whether to halt the machine
-    let Stop = "Stop" // name of an objective where @p has 1 or 0 depending on if time to stop the loop runner
+let PREFIX = "functions" // advancements folder name
+let makeAdvancement(name,instructions) = // TODO ensure root, clean this up?
+    sprintf "%s/%s" PREFIX name, Advancements.Advancement(Some(Recipes.PATH(sprintf"%s:root"PREFIX)),Advancements.NoDisplay,Advancements.Reward([||],[||],0,[|
+        yield! instructions
+        |]),[|Advancements.Criterion("cx",Recipes.MC"impossible",[||])|],[|[|"cx"|]|])
 
-#if NEEDS_REWORK
+let advancementizeVars = new Scope()
+let IP = advancementizeVars.RegisterVar("IP")
+let Stop = advancementizeVars.RegisterVar("Stop")
 
-let advancementize(Program(entrypoint,blockDict), isTracing, 
+let advancementize(Program(programInit,entrypoint,blockDict), isTracing, 
             x, y, z) =   // x,y,z is where the repumpAfterTick (PulseICB) is located
-    // TODO consider abstracting 'who gets the advancement', currently also @p
-    let ENTITY_IP = "@p"
     let initialization = ResizeArray()
     let mutable foundEntryPointInDictionary = false
-    initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.IP)
-    initialization.Add(sprintf "scoreboard objectives add %s dummy" ScoreboardNameConstants.Stop)
-    initialization.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 0)
+    for v in advancementizeVars.All() do
+        initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
+    initialization.Add(SB(Stop .= 0))
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -188,7 +200,7 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
         bbnNumbers.Add(bbn, nextBBNNumber)
         nextBBNNumber <- nextBBNNumber + 1
         if bbn = entrypoint then
-            initialization.Add(sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.IP bbnNumbers.[bbn])
+            initialization.Add(SB(IP .= bbnNumbers.[bbn]))
             foundEntryPointInDictionary <- true
     if not(foundEntryPointInDictionary) then
         failwith "did not find entrypoint in basic block dictionary"
@@ -204,41 +216,43 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
         if not(visited.Contains(currentBBN)) then
             visited.Add(currentBBN) |> ignore
             let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
-            instructions.Add(sprintf "advancement revoke @s only %s:%s" PREFIX currentBBN.Name)
+            // TODO better way
+            instructions.Add(AtomicCommand(sprintf "advancement revoke @s only %s:%s" PREFIX currentBBN.Name))
             if isTracing then
-                instructions.Add(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name)
+                instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
             for c in cmds do
                 match c with 
-                | AtomicCommand s ->
-                    instructions.Add(s)
+                | AtomicCommand _s ->
+                    instructions.Add(c)
+                | SB(_soc) ->
+                    instructions.Add(c)
                 | Yield ->
-                    instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.Stop 1)
-                    instructions.Add(sprintf "blockdata %d %d %d {auto:1b}" x y z)
+                    instructions.Add(SB(Stop .= 1))
+                    // TODO replace with 'tick' advancement
+                    instructions.Add(AtomicCommand(sprintf "blockdata %d %d %d {auto:1b}" x y z))
             match finish with
             | DirectTailCall(nextBBN) ->
                 if not(blockDict.ContainsKey(nextBBN)) then
                     failwithf "bad DirectTailCall goto %s" nextBBN.Name
                 q.Enqueue(nextBBN) |> ignore
-                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.IP bbnNumbers.[nextBBN])
-            | ConditionalDirectTailCalls((conds,bbn),catchAllBBN) ->
-                if not(blockDict.ContainsKey(catchAllBBN)) then
-                    failwithf "bad ConditionalDirectTailCalls catchall %s" catchAllBBN.Name
-                q.Enqueue(catchAllBBN) |> ignore
+                instructions.Add(SB(IP .= bbnNumbers.[nextBBN]))
+            | ConditionalTailCall(conds,ifbbn,elsebbn) ->
+                if not(blockDict.ContainsKey(elsebbn)) then
+                    failwithf "bad ConditionalDirectTailCalls elsebbn %s" elsebbn.Name
+                q.Enqueue(elsebbn) |> ignore
                 // first set catchall
-                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.IP bbnNumbers.[catchAllBBN])
+                instructions.Add(SB(IP .= bbnNumbers.[elsebbn]))
                 // then do test, and if match overwrite
-                if not(blockDict.ContainsKey(bbn)) then
-                    failwithf "bad ConditionalDirectTailCalls %s" bbn.Name
-                q.Enqueue(bbn) |> ignore
-                match conds with
-                | [|selector|] ->
-                    instructions.Add(sprintf "scoreboard players set %s %s %d" selector ScoreboardNameConstants.IP bbnNumbers.[bbn])
-                | _ -> failwith "there should be exactly one conditional selector in advancements' ConditionalDirectTailCalls"
+                if not(blockDict.ContainsKey(ifbbn)) then
+                    failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
+                q.Enqueue(ifbbn) |> ignore
+                // TODO abstract this
+                instructions.Add(AtomicCommand(sprintf "scoreboard players set @s%s %s %d" (conds.AsCommandFragment()) IP.Name bbnNumbers.[ifbbn]))
             | Halt ->
-                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.Stop 1)
+                instructions.Add(SB(Stop .= 1))
                 // TODO line below is a hack to fix duplicate 'done'
-                instructions.Add(sprintf "scoreboard players set @s %s %d" ScoreboardNameConstants.IP -1)
-            advancements.Add(makeAdvancement(currentBBN.Name,instructions))
+                instructions.Add(SB(IP .= -1))
+            advancements.Add(makeAdvancement(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)
     if allBBNs.Count <> 0 then
@@ -246,40 +260,44 @@ let advancementize(Program(entrypoint,blockDict), isTracing,
 
     // advancement runner infrastructure
     // root
-    let root = "functions/root",Advancement(None,NoDisplay,Reward([||],[||],0,[|
-                    |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
+    let root = "functions/root",Advancements.Advancement(None,Advancements.NoDisplay,Advancements.Reward([||],[||],0,[|
+                    |]),[|Advancements.Criterion("cx",Recipes.MC"impossible",[||])|],[|[|"cx"|]|])
     advancements.Add(root)
-    let root2 = "functions/root2",Advancement(Some(PATH"functions:root"),NoDisplay,Reward([||],[||],0,[|
-                    |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
-    advancements.Add(root2)
-    let fauxroot = "functions/fauxroot",Advancement(Some(PATH"functions:root2"),NoDisplay,Reward([||],[||],0,[|
-                    |]),[|Criterion("cx",MC"impossible",[||])|],[|[|"cx"|]|])
-    advancements.Add(fauxroot)
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
     let MAX_PUMP_WIDTH = 10   // (width ^ depth) is max iters
     for i = 1 to MAX_PUMP_DEPTH do
         advancements.Add(makeAdvancement(sprintf"pump%d"i,[|
+                // TODO
                 yield sprintf """advancement revoke @s only %s:pump%d""" PREFIX i
-                for _x = 1 to MAX_PUMP_WIDTH do yield sprintf """advancement grant @s[score_%s=0] only %s:pump%d""" ScoreboardNameConstants.Stop PREFIX (i+1)
+                // TODO
+                for _x = 1 to MAX_PUMP_WIDTH do yield sprintf """advancement grant @s[score_%s=0] only %s:pump%d""" Stop.Name PREFIX (i+1)
             |]))
     // chooser
     advancements.Add(makeAdvancement(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
+            // TODO
             yield sprintf """advancement revoke @s only %s:pump%d""" PREFIX (MAX_PUMP_DEPTH+1)
             for KeyValue(bbn,num) in bbnNumbers do 
+                // TODO
                 yield sprintf """advancement grant @s[score_%s_min=%d,score_%s=%d] only %s:%s""" 
-                                    ScoreboardNameConstants.IP num ScoreboardNameConstants.IP num PREFIX bbn.Name 
+                                    IP.Name num IP.Name num PREFIX bbn.Name 
+        |]))
+    // init
+    initialization.AddRange(programInit)
+    advancements.Add(makeAdvancement("initialization",[|
+            yield sprintf """advancement revoke @s only %s:initialization""" PREFIX
+            for c in initialization do
+                yield c.AsCommand()
         |]))
 
+    // TODO set this up with 'tick'
     let repumpAfterTick = [|
         RegionFiles.CommandBlock.O "blockdata ~ ~ ~ {auto:0b}"
-        RegionFiles.CommandBlock.U (sprintf "scoreboard players set %s %s %d" ENTITY_IP ScoreboardNameConstants.Stop 0)
-        RegionFiles.CommandBlock.U (sprintf "advancement grant %s only %s:pump1" ENTITY_IP PREFIX)
+        RegionFiles.CommandBlock.U (sprintf "scoreboard players set @p %s %d" Stop.Name 0)
+        RegionFiles.CommandBlock.U (sprintf "advancement grant @p only %s:pump1" PREFIX)
         |]
 
-    initialization, repumpAfterTick, advancements
-
-#endif
+    sprintf """advancement grant @p only %s:initialization""" PREFIX, repumpAfterTick, advancements
 
 ////////////////////////
 
@@ -294,31 +312,34 @@ let cpsInnerFinish = BBN"cpsinnerfinish"
 let cpsJFinish = BBN"cpsjfinish"
 let cpsIFinish = BBN"cpsifinish"
 
+let mandelbrotVars = new Scope()
+
 // constants
-let FOURISSQ = Var("FOURISSQ")
-let INTSCALE = Var("INTSCALE")
-let MAXH = Var("MAXH")
-let MAXW = Var("MAXW")
-let XSCALE = Var("XSCALE")
-let YSCALE = Var("YSCALE")
-let XMIN = Var("XMIN")
-let YMIN = Var("YMIN")
+let FOURISSQ = mandelbrotVars.RegisterVar("FOURISSQ")
+let INTSCALE = mandelbrotVars.RegisterVar("INTSCALE")
+let MAXH = mandelbrotVars.RegisterVar("MAXH")
+let MAXW = mandelbrotVars.RegisterVar("MAXW")
+let XSCALE = mandelbrotVars.RegisterVar("XSCALE")
+let YSCALE = mandelbrotVars.RegisterVar("YSCALE")
+let XMIN = mandelbrotVars.RegisterVar("XMIN")
+let YMIN = mandelbrotVars.RegisterVar("YMIN")
 // variables
-let i = Var("i")
-let j = Var("j")
-let x0 = Var("x0")
-let x = Var("x")
-let y0 = Var("y0")
-let y = Var("y")
-let n = Var("n")
-let xsq = Var("xsq")
-let ysq = Var("ysq")
-let r1 = Var("r1")
-let xtemp = Var("xtemp")
+let i = mandelbrotVars.RegisterVar("i")
+let j = mandelbrotVars.RegisterVar("j")
+let x0 = mandelbrotVars.RegisterVar("x0")
+let x = mandelbrotVars.RegisterVar("x")
+let y0 = mandelbrotVars.RegisterVar("y0")
+let y = mandelbrotVars.RegisterVar("y")
+let n = mandelbrotVars.RegisterVar("n")
+let xsq = mandelbrotVars.RegisterVar("xsq")
+let ysq = mandelbrotVars.RegisterVar("ysq")
+let r1 = mandelbrotVars.RegisterVar("r1")
+let xtemp = mandelbrotVars.RegisterVar("xtemp")
 
 let program = 
-    Program(cpsIStart, dict [
-        cpsIStart,BasicBlock([|
+    Program([|
+            for v in mandelbrotVars.All() do
+                yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
             // color stuff
             yield AtomicCommand "scoreboard objectives add AS dummy"  // armor stands
             yield AtomicCommand "kill @e[type=armor_stand]"  // armor stands
@@ -338,6 +359,8 @@ let program =
             yield SB(YSCALE .= 62)
             yield SB(XMIN .= -8400)
             yield SB(YMIN .= -4000)
+        |],cpsIStart, dict [
+        cpsIStart,BasicBlock([|
             // time measurement
             yield AtomicCommand "worldborder set 10000000"
             yield AtomicCommand "worldborder add 1000000 1000000"

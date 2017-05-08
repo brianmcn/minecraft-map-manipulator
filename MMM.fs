@@ -1643,12 +1643,30 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
 
-
+#if DO_MOUSECURSOR_STUFF
     let folder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\MouseCursor"""
     MouseCursorUtilties.putItAllInTheWorld(folder)
     let mf = new MapFolder(folder+"""\region\""")
     Utilities.placePhotoAtConstantZ(0,4,-1,mf)
     mf.WriteAll()
+#endif
+
+
+    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""
+    let map = new MapFolder(worldFolder+"""\region""")
+    let region = map.GetRegion(0,0)
+    let CMDICBX,CMDICBY,CMDICBZ = 20,4,2
+    let p = AdvancementCompiler.program
+    let p = AdvancementCompiler.inlineAllDirectTailCallsOptimization(p)
+    let init, repump, advancements = AdvancementCompiler.advancementize(p,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
+    region.PlaceCommandBlocksStartingAt(5,4,2,[|
+        yield O ""
+        yield U init
+        |],"init",false,true)
+    region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,repump,"repump",false,true)
+    writeAdvancements(advancements,worldFolder)
+    map.WriteAll()
+
 
 
 
