@@ -1658,9 +1658,20 @@ automatic game start configs (night vision, starting items), customizable
     let CMDICBX,CMDICBY,CMDICBZ = 20,4,2
     let p = AdvancementCompiler.program
     let p = AdvancementCompiler.inlineAllDirectTailCallsOptimization(p)
+    let getLOP() = AdvancementCompiler.mandelbrotVars.All() |> Seq.filter (fun v -> v.LivesOnPlayer) |> Seq.length
+    let mutable lop = getLOP()
+    let mutable prevlop = -1
+    printfn "init on-player: %d" lop
+    while prevlop <> lop do
+        p.Visit()
+        prevlop <- lop
+        lop <- getLOP()
+        printfn "... now on-player: %d" lop
+    printfn "final on-player: %d   of %d total vars" lop (AdvancementCompiler.mandelbrotVars.All().Length)
     let init, repump, advancements = AdvancementCompiler.advancementize(p,(*isTracing*)false,CMDICBX,CMDICBY,CMDICBZ)
     region.PlaceCommandBlocksStartingAt(5,4,2,[|
         yield O ""
+        yield U "kill @e[type=armor_stand]"  // both compiler and code summon some, want to start fresh, but can't have code killing compiler or vice versa...
         yield U init
         |],"init",false,true)
     region.PlaceCommandBlocksStartingAt(CMDICBX,CMDICBY,CMDICBZ,repump,"repump",false,true)

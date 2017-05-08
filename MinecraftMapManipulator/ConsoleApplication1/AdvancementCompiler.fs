@@ -31,20 +31,40 @@ open System.Collections.Generic
 
 ////////////////////////
 
-type Var(name:string) =
-    // variables are 'globals', they are represented as objectives, and scores either reside on the player (@s) if used in conditionals, or on a UUID'd entity
-    let mutable livesOnPlayer = true // TODO should assume false, but for now simply just putting all scores on the player
+let ENTITY_UUID = "1-1-1-0-1"
+let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
+
+////////////////////////
+
+type Var(name:string,lop) =
+    // variables are 'globals', they are represented as objectives, and scores either reside on the player (@s), or on a UUID'd entity
+    let mutable livesOnPlayer = lop
     do
         if name.Length > 14 then
             failwithf "Var name too long: %s" name
+    static member DefaultLOP = true      // TODO: true = all scores on player, false = uses uuid entity for as many as possible
+    new(name) = Var(name,Var.DefaultLOP)
     member this.Name = name
-    member this.UseInConditional() =
+    member this.LivesOnPlayer = livesOnPlayer
+    member this.MarkAsMustLiveOnPlayer() =
+        // can happen for a couple reasons, such as
+        //  - advancement grant @s[score_x=5] ...      advancements can only be granted to players, so conditional advancements force the vars on the condition to player
+        //  - ...[score_x=5,score_y=8] ...             if conditionals use any vars marked on-player, then all vars in that condition must be marked on-player
         livesOnPlayer <- true
     member this.AsCommandFragment() =
         if livesOnPlayer then
             sprintf "@s %s" name
         else
-            failwith "not yet implemented"
+            sprintf "%s %s" ENTITY_UUID name
+    member this.AsCommandFragment(cond:Conditional) =
+        if livesOnPlayer then
+            if not(cond.AllLivesOnPlayer()) then
+                failwith "bad variable partition"
+            sprintf "@s%s %s" (cond.AsCommandFragment()) name
+        else
+            if cond.AnyLivesOnPlayer() then
+                failwith "bad variable partition"
+            sprintf "%s%s %s" ENTITY_UUID (cond.AsCommandFragment()) name
     // conditionals
     static member (.<=) (v,n) = SCMax(v,n)
     static member (.>=) (v,n) = SCMin(v,n)
@@ -57,7 +77,11 @@ type Var(name:string) =
     static member (.-=) (a,b) = ScoreboardOperationCommand(a,MINUS_EQUALS,b)
     static member (.*=) (a,b) = ScoreboardOperationCommand(a,TIMES_EQUALS,b)
     static member (./=) (a,b) = ScoreboardOperationCommand(a,DIVIDE_EQUALS,b)
+    member this.Item with get(cond:Conditional) = ConditionalVar(this,cond)
 
+and ConditionalVar = // a temporary type for operator overloading syntax   v.[cond]
+    | ConditionalVar of Var * Conditional
+    static member (.=)  (ConditionalVar(v,c),b:int) = ScoreboardPlayersConditionalSet(c,v,b)
 and ScoreCondition =
     | SCMin of Var * int
     | SCMax of Var * int
@@ -66,11 +90,28 @@ and Conditional(conds:ScoreCondition[]) =
     do
         if conds.Length < 1 then
             failwith "bad conditional"
-    member this.Visit() =
+    member this.AllLivesOnPlayer() =
+        let mutable allOnPlayer = true
         for c in conds do
             match c with
-            | SCMin(v,_) -> v.UseInConditional()
-            | SCMax(v,_) -> v.UseInConditional()
+            | SCMin(v,_) -> if not v.LivesOnPlayer then allOnPlayer <- false
+            | SCMax(v,_) -> if not v.LivesOnPlayer then allOnPlayer <- false
+        allOnPlayer
+    member this.AnyLivesOnPlayer() =
+        let mutable anyOnPlayer = false
+        for c in conds do
+            match c with
+            | SCMin(v,_) -> if v.LivesOnPlayer then anyOnPlayer <- true
+            | SCMax(v,_) -> if v.LivesOnPlayer then anyOnPlayer <- true
+        anyOnPlayer
+    member this.MarkAsMustLiveOnPlayer() =
+        for c in conds do
+            match c with
+            | SCMin(v,_) -> v.MarkAsMustLiveOnPlayer()
+            | SCMax(v,_) -> v.MarkAsMustLiveOnPlayer()
+    member this.Visit() =
+        if this.AnyLivesOnPlayer() then
+            this.MarkAsMustLiveOnPlayer()
     member this.AsCommandFragment() =
         let sb = System.Text.StringBuilder("[")
         for i = 0 to conds.Length-1 do
@@ -94,24 +135,44 @@ and ScoreboardOperation =
 
 and ScoreboardOperationCommand =
     | ScoreboardOperationCommand of Var * ScoreboardOperation * Var
+    | ScoreboardPlayersConditionalSet of Conditional * Var * int
     | ScoreboardPlayersSet of Var * int
     | ScoreboardPlayersAdd of Var * int
+    member this.Visit() =
+        match this with
+        | ScoreboardPlayersConditionalSet(cond,v,_x) ->
+            if v.LivesOnPlayer || cond.AnyLivesOnPlayer() then
+                v.MarkAsMustLiveOnPlayer()
+                cond.MarkAsMustLiveOnPlayer()
+        | _ -> ()
     member this.AsCommand() =
         match this with
         | ScoreboardPlayersAdd(v,x) -> sprintf "scoreboard players add %s %d" (v.AsCommandFragment()) x
         | ScoreboardPlayersSet(v,x) -> sprintf "scoreboard players set %s %d" (v.AsCommandFragment()) x
+        | ScoreboardPlayersConditionalSet(cond,v,x) -> sprintf "scoreboard players set %s %d" (v.AsCommandFragment(cond)) x
         | ScoreboardOperationCommand(a,op,b) -> sprintf "scoreboard players operation %s %s %s" (a.AsCommandFragment()) (op.AsCommandFragment()) (b.AsCommandFragment())
 
-//type AdvancementGrant = 
-//    | AdvancementGrant of string
-//    | ConditionalAdvancementGrant of Conditional*string
+type AdvancementCommand = 
+    | AdvancementRevoke of string
+    | AdvancementGrant of string
+    | ConditionalAdvancementGrant of Conditional*string
+    member this.Visit() =
+        match this with
+        | ConditionalAdvancementGrant(cond,_s) -> cond.MarkAsMustLiveOnPlayer()
+        | _ -> ()
+    member this.AsCommand() =
+        match this with
+        | AdvancementRevoke(s) -> sprintf "advancement revoke @s only %s" s
+        | AdvancementGrant(s) -> sprintf "advancement grant @s only %s" s
+        | ConditionalAdvancementGrant(cond,s) -> sprintf "advancement grant @s%s only %s" (cond.AsCommandFragment()) s
 
 type Scope() =
     let vars = ResizeArray()
-    member this.RegisterVar(s) =
-        let r = Var(s)
+    member this.RegisterVar(s,lop) =
+        let r = Var(s,lop)
         vars.Add(r)
         r
+    member this.RegisterVar(s) = this.RegisterVar(s,Var.DefaultLOP)
     member this.All() = vars |> Seq.toArray 
 
 ////////////////////////
@@ -124,20 +185,47 @@ type FinalAbstractCommand =
     | ConditionalTailCall of Conditional*BasicBlockName*BasicBlockName // if-then-else
     | Halt
 type AbstractCommand =
-    | AtomicCommand of string // e.g. "say blah", "scoreboard players ..."
+    | AtomicCommand of string // e.g. "tellraw blah", "worldborder ..."
+    | AtomicCommandThunkFragment of (unit -> string) // e.g. fun () -> sprintf "something something %s" (v.AsCommandFragment())  // needs to be eval'd after whole program is visited
     | SB of ScoreboardOperationCommand
-//    | AG of AdvancementGrant 
+    | ADV of AdvancementCommand 
     | Yield // express desire to yield CPU back to minecraft to run a tick after this block (cooperative multitasking)
     member this.AsCommand() =
         match this with
         | AtomicCommand s -> s
+        | AtomicCommandThunkFragment f -> f()
         | SB soc -> soc.AsCommand()
+        | ADV adv -> adv.AsCommand()
         | Yield -> failwith "should not get here Yield"
-type BasicBlock = BasicBlock of AbstractCommand[] * FinalAbstractCommand
-type Program = Program of (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
+    member this.Visit() =
+        match this with
+        | SB soc -> soc.Visit()
+        | ADV adv -> adv.Visit()
+        | AtomicCommand _s -> () // TODO maybe scan the string and warn about @s[...]/@e[...]/@p[...] possible problems?
+        | AtomicCommandThunkFragment _f -> () // TODO maybe scan the string and warn about @s[...]/@e[...]/@p[...] possible problems?
+        | Yield -> ()
+type BasicBlock = 
+    | BasicBlock of AbstractCommand[] * FinalAbstractCommand
+    member this.Visit() = 
+        match this with BasicBlock(cmds,fac) -> 
+            for c in cmds do 
+                c.Visit()
+            match fac with
+            | ConditionalTailCall(cond,_,_) -> cond.MarkAsMustLiveOnPlayer() // TODO because we do IP.[cond] in compiler, and IP must live on player - way to confound?
+            | _ -> ()
+type Program = 
+    | Program of (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
+    member this.Visit() = 
+        match this with Program(init,_,d) -> 
+            for c in init do 
+                c.Visit()
+            for KeyValue(_,bb) in d do
+                bb.Visit()
 
 ////////////////////////
 
+// TODO this optimization would merge a BB that ends in a Yield & DirectTailCall into the next BB, which is incorrect semantics if the code needs MC to wait a tick
+// Yield should not be an AbstractCommand, rather it should be a property of a basic block, I think maybe
 let inlineAllDirectTailCallsOptimization(p) =
     match p with
     | Program(init,entrypoint,origBlockDict) ->
@@ -182,12 +270,14 @@ let makeAdvancement(name,instructions) = // TODO ensure root, clean this up?
         |]),[|Advancements.Criterion("cx",Recipes.MC"impossible",[||])|],[|[|"cx"|]|])
 
 let advancementizeVars = new Scope()
-let IP = advancementizeVars.RegisterVar("IP")
-let Stop = advancementizeVars.RegisterVar("Stop")
+let IP = advancementizeVars.RegisterVar("IP",true)
+let Stop = advancementizeVars.RegisterVar("Stop",true)
 
 let advancementize(Program(programInit,entrypoint,blockDict), isTracing, 
             x, y, z) =   // x,y,z is where the repumpAfterTick (PulseICB) is located
     let initialization = ResizeArray()
+    let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
+    initialization.Add(AtomicCommand(sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl}" ENTITY_UUID most least))
     let mutable foundEntryPointInDictionary = false
     for v in advancementizeVars.All() do
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
@@ -216,15 +306,18 @@ let advancementize(Program(programInit,entrypoint,blockDict), isTracing,
         if not(visited.Contains(currentBBN)) then
             visited.Add(currentBBN) |> ignore
             let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
-            // TODO better way
-            instructions.Add(AtomicCommand(sprintf "advancement revoke @s only %s:%s" PREFIX currentBBN.Name))
+            instructions.Add(ADV(AdvancementRevoke(sprintf "%s:%s" PREFIX currentBBN.Name)))
             if isTracing then
                 instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
             for c in cmds do
                 match c with 
                 | AtomicCommand _s ->
                     instructions.Add(c)
+                | AtomicCommandThunkFragment _f ->
+                    instructions.Add(c)
                 | SB(_soc) ->
+                    instructions.Add(c)
+                | ADV(_adv) ->
                     instructions.Add(c)
                 | Yield ->
                     instructions.Add(SB(Stop .= 1))
@@ -246,8 +339,7 @@ let advancementize(Program(programInit,entrypoint,blockDict), isTracing,
                 if not(blockDict.ContainsKey(ifbbn)) then
                     failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
                 q.Enqueue(ifbbn) |> ignore
-                // TODO abstract this
-                instructions.Add(AtomicCommand(sprintf "scoreboard players set @s%s %s %d" (conds.AsCommandFragment()) IP.Name bbnNumbers.[ifbbn]))
+                instructions.Add(SB(IP.[conds] .= bbnNumbers.[ifbbn]))
             | Halt ->
                 instructions.Add(SB(Stop .= 1))
                 // TODO line below is a hack to fix duplicate 'done'
@@ -342,13 +434,15 @@ let program =
                 yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
             // color stuff
             yield AtomicCommand "scoreboard objectives add AS dummy"  // armor stands
-            yield AtomicCommand "kill @e[type=armor_stand]"  // armor stands
+#if DIRECT16COLORTEST
+#else
             for i = 0 to 15 do
                 let y,z = 4,-2
                 yield AtomicCommand(sprintf "setblock %d %d %d wool %d" i y z i)
                 yield AtomicCommand(sprintf "summon armor_stand %d %d %d" i y z)
                 yield AtomicCommand(sprintf "scoreboard players set @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] AS %d" i y z i)
-            yield AtomicCommand "scoreboard players tag @e[type=armor_stand] add color"
+                yield AtomicCommand(sprintf "scoreboard players tag @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] add color" i y z)
+#endif
             yield AtomicCommand "summon armor_stand 0 4 0 {CustomName:Cursor,NoGravity:1}"
             // constants
             yield SB(FOURISSQ .= 64000000)
@@ -408,13 +502,13 @@ let program =
             |],DirectTailCall(whileTest))
         cpsInnerFinish,BasicBlock([|
 #if DIRECT16COLORTEST
-            yield AtomicCommand "scoreboard players operation @e[name=Cursor] n = @s n"
+            yield AtomicCommandThunkFragment(fun () -> sprintf "scoreboard players operation @e[name=Cursor] %s = %s" n.Name (n.AsCommandFragment()))
             for zzz = 0 to 15 do
-                yield AtomicCommand(sprintf "execute @e[name=Cursor,score_n=%d,score_n_min=%d] ~ ~ ~ setblock ~ ~ ~ wool %d" (zzz+1) (zzz+1) zzz)
+                yield AtomicCommand(sprintf "execute @e[name=Cursor,score_%s=%d,score_%s_min=%d] ~ ~ ~ setblock ~ ~ ~ wool %d" n.Name (zzz+1) n.Name (zzz+1) zzz)
 #else
-            yield AtomicCommand "scoreboard players operation @e[tag=color] AS -= @s n"
+            yield AtomicCommandThunkFragment(fun () -> sprintf "scoreboard players operation @e[tag=color] AS -= %s" (n.AsCommandFragment()))
             yield AtomicCommand "execute @e[tag=color,score_AS=-1,score_AS_min=-1] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 0 4 0"
-            yield AtomicCommand "scoreboard players operation @e[tag=color] AS += @s n"
+            yield AtomicCommandThunkFragment(fun() -> sprintf "scoreboard players operation @e[tag=color] AS += %s" (n.AsCommandFragment()))
             yield AtomicCommand "execute @e[name=Cursor] ~ ~ ~ clone 0 4 0 0 4 0 ~ ~ ~"
 #endif
             yield SB(j .+= 1)
