@@ -225,6 +225,7 @@ let putItAllInTheWorld(worldFolder:string) =
         yield U("execute @e[type=armor_stand,score_z_min=2,score_z=2] ~-2 ~ ~ clone -10 4 1 -6 8 1 ~ ~ ~ masked")
         yield U("execute @e[type=armor_stand,score_z_min=3,score_z=3] ~ ~2 ~ clone ~-5 ~-5 ~-1 ~5 ~5 ~-1 ~-5 ~-5 ~")
 
+(*
         // basic fruitninja ideas
         yield U("scoreboard players add tick z 1")
         yield U("scoreboard players operation ticktmp z = tick z")
@@ -233,6 +234,7 @@ let putItAllInTheWorld(worldFolder:string) =
         yield C("""summon minecraft:item 10 4 1 {Item:{id:"minecraft:apple",Count:1b},Age:5920s,Motion:[0.2,1.0,0.0]}""")
         yield U("""execute @e[type=armor_stand] ~ ~1.1 ~ execute @e[type=item,r=1] ~ ~ ~ summon minecraft:fireworks_rocket ~ ~ ~ {LifeTime:0,FireworksItem:{id:"minecraft:fireworks",Count:1,tag:{Fireworks:{Explosions:[{Type:0,Flicker:0,Trail:0,Colors:[16730395,1796095,5177112],FadeColors:[16777215]},]}}}}""")
         yield U("""execute @e[type=armor_stand] ~ ~1.1 ~ execute @e[type=item,r=1] ~ ~ ~ kill @e[type=item]""")
+*)
         
         // TODO jeff bridges paint
         |],"run",false,true)
