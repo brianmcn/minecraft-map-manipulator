@@ -1,43 +1,6 @@
-﻿module AdvancementCompiler
+﻿module FunctionCompiler
 
 open System.Collections.Generic 
-
-
-// TODO fastest score lookup is by uuid, so make one entity with a short uuid like below to use for ALL scores
-// summon area_effect_cloud ~ ~ ~ {UUIDMost:12884967424l,UUIDLeast:844424930131969l}
-// teleport 3-1-0-3-1 ~ ~ ~ ~ ~
-// Note: without stack frames, need a naming convention for temp & permanent vars to avoid conflict; also function args and return values
-//       temps are easy, can assume will get wiped each time you grant an advancement... but permanent ones? (and deal with recursion if needed!)
-// OR: could summon a uuid'd entity to use as a stack frame or permanent namespace, but not too many, as each creates more work
-// note that the AS need names as well, so their scores can be subject of conditions, e.g. @e[name=3-1-0-3-1,score_x=45]
-// NOTE! conditional function call (advancement grant @s[score...] ...) can only run on the _player_ score, though, hmmm... PLAYER needs some globals as well as some registers
-// TODO Rewrite Mandelbrot and MouseCursor (tan func, if-then-else near bottom) with this programming model to get a feel for it and find issues
-// Well, if we assume singleplayer, seems one 'locality' strategy is all scores on player (@p/@s), 
-//   - may not be quite as fast as UUID entity, but no 'register transfer' for conditional calls
-//   - maybe analysis can discover some variables can 'live' on entity and not need transfer
-// TODO how are 'modules' factored? what does 'tan' look like? how is json folder structure?
-// I guess best is first to have a good programming model to do this manually, and then can do register allocator and peephole optimizer in future later?
-// note that 'scoreboard add' on UUID takes 400(300-800ms), whereas execute @e[name=blah,score_x_min=1] ~ ~ ~ scoreboard add takes 1300(1200-1700ms)
-// so for just a few commands, a redundant execute prefix is ok overhead, but for more than a few, it may make sense to break THEN and ELSE into advancement subroutines
-
-// For general systems that work in multiplayer, one must consider
-//  - some stuff will run using arbitrary_player_tick, which means we can't use players for any non-temporary 'global' vars
-//  - this means all non-transient data must be moved to UUID entity (regardless of performance), except for player-specific data (like player bingo scores)
-//  - also 'conditionals' and 'advancements' may need to inject new code statements to e.g. transfer data from @e to @s so @s[score_x=5] can run even when data lives on @e
-//  - which means another compiler/transform that can inject these
-//  - note also that much data is non-transient, e.g. even in Mandelbrot, things like 'xsq' are written in whileTest and read in cpsInnerInner, which, under a pre-emptive system,
-//      could mean that we have a player switch in between. So we either need data-flow-analysis, or we need to have all data live on entity and always copy it over to @s
-//      before each conditional advancement call @s[score...] test in a basic block, and also either
-//        - change IP (not Stop) in the compiler to live on entity, and have chooser copy @e -> @p each time it runs (2x overhead!), or
-//        - keep as now, but have user code do the copying, e.g. of r1 and n from entity to player before ConditionalTailCall(...r1...n...), or
-//        - make compiler smarter to analyze ConditionalTailCall and do the copy on the user's behalf (this one seems best)
-// Yeah, to summarize then, here's how data works:
-//  - all variables live on entity (except those that are player-specific, like bingo scores, which have their own namespace of objective names)
-//  - compiler internals (Stop/IP) live on the arbitrary_player_tick player, and are copied on/off the entity at start/end of pump1
-//  - compiler writes extra code to transfer vars from @e to @s that are used in ConditionalTailCall
-//  - user code is responsible for transfering from @e to @s when invoking ConditionalAdvancementGrant (or any other arbitrary code that may need @s[score...])
-//      - or, actually, the compiler could do that too for ConditionalAdvancementGrant, just as it does for ConditionalTailCall, hmm...
-//        ... benefit is user code can be oblivious, drawback is that obliviousness hides performance overhead... probably is right choice though.
 
 ////////////////////////
 
@@ -46,35 +9,17 @@ let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
 
 ////////////////////////
 
-type Var(name:string,lop) =
-    // variables are 'globals', they are represented as objectives, and scores either reside on the player (@s), or on a UUID'd entity
-    let mutable livesOnPlayer = lop
+type Var(name:string) =
+    // variables are 'globals', they are represented as objectives, and scores reside on the UUID'd entity
     do
         if name.Length > 14 then
             failwithf "Var name too long: %s" name
-    static member DefaultLOP = true      // TODO: true = all scores on player, false = uses uuid entity for as many as possible
-    new(name) = Var(name,Var.DefaultLOP)
     member this.Name = name
-    member this.LivesOnPlayer = livesOnPlayer
-    member this.MarkAsMustLiveOnPlayer() =
-        // can happen for a couple reasons, such as
-        //  - advancement grant @s[score_x=5] ...      advancements can only be granted to players, so conditional advancements force the vars on the condition to player
-        //  - ...[score_x=5,score_y=8] ...             if conditionals use any vars marked on-player, then all vars in that condition must be marked on-player
-        livesOnPlayer <- true
     member this.AsCommandFragment() =
-        if livesOnPlayer then
-            sprintf "@s %s" name
-        else
-            sprintf "%s %s" ENTITY_UUID name
+//        TODO is @s always ok?
+        sprintf "@s %s" name
     member this.AsCommandFragment(cond:Conditional) =
-        if livesOnPlayer then
-            if not(cond.AllLivesOnPlayer()) then
-                failwith "bad variable partition"
-            sprintf "@s%s %s" (cond.AsCommandFragment()) name
-        else
-            if cond.AnyLivesOnPlayer() then
-                failwith "bad variable partition"
-            sprintf "%s%s %s" ENTITY_UUID (cond.AsCommandFragment()) name
+        sprintf "@s%s %s" (cond.AsCommandFragment()) name
     // conditionals
     static member (.<=) (v,n) = SCMax(v,n)
     static member (.>=) (v,n) = SCMin(v,n)
@@ -100,28 +45,6 @@ and Conditional(conds:ScoreCondition[]) =
     do
         if conds.Length < 1 then
             failwith "bad conditional"
-    member this.AllLivesOnPlayer() =
-        let mutable allOnPlayer = true
-        for c in conds do
-            match c with
-            | SCMin(v,_) -> if not v.LivesOnPlayer then allOnPlayer <- false
-            | SCMax(v,_) -> if not v.LivesOnPlayer then allOnPlayer <- false
-        allOnPlayer
-    member this.AnyLivesOnPlayer() =
-        let mutable anyOnPlayer = false
-        for c in conds do
-            match c with
-            | SCMin(v,_) -> if v.LivesOnPlayer then anyOnPlayer <- true
-            | SCMax(v,_) -> if v.LivesOnPlayer then anyOnPlayer <- true
-        anyOnPlayer
-    member this.MarkAsMustLiveOnPlayer() =
-        for c in conds do
-            match c with
-            | SCMin(v,_) -> v.MarkAsMustLiveOnPlayer()
-            | SCMax(v,_) -> v.MarkAsMustLiveOnPlayer()
-    member this.Visit() =
-        if this.AnyLivesOnPlayer() then
-            this.MarkAsMustLiveOnPlayer()
     member this.AsCommandFragment() =
         let sb = System.Text.StringBuilder("[")
         for i = 0 to conds.Length-1 do
@@ -148,13 +71,6 @@ and ScoreboardOperationCommand =
     | ScoreboardPlayersConditionalSet of Conditional * Var * int
     | ScoreboardPlayersSet of Var * int
     | ScoreboardPlayersAdd of Var * int
-    member this.Visit() =
-        match this with
-        | ScoreboardPlayersConditionalSet(cond,v,_x) ->
-            if v.LivesOnPlayer || cond.AnyLivesOnPlayer() then
-                v.MarkAsMustLiveOnPlayer()
-                cond.MarkAsMustLiveOnPlayer()
-        | _ -> ()
     member this.AsCommand() =
         match this with
         | ScoreboardPlayersAdd(v,x) -> sprintf "scoreboard players add %s %d" (v.AsCommandFragment()) x
@@ -162,27 +78,21 @@ and ScoreboardOperationCommand =
         | ScoreboardPlayersConditionalSet(cond,v,x) -> sprintf "scoreboard players set %s %d" (v.AsCommandFragment(cond)) x
         | ScoreboardOperationCommand(a,op,b) -> sprintf "scoreboard players operation %s %s %s" (a.AsCommandFragment()) (op.AsCommandFragment()) (b.AsCommandFragment())
 
-type AdvancementCommand = 
-    | AdvancementRevoke of string
-    | AdvancementGrant of string
-    | ConditionalAdvancementGrant of Conditional*string
-    member this.Visit() =
-        match this with
-        | ConditionalAdvancementGrant(cond,_s) -> cond.MarkAsMustLiveOnPlayer()
-        | _ -> ()
+type FunctionCommand = 
+    | Call of string
+    | ConditionalCall of Conditional*string
     member this.AsCommand() =
         match this with
-        | AdvancementRevoke(s) -> sprintf "advancement revoke @s only %s" s
-        | AdvancementGrant(s) -> sprintf "advancement grant @s only %s" s
-        | ConditionalAdvancementGrant(cond,s) -> sprintf "advancement grant @s%s only %s" (cond.AsCommandFragment()) s
+        | Call(s) -> sprintf "function %s" s
+// TODO is @s always ok?
+        | ConditionalCall(cond,s) -> sprintf "execute @s%s ~ ~ ~ function %s" (cond.AsCommandFragment()) s
 
 type Scope() =
     let vars = ResizeArray()
-    member this.RegisterVar(s,lop) =
-        let r = Var(s,lop)
+    member this.RegisterVar(s) =
+        let r = Var(s)
         vars.Add(r)
         r
-    member this.RegisterVar(s) = this.RegisterVar(s,Var.DefaultLOP)
     member this.All() = vars |> Seq.toArray 
 
 ////////////////////////
@@ -198,39 +108,19 @@ type AbstractCommand =
     | AtomicCommand of string // e.g. "tellraw blah", "worldborder ..."
     | AtomicCommandThunkFragment of (unit -> string) // e.g. fun () -> sprintf "something something %s" (v.AsCommandFragment())  // needs to be eval'd after whole program is visited
     | SB of ScoreboardOperationCommand
-    | ADV of AdvancementCommand 
+    | CALL of FunctionCommand 
     | Yield // express desire to yield CPU back to minecraft to run a tick after this block (cooperative multitasking)
     member this.AsCommand() =
         match this with
         | AtomicCommand s -> s
         | AtomicCommandThunkFragment f -> f()
         | SB soc -> soc.AsCommand()
-        | ADV adv -> adv.AsCommand()
+        | CALL f -> f.AsCommand()
         | Yield -> failwith "should not get here Yield"
-    member this.Visit() =
-        match this with
-        | SB soc -> soc.Visit()
-        | ADV adv -> adv.Visit()
-        | AtomicCommand _s -> () // TODO maybe scan the string and warn about @s[...]/@e[...]/@p[...] possible problems?
-        | AtomicCommandThunkFragment _f -> () // TODO maybe scan the string and warn about @s[...]/@e[...]/@p[...] possible problems?
-        | Yield -> ()
 type BasicBlock = 
     | BasicBlock of AbstractCommand[] * FinalAbstractCommand
-    member this.Visit() = 
-        match this with BasicBlock(cmds,fac) -> 
-            for c in cmds do 
-                c.Visit()
-            match fac with
-            | ConditionalTailCall(cond,_,_) -> cond.MarkAsMustLiveOnPlayer() // TODO because we do IP.[cond] in compiler, and IP must live on player - way to confound?
-            | _ -> ()
 type Program = 
     | Program of (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
-    member this.Visit() = 
-        match this with Program(init,_,d) -> 
-            for c in init do 
-                c.Visit()
-            for KeyValue(_,bb) in d do
-                bb.Visit()
 
 ////////////////////////
 
@@ -273,25 +163,24 @@ let inlineAllDirectTailCallsOptimization(p) =
 
 ////////////////////////
 
-let PREFIX = "functions" // advancements folder name
-let makeAdvancement(name,instructions) = // TODO ensure root, clean this up?
-    sprintf "%s/%s" PREFIX name, Advancements.Advancement(Some(Recipes.PATH(sprintf"%s:root"PREFIX)),Advancements.NoDisplay,Advancements.Reward([||],[||],0,[|
-        yield! instructions
-        |]),[|Advancements.Criterion("cx",Recipes.MC"impossible",[||])|],[|[|"cx"|]|])
+let PREFIX = "brian" // functions folder name
+let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 
-let advancementizeVars = new Scope()
-let IP = advancementizeVars.RegisterVar("IP",true)
-let Stop = advancementizeVars.RegisterVar("Stop",true)
+let functionCompilerVars = new Scope()
+let IP = functionCompilerVars.RegisterVar("IP")
+let YieldNow = functionCompilerVars.RegisterVar("YieldNow")
+let Stop = functionCompilerVars.RegisterVar("Stop")
+// TODO decide user-api of init/start/stop everything, and whether these vars make sense
 
-let advancementize(Program(programInit,entrypoint,blockDict), isTracing, 
-            x, y, z) =   // x,y,z is where the repumpAfterTick (PulseICB) is located
+let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
     let initialization = ResizeArray()
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
     initialization.Add(AtomicCommand(sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl}" ENTITY_UUID most least))
     let mutable foundEntryPointInDictionary = false
-    for v in advancementizeVars.All() do
+    for v in functionCompilerVars.All() do
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
     initialization.Add(SB(Stop .= 0))
+    initialization.Add(SB(YieldNow .= 0))
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -306,7 +195,7 @@ let advancementize(Program(programInit,entrypoint,blockDict), isTracing,
         failwith "did not find entrypoint in basic block dictionary"
 
     let visited = new HashSet<_>()
-    let advancements = ResizeArray()
+    let functions = ResizeArray()
     // runner infrastructure advancements at bottom of code further below
     let q = new Queue<_>()
     q.Enqueue(entrypoint)
@@ -316,7 +205,6 @@ let advancementize(Program(programInit,entrypoint,blockDict), isTracing,
         if not(visited.Contains(currentBBN)) then
             visited.Add(currentBBN) |> ignore
             let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
-            instructions.Add(ADV(AdvancementRevoke(sprintf "%s:%s" PREFIX currentBBN.Name)))
             if isTracing then
                 instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
             for c in cmds do
@@ -327,12 +215,10 @@ let advancementize(Program(programInit,entrypoint,blockDict), isTracing,
                     instructions.Add(c)
                 | SB(_soc) ->
                     instructions.Add(c)
-                | ADV(_adv) ->
+                | CALL(_f) ->
                     instructions.Add(c)
                 | Yield ->
-                    instructions.Add(SB(Stop .= 1))
-                    // TODO replace with 'tick' advancement
-                    instructions.Add(AtomicCommand(sprintf "blockdata %d %d %d {auto:1b}" x y z))
+                    instructions.Add(SB(YieldNow .= 1))
             match finish with
             | DirectTailCall(nextBBN) ->
                 if not(blockDict.ContainsKey(nextBBN)) then
@@ -351,55 +237,42 @@ let advancementize(Program(programInit,entrypoint,blockDict), isTracing,
                 q.Enqueue(ifbbn) |> ignore
                 instructions.Add(SB(IP.[conds] .= bbnNumbers.[ifbbn]))
             | Halt ->
-                instructions.Add(SB(Stop .= 1))
-                // TODO line below is a hack to fix duplicate 'done'
-                instructions.Add(SB(IP .= -1))
-            advancements.Add(makeAdvancement(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
+                instructions.Add(SB(YieldNow .= 1))   // to get out of the pump
+                instructions.Add(SB(Stop .= 1))    // to not run next tick
+            functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)
     if allBBNs.Count <> 0 then
         failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
 
-    // advancement runner infrastructure
-    // root
-    let root = "functions/root",Advancements.Advancement(None,Advancements.NoDisplay,Advancements.Reward([||],[||],0,[|
-                    |]),[|Advancements.Criterion("cx",Recipes.MC"impossible",[||])|],[|[|"cx"|]|])
-    advancements.Add(root)
+    // function runner infrastructure
+    functions.Add(makeFunction("start",[|
+        sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
+        sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name PREFIX
+        |]))
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
     let MAX_PUMP_WIDTH = 10   // (width ^ depth) is max iters
     for i = 1 to MAX_PUMP_DEPTH do
-        advancements.Add(makeAdvancement(sprintf"pump%d"i,[|
-                // TODO
-                yield sprintf """advancement revoke @s only %s:pump%d""" PREFIX i
-                // TODO
-                for _x = 1 to MAX_PUMP_WIDTH do yield sprintf """advancement grant @s[score_%s=0] only %s:pump%d""" Stop.Name PREFIX (i+1)
+        functions.Add(makeFunction(sprintf"pump%d"i,[|
+                for _x = 1 to MAX_PUMP_WIDTH do 
+                    yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" YieldNow.Name PREFIX (i+1)
             |]))
     // chooser
-    advancements.Add(makeAdvancement(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
-            // TODO
-            yield sprintf """advancement revoke @s only %s:pump%d""" PREFIX (MAX_PUMP_DEPTH+1)
+    functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
             for KeyValue(bbn,num) in bbnNumbers do 
-                // TODO
-                yield sprintf """advancement grant @s[score_%s_min=%d,score_%s=%d] only %s:%s""" 
+                yield sprintf """execute @s[score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
                                     IP.Name num IP.Name num PREFIX bbn.Name 
         |]))
     // init
     initialization.AddRange(programInit)
-    advancements.Add(makeAdvancement("initialization",[|
+    functions.Add(makeFunction("initialization",[|
             yield sprintf """advancement revoke @s only %s:initialization""" PREFIX
             for c in initialization do
                 yield c.AsCommand()
         |]))
 
-    // TODO set this up with 'tick'
-    let repumpAfterTick = [|
-        RegionFiles.CommandBlock.O "blockdata ~ ~ ~ {auto:0b}"
-        RegionFiles.CommandBlock.U (sprintf "scoreboard players set @p %s %d" Stop.Name 0)
-        RegionFiles.CommandBlock.U (sprintf "advancement grant @p only %s:pump1" PREFIX)
-        |]
-
-    sprintf """advancement grant @p only %s:initialization""" PREFIX, repumpAfterTick, advancements
+    sprintf """function %s:initialization""" PREFIX, functions
 
 ////////////////////////
 

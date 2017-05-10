@@ -1652,6 +1652,17 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
 
+
+    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
+    let p = FunctionCompiler.program
+    let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
+    let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
+    for name,cmds in funcs do
+        let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" FunctionCompiler.PREFIX name)
+        System.IO.File.WriteAllLines(path,cmds)
+
+
+#if DO_NOLATENCY_COMPILER_STUFF
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""
     let map = new MapFolder(worldFolder+"""\region""")
     let region = map.GetRegion(0,0)
@@ -1679,9 +1690,6 @@ automatic game start configs (night vision, starting items), customizable
     map.WriteAll()
 
 
-
-
-#if DO_NOLATENCY_COMPILER_STUFF
 
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""
