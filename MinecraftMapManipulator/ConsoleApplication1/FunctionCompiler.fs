@@ -174,13 +174,12 @@ let Stop = functionCompilerVars.RegisterVar("Stop")
 
 let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
     let initialization = ResizeArray()
-    let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
-    initialization.Add(AtomicCommand(sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl}" ENTITY_UUID most least))
+    let initialization2 = ResizeArray()  // runs a tick after initialization
     let mutable foundEntryPointInDictionary = false
     for v in functionCompilerVars.All() do
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
-    initialization.Add(SB(Stop .= 0))
-    initialization.Add(SB(YieldNow .= 0))
+    initialization2.Add(SB(Stop .= 0))
+    initialization2.Add(SB(YieldNow .= 0))
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -189,7 +188,7 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
         bbnNumbers.Add(bbn, nextBBNNumber)
         nextBBNNumber <- nextBBNNumber + 1
         if bbn = entrypoint then
-            initialization.Add(SB(IP .= bbnNumbers.[bbn]))
+            initialization2.Add(SB(IP .= bbnNumbers.[bbn]))
             foundEntryPointInDictionary <- true
     if not(foundEntryPointInDictionary) then
         failwith "did not find entrypoint in basic block dictionary"
@@ -258,6 +257,7 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
                 for _x = 1 to MAX_PUMP_WIDTH do 
                     yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" YieldNow.Name PREFIX (i+1)
             |]))
+    // TODO just reset gameLoopFunction as my chooser?!?
     // chooser
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
             for KeyValue(bbn,num) in bbnNumbers do 
@@ -265,10 +265,30 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
                                     IP.Name num IP.Name num PREFIX bbn.Name 
         |]))
     // init
-    initialization.AddRange(programInit)
+    initialization2.AddRange(programInit)
+    let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
     functions.Add(makeFunction("initialization",[|
-            yield sprintf """advancement revoke @s only %s:initialization""" PREFIX
+            yield "kill @e[type=armor_stand]" // TODO too broad
             for c in initialization do
+                yield c.AsCommand()
+            yield sprintf "gamerule gameLoopFunction %s:inittick1" PREFIX
+        |]))
+    functions.Add(makeFunction("inittick1",[|
+            sprintf "gamerule gameLoopFunction %s:inittick2" PREFIX
+            // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
+            sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl}" ENTITY_UUID most least
+            """tellraw @a ["tick1 called"]"""
+        |]))
+    functions.Add(makeFunction("inittick2",[|
+            "gamerule gameLoopFunction -"
+            """tellraw @a ["tick2 called"]"""
+            // Note: seems you cannot refer to UUID in same tick you just summoned it
+            sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID PREFIX
+        |]))
+    functions.Add(makeFunction("initialization2",[|
+            // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
+            yield """tellraw @a ["2 called"]"""
+            for c in initialization2 do
                 yield c.AsCommand()
         |]))
 
