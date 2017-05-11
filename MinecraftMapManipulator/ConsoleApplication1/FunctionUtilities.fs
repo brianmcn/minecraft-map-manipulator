@@ -89,6 +89,8 @@ let AX = raycastVars.RegisterVar("AX")
 let AY = raycastVars.RegisterVar("AY")
 let AZ = raycastVars.RegisterVar("AZ")
 
+let yOffset = 5   // attempt to put all the armor stands not-in-my-face so that I can throw snowballs
+
 let raycastProgram = 
     Program([|
         // SB init
@@ -188,14 +190,19 @@ let raycastProgram =
             SB(AZ .= TMAJOR)
             SB(AZ .-= DZ)
             // put armor stand at right starting point
-            AtomicCommand("tp @e[name=RAY] @p")
-            AtomicCommand("tp @e[name=RAY] ~ ~1 ~")
-            // TODO keepgoing
+            AtomicCommand("tp @e[name=RAY] @p") // now RAY has my facing
+            AtomicCommand(sprintf "tp @e[name=RAY] ~ ~%d ~" (1+yOffset)) // eyeball level (+offset)
+(* TODO snap-to-grid
+            AtomicCommand("execute @p ~ ~ ~ summon shulker ~ ~1 ~ {NoAI:1}") // snap to grid
+            AtomicCommand("execute @e[type=shulker] ~ ~ ~ teleport @e[name=RAY] ~ ~ ~")
+            AtomicCommand("tp @e[type=shulker] ~ ~-300 ~") // kill shulker
+*)
             |],DirectTailCall(whiletest))
         whiletest,BasicBlock([|
             |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda))
         loopbody,BasicBlock([|
-            // TODO do stuff at RAY
+            // remember where we are, so can back up
+            AtomicCommand "execute @e[name=RAY] ~ ~ ~ summon armor_stand ~ ~ ~  {CustomName:tempAS,NoGravity:1,Invisible:1,Invulnerable:1}"
             //if AX > 0 then
             //    if FLIPX then
             //        tp RAY ~-1 ~ ~
@@ -219,9 +226,23 @@ let raycastProgram =
             SB(AZ .+= TDZ)
             // MAJOR = MAJOR - 1
             SB(MAJOR .-= 1)
+            // detect non-air and exit loop early
+            SB(TEMP .= 1)
+            // TODO line below not work, because uses @s for TEMP, which is wrong under /execute... need a way to abstract this idiom
+            //AtomicCommand(sprintf "execute @e[name=RAY] ~ ~ ~ detect ~ ~ ~ air 0 %s" (SB(TEMP .= 0).AsCommand()))
+            AtomicCommand(sprintf "execute @e[name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 execute @e[name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 scoreboard players set %s %s 0" (0-yOffset) (-1-yOffset) ENTITY_UUID TEMP.Name)
+            // line above has two E-Ds to check current block and block below, since player is 2-tall and we are at eyeball level
+            SB(ScoreboardPlayersConditionalSet(Conditional[|TEMP .>= 1|],MAJOR,0))
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[name=tempAS] ~ ~ ~ teleport @e[name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
+            // kill tempAS
+            AtomicCommand("kill @e[name=tempAS]")
             |],DirectTailCall(whiletest))
         coda,BasicBlock([|
-            |],Halt)
+            AtomicCommand(sprintf "tp @e[name=RAY] ~ ~%d ~" -yOffset)
+            AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[name=RAY]")
+            AtomicCommand("kill @e[type=snowball]")
+            Yield
+            |],ConditionalTailCall(Conditional[|TEMP .>= 0|], init, init))  // TODO stupid way to get past fact that my inliner incorrectly inlines DirectCalls through Yields
+            //|],Halt)
         ])
-        // TODO throw snowball to activate
-        // first test, just 'see' AS
+
