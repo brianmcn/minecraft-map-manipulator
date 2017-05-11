@@ -1654,14 +1654,11 @@ automatic game start configs (night vision, starting items), customizable
 
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
-
-(*
-    let p = FunctionCompiler.program
+    //let p = FunctionCompiler.mandelbrotProgram
+    let p = FunctionUtilities.raycastProgram
     let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
     let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
-*)
-    let funcs = FunctionUtilities.findPhi 
-    for name,cmds in funcs do
+    for name,cmds in [yield! funcs; yield! FunctionUtilities.findPhi ; yield! FunctionUtilities.findTheta] do
         let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" FunctionCompiler.FUNCTION_NAMESPACE name)
         let dir = System.IO.Path.GetDirectoryName(path)
         System.IO.Directory.CreateDirectory(dir) |> ignore

@@ -29,7 +29,8 @@ type Var(name:string) =
     static member (.=)  (a,b:Var) = ScoreboardOperationCommand(a,ASSIGN,b)
     static member (.+=) (a,b:int) = ScoreboardPlayersAdd(a,b)
     static member (.+=) (a,b:Var) = ScoreboardOperationCommand(a,PLUS_EQUALS,b)
-    static member (.-=) (a,b) = ScoreboardOperationCommand(a,MINUS_EQUALS,b)
+    static member (.-=) (a,b:int) = ScoreboardPlayersRemove(a,b)
+    static member (.-=) (a,b:Var) = ScoreboardOperationCommand(a,MINUS_EQUALS,b)
     static member (.*=) (a,b) = ScoreboardOperationCommand(a,TIMES_EQUALS,b)
     static member (./=) (a,b) = ScoreboardOperationCommand(a,DIVIDE_EQUALS,b)
     member this.Item with get(cond:Conditional) = ConditionalVar(this,cond)
@@ -71,9 +72,11 @@ and ScoreboardOperationCommand =
     | ScoreboardPlayersConditionalSet of Conditional * Var * int
     | ScoreboardPlayersSet of Var * int
     | ScoreboardPlayersAdd of Var * int
+    | ScoreboardPlayersRemove of Var * int
     member this.AsCommand() =
         match this with
-        | ScoreboardPlayersAdd(v,x) -> sprintf "scoreboard players add %s %d" (v.AsCommandFragment()) x
+        | ScoreboardPlayersAdd(v,x) -> (if x < 0 then failwith "bad x"); sprintf "scoreboard players add %s %d" (v.AsCommandFragment()) x
+        | ScoreboardPlayersRemove(v,x) -> (if x < 0 then failwith "bad x"); sprintf "scoreboard players remove %s %d" (v.AsCommandFragment()) x
         | ScoreboardPlayersSet(v,x) -> sprintf "scoreboard players set %s %d" (v.AsCommandFragment()) x
         | ScoreboardPlayersConditionalSet(cond,v,x) -> sprintf "scoreboard players set %s %d" (v.AsCommandFragment(cond)) x
         | ScoreboardOperationCommand(a,op,b) -> sprintf "scoreboard players operation %s %s %s" (a.AsCommandFragment()) (op.AsCommandFragment()) (b.AsCommandFragment())
@@ -106,6 +109,7 @@ type FinalAbstractCommand =
     | Halt
 type AbstractCommand =
     | AtomicCommand of string // e.g. "tellraw blah", "worldborder ..."
+    // TODO is this needed now that Visit() is removed?
     | AtomicCommandThunkFragment of (unit -> string) // e.g. fun () -> sprintf "something something %s" (v.AsCommandFragment())  // needs to be eval'd after whole program is visited
     | SB of ScoreboardOperationCommand
     | CALL of FunctionCommand 
@@ -278,6 +282,7 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
             sprintf "gamerule gameLoopFunction %s:inittick2" FUNCTION_NAMESPACE
             // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
             sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl}" ENTITY_UUID most least
+            // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
             """tellraw @a ["tick1 called"]"""
         |]))
     functions.Add(makeFunction("inittick2",[|
@@ -332,7 +337,7 @@ let ysq = mandelbrotVars.RegisterVar("ysq")
 let r1 = mandelbrotVars.RegisterVar("r1")
 let xtemp = mandelbrotVars.RegisterVar("xtemp")
 
-let program = 
+let mandelbrotProgram = 
     Program([|
             for v in mandelbrotVars.All() do
                 yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
