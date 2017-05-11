@@ -91,6 +91,7 @@
     <Compile Include="MouseCursorUtilties.fs" />
     <Compile Include="AdvancementCompiler.fs" />
     <Compile Include="FunctionCompiler.fs" />
+    <Compile Include="FunctionUtilities.fs" />
     <Compile Include="..\..\MMM.fs">
       <Link>MMM.fs</Link>
     </Compile>

@@ -163,7 +163,7 @@ let inlineAllDirectTailCallsOptimization(p) =
 
 ////////////////////////
 
-let PREFIX = "brian" // functions folder name
+let FUNCTION_NAMESPACE = "lorgon111" // functions folder name
 let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 
 let functionCompilerVars = new Scope()
@@ -247,7 +247,7 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
     // function runner infrastructure
     functions.Add(makeFunction("start",[|
         sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
-        sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name PREFIX
+        sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name FUNCTION_NAMESPACE
         |]))
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
@@ -255,15 +255,16 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
     for i = 1 to MAX_PUMP_DEPTH do
         functions.Add(makeFunction(sprintf"pump%d"i,[|
                 for _x = 1 to MAX_PUMP_WIDTH do 
-                    yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" YieldNow.Name PREFIX (i+1)
+                    yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" YieldNow.Name FUNCTION_NAMESPACE (i+1)
             |]))
     // TODO just reset gameLoopFunction as my chooser?!?
     // chooser
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
             for KeyValue(bbn,num) in bbnNumbers do 
                 yield sprintf """execute @s[score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                    IP.Name num IP.Name num PREFIX bbn.Name 
+                                    IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name 
         |]))
+    // TODO gameLoopFunction does not mix with other modules well; maybe use 'tick' and one-player guards (SMP) as a runner alternative
     // init
     initialization2.AddRange(programInit)
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
@@ -271,10 +272,10 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
             yield "kill @e[type=armor_stand]" // TODO too broad
             for c in initialization do
                 yield c.AsCommand()
-            yield sprintf "gamerule gameLoopFunction %s:inittick1" PREFIX
+            yield sprintf "gamerule gameLoopFunction %s:inittick1" FUNCTION_NAMESPACE
         |]))
     functions.Add(makeFunction("inittick1",[|
-            sprintf "gamerule gameLoopFunction %s:inittick2" PREFIX
+            sprintf "gamerule gameLoopFunction %s:inittick2" FUNCTION_NAMESPACE
             // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
             sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl}" ENTITY_UUID most least
             """tellraw @a ["tick1 called"]"""
@@ -283,7 +284,7 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
             "gamerule gameLoopFunction -"
             """tellraw @a ["tick2 called"]"""
             // Note: seems you cannot refer to UUID in same tick you just summoned it
-            sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID PREFIX
+            sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID FUNCTION_NAMESPACE
         |]))
     functions.Add(makeFunction("initialization2",[|
             // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
@@ -292,7 +293,7 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
                 yield c.AsCommand()
         |]))
 
-    sprintf """function %s:initialization""" PREFIX, functions
+    sprintf """function %s:initialization""" FUNCTION_NAMESPACE, functions
 
 ////////////////////////
 
