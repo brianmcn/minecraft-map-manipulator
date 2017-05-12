@@ -180,6 +180,12 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
     let initialization = ResizeArray()
     let initialization2 = ResizeArray()  // runs a tick after initialization
     let mutable foundEntryPointInDictionary = false
+(* TODO consider
+    initialization.Add(AtomicCommand("gamerule maxCommandChainLength 999999")) // affects num total commands run in any function call
+    initialization.Add(AtomicCommand("gamerule commandBlockOutput false"))
+    initialization.Add(AtomicCommand("gamerule sendCommandFeedback false"))
+    initialization.Add(AtomicCommand("gamerule logAdminCommands false"))
+*)
     for v in functionCompilerVars.All() do
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
     initialization2.Add(SB(Stop .= 0))
@@ -281,7 +287,7 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
     functions.Add(makeFunction("inittick1",[|
             sprintf "gamerule gameLoopFunction %s:inittick2" FUNCTION_NAMESPACE
             // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
-            sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl}" ENTITY_UUID most least
+            sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1}" ENTITY_UUID most least
             // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
             """tellraw @a ["tick1 called"]"""
         |]))

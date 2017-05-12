@@ -61,6 +61,45 @@ let findTheta = binaryLookup("findTheta", "look", "rxm", "rx", 6, 3, -90,
 
 //////////////////////////////////////
 
+let profileThis(suffix,pre,cmds,post) =
+    let profilerFunc = FunctionCompiler.makeFunction("prof-"+suffix,[
+        yield "gamerule maxCommandChainLength 999999"
+        yield "gamerule commandBlockOutput false"
+        yield "gamerule sendCommandFeedback false"
+        yield "gamerule logAdminCommands false"
+
+        yield "scoreboard objectives add A dummy"
+        yield "scoreboard objectives add WB dummy"
+
+        yield "scoreboard objectives setdisplay sidebar A"
+
+        yield "execute @p ~ ~ ~ summon armor_stand ~ ~ ~ {CustomName:Timer,NoGravity:1,Invulnerable:1}" 
+        yield "scoreboard players set @e[name=Timer] WB 1" 
+        yield "stats entity @e[name=Timer] set QueryResult @e[name=Timer] WB" 
+
+        yield "worldborder set 10000000" 
+        yield "worldborder add 1000000 1000" 
+        
+        yield! pre
+        for _i = 1 to 100 do
+            yield sprintf "function %s:code-%s" FunctionCompiler.FUNCTION_NAMESPACE suffix
+        yield! post
+
+        yield "tellraw @a [\"done!\"]" 
+        yield "execute @e[name=Timer] ~ ~ ~ worldborder get" 
+        yield "scoreboard players set Time A -10000000" 
+        yield "scoreboard players operation Time A += @e[name=Timer] WB" 
+        yield """tellraw @a ["took ",{"score":{"name":"Time","objective":"A"}}," milliseconds"]"""
+        yield "kill @e[name=Timer]"
+        ])
+    let dummyFunc = FunctionCompiler.makeFunction("code-"+suffix,[|
+        for _i = 1 to 1000 do 
+            yield! cmds 
+        |])
+    [| profilerFunc; dummyFunc |]
+
+//////////////////////////////////////
+
 open FunctionCompiler
 
 let init      = BBN"init"
@@ -101,6 +140,7 @@ let raycastProgram =
         yield SB(ONE_THOUSAND .= 1000)
         // prep code
         yield AtomicCommand "summon armor_stand 0 4 0 {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}"
+        yield AtomicCommand "scoreboard players tag @p add look"
         |],init,dict[
         init,BasicBlock([|
             AtomicCommand(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE)
