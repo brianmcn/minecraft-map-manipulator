@@ -1,7 +1,7 @@
 ﻿module FunctionUtilities
 
 // binaryLookup("findPhi", "look", "rym", "ry", 7, 3, -180, fs) 
-// looks at @e[tag=look] and binary searches 2^7 in steps of 8 at offset -180, so e.g. [-180..-178] and [-177..-175] are bottom buckets
+// looks at @e[tag=look] and binary searches 2^7 in steps of 3 at offset -180, so e.g. [-180..-178] and [-177..-175] are bottom buckets
 // and fs is a list of functions applied to the values (like -179) resulting in 
 // (name,val) the name of a variable objective to write and the value to write on ENTITY in scoreboard
 let binaryLookup(prefix, entityTag, minSel, maxSel, exp, k, offset, fs) =
@@ -130,6 +130,8 @@ let AZ = raycastVars.RegisterVar("AZ")
 
 let yOffset = 5   // attempt to put all the armor stands not-in-my-face so that I can throw snowballs
 
+// TODO only activate when holding snowball
+// uses https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 let raycastProgram = 
     Program([|
         // SB init
@@ -285,4 +287,111 @@ let raycastProgram =
             |],ConditionalTailCall(Conditional[|TEMP .>= 0|], init, init))  // TODO stupid way to get past fact that my inliner incorrectly inlines DirectCalls through Yields
             //|],Halt)
         ])
+
+//////////////////////////////////////
+
+
+(*
+// need PRNG
+
+        yield U "scoreboard players set A Calc 1103515245"
+        yield U "scoreboard players set C Calc 12345"
+        yield U "scoreboard players set Two Calc 2"
+        yield U "scoreboard players set TwoToSixteen Calc 65536"
+
+
+            // compute next Z value with PRNG
+            yield U "scoreboard players operation Z Calc *= A Calc"
+            yield U "scoreboard players operation Z Calc += C Calc"
+            yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
+            yield U "scoreboard players operation Z Calc /= Two Calc"
+            yield U "scoreboard players operation K Calc = Z Calc"
+            yield U "scoreboard players operation K Calc *= Two Calc"
+            yield U "scoreboard players operation K Calc /= Two Calc"
+            yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
+            // get a number in the desired range
+            yield U (sprintf "scoreboard players operation %s %s = K Calc" destPlayer destObjective)
+            yield U (sprintf "scoreboard players operation %s %s %%= %s %s" destPlayer destObjective modPlayer modObjective)
+            yield U (sprintf "scoreboard players operation %s %s += %s %s" destPlayer destObjective modPlayer modObjective)   // ensure non-negative
+            yield U (sprintf "scoreboard players operation %s %s %%= %s %s" destPlayer destObjective modPlayer modObjective)
+
+
+setup objectives
+init prng
+
+not running
+player drinks potion, advancement is granted, runs a function to turn on the machine:
+
+init countdown timer for num ticks until potion runs out
+while timeleft > 0 do
+    execute @e[type=zombie,tag=!processed] ~ ~ ~ function process_zombie_init
+    // same for spiders, etc
+
+    // find all AS without a host
+    scoreboard players set @e[tag=rider] RiderHasHost 0
+    execute @e[tag=processed] ~ ~1 ~ scoreboard players set @e[type=armor_stand,tag=rider,c=1,dy=3] RiderHasHost 1
+    kill @e[type=armor_stand,tag=rider,score_RiderHasHost=0]
+
+    Yield // this loop runs once per tick
+done
+kill @e[type=armor_stand,tag=rider]
+entitydata @e[tag=processed] {Glowing:0b}
+// deathloottable remains
+
+
+process_zombie_init:
+@s is our guy
+scoreboard players tag @s add processed
+run prng
+if prng.next says this zombie gets rare loot then
+    choose the loot
+    make zombie glowing
+    give him AS picturing loot (AS tagged 'rider')
+    set his deathloottable
+else
+    give him AS CustomName 0
+
+
+// this could be part of a larger 'bestiary' system where you add mobs after you've killed enough of them or something?
+
+*)
+
+// incentivize (selective) fighting more than farming... how communicate that this individual mob has no drop, but others of his type may?  Maybe CustomName "X"?
+//idea: foresight potion, shows what rare things mobs will drop
+//  - zombie/skeleton/pigzombie wear item as head armor slot
+//  - other mobs have invisible armor stand riding them that has head-armor item
+//to implement it, would have to use commands:
+//  - select an unprocessed-tag mob, mark to-process
+//  - deceide whether it gets a rare drop at all (most don't)
+//  - if so, select a 'kind' (item sans enchants) of rare drop from its table (long list of commands, PRNG to activate one)
+//  - entitydata/replaceitem the mob to display it; entitydata its DeathLootTable to drop it (loot table could still e.g. apply random enchants)
+//  - (requires factoring loot tables differently, so 'common' loot is in a separate table, so 'rare' could still reference 'common'; alternatively, could just be 'extra' loot atop normal drops)
+// /summon minecraft:zombie ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}     // zombie does not burn in sunlight, as has "helmet"
+// /summon minecraft:armor_stand ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}
+// /summon spider ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,ArmorItems:[{},{},{},{id:apple,Count:1b}]}]}
+// /summon zombie ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,Invisible:1b,CustomName:"0",CustomNameVisible:1b}]}
+//  - would need to tag invisible 'riding' AS so I can remove them once they no longer have a RootVehicle https://www.reddit.com/r/Minecraft/comments/54pghm/attempting_to_detect_passenger_mobs/
+// UI: glowing shows which mobs have rare drop (very engaging); greater potion could also do AS with item above head, doesn't show if under tight roof... how know if potion wear off? (use Luck?)
+
+// to get rid of AS after host dies, can just tag all with hosts like
+//        pick one host                       find its rider
+// /execute @e[type=spider,c=1] ~ ~1 ~ execute @e[type=armor_stand,c=1,dy=3] ~ ~ ~ say hi
+// and then kill any without hosts
+
+// something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
+
+
+//////////////////////////////////////
+
+
+//lava-dipped arrows (remote light/lava)
+
+//weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
+
+//diamond-laying chickens under attack by zombie (how get Z to attack C?) you need to save if want to farm; 
+// - or i guess chicken could be villager who produces goods with egg laying sound... 
+// - could be fun recurring set piece thruout a map, find Z chasing C, save C and get a finite-farmable reward; people like to farm, this is non-standard farming
+
+
+// one-way-home teleport mechanic? something time consuming you can't use in battle? drink potion, gives you nausea->blindness over 5s, then tp home
 

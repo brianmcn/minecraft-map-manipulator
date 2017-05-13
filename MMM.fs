@@ -1655,6 +1655,19 @@ automatic game start configs (night vision, starting items), customizable
 
     //let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
+
+
+    let advancements =
+        ["testing/drank_luck",Advancement(None,NoDisplay,Reward([||],[||],0,sprintf"%s:drank_luck"FunctionCompiler.FUNCTION_NAMESPACE),
+            [|Criterion("did",MC"consume_item",[|Item(MC"potion",1,MC"luck")|])|],[|[|"did"|]|])
+         ]
+    writeAdvancements(advancements,worldFolder)
+    let drank_luck = ("drank_luck",[|
+        """tellraw @a ["drank luck potion"]"""
+        """advancement revoke @a only testing:drank_luck"""
+        |])
+
+
     //let p = FunctionCompiler.mandelbrotProgram
     let p = FunctionUtilities.raycastProgram
     let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
@@ -1670,6 +1683,7 @@ automatic game start configs (night vision, starting items), customizable
         yield! FunctionUtilities.profileThis("p",[],["scoreboard players add @p A 1"],[])
         yield! FunctionUtilities.profileThis("x",[],["scoreboard players add x A 1"],[])
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
+        yield drank_luck
         |]
     for name,cmds in allFuncs do
         let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" FunctionCompiler.FUNCTION_NAMESPACE name)
@@ -1678,6 +1692,8 @@ automatic game start configs (night vision, starting items), customizable
         System.IO.File.WriteAllLines(path,cmds)
         commandCount <- commandCount + cmds.Length 
     printfn "%d commands were written to %d functions" commandCount allFuncs.Length 
+
+
 
 
 #if DO_NOLATENCY_COMPILER_STUFF

@@ -1,5 +1,7 @@
 ﻿module NoLatencyCompiler
 
+#if DEFUNCT
+
 open System.Collections.Generic 
 
 ////////////////////////////////////////////////
@@ -504,4 +506,6 @@ let makeCloneMachineInTheWorld(Program(entrypoint,blockDict), isTracing, region:
                 |])
         |]
     initialization, advancements
+#endif
+
 #endif

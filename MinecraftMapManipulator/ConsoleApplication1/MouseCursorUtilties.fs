@@ -1,5 +1,7 @@
 ﻿module MouseCursorUtilties
 
+#if DEFUNCT
+
 let SCREEN_LO_X = 0
 let SCREEN_HI_X = 64
 let SCREEN_LO_Y = 4
@@ -150,8 +152,7 @@ let computeSqrtDyZ = makeSqrt("dy","z",0,128)
 open RegionFiles
 open Advancements
 
-let fauxroot = "functions/fauxroot",Advancements.Advancement(None,NoDisplay,Reward([||],[||],0,[|
-                |]),[|Criterion("cx",Recipes.MC"impossible",[||])|],[|[|"cx"|]|])
+let fauxroot = "functions/fauxroot",Advancements.Advancement(None,NoDisplay,Reward([||],[||],0,"dummy"),[|Criterion("cx",Recipes.MC"impossible",[||])|],[|[|"cx"|]|])
 advancements.Add(fauxroot)
 
 let putItAllInTheWorld(worldFolder:string) =
@@ -246,3 +247,6 @@ let putItAllInTheWorld(worldFolder:string) =
     printfn "%d total commands in advancements" totalCmds
     writeAdvancements(advancements,worldFolder)
     map.WriteAll()
+
+
+#endif

@@ -1,5 +1,7 @@
 ﻿module Mandelbrot
 
+#if DEFUNCT
+
 open NoLatencyCompiler
 
 #if SCORESONPLAYER
@@ -351,5 +353,7 @@ let program =
 #endif
             |],Halt)
         ])
+
+#endif
 
 #endif

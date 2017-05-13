@@ -7,10 +7,11 @@ type Condition =
     | NumInventorySlotsFull of int
     | HasItems of MS[]
     | HasRecipe of MS
+    | Item of (*itemid*)MS * (*count*) int * (*potion*) MS  // TODO all possible item-object things
 type Criterion =
     | Criterion of (*name*) string * (*trigger*) MS * Condition[]
 type Reward =
-    | Reward of (*recipes*) MS[] * (*loottables*) MS[] * (*experience*) int * (*commands*) string[]
+    | Reward of (*recipes*) MS[] * (*loottables*) MS[] * (*experience*) int * (*function*) string
     | NoReward
 type Display =
     | NoDisplay
@@ -47,18 +48,12 @@ type Advancement =
             // reward
             match reward with
             | NoReward -> ()
-            | Reward(recipes, loottables, experience, commands) ->
+            | Reward(recipes, loottables, experience, func) ->
                 w.WriteLine(sprintf """    "rewards": {""")
                 if recipes.Length<>0 then w.WriteLine(sprintf """        "recipes": [%s],""" (intersperse recipes))
                 if loottables.Length<>0 then w.WriteLine(sprintf """        "loot": [%s],""" (intersperse loottables))
                 if experience<>0 then w.WriteLine(sprintf """        "experience": %d,""" experience)
-                if commands.Length<>0 then 
-                    w.WriteLine(sprintf """        "commands": [""")
-                    let escape (s:string) =
-                        s.Replace("\"","\\\"") // TODO what-all needs to be escaped in JSON strings?
-                    for i,c in ICH commands do
-                        w.WriteLine(sprintf """                    "%s"%s""" (escape i) c)
-                    w.WriteLine(sprintf """        ],""")
+                w.WriteLine(sprintf """        "function": "%s",""" func)
                 w.WriteLine("""        "comma": 0 },""")
             // criteria
             w.WriteLine("""    "criteria": {""")
@@ -77,6 +72,12 @@ type Advancement =
                         w.WriteLine(sprintf """                ]""")
                     | HasRecipe r ->
                         w.WriteLine(sprintf """                "recipe": "%s"%s""" (r.ToString()) c)
+                    | Item(itemid,count,potion) ->
+                        w.WriteLine(sprintf """                "item": {""")
+                        w.WriteLine(sprintf """                    "item": "%s",""" (itemid.ToString()))
+                        w.WriteLine(sprintf """                    "count": %d,""" (count))
+                        w.WriteLine(sprintf """                    "potion": "%s" """ (potion.ToString()))
+                        w.WriteLine(sprintf """                }""")
                 w.WriteLine("""            }""")
                 w.WriteLine(sprintf """        }%s""" c)
             w.WriteLine(sprintf """    },""")

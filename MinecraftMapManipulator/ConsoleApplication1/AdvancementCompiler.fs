@@ -1,7 +1,8 @@
 ﻿module AdvancementCompiler
 
-open System.Collections.Generic 
+#if DEFUNCT
 
+open System.Collections.Generic 
 
 // TODO fastest score lookup is by uuid, so make one entity with a short uuid like below to use for ALL scores
 // summon area_effect_cloud ~ ~ ~ {UUIDMost:12884967424l,UUIDLeast:844424930131969l}
@@ -547,4 +548,4 @@ let program =
         ])
 
 
-    
+#endif    
