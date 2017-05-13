@@ -16,8 +16,9 @@ type Var(name:string) =
             failwithf "Var name too long: %s" name
     member this.Name = name
     member this.AsCommandFragment() =
-//        TODO is @s always ok?
         sprintf "@s %s" name
+    member this.AsCommandFragmentWithoutEntityBoundToAtS() =  // TODO find other places in existing code where this shoudl have been called
+        sprintf "%s %s" ENTITY_UUID name
     member this.AsCommandFragment(cond:Conditional) =
         sprintf "@s%s %s" (cond.AsCommandFragment()) name
     // conditionals
@@ -33,6 +34,7 @@ type Var(name:string) =
     static member (.-=) (a,b:Var) = ScoreboardOperationCommand(a,MINUS_EQUALS,b)
     static member (.*=) (a,b) = ScoreboardOperationCommand(a,TIMES_EQUALS,b)
     static member (./=) (a,b) = ScoreboardOperationCommand(a,DIVIDE_EQUALS,b)
+    static member (.%=) (a,b) = ScoreboardOperationCommand(a,MOD_EQUALS,b)
     member this.Item with get(cond:Conditional) = ConditionalVar(this,cond)
 
 and ConditionalVar = // a temporary type for operator overloading syntax   v.[cond]
@@ -58,7 +60,7 @@ and Conditional(conds:ScoreCondition[]) =
         sb.ToString()
 
 and ScoreboardOperation = 
-    | ASSIGN | PLUS_EQUALS | MINUS_EQUALS | TIMES_EQUALS | DIVIDE_EQUALS
+    | ASSIGN | PLUS_EQUALS | MINUS_EQUALS | TIMES_EQUALS | DIVIDE_EQUALS | MOD_EQUALS
     member this.AsCommandFragment() =
         match this with
         | ASSIGN         -> "="
@@ -66,6 +68,7 @@ and ScoreboardOperation =
         | MINUS_EQUALS   -> "-="
         | TIMES_EQUALS   -> "*="
         | DIVIDE_EQUALS  -> "/="
+        | MOD_EQUALS     -> "%="
 
 and ScoreboardOperationCommand =
     | ScoreboardOperationCommand of Var * ScoreboardOperation * Var
@@ -100,6 +103,12 @@ type Scope() =
 
 ////////////////////////
 
+// TODO maybe make oneTimeInit a named function, written to disk that other modules call
+// TODO move all the function code out of this assembly, can go in own, and MMM-like stuff can be in new assembly that refs both
+type DropInModule = DropInModule of (*name*)string * (*oneTimeInit*) string[] * ((*name*) string * (*bodyCmds*) string[])[]
+
+////////////////////////
+
 type BasicBlockName = 
     | BBN of string
     member this.Name = match this with BBN(s) -> s
@@ -124,7 +133,7 @@ type AbstractCommand =
 type BasicBlock = 
     | BasicBlock of AbstractCommand[] * FinalAbstractCommand
 type Program = 
-    | Program of (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
+    | Program of DropInModule[] * (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
 
 ////////////////////////
 
@@ -132,7 +141,7 @@ type Program =
 // Yield should not be an AbstractCommand, rather it should be a property of a basic block, I think maybe
 let inlineAllDirectTailCallsOptimization(p) =
     match p with
-    | Program(init,entrypoint,origBlockDict) ->
+    | Program(dependencyModules,init,entrypoint,origBlockDict) ->
         let finalBlockDict = new Dictionary<_,_>()
         let referencedBBNs = new HashSet<_>()
         referencedBBNs.Add(entrypoint) |> ignore
@@ -163,7 +172,7 @@ let inlineAllDirectTailCallsOptimization(p) =
         for unusedBBN in allBBNs do
             printfn "removing unused state '%s' after optimization" unusedBBN.Name 
             finalBlockDict.Remove(unusedBBN) |> ignore
-        Program(init,entrypoint,finalBlockDict)
+        Program(dependencyModules,init,entrypoint,finalBlockDict)
 
 ////////////////////////
 
@@ -176,7 +185,7 @@ let YieldNow = functionCompilerVars.RegisterVar("YieldNow")
 let Stop = functionCompilerVars.RegisterVar("Stop")
 // TODO decide user-api of init/start/stop everything, and whether these vars make sense
 
-let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
+let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDict), isTracing) =
     let initialization = ResizeArray()
     let initialization2 = ResizeArray()  // runs a tick after initialization
     let mutable foundEntryPointInDictionary = false
@@ -276,6 +285,9 @@ let compileToFunctions(Program(programInit,entrypoint,blockDict), isTracing) =
         |]))
     // TODO gameLoopFunction does not mix with other modules well; maybe use 'tick' and one-player guards (SMP) as a runner alternative
     // init
+    for DropInModule(_,oneTimeInit,funcs) in dependencyModules do
+        initialization2.AddRange(oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd)))
+        functions.AddRange(funcs)
     initialization2.AddRange(programInit)
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
     functions.Add(makeFunction("initialization",[|
@@ -344,7 +356,7 @@ let r1 = mandelbrotVars.RegisterVar("r1")
 let xtemp = mandelbrotVars.RegisterVar("xtemp")
 
 let mandelbrotProgram = 
-    Program([|
+    Program([||],[|
             for v in mandelbrotVars.All() do
                 yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
             // color stuff

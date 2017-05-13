@@ -1673,17 +1673,19 @@ automatic game start configs (night vision, starting items), customizable
     let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
     let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
     let mutable commandCount = 0
-    //let allFuncs = [| yield! funcs; yield! FunctionUtilities.findPhi ; yield! FunctionUtilities.findTheta|]
-    //let allFuncs = [| yield! FunctionUtilities.findPhi |]
     let uuid = System.Guid.NewGuid()
     let least,most = Utilities.toLeastMost(uuid)
     let summonCmd = sprintf "summon armor_stand ~ ~ ~ {NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1}" most least
     let killCmd = sprintf "kill %s" (uuid.ToString())
     let allFuncs = [|
+        yield! funcs
         yield! FunctionUtilities.profileThis("p",[],["scoreboard players add @p A 1"],[])
         yield! FunctionUtilities.profileThis("x",[],["scoreboard players add x A 1"],[])
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
         yield drank_luck
+        let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.prng 
+        yield "prng_init",init
+        yield! fs
         |]
     for name,cmds in allFuncs do
         let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" FunctionCompiler.FUNCTION_NAMESPACE name)

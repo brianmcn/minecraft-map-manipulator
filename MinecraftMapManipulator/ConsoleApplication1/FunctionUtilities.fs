@@ -39,25 +39,40 @@ let binaryLookup(prefix, entityTag, minSel, maxSel, exp, k, offset, fs) =
         |])
     functions
 
+// Note: from an F# point-of-view, it'd be better to make these vars properties of a findPhi object, but making at global F# scope reflects fact that scoreboard objectives are global
 let phiScope = new FunctionCompiler.Scope()
 let vphi = phiScope.RegisterVar("phi")
 let vKsinPhi = phiScope.RegisterVar("KsinPhi")
 let vKcosPhi = phiScope.RegisterVar("KcosPhi")
-let findPhi = binaryLookup("findPhi", "look", "rym", "ry", 7, 3, -180, 
+let findPhi = 
+    let funcs = binaryLookup("findPhi", "look", "rym", "ry", 7, 3, -180, 
                                 [fun phi -> vphi.Name,phi
                                  fun phi -> vKsinPhi.Name,int(1000.0*sin(System.Math.PI * float phi / 180.0))
                                  fun phi -> vKcosPhi.Name,int(1000.0*cos(System.Math.PI * float phi / 180.0))
                                 ]) 
+    let oneTimeInit = [|
+        // declare variables (objectives), initialize constants, place any long-lasting objects in the world
+        for v in phiScope.All() do
+            yield sprintf "scoreboard objectives add %s dummy" v.Name
+        |]
+    FunctionCompiler.DropInModule("findPhi",oneTimeInit,funcs.ToArray())
 
 let thetaScope = new FunctionCompiler.Scope()
 let vtheta = thetaScope.RegisterVar("theta")
 let vKsinTheta = thetaScope.RegisterVar("Ksintheta")
 let vKcosTheta = thetaScope.RegisterVar("Kcostheta")
-let findTheta = binaryLookup("findTheta", "look", "rxm", "rx", 6, 3, -90, 
+let findTheta = 
+    let funcs = binaryLookup("findTheta", "look", "rxm", "rx", 6, 3, -90, 
                                 [fun theta -> vtheta.Name,theta
                                  fun theta -> vKsinTheta.Name,int(1000.0*sin(System.Math.PI * float theta / 180.0))
                                  fun theta -> vKcosTheta.Name,int(1000.0*cos(System.Math.PI * float theta / 180.0))
                                 ]) 
+    let oneTimeInit = [|
+        // declare variables (objectives), initialize constants, place any long-lasting objects in the world
+        for v in thetaScope.All() do
+            yield sprintf "scoreboard objectives add %s dummy" v.Name
+        |]
+    FunctionCompiler.DropInModule("findTheta",oneTimeInit,funcs.ToArray())
 
 //////////////////////////////////////
 
@@ -133,9 +148,12 @@ let yOffset = 5   // attempt to put all the armor stands not-in-my-face so that 
 // TODO only activate when holding snowball
 // uses https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 let raycastProgram = 
-    Program([|
+    Program([|findTheta;findPhi|],[|
+        // dependencies
+        for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta] do
+            yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
         // SB init
-        for v in [yield! raycastVars.All(); yield! phiScope.All(); yield! thetaScope.All()] do
+        for v in raycastVars.All() do
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
         // constants
         yield SB(R .= 128)
@@ -290,31 +308,62 @@ let raycastProgram =
 
 //////////////////////////////////////
 
+let prngScope = new Scope()
+let prng_A = prngScope.RegisterVar("prng_A")
+let prng_C = prngScope.RegisterVar("prng_C")
+let prng_Two = prngScope.RegisterVar("prng_Two")
+let prng_Two16 = prngScope.RegisterVar("prng_Two16")
+let prng_Z = prngScope.RegisterVar("prng_Z")
+let prng_Mod = prngScope.RegisterVar("prng_Mod")  // the input
+let prng_K = prngScope.RegisterVar("prng_K")      // the output
+let prng =
+    let oneTimeInit = [|
+        // declare variables
+        for v in prngScope.All() do
+            yield sprintf "scoreboard objectives add %s dummy" v.Name
+        // initialize constants
+        yield sprintf "scoreboard players set %s 1103515245" (prng_A.AsCommandFragmentWithoutEntityBoundToAtS())
+        yield sprintf "scoreboard players set %s 12345" (prng_C.AsCommandFragmentWithoutEntityBoundToAtS()) 
+        yield sprintf "scoreboard players set %s 2" (prng_Two.AsCommandFragmentWithoutEntityBoundToAtS()) 
+        yield sprintf "scoreboard players set %s 65536" (prng_Two16.AsCommandFragmentWithoutEntityBoundToAtS()) 
+        // one-time-initialize variables
+        yield sprintf "scoreboard players set %s 0" (prng_Z.AsCommandFragmentWithoutEntityBoundToAtS()) 
+        // place any long-lasting objects in the world
+    |]
+    let Z = prng_Z
+    let A = prng_A
+    let C = prng_C
+    let K = prng_K
+    let Two = prng_Two
+    let Two16 = prng_Two16 
+    let Mod = prng_Mod
+    let cmds = [|
+        // compute next Z value with PRNG
+        SB(Z .*= A)
+        SB(Z .+= C)
+        SB(Z .*= Two)  // mod 2^31
+        SB(Z ./= Two)
+        SB(K .= Z)
+        SB(K .*= Two)
+        SB(K ./= Two)
+        SB(K ./= Two16) // upper 16 bits most random
+        // get a number in the desired range
+        SB(K .%= Mod)
+        SB(K .+= Mod)  // ensure non-negative
+        SB(K .%= Mod)
+    |]
+    let prngBody = "prngBody",cmds|>Array.map(fun c -> c.AsCommand())
+    let prngMain = "prng",[|
+        "# prng"
+        "# inputs: prng_Mod    e.g. if it's 20, the output will be random number in range 0-19"
+        "# outputs: prng_K"
+        // TODO do I need this indirection?  I wanted to test this manually by calling "function lorgon111:prng", but perhaps 
+        //    I should test via "execute 1-1-1-0-1 ~ ~ ~ function lorgon111:prng", and all functions assume entity is the sender?
+        sprintf "execute %s ~ ~ ~ function %s:prngBody" ENTITY_UUID FUNCTION_NAMESPACE
+        |]
+    DropInModule("prng",oneTimeInit,[|prngBody;prngMain|])
 
 (*
-// need PRNG
-
-        yield U "scoreboard players set A Calc 1103515245"
-        yield U "scoreboard players set C Calc 12345"
-        yield U "scoreboard players set Two Calc 2"
-        yield U "scoreboard players set TwoToSixteen Calc 65536"
-
-
-            // compute next Z value with PRNG
-            yield U "scoreboard players operation Z Calc *= A Calc"
-            yield U "scoreboard players operation Z Calc += C Calc"
-            yield U "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
-            yield U "scoreboard players operation Z Calc /= Two Calc"
-            yield U "scoreboard players operation K Calc = Z Calc"
-            yield U "scoreboard players operation K Calc *= Two Calc"
-            yield U "scoreboard players operation K Calc /= Two Calc"
-            yield U "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
-            // get a number in the desired range
-            yield U (sprintf "scoreboard players operation %s %s = K Calc" destPlayer destObjective)
-            yield U (sprintf "scoreboard players operation %s %s %%= %s %s" destPlayer destObjective modPlayer modObjective)
-            yield U (sprintf "scoreboard players operation %s %s += %s %s" destPlayer destObjective modPlayer modObjective)   // ensure non-negative
-            yield U (sprintf "scoreboard players operation %s %s %%= %s %s" destPlayer destObjective modPlayer modObjective)
-
 
 setup objectives
 init prng
