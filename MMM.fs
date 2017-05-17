@@ -1424,6 +1424,7 @@ let makeRandomCave(map:MapFolder, xs, ys, zs, rs, initPhi, initTheta, desiredLen
 ////////////////////////////////////////
 
 
+open LootTables
 open Recipes
 open Advancements
 
@@ -1652,10 +1653,9 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
 
-
+#if YADDA
     //let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
-
 
     let advancements =
         ["testing/drank_luck",Advancement(None,NoDisplay,Reward([||],[||],0,sprintf"%s:drank_luck"FunctionCompiler.FUNCTION_NAMESPACE),
@@ -1666,7 +1666,6 @@ automatic game start configs (night vision, starting items), customizable
         """tellraw @a ["drank luck potion"]"""
         """advancement revoke @a only testing:drank_luck"""
         |])
-
 
     //let p = FunctionCompiler.mandelbrotProgram
     let p = FunctionUtilities.raycastProgram
@@ -1688,13 +1687,32 @@ automatic game start configs (night vision, starting items), customizable
         yield! fs
         |]
     for name,cmds in allFuncs do
-        let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" FunctionCompiler.FUNCTION_NAMESPACE name)
+        let path = worldFolder + (sprintf """\data\functions\%s\%s.mcfunction""" FunctionCompiler.FUNCTION_NAMESPACE name)
         let dir = System.IO.Path.GetDirectoryName(path)
         System.IO.Directory.CreateDirectory(dir) |> ignore
         System.IO.File.WriteAllLines(path,cmds)
         commandCount <- commandCount + cmds.Length 
     printfn "%d commands were written to %d functions" commandCount allFuncs.Length 
 
+    let zombieWithDiamond = 
+            Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:diamond", []), 1, 0, []])
+                   Pool(Roll(1,1), [LootTable("minecraft:entities/zombie"), 1, 0, []])]
+    LootTables.writeLootTables(["lorgon111:zombie_with_diamond",zombieWithDiamond],worldFolder)
+
+#endif
+
+    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\life"""
+    let lifeFuncs = [|
+        let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.conwayLife  
+        yield "life_init",init
+        yield! fs
+        |]
+    for name,cmds in lifeFuncs do
+        //let path = worldFolder + (sprintf """\data\functions\%s\%s.mcfunction""" "conway" name)
+        let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" "conway" name)
+        let dir = System.IO.Path.GetDirectoryName(path)
+        System.IO.Directory.CreateDirectory(dir) |> ignore
+        System.IO.File.WriteAllLines(path,cmds)
 
 
 

@@ -359,50 +359,58 @@ let prng =
         "# outputs: prng_K"
         // TODO do I need this indirection?  I wanted to test this manually by calling "function lorgon111:prng", but perhaps 
         //    I should test via "execute 1-1-1-0-1 ~ ~ ~ function lorgon111:prng", and all functions assume entity is the sender?
+        //    Is a trade-off; place I do intend to call it next does not have 1-1-1-0-1 as the sender, so not a slam dunk... maybe always have 2 versions of utils?
         sprintf "execute %s ~ ~ ~ function %s:prngBody" ENTITY_UUID FUNCTION_NAMESPACE
         |]
     DropInModule("prng",oneTimeInit,[|prngBody;prngMain|])
 
 (*
+init objectives, prng, potionActive=0,nextPotionActive=0
 
-setup objectives
-init prng
+ALWAYS {
+    scoreboard players set @p nextPotionActive 0
+    scoreboard players set @p nextPotionActive 1 {ActiveEffects:...}
+    execute @p[score_nextPotionActive_min=1,score_potionActive=0] ~ ~ ~ function turnOn
+    execute @p[score_nextPotionActive=0,score_potionActive_min=1] ~ ~ ~ function turnOff
+    scoreboard players operation @p potionActive = @p nextPotionActive
 
-not running
-player drinks potion, advancement is granted, runs a function to turn on the machine:
-
-init countdown timer for num ticks until potion runs out
-while timeleft > 0 do
-    execute @e[type=zombie,tag=!processed] ~ ~ ~ function process_zombie_init
+    function process_all_zombies
     // same for spiders, etc
 
     // find all AS without a host
     scoreboard players set @e[tag=rider] RiderHasHost 0
     execute @e[tag=processed] ~ ~1 ~ scoreboard players set @e[type=armor_stand,tag=rider,c=1,dy=3] RiderHasHost 1
     kill @e[type=armor_stand,tag=rider,score_RiderHasHost=0]
+}
+process_all_zombies:
+    scoreboard players set ENTITY prng_Mod 100
+    execute @e[type=zombie,tag=!processed] ~ ~ ~ function process_zombie
+process_zombie:
+    scoreboard players tag @s add processed
+    function prng
+    scoreboard players operation @s prng_K = ENTITY prng_K
 
-    Yield // this loop runs once per tick
-done
-kill @e[type=armor_stand,tag=rider]
-entitydata @e[tag=processed] {Glowing:0b}
-// deathloottable remains
+    // 1/100 zombie -> diamond
+    scoreboard players tag @s[score_prng_K_min=99] add hasRareLoot
+    scoreboard players tag @s[score_prng_K_min=99] add hasDiamond
+    entitydata @s[score_prng_K_min=99] {DeathLootTable:"lorgon111:zombie_with_diamond"}
+    // todo same for other drops
+    // else
+    scoreboard players tag @s[score_prng_K=98] add noRareLoot
 
-
-process_zombie_init:
-@s is our guy
-scoreboard players tag @s add processed
-run prng
-if prng.next says this zombie gets rare loot then
-    choose the loot
-    make zombie glowing
-    give him AS picturing loot (AS tagged 'rider')
-    set his deathloottable
-else
-    give him AS CustomName 0
-
-
-// this could be part of a larger 'bestiary' system where you add mobs after you've killed enough of them or something?
-
+    scoreboard players operation @s potionActive = @p potionActive
+    execute @s[score_potionActive_min=1] ~ ~ ~ function make_mob_show
+make_mob_show:
+    entitydata @s[tag=hasRareLoot] {Glowing:1b}
+    entitydata @s[tag=hasDiamond] {Passengers:[{id:armor_stand,Small:1b,ArmorItems:[{},{},{},{id:diamond,Count:1b}]}]}
+    // todo same for other drops
+    entitydata @s[tag=noRareLoot] {CustomName:0}
+turnOn:
+    execute @e[type=zombie,tag=processed] ~ ~ ~ function make_zombie_show
+    // same for spiders etc
+turnOff:
+    entitydata @e[tag=processed] {Glowing:0b,CustomName:""}
+    kill @e[type=armor_stand,tag=rider]
 *)
 
 // incentivize (selective) fighting more than farming... how communicate that this individual mob has no drop, but others of his type may?  Maybe CustomName "X"?
@@ -427,15 +435,17 @@ else
 // /execute @e[type=spider,c=1] ~ ~1 ~ execute @e[type=armor_stand,c=1,dy=3] ~ ~ ~ say hi
 // and then kill any without hosts
 
-// something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
-
+// Hm, an ench book as the loot could be good if you need to 'get close' to 'read its name' before kill maybe... requires toggling CustomNameVisible via commands though, ugh, weird in SMP
+// actually, glowing guy with no item on his head can just be CustomNamed, and requires getting close to read name, e.g. "Feather Falling IV"
 
 //////////////////////////////////////
 
 
-//lava-dipped arrows (remote light/lava)
+//lava-dipped arrows (remote light/lava) "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears
 
 //weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
+
+// something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
 
 //diamond-laying chickens under attack by zombie (how get Z to attack C?) you need to save if want to farm; 
 // - or i guess chicken could be villager who produces goods with egg laying sound... 
@@ -444,3 +454,141 @@ else
 
 // one-way-home teleport mechanic? something time consuming you can't use in battle? drink potion, gives you nausea->blindness over 5s, then tp home
 
+
+//////////////////////////////////////
+
+// conway life
+
+let conwayLife = 
+    let oneTimeInit = [|
+        "scoreboard objectives add A dummy"
+        "scoreboard objectives add R dummy"
+        "scoreboard players set @p A 3"
+        |]
+
+    let count_neighbors = "count_neighbors",[|
+        "scoreboard players set @s A 0"
+        "execute @s ~ ~ ~ detect ~-1 4 ~-1 wool 15 scoreboard players add @s A 1"
+        "execute @s ~ ~ ~ detect ~-1 4 ~-0 wool 15 scoreboard players add @s A 1"
+        "execute @s ~ ~ ~ detect ~-1 4 ~+1 wool 15 scoreboard players add @s A 1"
+        "execute @s ~ ~ ~ detect ~-0 4 ~-1 wool 15 scoreboard players add @s A 1"
+        "execute @s ~ ~ ~ detect ~-0 4 ~+1 wool 15 scoreboard players add @s A 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~-1 wool 15 scoreboard players add @s A 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~-0 wool 15 scoreboard players add @s A 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~+1 wool 15 scoreboard players add @s A 1"
+        |]
+    let check1 = "check1",[|
+        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
+        "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
+        "kill @e[type=armor_stand]"
+        |]
+    let check1pre = "check1pre",[|
+        "scoreboard players operation @s A = @p A"
+        "scoreboard players operation @s R = @p R"
+        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
+        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ function conway:check1body"
+        // todo: A means two different things keeps biting me
+        "scoreboard players operation @s A = @p A"
+        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ setblock ~ 1 ~ air"
+        |]
+    let check1body = "check1body",[|
+        "function conway:count_neighbors"
+        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"
+        "execute @s ~ ~ ~ fill ~-1 3 ~-1 ~1 3 ~1 wool 0 keep"
+#if FILL_WORKS
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+#else
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
+#endif
+        "execute @s[score_A=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+        "execute @s[score_A_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+#if FILL_WORKS
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+#else
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
+#endif
+        "execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
+        |]
+    let check2 = "check2",[|
+        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
+        "execute @e[type=armor_stand] ~ ~ ~ function conway:check2pre"
+        "kill @e[type=armor_stand]"
+        |]
+    let check2pre = "check2pre",[|
+        "scoreboard players operation @s A = @p A"
+        "scoreboard players operation @s R = @p R"
+        "execute @s[score_A=2,score_A_min=2,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
+        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ function conway:check2body"
+        // todo: A means two different things keeps biting me
+        "scoreboard players operation @s A = @p A"
+        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ setblock ~ 2 ~ air"
+        |]
+    let check2body = "check2body",[|
+        "function conway:count_neighbors"
+        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"
+        "execute @s ~ ~ ~ fill ~-1 3 ~-1 ~1 3 ~1 wool 0 keep"
+#if FILL_WORKS
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+#else
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
+        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
+#endif
+        "execute @s[score_A=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+        "execute @s[score_A_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+#if FILL_WORKS
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+#else
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
+        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
+#endif
+        "execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
+        |]
+    let life = "life",[|
+        "scoreboard players set @p R 0"
+        """scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
+        "scoreboard players add @p[score_R_min=1] A 1"
+        "scoreboard players set @p[score_R_min=1,score_A_min=4] A 0"
+        // todo nothing guaranteed this is in sync with check1/check2 cycle, need @p A = 3 to have bats/skeletons work
+#if FILL_WORKS
+        """execute @e[type=bat] ~ ~ ~ fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+#else
+        """execute @e[type=bat] ~ ~ ~ setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @e[type=bat] ~ ~ ~ setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @e[type=bat] ~ ~ ~ setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
+        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
+#endif
+        "execute @e[type=bat] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 15"
+        "tp @e[type=bat] ~ ~-200 ~"
+        "execute @e[type=skeleton] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 0"
+        "tp @e[type=skeleton] ~ ~-200 ~"
+        // todo add methusalah/glider eggs?
+        |]
+    DropInModule("life",oneTimeInit,[|
+        count_neighbors
+        check1
+        check1pre
+        check1body
+        check2
+        check2pre
+        check2body
+        life
+        |])
+
+        // TODO bug in pre-1: 
+        // /fill ~-1 2 ~-1 ~1 2 ~1 minecraft:repeating_command_block 0 replace {auto:1b,Command:"say hi"} 
+        // only one block got the data tag
