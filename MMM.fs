@@ -1713,8 +1713,19 @@ automatic game start configs (night vision, starting items), customizable
         let dir = System.IO.Path.GetDirectoryName(path)
         System.IO.Directory.CreateDirectory(dir) |> ignore
         System.IO.File.WriteAllLines(path,cmds)
-
-
+    let mapFolder = new MapFolder(worldFolder+"\\region\\")
+    mapFolder.GetRegion(0,-1).PlaceCommandBlocksStartingAt(80,5,-100,[|
+        O ""
+        U "scoreboard players set @p A 3"
+        U "scoreboard players set @p R 1"
+        U "blockdata ~ ~ ~1 {auto:1b}"
+        O "blockdata ~ ~ ~ {auto:0b}"
+        U "scoreboard players set @p R 0"
+        |],"stepper",false,true)
+    mapFolder.GetRegion(0,-1).PlaceCommandBlocksStartingAt(83,5,-100,[|
+        P "function conway:life"
+        |],"runner",false,true)
+    mapFolder.WriteAll()
 
 #if DO_NOLATENCY_COMPILER_STUFF
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""

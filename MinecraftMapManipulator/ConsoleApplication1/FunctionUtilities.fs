@@ -463,7 +463,8 @@ let conwayLife =
     let oneTimeInit = [|
         "scoreboard objectives add A dummy"
         "scoreboard objectives add R dummy"
-        "scoreboard players set @p A 3"
+        "scoreboard players set @p A 0"
+        // TODO /gamerule maxCommandChainLength 999999
         |]
 
     let count_neighbors = "count_neighbors",[|
@@ -482,14 +483,17 @@ let conwayLife =
         "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
         "kill @e[type=armor_stand]"
         |]
+    // note that the 4-cycles is
+    // @p A = 0 -> run all the check1
+    // @p A = 1 -> double-buffer the check1 results, delete the check1 command blocks
+    // @p A = 2 -> run all the check2
+    // @p A = 3 -> double-buffer the check2 results, delete the check2 command blocks
     let check1pre = "check1pre",[|
         "scoreboard players operation @s A = @p A"
         "scoreboard players operation @s R = @p R"
-        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
-        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ function conway:check1body"
-        // todo: A means two different things keeps biting me
-        "scoreboard players operation @s A = @p A"
+        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
         "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ setblock ~ 1 ~ air"
+        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ function conway:check1body"
         |]
     let check1body = "check1body",[|
         "function conway:count_neighbors"
@@ -525,11 +529,9 @@ let conwayLife =
     let check2pre = "check2pre",[|
         "scoreboard players operation @s A = @p A"
         "scoreboard players operation @s R = @p R"
-        "execute @s[score_A=2,score_A_min=2,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
-        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ function conway:check2body"
-        // todo: A means two different things keeps biting me
-        "scoreboard players operation @s A = @p A"
+        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
         "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ setblock ~ 2 ~ air"
+        "execute @s[score_A=2,score_A_min=2,score_R_min=1] ~ ~ ~ function conway:check2body"
         |]
     let check2body = "check2body",[|
         "function conway:count_neighbors"
@@ -562,7 +564,7 @@ let conwayLife =
         """scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
         "scoreboard players add @p[score_R_min=1] A 1"
         "scoreboard players set @p[score_R_min=1,score_A_min=4] A 0"
-        // todo nothing guaranteed this is in sync with check1/check2 cycle, need @p A = 3 to have bats/skeletons work
+        // todo nothing guaranteed this is in sync with check1/check2 cycle, need @p A = 1 to have bats/skeletons work
 #if FILL_WORKS
         """execute @e[type=bat] ~ ~ ~ fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
 #else
@@ -573,6 +575,7 @@ let conwayLife =
         """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
 #endif
         "execute @e[type=bat] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 15"
+        "execute @e[type=bat] ~ ~ ~ clone ~-1 4 ~-1 ~+1 4 ~+1 ~-1 3 ~-1"  // ensure whole nearby area is identically back-double-buffered
         "tp @e[type=bat] ~ ~-200 ~"
         "execute @e[type=skeleton] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 0"
         "tp @e[type=skeleton] ~ ~-200 ~"
