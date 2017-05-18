@@ -731,9 +731,10 @@ let conwayLife =
         "scoreboard objectives add A dummy"  // 2-state iteration
         "scoreboard objectives add N dummy"  // neightbor count
         "scoreboard objectives add R dummy"  // is it running?
-        "scoreboard players set @p A 1"
         // TODO /gamerule maxCommandChainLength 999999
         "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
+        "scoreboard players set @p A 1"
+        "scoreboard players set @e[type=armor_stand] A 1"
         |]
 
     let count_neighbors = "count_neighbors",[|
@@ -759,16 +760,13 @@ let conwayLife =
         "execute @s[score_N=0] ~ ~ ~ detect ~+1 3 ~-0 wool 15 scoreboard players add @s N 1"
         "execute @s[score_N=0] ~ ~ ~ detect ~+1 3 ~+1 wool 15 scoreboard players add @s N 1"
         |]
-    let check1 = "check1",[|
-        "teleport @e[type=armor_stand] ~ ~ ~"
-        "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
-        |]
     // note that the 2-cycles is
     // @p A = 0 -> run all the check1, compute buffer, do no scheduling
     // @p A = 1 -> double-buffer the check1 results, schedule blocks around all (buffer) blacks, delete all check1 command blocks that are (buffer) white and have no (buffer) black neighbors
-    let check1pre = "check1pre",[|
-        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ function conway:check1body"
-        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ function conway:check1part2"
+    let check1 = "check1",[|
+        "teleport @e[type=armor_stand,score_R_min=1] ~ ~ ~"
+        "execute @e[type=armor_stand,score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ function conway:check1body"
+        "execute @e[type=armor_stand,score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ function conway:check1part2"
         |]
     let check1body = "check1body",[|
         "function conway:count_neighbors"
@@ -787,12 +785,11 @@ let conwayLife =
         "execute @s[score_N=0] ~ ~ ~ setblock ~ 1 ~ air"
         |]
     let life = "life",[|
-        "scoreboard players set @p[type=armor_stand] R 0"
-        """scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
+        "execute @e[type=armor_stand,score_A_min=1] ~ ~ ~ scoreboard players set @p[type=armor_stand] R 0"
+        """execute @e[type=armor_stand,score_A_min=1] ~ ~ ~ scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
         "scoreboard players operation @e[type=armor_stand] R = @p R"
         "scoreboard players add @e[type=armor_stand,score_R_min=1] A 1"
         "scoreboard players set @e[type=armor_stand,score_R_min=1,score_A_min=2] A 0"
-        // todo nothing guaranteed this is in sync with check1 cycle, need @e[type=armor_stand] A = 0 to have bats/skeletons work
         """execute @e[type=bat] ~ ~ ~ fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
         // todo don't run so much in the 'always' loop, when this is really only 'setup' stuff - modal?
         "execute @e[type=bat] ~ ~ ~ setblock ~ 4 ~ wool 15"
@@ -805,7 +802,6 @@ let conwayLife =
         count_neighbors
         has_buffer_neighbor
         check1
-        check1pre
         check1body
         check1part2
         life
