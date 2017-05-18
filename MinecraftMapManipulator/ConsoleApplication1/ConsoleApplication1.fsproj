@@ -20,7 +20,7 @@
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;xBINGO;xADVANCEMENTS;xHYBRID;xPREEMPT;CLONEMACHINE;DIRECT16COLORTEST</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;xBINGO;xADVANCEMENTS;xHYBRID;xPREEMPT;CLONEMACHINE;DIRECT16COLORTEST;FILL_WORKS</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\ConsoleApplication1.XML</DocumentationFile>

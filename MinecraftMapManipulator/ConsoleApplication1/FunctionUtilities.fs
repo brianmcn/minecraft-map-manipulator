@@ -459,6 +459,8 @@ turnOff:
 
 // conway life
 
+#if MULTI_AS
+
 let conwayLife = 
     let oneTimeInit = [|
         "scoreboard objectives add A dummy"
@@ -468,7 +470,7 @@ let conwayLife =
         |]
 
     let count_neighbors = "count_neighbors",[|
-        "scoreboard players set @s A 0"
+        "scoreboard players set @s A 0"  // todo don't use A for both 4-state and count?
         "execute @s ~ ~ ~ detect ~-1 4 ~-1 wool 15 scoreboard players add @s A 1"
         "execute @s ~ ~ ~ detect ~-1 4 ~-0 wool 15 scoreboard players add @s A 1"
         "execute @s ~ ~ ~ detect ~-1 4 ~+1 wool 15 scoreboard players add @s A 1"
@@ -479,7 +481,7 @@ let conwayLife =
         "execute @s ~ ~ ~ detect ~+1 4 ~+1 wool 15 scoreboard players add @s A 1"
         |]
     let check1 = "check1",[|
-        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
+        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"   // TODO rather than summon, can "/teleport @e[type=armor_stand] ~ ~ ~" and just use one that always moves-to-here, reset scores as needed
         "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
         "kill @e[type=armor_stand]"
         |]
@@ -535,8 +537,8 @@ let conwayLife =
         |]
     let check2body = "check2body",[|
         "function conway:count_neighbors"
-        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"
-        "execute @s ~ ~ ~ fill ~-1 3 ~-1 ~1 3 ~1 wool 0 keep"
+        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"  // could get rid of this with different superflat start that has two wool layers
+        "execute @s ~ ~ ~ fill ~-1 3 ~-1 ~1 3 ~1 wool 0 keep" // ditto
 #if FILL_WORKS
         """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
 #else
@@ -574,8 +576,9 @@ let conwayLife =
         """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
         """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
 #endif
+        // todo don't run so much in the 'always' loop, when this is really only 'setup' stuff - modal?
         "execute @e[type=bat] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 15"
-        "execute @e[type=bat] ~ ~ ~ clone ~-1 4 ~-1 ~+1 4 ~+1 ~-1 3 ~-1"  // ensure whole nearby area is identically back-double-buffered
+        "execute @e[type=bat] ~ ~ ~ clone ~-1 4 ~-1 ~+1 4 ~+1 ~-1 3 ~-1"  // ensure whole nearby area is identically back-double-buffered, can be removed with better superflat
         "tp @e[type=bat] ~ ~-200 ~"
         "execute @e[type=skeleton] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 0"
         "tp @e[type=skeleton] ~ ~-200 ~"
@@ -591,6 +594,226 @@ let conwayLife =
         check2body
         life
         |])
+
+#else
+#if SINGLE_AS
+let conwayLife = 
+    let oneTimeInit = [|
+        "scoreboard objectives add A dummy"  // 4-state iteration
+        "scoreboard objectives add N dummy"  // neightbor count
+        "scoreboard objectives add R dummy"  // is it running?
+        "scoreboard players set @p A 0"
+        // TODO /gamerule maxCommandChainLength 999999
+        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
+        |]
+
+    let count_neighbors = "count_neighbors",[|
+        "scoreboard players set @s N 0"
+        "execute @s ~ ~ ~ detect ~-1 4 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-1 4 ~-0 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-1 4 ~+1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-0 4 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-0 4 ~+1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~-0 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~+1 wool 15 scoreboard players add @s N 1"
+        |]
+    let check1 = "check1",[|
+        "teleport @e[type=armor_stand] ~ ~ ~"
+        "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
+        |]
+    // note that the 4-cycles is
+    // @p A = 0 -> run all the check1
+    // @p A = 1 -> double-buffer the check1 results, delete the check1 command blocks
+    // @p A = 2 -> run all the check2
+    // @p A = 3 -> double-buffer the check2 results, delete the check2 command blocks
+    let check1pre = "check1pre",[|
+        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
+        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ setblock ~ 1 ~ air"
+        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ function conway:check1body"
+        |]
+    let check1body = "check1body",[|
+        "function conway:count_neighbors"
+        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"
+#if FILL_WORKS
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+#else
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
+#endif
+        "execute @s[score_N=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+        "execute @s[score_N_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+#if FILL_WORKS
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+#else
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
+#endif
+        "execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
+        |]
+    let check2 = "check2",[|
+        "teleport @e[type=armor_stand] ~ ~ ~"
+        "execute @e[type=armor_stand] ~ ~ ~ function conway:check2pre"
+        |]
+    let check2pre = "check2pre",[|
+        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
+        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ setblock ~ 2 ~ air"
+        "execute @s[score_A=2,score_A_min=2,score_R_min=1] ~ ~ ~ function conway:check2body"
+        |]
+    let check2body = "check2body",[|
+        "function conway:count_neighbors"
+        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"  
+#if FILL_WORKS
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+#else
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
+        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
+#endif
+        "execute @s[score_N=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+        "execute @s[score_N_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+#if FILL_WORKS
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+#else
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
+        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
+#endif
+        "execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
+        |]
+    let life = "life",[|
+        "scoreboard players set @p[type=armor_stand] R 0"
+        """scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
+        "scoreboard players operation @e[type=armor_stand] R = @p R"
+        "scoreboard players add @e[type=armor_stand,score_R_min=1] A 1"
+        "scoreboard players set @e[type=armor_stand,score_R_min=1,score_A_min=4] A 0"
+        // todo nothing guaranteed this is in sync with check1/check2 cycle, need @e[type=armor_stand] A = 1 to have bats/skeletons work
+#if FILL_WORKS
+        """execute @e[type=bat] ~ ~ ~ fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+#else
+        """execute @e[type=bat] ~ ~ ~ setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @e[type=bat] ~ ~ ~ setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @e[type=bat] ~ ~ ~ setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
+        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
+        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
+#endif
+        // todo don't run so much in the 'always' loop, when this is really only 'setup' stuff - modal?
+        "execute @e[type=bat] ~ ~ ~ setblock ~ 4 ~ wool 15"
+        "tp @e[type=bat] ~ ~-200 ~"
+        "execute @e[type=skeleton] ~ ~ ~ setblock ~ 4 ~ wool 0"
+        "tp @e[type=skeleton] ~ ~-200 ~"
+        // todo add methusalah/glider eggs?
+        |]
+    DropInModule("life",oneTimeInit,[|
+        count_neighbors
+        check1
+        check1pre
+        check1body
+        check2
+        check2pre
+        check2body
+        life
+        |])
+#else
+// one level cmd blocks
+let conwayLife = 
+    let oneTimeInit = [|
+        "scoreboard objectives add A dummy"  // 2-state iteration
+        "scoreboard objectives add N dummy"  // neightbor count
+        "scoreboard objectives add R dummy"  // is it running?
+        "scoreboard players set @p A 1"
+        // TODO /gamerule maxCommandChainLength 999999
+        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
+        |]
+
+    let count_neighbors = "count_neighbors",[|
+        "scoreboard players set @s N 0"
+        "execute @s ~ ~ ~ detect ~-1 4 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-1 4 ~-0 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-1 4 ~+1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-0 4 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~-0 4 ~+1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~-0 wool 15 scoreboard players add @s N 1"
+        "execute @s ~ ~ ~ detect ~+1 4 ~+1 wool 15 scoreboard players add @s N 1"
+        |]
+    let has_buffer_neighbor = "has_buffer_neighbor",[|
+        "scoreboard players set @s N 0"
+        "execute @s ~ ~ ~ detect ~-1 3 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~-1 3 ~-0 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~-1 3 ~+1 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~-0 3 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~-0 3 ~-0 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~-0 3 ~+1 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~+1 3 ~-1 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~+1 3 ~-0 wool 15 scoreboard players add @s N 1"
+        "execute @s[score_N=0] ~ ~ ~ detect ~+1 3 ~+1 wool 15 scoreboard players add @s N 1"
+        |]
+    let check1 = "check1",[|
+        "teleport @e[type=armor_stand] ~ ~ ~"
+        "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
+        |]
+    // note that the 2-cycles is
+    // @p A = 0 -> run all the check1, compute buffer, do no scheduling
+    // @p A = 1 -> double-buffer the check1 results, schedule blocks around all (buffer) blacks, delete all check1 command blocks that are (buffer) white and have no (buffer) black neighbors
+    let check1pre = "check1pre",[|
+        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ function conway:check1body"
+        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ function conway:check1part2"
+        |]
+    let check1body = "check1body",[|
+        "function conway:count_neighbors"
+        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"  // assume nothing changes to start
+        "execute @s[score_N=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+        "execute @s[score_N_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
+        "execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
+        |]
+    let check1part2 = "check1part2",[|
+        // double-buffer this cell
+        "clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
+        // schedule blocks for next tick if (buffer) me is alive
+        """execute @s ~ ~ ~ detect ~ 3 ~ wool 15 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        // delete command block if (buffer) me is dead, and so are all my neighbors
+        "function conway:has_buffer_neighbor"
+        "execute @s[score_N=0] ~ ~ ~ setblock ~ 1 ~ air"
+        |]
+    let life = "life",[|
+        "scoreboard players set @p[type=armor_stand] R 0"
+        """scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
+        "scoreboard players operation @e[type=armor_stand] R = @p R"
+        "scoreboard players add @e[type=armor_stand,score_R_min=1] A 1"
+        "scoreboard players set @e[type=armor_stand,score_R_min=1,score_A_min=2] A 0"
+        // todo nothing guaranteed this is in sync with check1 cycle, need @e[type=armor_stand] A = 0 to have bats/skeletons work
+        """execute @e[type=bat] ~ ~ ~ fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
+        // todo don't run so much in the 'always' loop, when this is really only 'setup' stuff - modal?
+        "execute @e[type=bat] ~ ~ ~ setblock ~ 4 ~ wool 15"
+        "tp @e[type=bat] ~ ~-200 ~"
+        "execute @e[type=skeleton] ~ ~ ~ setblock ~ 4 ~ wool 0"
+        "tp @e[type=skeleton] ~ ~-200 ~"
+        // todo add methusalah/glider eggs?
+        |]
+    DropInModule("life",oneTimeInit,[|
+        count_neighbors
+        has_buffer_neighbor
+        check1
+        check1pre
+        check1body
+        check1part2
+        life
+        |])
+
+#endif
+#endif
+
 
         // TODO bug in pre-1: 
         // /fill ~-1 2 ~-1 ~1 2 ~1 minecraft:repeating_command_block 0 replace {auto:1b,Command:"say hi"} 

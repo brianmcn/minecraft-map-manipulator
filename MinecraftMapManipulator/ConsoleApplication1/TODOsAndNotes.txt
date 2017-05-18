@@ -186,7 +186,7 @@ can have forest -> ice forest, with leaves as packed ice, and have snow golem sp
 obe things underground dungeons had too many mobs; fewer but harder might be good (blaze?) ... unsure how I feel (obe wanted more silverfish in final dungeon!)
 consider all RC3 procs
 slowness arrows?
-
+more use of natural spawns and mob-processing to create mobs around player, rather than just spawners
 
 
 

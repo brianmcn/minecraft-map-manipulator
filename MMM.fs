@@ -1654,8 +1654,8 @@ automatic game start configs (night vision, starting items), customizable
 
 
 #if YADDA
-    //let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
-    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
+    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
+    //let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
 
     let advancements =
         ["testing/drank_luck",Advancement(None,NoDisplay,Reward([||],[||],0,sprintf"%s:drank_luck"FunctionCompiler.FUNCTION_NAMESPACE),
@@ -1667,8 +1667,8 @@ automatic game start configs (night vision, starting items), customizable
         """advancement revoke @a only testing:drank_luck"""
         |])
 
-    //let p = FunctionCompiler.mandelbrotProgram
-    let p = FunctionUtilities.raycastProgram
+    let p = FunctionCompiler.mandelbrotProgram
+    //let p = FunctionUtilities.raycastProgram
     let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
     let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
     let mutable commandCount = 0
@@ -1681,6 +1681,8 @@ automatic game start configs (night vision, starting items), customizable
         yield! FunctionUtilities.profileThis("p",[],["scoreboard players add @p A 1"],[])
         yield! FunctionUtilities.profileThis("x",[],["scoreboard players add x A 1"],[])
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
+        yield! FunctionUtilities.profileThis("cwe",[],["execute @s[score_A_min=0] ~ ~ ~ function lorgon111:test"],[])
+        yield! FunctionUtilities.profileThis("cwi",[],["function lorgon111:test if @p[score_A_min=0]"],[])
         yield drank_luck
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.prng 
         yield "prng_init",init
@@ -1698,21 +1700,22 @@ automatic game start configs (night vision, starting items), customizable
             Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:diamond", []), 1, 0, []])
                    Pool(Roll(1,1), [LootTable("minecraft:entities/zombie"), 1, 0, []])]
     LootTables.writeLootTables(["lorgon111:zombie_with_diamond",zombieWithDiamond],worldFolder)
-
 #endif
+
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\life"""
     let lifeFuncs = [|
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.conwayLife  
-        yield "life_init",init
+        yield "initialize",init
         yield! fs
         |]
     for name,cmds in lifeFuncs do
-        //let path = worldFolder + (sprintf """\data\functions\%s\%s.mcfunction""" "conway" name)
-        let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" "conway" name)
+        let path = worldFolder + (sprintf """\data\functions\%s\%s.mcfunction""" "conway" name)
+        //let path = worldFolder + (sprintf """\data\functions\%s\%s.txt""" "conway" name)
         let dir = System.IO.Path.GetDirectoryName(path)
         System.IO.Directory.CreateDirectory(dir) |> ignore
         System.IO.File.WriteAllLines(path,cmds)
+    (*
     let mapFolder = new MapFolder(worldFolder+"\\region\\")
     mapFolder.GetRegion(0,-1).PlaceCommandBlocksStartingAt(80,5,-100,[|
         O ""
@@ -1726,6 +1729,7 @@ automatic game start configs (night vision, starting items), customizable
         P "function conway:life"
         |],"runner",false,true)
     mapFolder.WriteAll()
+    *)
 
 #if DO_NOLATENCY_COMPILER_STUFF
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""
