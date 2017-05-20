@@ -17,7 +17,7 @@ type Display =
     | NoDisplay
     | Display of (*title*) string * (*description*) string * (*icon*) MS * DisplayFrame * (*backgroundImageIfRoot*) MS option
 type Advancement =
-    | Advancement of (*parent*) MS option * Display * Reward * Criterion[] * (*requirements in DNF*) string[][]
+    | Advancement of (*parent*) MS option * Display * Reward * Criterion[] * (*requirements in CNF*) string[][]
     member this.Write(w:System.IO.TextWriter) =
         let ICH s = s |> Seq.toArray |> (fun a -> Array.init a.Length (fun i -> a.[i], if i<>a.Length-1 then ", " else "")) // interspersed comma helper
         let intersperse s = 

@@ -1653,9 +1653,8 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
 
-#if YADDA
-    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
-    //let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
+    //let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
+    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
 
     let advancements =
         ["testing/drank_luck",Advancement(None,NoDisplay,Reward([||],[||],0,sprintf"%s:drank_luck"FunctionCompiler.FUNCTION_NAMESPACE),
@@ -1665,10 +1664,11 @@ automatic game start configs (night vision, starting items), customizable
     let drank_luck = ("drank_luck",[|
         """tellraw @a ["drank luck potion"]"""
         """advancement revoke @a only testing:drank_luck"""
+        """scoreboard players set @s nPotionActive 600"""  // 30s, fragile interaction with foresight
         |])
 
-    let p = FunctionCompiler.mandelbrotProgram
-    //let p = FunctionUtilities.raycastProgram
+    //let p = FunctionCompiler.mandelbrotProgram
+    let p = FunctionUtilities.raycastProgram
     let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
     let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
     let mutable commandCount = 0
@@ -1683,9 +1683,22 @@ automatic game start configs (night vision, starting items), customizable
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
         yield! FunctionUtilities.profileThis("cwe",[],["execute @s[score_A_min=0] ~ ~ ~ function lorgon111:test"],[])
         yield! FunctionUtilities.profileThis("cwi",[],["function lorgon111:test if @p[score_A_min=0]"],[])
+        // experiment:
+        // summon 1000 zombies
+        // tag one the_guy
+        // profile a function at the_guy, to see how long it takes to
+        //    scoreboard players add @s OBJ 1
+        //    scoreboard players add @e[tag=the_guy] OBJ 1
+        //    scoreboard players add @e[r=1,tag=the_guy] OBJ 1
+        yield! FunctionUtilities.profileThis("zs",[],["scoreboard players add @s A 1"],[])  // 1300ms @ 400zombies
+        yield! FunctionUtilities.profileThis("zet",[],["scoreboard players add @e[tag=the_guy] A 1"],[])  // 5800ms @ 400zombies
+        yield! FunctionUtilities.profileThis("zert",[],["scoreboard players add @e[r=1,tag=the_guy] A 1"],[])  // 1700ms @ 400zombies
         yield drank_luck
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.prng 
         yield "prng_init",init
+        yield! fs
+        let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.potionOfForesight  
+        yield "foresight_init",init
         yield! fs
         |]
     for name,cmds in allFuncs do
@@ -1700,9 +1713,9 @@ automatic game start configs (night vision, starting items), customizable
             Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:diamond", []), 1, 0, []])
                    Pool(Roll(1,1), [LootTable("minecraft:entities/zombie"), 1, 0, []])]
     LootTables.writeLootTables(["lorgon111:zombie_with_diamond",zombieWithDiamond],worldFolder)
-#endif
 
 
+#if YADDA
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\life"""
     let lifeFuncs = [|
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.conwayLife  
@@ -1730,6 +1743,9 @@ automatic game start configs (night vision, starting items), customizable
         |],"runner",false,true)
     mapFolder.WriteAll()
     *)
+#endif
+
+
 
 #if DO_NOLATENCY_COMPILER_STUFF
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\M2"""

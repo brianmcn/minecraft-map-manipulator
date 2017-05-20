@@ -364,374 +364,17 @@ let prng =
         |]
     DropInModule("prng",oneTimeInit,[|prngBody;prngMain|])
 
-(*
-init objectives, prng, potionActive=0,nextPotionActive=0
-
-ALWAYS {
-    scoreboard players set @p nextPotionActive 0
-    scoreboard players set @p nextPotionActive 1 {ActiveEffects:...}
-    execute @p[score_nextPotionActive_min=1,score_potionActive=0] ~ ~ ~ function turnOn
-    execute @p[score_nextPotionActive=0,score_potionActive_min=1] ~ ~ ~ function turnOff
-    scoreboard players operation @p potionActive = @p nextPotionActive
-
-    function process_all_zombies
-    // same for spiders, etc
-
-    // find all AS without a host
-    scoreboard players set @e[tag=rider] RiderHasHost 0
-    execute @e[tag=processed] ~ ~1 ~ scoreboard players set @e[type=armor_stand,tag=rider,c=1,dy=3] RiderHasHost 1
-    kill @e[type=armor_stand,tag=rider,score_RiderHasHost=0]
-}
-process_all_zombies:
-    scoreboard players set ENTITY prng_Mod 100
-    execute @e[type=zombie,tag=!processed] ~ ~ ~ function process_zombie
-process_zombie:
-    scoreboard players tag @s add processed
-    function prng
-    scoreboard players operation @s prng_K = ENTITY prng_K
-
-    // 1/100 zombie -> diamond
-    scoreboard players tag @s[score_prng_K_min=99] add hasRareLoot
-    scoreboard players tag @s[score_prng_K_min=99] add hasDiamond
-    entitydata @s[score_prng_K_min=99] {DeathLootTable:"lorgon111:zombie_with_diamond"}
-    // todo same for other drops
-    // else
-    scoreboard players tag @s[score_prng_K=98] add noRareLoot
-
-    scoreboard players operation @s potionActive = @p potionActive
-    execute @s[score_potionActive_min=1] ~ ~ ~ function make_mob_show
-make_mob_show:
-    entitydata @s[tag=hasRareLoot] {Glowing:1b}
-    entitydata @s[tag=hasDiamond] {Passengers:[{id:armor_stand,Small:1b,ArmorItems:[{},{},{},{id:diamond,Count:1b}]}]}
-    // todo same for other drops
-    entitydata @s[tag=noRareLoot] {CustomName:0}
-turnOn:
-    execute @e[type=zombie,tag=processed] ~ ~ ~ function make_zombie_show
-    // same for spiders etc
-turnOff:
-    entitydata @e[tag=processed] {Glowing:0b,CustomName:""}
-    kill @e[type=armor_stand,tag=rider]
-*)
-
-// incentivize (selective) fighting more than farming... how communicate that this individual mob has no drop, but others of his type may?  Maybe CustomName "X"?
-//idea: foresight potion, shows what rare things mobs will drop
-//  - zombie/skeleton/pigzombie wear item as head armor slot
-//  - other mobs have invisible armor stand riding them that has head-armor item
-//to implement it, would have to use commands:
-//  - select an unprocessed-tag mob, mark to-process
-//  - deceide whether it gets a rare drop at all (most don't)
-//  - if so, select a 'kind' (item sans enchants) of rare drop from its table (long list of commands, PRNG to activate one)
-//  - entitydata/replaceitem the mob to display it; entitydata its DeathLootTable to drop it (loot table could still e.g. apply random enchants)
-//  - (requires factoring loot tables differently, so 'common' loot is in a separate table, so 'rare' could still reference 'common'; alternatively, could just be 'extra' loot atop normal drops)
-// /summon minecraft:zombie ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}     // zombie does not burn in sunlight, as has "helmet"
-// /summon minecraft:armor_stand ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}
-// /summon spider ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,ArmorItems:[{},{},{},{id:apple,Count:1b}]}]}
-// /summon zombie ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,Invisible:1b,CustomName:"0",CustomNameVisible:1b}]}
-//  - would need to tag invisible 'riding' AS so I can remove them once they no longer have a RootVehicle https://www.reddit.com/r/Minecraft/comments/54pghm/attempting_to_detect_passenger_mobs/
-// UI: glowing shows which mobs have rare drop (very engaging); greater potion could also do AS with item above head, doesn't show if under tight roof... how know if potion wear off? (use Luck?)
-
-// to get rid of AS after host dies, can just tag all with hosts like
-//        pick one host                       find its rider
-// /execute @e[type=spider,c=1] ~ ~1 ~ execute @e[type=armor_stand,c=1,dy=3] ~ ~ ~ say hi
-// and then kill any without hosts
-
-// Hm, an ench book as the loot could be good if you need to 'get close' to 'read its name' before kill maybe... requires toggling CustomNameVisible via commands though, ugh, weird in SMP
-// actually, glowing guy with no item on his head can just be CustomNamed, and requires getting close to read name, e.g. "Feather Falling IV"
-
-//////////////////////////////////////
-
-
-//lava-dipped arrows (remote light/lava) "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears
-
-//weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
-
-// something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
-
-//diamond-laying chickens under attack by zombie (how get Z to attack C?) you need to save if want to farm; 
-// - or i guess chicken could be villager who produces goods with egg laying sound... 
-// - could be fun recurring set piece thruout a map, find Z chasing C, save C and get a finite-farmable reward; people like to farm, this is non-standard farming
-
-
-// one-way-home teleport mechanic? something time consuming you can't use in battle? drink potion, gives you nausea->blindness over 5s, then tp home
-
-
 //////////////////////////////////////
 
 // conway life
 
-#if MULTI_AS
-
-let conwayLife = 
-    let oneTimeInit = [|
-        "scoreboard objectives add A dummy"
-        "scoreboard objectives add R dummy"
-        "scoreboard players set @p A 0"
-        // TODO /gamerule maxCommandChainLength 999999
-        |]
-
-    let count_neighbors = "count_neighbors",[|
-        "scoreboard players set @s A 0"  // todo don't use A for both 4-state and count?
-        "execute @s ~ ~ ~ detect ~-1 4 ~-1 wool 15 scoreboard players add @s A 1"
-        "execute @s ~ ~ ~ detect ~-1 4 ~-0 wool 15 scoreboard players add @s A 1"
-        "execute @s ~ ~ ~ detect ~-1 4 ~+1 wool 15 scoreboard players add @s A 1"
-        "execute @s ~ ~ ~ detect ~-0 4 ~-1 wool 15 scoreboard players add @s A 1"
-        "execute @s ~ ~ ~ detect ~-0 4 ~+1 wool 15 scoreboard players add @s A 1"
-        "execute @s ~ ~ ~ detect ~+1 4 ~-1 wool 15 scoreboard players add @s A 1"
-        "execute @s ~ ~ ~ detect ~+1 4 ~-0 wool 15 scoreboard players add @s A 1"
-        "execute @s ~ ~ ~ detect ~+1 4 ~+1 wool 15 scoreboard players add @s A 1"
-        |]
-    let check1 = "check1",[|
-        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"   // TODO rather than summon, can "/teleport @e[type=armor_stand] ~ ~ ~" and just use one that always moves-to-here, reset scores as needed
-        "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
-        "kill @e[type=armor_stand]"
-        |]
-    // note that the 4-cycles is
-    // @p A = 0 -> run all the check1
-    // @p A = 1 -> double-buffer the check1 results, delete the check1 command blocks
-    // @p A = 2 -> run all the check2
-    // @p A = 3 -> double-buffer the check2 results, delete the check2 command blocks
-    let check1pre = "check1pre",[|
-        "scoreboard players operation @s A = @p A"
-        "scoreboard players operation @s R = @p R"
-        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
-        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ setblock ~ 1 ~ air"
-        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ function conway:check1body"
-        |]
-    let check1body = "check1body",[|
-        "function conway:count_neighbors"
-        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"
-        "execute @s ~ ~ ~ fill ~-1 3 ~-1 ~1 3 ~1 wool 0 keep"
-#if FILL_WORKS
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-#else
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
-#endif
-        "execute @s[score_A=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-        "execute @s[score_A_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-#if FILL_WORKS
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-#else
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
-#endif
-        "execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
-        |]
-    let check2 = "check2",[|
-        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
-        "execute @e[type=armor_stand] ~ ~ ~ function conway:check2pre"
-        "kill @e[type=armor_stand]"
-        |]
-    let check2pre = "check2pre",[|
-        "scoreboard players operation @s A = @p A"
-        "scoreboard players operation @s R = @p R"
-        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
-        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ setblock ~ 2 ~ air"
-        "execute @s[score_A=2,score_A_min=2,score_R_min=1] ~ ~ ~ function conway:check2body"
-        |]
-    let check2body = "check2body",[|
-        "function conway:count_neighbors"
-        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"  // could get rid of this with different superflat start that has two wool layers
-        "execute @s ~ ~ ~ fill ~-1 3 ~-1 ~1 3 ~1 wool 0 keep" // ditto
-#if FILL_WORKS
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-#else
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
-        """execute @s[score_A_min=2,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
-#endif
-        "execute @s[score_A=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-        "execute @s[score_A_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-#if FILL_WORKS
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-#else
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
-        """execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
-#endif
-        "execute @s[score_A_min=3,score_A=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
-        |]
-    let life = "life",[|
-        "scoreboard players set @p R 0"
-        """scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
-        "scoreboard players add @p[score_R_min=1] A 1"
-        "scoreboard players set @p[score_R_min=1,score_A_min=4] A 0"
-        // todo nothing guaranteed this is in sync with check1/check2 cycle, need @p A = 1 to have bats/skeletons work
-#if FILL_WORKS
-        """execute @e[type=bat] ~ ~ ~ fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-#else
-        """execute @e[type=bat] ~ ~ ~ setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @e[type=bat] ~ ~ ~ setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @e[type=bat] ~ ~ ~ setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
-        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
-#endif
-        // todo don't run so much in the 'always' loop, when this is really only 'setup' stuff - modal?
-        "execute @e[type=bat] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 15"
-        "execute @e[type=bat] ~ ~ ~ clone ~-1 4 ~-1 ~+1 4 ~+1 ~-1 3 ~-1"  // ensure whole nearby area is identically back-double-buffered, can be removed with better superflat
-        "tp @e[type=bat] ~ ~-200 ~"
-        "execute @e[type=skeleton] ~ ~ ~ fill ~ 3 ~ ~ 4 ~ wool 0"
-        "tp @e[type=skeleton] ~ ~-200 ~"
-        // todo add methusalah/glider eggs?
-        |]
-    DropInModule("life",oneTimeInit,[|
-        count_neighbors
-        check1
-        check1pre
-        check1body
-        check2
-        check2pre
-        check2body
-        life
-        |])
-
-#else
-#if SINGLE_AS
-let conwayLife = 
-    let oneTimeInit = [|
-        "scoreboard objectives add A dummy"  // 4-state iteration
-        "scoreboard objectives add N dummy"  // neightbor count
-        "scoreboard objectives add R dummy"  // is it running?
-        "scoreboard players set @p A 0"
-        // TODO /gamerule maxCommandChainLength 999999
-        "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
-        |]
-
-    let count_neighbors = "count_neighbors",[|
-        "scoreboard players set @s N 0"
-        "execute @s ~ ~ ~ detect ~-1 4 ~-1 wool 15 scoreboard players add @s N 1"
-        "execute @s ~ ~ ~ detect ~-1 4 ~-0 wool 15 scoreboard players add @s N 1"
-        "execute @s ~ ~ ~ detect ~-1 4 ~+1 wool 15 scoreboard players add @s N 1"
-        "execute @s ~ ~ ~ detect ~-0 4 ~-1 wool 15 scoreboard players add @s N 1"
-        "execute @s ~ ~ ~ detect ~-0 4 ~+1 wool 15 scoreboard players add @s N 1"
-        "execute @s ~ ~ ~ detect ~+1 4 ~-1 wool 15 scoreboard players add @s N 1"
-        "execute @s ~ ~ ~ detect ~+1 4 ~-0 wool 15 scoreboard players add @s N 1"
-        "execute @s ~ ~ ~ detect ~+1 4 ~+1 wool 15 scoreboard players add @s N 1"
-        |]
-    let check1 = "check1",[|
-        "teleport @e[type=armor_stand] ~ ~ ~"
-        "execute @e[type=armor_stand] ~ ~ ~ function conway:check1pre"
-        |]
-    // note that the 4-cycles is
-    // @p A = 0 -> run all the check1
-    // @p A = 1 -> double-buffer the check1 results, delete the check1 command blocks
-    // @p A = 2 -> run all the check2
-    // @p A = 3 -> double-buffer the check2 results, delete the check2 command blocks
-    let check1pre = "check1pre",[|
-        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
-        "execute @s[score_A=1,score_A_min=1,score_R_min=1] ~ ~ ~ setblock ~ 1 ~ air"
-        "execute @s[score_A=0,score_A_min=0,score_R_min=1] ~ ~ ~ function conway:check1body"
-        |]
-    let check1body = "check1body",[|
-        "function conway:count_neighbors"
-        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"
-#if FILL_WORKS
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-#else
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
-#endif
-        "execute @s[score_N=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-        "execute @s[score_N_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-#if FILL_WORKS
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-#else
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
-#endif
-        "execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
-        |]
-    let check2 = "check2",[|
-        "teleport @e[type=armor_stand] ~ ~ ~"
-        "execute @e[type=armor_stand] ~ ~ ~ function conway:check2pre"
-        |]
-    let check2pre = "check2pre",[|
-        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ clone ~ 3 ~ ~ 3 ~ ~ 4 ~"
-        "execute @s[score_A=3,score_A_min=3,score_R_min=1] ~ ~ ~ setblock ~ 2 ~ air"
-        "execute @s[score_A=2,score_A_min=2,score_R_min=1] ~ ~ ~ function conway:check2body"
-        |]
-    let check2body = "check2body",[|
-        "function conway:count_neighbors"
-        "clone ~ 4 ~ ~ 4 ~ ~ 3 ~"  
-#if FILL_WORKS
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-#else
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
-        """execute @s[score_N_min=2,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 15 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
-#endif
-        "execute @s[score_N=1] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-        "execute @s[score_N_min=4] ~ ~ ~ detect ~ 4 ~ wool 15 setblock ~ 3 ~ wool 0"
-#if FILL_WORKS
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 fill ~-1 1 ~-1 ~1 1 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-#else
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~-0 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~+1 1 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check1"}"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~-0"""
-        """execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 clone ~-1 1 ~-1 ~+1 1 ~-1 ~-1 1 ~+1"""
-#endif
-        "execute @s[score_N_min=3,score_N=3] ~ ~ ~ detect ~ 4 ~ wool 0 setblock ~ 3 ~ wool 15"
-        |]
-    let life = "life",[|
-        "scoreboard players set @p[type=armor_stand] R 0"
-        """scoreboard players add @p R 1 {SelectedItem:{id:"minecraft:redstone_block"}}"""
-        "scoreboard players operation @e[type=armor_stand] R = @p R"
-        "scoreboard players add @e[type=armor_stand,score_R_min=1] A 1"
-        "scoreboard players set @e[type=armor_stand,score_R_min=1,score_A_min=4] A 0"
-        // todo nothing guaranteed this is in sync with check1/check2 cycle, need @e[type=armor_stand] A = 1 to have bats/skeletons work
-#if FILL_WORKS
-        """execute @e[type=bat] ~ ~ ~ fill ~-1 2 ~-1 ~1 2 ~1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-#else
-        """execute @e[type=bat] ~ ~ ~ setblock ~-1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @e[type=bat] ~ ~ ~ setblock ~-0 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @e[type=bat] ~ ~ ~ setblock ~+1 2 ~-1 repeating_command_block 0 replace {auto:1b,Command:"function conway:check2"}"""
-        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~-0"""
-        """execute @e[type=bat] ~ ~ ~ clone ~-1 2 ~-1 ~+1 2 ~-1 ~-1 2 ~+1"""
-#endif
-        // todo don't run so much in the 'always' loop, when this is really only 'setup' stuff - modal?
-        "execute @e[type=bat] ~ ~ ~ setblock ~ 4 ~ wool 15"
-        "tp @e[type=bat] ~ ~-200 ~"
-        "execute @e[type=skeleton] ~ ~ ~ setblock ~ 4 ~ wool 0"
-        "tp @e[type=skeleton] ~ ~-200 ~"
-        // todo add methusalah/glider eggs?
-        |]
-    DropInModule("life",oneTimeInit,[|
-        count_neighbors
-        check1
-        check1pre
-        check1body
-        check2
-        check2pre
-        check2body
-        life
-        |])
-#else
 // one level cmd blocks
 let conwayLife = 
     let oneTimeInit = [|
         "scoreboard objectives add A dummy"  // 2-state iteration
         "scoreboard objectives add N dummy"  // neightbor count
         "scoreboard objectives add R dummy"  // is it running?
-        // TODO /gamerule maxCommandChainLength 999999
+        "gamerule maxCommandChainLength 999999"
         "summon armor_stand ~ 0 ~ {Invisible:1b,NoGravity:1b}"
         "scoreboard players set @p A 1"
         "scoreboard players set @e[type=armor_stand] A 1"
@@ -807,10 +450,170 @@ let conwayLife =
         life
         |])
 
-#endif
-#endif
+//////////////////////////////////////
+
+let potionOfForesight =
+    let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
+    let oneTimeInit = [|
+        // prng too
+        "scoreboard objectives add nPotionActive dummy"  // n=next
+        "scoreboard objectives add potionActive dummy"
+        "scoreboard objectives add riderHasHost dummy"
+        "scoreboard objectives add nextNum dummy"
+        sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1}" ENTITY_UUID most least  // TODO lots of UUID fragility
+        // TODO call prng_init, so only need one init call
+        // TODO abstract notion of dependency to deal with this
+        // TODO abstract notion of init also then installing gameLoopFunction
+        |]
+    let foresight_loop = "foresight_loop",[|
+        "execute @p[score_nPotionActive_min=1,score_potionActive=0] ~ ~ ~ function lorgon111:turn_on"
+        "execute @p[score_nPotionActive=0,score_potionActive_min=1] ~ ~ ~ function lorgon111:turn_off"
+        "scoreboard players operation @p potionActive = @p nPotionActive"
+        "scoreboard players remove @p nPotionActive 1"   // was init'd to numTicks, counts down here
+        
+        "function lorgon111:process_zombies"
+        // same for spiders, etc
+        
+        "execute @e[tag=rider] ~ ~ ~ function lorgon111:run_rider"
+        |]
+    let process_zombies = "process_zombies",[|
+        sprintf "scoreboard players set %s prng_Mod 100" FunctionCompiler.ENTITY_UUID 
+        "execute @e[type=zombie,tag=!processed] ~ ~ ~ function lorgon111:process_zombie"
+        |]
+    let process_zombie = "process_zombie",[|
+        "scoreboard players tag @s add processed"
+        "function lorgon111:prng" // TODO namepsace
+        sprintf "scoreboard players operation @s prng_K = %s prng_K" FunctionCompiler.ENTITY_UUID 
+        
+        // 1/20 zombie -> diamond
+        "scoreboard players tag @s[score_prng_K_min=95] add hasRareLoot"
+        "scoreboard players tag @s[score_prng_K_min=95] add hasDiamond"
+        """entitydata @s[score_prng_K_min=95] {DeathLootTable:"lorgon111:zombie_with_diamond"}"""
+        // todo same for other drops
+        // else
+        "scoreboard players tag @s[score_prng_K=94] add noRareLoot"
+        
+        "scoreboard players operation @s potionActive = @p potionActive"
+        "execute @s[score_potionActive_min=1] ~ ~ ~ function lorgon111:turn_on_mob"
+        |]
+    let run_rider = "run_rider",[|
+        // @s is a rider AS, we need to tp it to its entity, or kill if its host is gone
+        sprintf "scoreboard players set %s riderHasHost 0" FunctionCompiler.ENTITY_UUID
+        "scoreboard players tag @s add curRider"
+
+        // using r=3, since mob may have moved last tick (assumes mob not move more than 60 blocks per second)
+        "scoreboard players operation @e[r=3,tag=!rider] nextNum -= @s nextNum"
+        "execute @e[r=3,tag=!rider,score_nextNum_min=0,score_nextNum=0] ~ ~ ~ teleport @e[r=3,tag=curRider] ~ ~ ~"
+        sprintf "execute @e[r=3,tag=!rider,score_nextNum_min=0,score_nextNum=0] ~ ~ ~ scoreboard players set %s riderHasHost 1" FunctionCompiler.ENTITY_UUID 
+        "scoreboard players operation @e[r=3,tag=!rider] nextNum += @s nextNum"
+
+        "scoreboard players tag @s remove curRider"
+        sprintf "scoreboard players operation @s riderHasHost = %s riderHasHost" FunctionCompiler.ENTITY_UUID 
+        "kill @s[score_riderHasHost=0]"
+        |]
+    let turn_on = "turn_on",[|
+        """tellraw @a["foresight turned on"]"""
+        "execute @e[tag=processed] ~ ~ ~ function lorgon111:turn_on_mob"
+        |]
+    let turn_on_mob = "turn_on_mob",[|
+        "execute @s[tag=hasRareLoot] ~ ~ ~ function lorgon111:turn_on_rare_mob"
+        """entitydata @s[tag=noRareLoot] {CustomName:"0",CustomNameVisible:1b}"""
+        |]
+    let turn_on_rare_mob = "turn_on_rare_mob",[|
+        """summon armor_stand ~ ~ ~ {Small:0b,NoGravity:1b,Invisible:1b,Invulnerable:1b,Marker:1b,Tags:["rider","newAS"]}"""
+        sprintf "scoreboard players add %s nextNum 1" FunctionCompiler.ENTITY_UUID
+        sprintf "scoreboard players operation @s nextNum = %s nextNum" FunctionCompiler.ENTITY_UUID
+        sprintf "scoreboard players operation @e[r=1,tag=newAS] nextNum = %s nextNum" FunctionCompiler.ENTITY_UUID
+        "entitydata @s[tag=hasRareLoot] {Glowing:1b}"
+        "execute @s[tag=hasDiamond] ~ ~ ~ entitydata @e[r=1,type=armor_stand,tag=newAS] {ArmorItems:[{},{},{},{id:diamond,Count:1b}]}"
+        // todo same for other drops
+        "scoreboard players tag @e[r=1,tag=newAS] remove newAS"
+        |]
+    let turn_off = "turn_off",[|
+        """tellraw @a["foresight turned off"]"""
+        """entitydata @e[tag=processed] {Glowing:0b,CustomName:"",CustomNameVisible:0b}"""
+        "kill @e[type=armor_stand,tag=rider]"
+        |]
+    let summon25zombies = "summon25zombies",[|
+        for i = 1 to 5 do
+        for j = 1 to 5 do
+        yield sprintf "execute @p ~%d ~ ~%d summon zombie" (i+2) (j+2)
+        |]
+    let summon400zombies = "summon400zombies",[|
+        for i = 1 to 20 do
+        for j = 1 to 20 do
+        yield sprintf "execute @p ~%d ~ ~%d summon zombie" (i+2) (j+2)
+        |]
+    let restart = "restart",[|
+        "gamerule gameLoopFunction lorgon111:restart2"
+        |]
+    let restart2 = "restart2",[|
+        "kill @e[type=!player]"
+        "kill @e[type=!player]"
+        "gamerule gameLoopFunction lorgon111:restart3"
+        |]
+    let restart3 = "restart3",[|
+        "function lorgon111:foresight_init"
+        "function lorgon111:prng_init"
+        "gamerule gameLoopFunction lorgon111:foresight_loop"
+        |]
+    DropInModule("foresight_loop",oneTimeInit,[|
+        foresight_loop
+        process_zombies 
+        process_zombie 
+        run_rider
+        turn_on 
+        turn_on_mob
+        turn_on_rare_mob
+        turn_off 
+        summon25zombies
+        summon400zombies
+        restart
+        restart2
+        restart3
+        |])
+
+// incentivize (selective) fighting more than farming... how communicate that this individual mob has no drop, but others of his type may?  Maybe CustomName "X"?
+//idea: foresight potion, shows what rare things mobs will drop
+//  - zombie/skeleton/pigzombie wear item as head armor slot
+//  - other mobs have invisible armor stand riding them that has head-armor item
+//to implement it, would have to use commands:
+//  - select an unprocessed-tag mob, mark to-process
+//  - deceide whether it gets a rare drop at all (most don't)
+//  - if so, select a 'kind' (item sans enchants) of rare drop from its table (long list of commands, PRNG to activate one)
+//  - entitydata/replaceitem the mob to display it; entitydata its DeathLootTable to drop it (loot table could still e.g. apply random enchants)
+//  - (requires factoring loot tables differently, so 'common' loot is in a separate table, so 'rare' could still reference 'common'; alternatively, could just be 'extra' loot atop normal drops)
+// /summon minecraft:zombie ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}     // zombie does not burn in sunlight, as has "helmet"
+// /summon minecraft:armor_stand ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}
+// /summon spider ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,ArmorItems:[{},{},{},{id:apple,Count:1b}]}]}
+// /summon zombie ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,Invisible:1b,CustomName:"0",CustomNameVisible:1b}]}
+//  - would need to tag invisible 'riding' AS so I can remove them once they no longer have a RootVehicle https://www.reddit.com/r/Minecraft/comments/54pghm/attempting_to_detect_passenger_mobs/
+// UI: glowing shows which mobs have rare drop (very engaging); greater potion could also do AS with item above head, doesn't show if under tight roof... how know if potion wear off? (use Luck?)
+
+// to get rid of AS after host dies, can just tag all with hosts like
+//        pick one host                       find its rider
+// /execute @e[type=spider,c=1] ~ ~1 ~ execute @e[type=armor_stand,c=1,dy=3] ~ ~ ~ say hi
+// and then kill any without hosts
+
+// Hm, an ench book as the loot could be good if you need to 'get close' to 'read its name' before kill maybe... requires toggling CustomNameVisible via commands though, ugh, weird in SMP
+// actually, glowing guy with no item on his head can just be CustomNamed, and requires getting close to read name, e.g. "Feather Falling IV"
 
 
-        // TODO bug in pre-1: 
-        // /fill ~-1 2 ~-1 ~1 2 ~1 minecraft:repeating_command_block 0 replace {auto:1b,Command:"say hi"} 
-        // only one block got the data tag
+//////////////////////////////////////
+
+// 'wait' drop-in module, to schedule something in the future (how work?)
+
+//lava-dipped arrows (remote light/lava) "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears
+
+//weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
+
+// something where if you look up at the sky, like fireworks-words appear or something? chest says look up, you do, particles spell something? all mobs look up? ...
+
+//diamond-laying chickens under attack by zombie (how get Z to attack C?) you need to save if want to farm; 
+// - or i guess chicken could be villager who produces goods with egg laying sound... 
+// - could be fun recurring set piece thruout a map, find Z chasing C, save C and get a finite-farmable reward; people like to farm, this is non-standard farming
+
+
+// one-way-home teleport mechanic? something time consuming you can't use in battle? drink potion, gives you nausea->blindness over 5s, then tp home
+
+
