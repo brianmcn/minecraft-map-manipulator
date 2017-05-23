@@ -472,6 +472,7 @@ let potionOfForesight =
         "scoreboard players remove @p nPotionActive 1"   // was init'd to numTicks, counts down here
         
         "function lorgon111:process_zombies"
+        "function lorgon111:process_spiders"
         // same for spiders, etc
         
         "execute @e[tag=rider] ~ ~ ~ function lorgon111:run_rider"
@@ -485,13 +486,37 @@ let potionOfForesight =
         "function lorgon111:prng" // TODO namepsace
         sprintf "scoreboard players operation @s prng_K = %s prng_K" FunctionCompiler.ENTITY_UUID 
         
-        // 1/20 zombie -> diamond
-        "scoreboard players tag @s[score_prng_K_min=95] add hasRareLoot"
-        "scoreboard players tag @s[score_prng_K_min=95] add hasDiamond"
-        """entitydata @s[score_prng_K_min=95] {DeathLootTable:"lorgon111:zombie_with_diamond"}"""
-        // todo same for other drops
-        // else
+        // 95/100 zombie -> 0
         "scoreboard players tag @s[score_prng_K=94] add noRareLoot"
+        // 4/100 zombie -> apple
+        "scoreboard players tag @s[score_prng_K_min=95] add hasRareLoot"
+        "scoreboard players tag @s[score_prng_K_min=95,score_prng_K=98] add hasApple"
+        """entitydata @s[score_prng_K_min=95,score_prng_K=98] {DeathLootTable:"lorgon111:zombie_with_apple"}"""
+        // 1/100 zombie -> diamond
+        "scoreboard players tag @s[score_prng_K_min=99] add hasDiamond"
+        """entitydata @s[score_prng_K_min=99] {DeathLootTable:"lorgon111:zombie_with_diamond"}"""
+        
+        "scoreboard players operation @s potionActive = @p potionActive"
+        "execute @s[score_potionActive_min=1] ~ ~ ~ function lorgon111:turn_on_mob"
+        |]
+    let process_spiders = "process_spiders",[|
+        sprintf "scoreboard players set %s prng_Mod 100" FunctionCompiler.ENTITY_UUID 
+        "execute @e[type=spider,tag=!processed] ~ ~ ~ function lorgon111:process_spider"
+        |]
+    let process_spider = "process_spider",[|
+        "scoreboard players tag @s add processed"
+        "function lorgon111:prng" // TODO namepsace
+        sprintf "scoreboard players operation @s prng_K = %s prng_K" FunctionCompiler.ENTITY_UUID 
+        
+        // 95/100 spider -> 0
+        "scoreboard players tag @s[score_prng_K=94] add noRareLoot"
+        // 4/100 spider -> flint
+        "scoreboard players tag @s[score_prng_K_min=95] add hasRareLoot"
+        "scoreboard players tag @s[score_prng_K_min=95,score_prng_K=98] add hasFlint"
+        """entitydata @s[score_prng_K_min=95,score_prng_K=98] {DeathLootTable:"lorgon111:spider_with_flint"}"""
+        // 1/100 spider -> cake
+        "scoreboard players tag @s[score_prng_K_min=99] add hasCake"
+        """entitydata @s[score_prng_K_min=99] {DeathLootTable:"lorgon111:spider_with_cake"}"""
         
         "scoreboard players operation @s potionActive = @p potionActive"
         "execute @s[score_potionActive_min=1] ~ ~ ~ function lorgon111:turn_on_mob"
@@ -526,7 +551,9 @@ let potionOfForesight =
         sprintf "scoreboard players operation @e[r=1,tag=newAS] nextNum = %s nextNum" FunctionCompiler.ENTITY_UUID
         "entitydata @s[tag=hasRareLoot] {Glowing:1b}"
         "execute @s[tag=hasDiamond] ~ ~ ~ entitydata @e[r=1,type=armor_stand,tag=newAS] {ArmorItems:[{},{},{},{id:diamond,Count:1b}]}"
-        // todo same for other drops
+        "execute @s[tag=hasApple] ~ ~ ~ entitydata @e[r=1,type=armor_stand,tag=newAS] {ArmorItems:[{},{},{},{id:apple,Count:1b}]}"
+        "execute @s[tag=hasFlint] ~ ~ ~ entitydata @e[r=1,type=armor_stand,tag=newAS] {ArmorItems:[{},{},{},{id:flint,Count:1b}]}"
+        "execute @s[tag=hasCake] ~ ~ ~ entitydata @e[r=1,type=armor_stand,tag=newAS] {ArmorItems:[{},{},{},{id:cake,Count:1b}]}"
         "scoreboard players tag @e[r=1,tag=newAS] remove newAS"
         |]
     let turn_off = "turn_off",[|
@@ -543,6 +570,11 @@ let potionOfForesight =
         for i = 1 to 20 do
         for j = 1 to 20 do
         yield sprintf "execute @p ~%d ~ ~%d summon zombie" (i+2) (j+2)
+        |]
+    let summon100spiders = "summon100spiders",[|
+        for i = 1 to 10 do
+        for j = 1 to 10 do
+        yield sprintf "execute @p ~%d ~ ~%d summon spider" (2*i+2) (2*j+2)
         |]
     let restart = "restart",[|
         "gamerule gameLoopFunction lorgon111:restart2"
@@ -561,6 +593,8 @@ let potionOfForesight =
         foresight_loop
         process_zombies 
         process_zombie 
+        process_spiders
+        process_spider
         run_rider
         turn_on 
         turn_on_mob
@@ -568,6 +602,7 @@ let potionOfForesight =
         turn_off 
         summon25zombies
         summon400zombies
+        summon100spiders
         restart
         restart2
         restart3

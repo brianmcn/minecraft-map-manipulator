@@ -1712,7 +1712,20 @@ automatic game start configs (night vision, starting items), customizable
     let zombieWithDiamond = 
             Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:diamond", []), 1, 0, []])
                    Pool(Roll(1,1), [LootTable("minecraft:entities/zombie"), 1, 0, []])]
-    LootTables.writeLootTables(["lorgon111:zombie_with_diamond",zombieWithDiamond],worldFolder)
+    let zombieWithApple = 
+            Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:apple", []), 1, 0, []])
+                   Pool(Roll(1,1), [LootTable("minecraft:entities/zombie"), 1, 0, []])]
+    let spiderWithFlint = 
+            Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:flint", []), 1, 0, []])
+                   Pool(Roll(1,1), [LootTable("minecraft:entities/spider"), 1, 0, []])]
+    let spiderWithCake = 
+            Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:cake", []), 1, 0, []])
+                   Pool(Roll(1,1), [LootTable("minecraft:entities/spider"), 1, 0, []])]
+    LootTables.writeLootTables(["lorgon111:zombie_with_diamond",zombieWithDiamond
+                                "lorgon111:zombie_with_apple",zombieWithApple
+                                "lorgon111:spider_with_flint",spiderWithFlint 
+                                "lorgon111:spider_with_cake",spiderWithCake 
+                               ],worldFolder)
 
 
 #if YADDA
