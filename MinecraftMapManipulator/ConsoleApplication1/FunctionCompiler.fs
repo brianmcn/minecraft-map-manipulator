@@ -199,6 +199,15 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
     initialization2.Add(SB(Stop .= 0))
     initialization2.Add(SB(YieldNow .= 0))
+(*
+old pre-empt code
+    // timer setup
+    initialization.Add("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A") // TODO Cursor/A do not belong to the compiler
+    initialization.Add("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
+    initialization.Add("worldborder set 10000000")
+    initialization.Add("worldborder add 1000000 1000")
+TODO add wall-clock timer that can accumulate time across worldborder resets
+*)
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -282,6 +291,17 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
             for KeyValue(bbn,num) in bbnNumbers do 
                 yield sprintf """execute @s[score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
                                     IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name 
+(*
+old pre-empt code
+            // measure time, pre-empt
+            yield "execute @e[name=Cursor] ~ ~ ~ worldborder get"
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ scoreboard players set @p %s %d" ScoreboardNameConstants.Stop 1  // TODO note must use @p, since @s would target cursor
+            yield sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ blockdata %d %d %d {auto:1b}" x y z
+            // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
+            yield "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder set 10000000"
+            yield "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder add 1000000 1000"
+TODO add wall-clock timer that can accumulate time across worldborder resets
+*)
         |]))
     // TODO gameLoopFunction does not mix with other modules well; maybe use 'tick' and one-player guards (SMP) as a runner alternative
     // init

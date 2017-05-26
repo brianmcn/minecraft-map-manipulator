@@ -655,9 +655,9 @@ So the logic for the dispatcher that continually loops in pump5 is like
     if not timeToPreempt then
         choose next round-robin process
         if MustWaitNTicks=0 then
-            run one block
+            run one block (K blocks, for a suitable K that minimizes scheduler overhead while preserving liveness)
             while that process is in MustNotYield state
-                run one block
+                run one block (not K, to avoid skipping ahead into a different MustNotYield section)
         else
             processesThatHaveWorkLeftThisTick--
         timeToPreempt <- computeLag || processesThatHaveWorkLeftThisTick==0
@@ -665,14 +665,35 @@ And at the start of pump1 root we subtract 1 from all processes with non-zero Mu
     processesThatHaveWorkLeftThisTick <- MAX_PROC
 so everyone has a shot to do work if they need it
 
-Actually, "run one block" is "run K blocks" where K is a constant chosen to minimize scheduler overhead while preserving system liveness
+Actually, "run one block" is "run K blocks" where K is a constant chosen to minimize scheduler overhead while preserving system liveness.  
+Hmm, but also need to ensure e.g. that a system that alternates between MustNotYield blocks and CanYield blocks with K=2 doesn't get stuck in exclusion, so only run one block 
+at a time once past K, or alternatively only run one block at a time in the MustNotYield loop.
 
 Since the set of processes is known at 'compile time', we can assign each process a number, and hard-code the round-robin chooser to just be e.g. RR <- (RR+1) mod NumProcs
+Actually, since each Proc has its own Must... variables, we need e.g. a global "makeProcessVariable" function in F# to make a Var for those, and since they are different
+objectives in Minecraft, we need to hardcode/inline the round-robinness in the scheduler.  So when codegen happens, all P Processes are known, and the scheduler codegens inside
+pump5 something akin to
+    dispatcher code for proc1
+    dispatcher code for proc2
+    ...
+    dispatcher code for procP
+(and note that if all P processes are done, or if lag says time to pre-empt, dispatchers and the pump will all cancel out and yield to minecraft)
+
+In terms of representation, I think each Process should just use its int ProcVar to be MustWaitNTicks, and a value of -1 represents MustNotYield.
 
 When a process has no work left to do this tick, it MUST set MustWaitNTicks to non-zero, else it will busy wait in the scheduler.
 
-If a process has no work for the foreseeable future, it can set MustWaitNTicks to an extremely large number.  An advancement could then set it to 0 to wake it back up.
+If a process has no work for the foreseeable future, it can set MustWaitNTicks to an extremely large number.  An advancement or command block could then set it to 0 to wake it back up.
 These are the moral equivalents of STOP and START; e.g. an implicit loop wrapped through entrypoint and exits of the program.
+
+If there are programs that must run every tick and don't need the help of a pump (like ForesightPotion), then the gameLoopFunction can just be a function like
+    function ForesightPotionLoop
+    # any other of those style programs
+    function pump1    # calls all programs requiring pumps for within-tick arbitrary loops/control, or programs that span ticks
+
+Can detect and log process that is responsible for lagging server (e.g. can demo with unyielding mandelbrot, alongside foresight and snowball-teleport)
+
+Can have e.g. terrain gen put command blocks in chunks that detect idle cpu to wake up and do work a la gm4 (each chunk 1/10 change build struct, unless #ticks>K, then not)
 -----
 can I just have a chunkloader, and store all my entities in a loaded chunk out in the middle of nowhere? no more need spawn chunks
  - what chunkloader needs nothing to start? nothing
