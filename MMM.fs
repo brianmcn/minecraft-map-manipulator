@@ -1652,8 +1652,28 @@ automatic game start configs (night vision, starting items), customizable
     mf.WriteAll()
 #endif
 
+    let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
+    let p = FunctionCompiler.mandelbrotProgram
+    let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
+    let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
+    let mutable commandCount = 0
+    let allFuncs = funcs |> Seq.toArray 
+    for name,cmds in allFuncs do
+        let path = worldFolder + (sprintf """\data\functions\%s\%s.mcfunction""" FunctionCompiler.FUNCTION_NAMESPACE name)
+        let dir = System.IO.Path.GetDirectoryName(path)
+        System.IO.Directory.CreateDirectory(dir) |> ignore
+        System.IO.File.WriteAllLines(path,cmds)
+        commandCount <- commandCount + cmds.Length 
+    printfn "%d commands were written to %d functions" commandCount allFuncs.Length 
+    printfn "reminder; compiler uses 'initialization' to init-and-then-start"
+    // note, mandelbrot takes 44s in -pre5 yielding each row with no pre-emption
+    // note, mandelbrot takes 54s in -pre5 yielding each row with pre-emptive code but K=10000 for no pre-emption
+    // note, mandelbrot takes 62s in -pre5 yielding each row with pre-emptive code but K=100 for some pre-emption
+    // note, mandelbrot takes 57s in -pre5 yielding each row with pre-emptive code but K=100 for some pre-emption, fixed to use UUID instead of @e; overrun was often about 20ms
+    // as above, took  85s with K=100, pre-empt at 30ms; overruns were less frequent, but still happen and are highly variable (20-50ms)
+    // as above, took 786s with K= 10, pre-empt at 30ms; overruns were infrequent and small (typically only 3ms)
+    // dynamic adjustments took 303s, honed in around 20-30 BBs per tick, using a targetted overrun of 60ms, window size 5, only overran target a couple times per second
 
-    //let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
 
     let advancements =
@@ -1667,7 +1687,6 @@ automatic game start configs (night vision, starting items), customizable
         """scoreboard players set @s nPotionActive 600"""  // 30s, fragile interaction with foresight
         |])
 
-    //let p = FunctionCompiler.mandelbrotProgram
     let p = FunctionUtilities.raycastProgram
     let p = FunctionCompiler.inlineAllDirectTailCallsOptimization(p)
     let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
@@ -1683,6 +1702,9 @@ automatic game start configs (night vision, starting items), customizable
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
         yield! FunctionUtilities.profileThis("cwe",[],["execute @s[score_A_min=0] ~ ~ ~ function lorgon111:test"],[])
         yield! FunctionUtilities.profileThis("cwi",[],["function lorgon111:test if @p[score_A_min=0]"],[])
+        yield! FunctionUtilities.profileThis("wbg",[],["worldborder get"],[])
+        yield! FunctionUtilities.profileThis("ewbg",[],["execute 1-1-1-0-1 ~ ~ ~ worldborder get"],[])
+        yield! FunctionUtilities.profileThis("enwbg",[],["execute @e[name=1-1-1-0-1] ~ ~ ~ worldborder get"],[])
         // experiment:
         // summon 1000 zombies
         // tag one the_guy
@@ -1727,8 +1749,8 @@ automatic game start configs (night vision, starting items), customizable
                                 "lorgon111:spider_with_cake",spiderWithCake 
                                ],worldFolder)
 
-
 #if YADDA
+
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\life"""
     let lifeFuncs = [|
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.conwayLife  

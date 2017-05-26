@@ -7,6 +7,9 @@ open System.Collections.Generic
 let ENTITY_UUID = "1-1-1-0-1"
 let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
 
+let WBTIMER_UUID = "1-1-1-0-2"
+let WBTIMER_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000002"
+
 ////////////////////////
 
 type Var(name:string) =
@@ -183,6 +186,18 @@ let functionCompilerVars = new Scope()
 let IP = functionCompilerVars.RegisterVar("IP")
 let YieldNow = functionCompilerVars.RegisterVar("YieldNow")
 let Stop = functionCompilerVars.RegisterVar("Stop")
+
+let TEN_MILLION = functionCompilerVars.RegisterVar("TEN_MILLION")
+let WBThisTick = functionCompilerVars.RegisterVar("WBThisTick")   // for pre-emption, measure milliseconds past since end of last tick
+let WBAccum = functionCompilerVars.RegisterVar("WBAccum")         // for user-space time measurement, accumulate time across ticks
+let DesiredBBs = functionCompilerVars.RegisterVar("DesiredBBs")   // number of desired basic blocks to run (dynamically computed based on lag history)
+let NumBBsRun = functionCompilerVars.RegisterVar("NumBBsRun")     // number of basic blocks left to run this tick (starts at DesiredBBs and counts down)
+let WINDOW_SIZE = 5      // (should be divisible by 5) how many ticks into the past we keep track of, to see if lagging, to dynamically adjust how much we run
+let DIVISOR = functionCompilerVars.RegisterVar("DIVISOR")
+let LagVarArray = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.RegisterVar(sprintf "LagVar%d" i))
+let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagVar to update
+let Temp = functionCompilerVars.RegisterVar("Temp")
+
 // TODO decide user-api of init/start/stop everything, and whether these vars make sense
 
 let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDict), isTracing) =
@@ -199,15 +214,8 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
     initialization2.Add(SB(Stop .= 0))
     initialization2.Add(SB(YieldNow .= 0))
-(*
-old pre-empt code
-    // timer setup
-    initialization.Add("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A") // TODO Cursor/A do not belong to the compiler
-    initialization.Add("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
-    initialization.Add("worldborder set 10000000")
-    initialization.Add("worldborder add 1000000 1000")
-TODO add wall-clock timer that can accumulate time across worldborder resets
-*)
+    initialization2.Add(SB(TEN_MILLION .= 10000000))
+    initialization2.Add(SB(DIVISOR .= (WINDOW_SIZE/5)))
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -234,6 +242,7 @@ TODO add wall-clock timer that can accumulate time across worldborder resets
             let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
             if isTracing then
                 instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
+            instructions.Add(SB(NumBBsRun .-= 1))
             for c in cmds do
                 match c with 
                 | AtomicCommand _s ->
@@ -274,8 +283,58 @@ TODO add wall-clock timer that can accumulate time across worldborder resets
 
     // function runner infrastructure
     functions.Add(makeFunction("start",[|
-        sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
-        sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name FUNCTION_NAMESPACE
+        // init numbb to desired
+        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID NumBBsRun.Name ENTITY_UUID DesiredBBs.Name 
+
+        // pump a tick
+        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
+        yield sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name FUNCTION_NAMESPACE
+
+        // RECALL: 
+        // we can't measure how much minecraft is Sleep()ing due to underutilized CPU
+        // we can only try to overutilize until we see performance starting to tank, and then back off
+        // as a result, we need to try to overrun by a small bit; need to tune to find good balance
+
+        // measure 
+        yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
+        yield sprintf "scoreboard players set %s %s 0" WBTIMER_UUID Temp.Name 
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=10000060] %s 1" WBTIMER_UUID WBThisTick.Name Temp.Name
+        // WBTIMER Temp now records 1 or 0 if we are lagging or not
+        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID Temp.Name WBTIMER_UUID Temp.Name 
+
+        // update lagvar
+        for i = 0 to WINDOW_SIZE-1 do
+            yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s = @s %s" 
+                                 ENTITY_UUID    WindowSelect.Name i WindowSelect.Name i LagVarArray.[i].Name    Temp.Name  
+
+        // increment windowselect (mod WINDOW_SIZE)
+        yield sprintf "scoreboard players add %s %s 1" ENTITY_UUID WindowSelect.Name
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 0" ENTITY_UUID WindowSelect.Name WINDOW_SIZE WindowSelect.Name 
+
+        // compute delta-desired
+        // let Temp be the sum of the lagvars
+        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID Temp.Name 
+        for i = 0 to WINDOW_SIZE-1 do
+            yield sprintf "scoreboard players operation %s %s += %s %s" ENTITY_UUID Temp.Name ENTITY_UUID LagVarArray.[i].Name
+        // heuristic: subtract 1 from desired for every 20% of windows lagged; add 1 to desired if less than 20% lagged
+        // in other words, add one, then subtract Temp/(WINDOW_SIZE/5)
+        yield sprintf "scoreboard players operation %s %s /= %s %s" ENTITY_UUID Temp.Name ENTITY_UUID DIVISOR.Name
+        yield sprintf "scoreboard players add %s %s 1" ENTITY_UUID DesiredBBs.Name 
+        yield sprintf "scoreboard players operation %s %s -= %s %s" ENTITY_UUID DesiredBBs.Name ENTITY_UUID Temp.Name
+        // never let desired go less than 1
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID DesiredBBs.Name DesiredBBs.Name 
+
+        // accumulate time
+        yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
+        yield sprintf "scoreboard players operation %s %s += %s %s" WBTIMER_UUID WBAccum.Name WBTIMER_UUID WBThisTick.Name  
+        yield sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name
+        // debugging
+        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=10000060] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
+                               WBTIMER_UUID              WBThisTick.Name                                                  WBTIMER_UUID 
+
+        // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
+        yield "worldborder set 10000000"
+        yield "worldborder add 1000000 1000"
         |]))
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
@@ -285,23 +344,12 @@ TODO add wall-clock timer that can accumulate time across worldborder resets
                 for _x = 1 to MAX_PUMP_WIDTH do 
                     yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" YieldNow.Name FUNCTION_NAMESPACE (i+1)
             |]))
-    // TODO just reset gameLoopFunction as my chooser?!?
     // chooser
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
             for KeyValue(bbn,num) in bbnNumbers do 
-                yield sprintf """execute @s[score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                    IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name 
-(*
-old pre-empt code
-            // measure time, pre-empt
-            yield "execute @e[name=Cursor] ~ ~ ~ worldborder get"
-            yield sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ scoreboard players set @p %s %d" ScoreboardNameConstants.Stop 1  // TODO note must use @p, since @s would target cursor
-            yield sprintf "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ blockdata %d %d %d {auto:1b}" x y z
-            // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
-            yield "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder set 10000000"
-            yield "execute @e[name=Cursor,score_A_min=10000050] ~ ~ ~ worldborder add 1000000 1000"
-TODO add wall-clock timer that can accumulate time across worldborder resets
-*)
+                yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name  
+                yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                    YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name 
         |]))
     // TODO gameLoopFunction does not mix with other modules well; maybe use 'tick' and one-player guards (SMP) as a runner alternative
     // init
@@ -310,6 +358,7 @@ TODO add wall-clock timer that can accumulate time across worldborder resets
         functions.AddRange(funcs)
     initialization2.AddRange(programInit)
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
+    let wbleast,wbmost = Utilities.toLeastMost(new System.Guid(WBTIMER_UUID_AS_FULL_GUID))
     functions.Add(makeFunction("initialization",[|
             yield "kill @e[type=armor_stand]" // TODO too broad
             for c in initialization do
@@ -321,13 +370,25 @@ TODO add wall-clock timer that can accumulate time across worldborder resets
             // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
             sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1}" ENTITY_UUID most least
             // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
+            sprintf "summon armor_stand -4 4 -4 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1}" WBTIMER_UUID wbmost wbleast
             """tellraw @a ["tick1 called"]"""
         |]))
     functions.Add(makeFunction("inittick2",[|
-            "gamerule gameLoopFunction -"
-            """tellraw @a ["tick2 called"]"""
+            yield """tellraw @a ["tick2 called"]"""
             // Note: seems you cannot refer to UUID in same tick you just summoned it
-            sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID FUNCTION_NAMESPACE
+            yield sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID FUNCTION_NAMESPACE
+            
+            for i = 0 to WINDOW_SIZE-1 do
+                yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID LagVarArray.[i].Name
+            yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID WindowSelect.Name
+            yield sprintf "scoreboard players set %s %s 1" ENTITY_UUID DesiredBBs.Name
+
+            yield sprintf "stats entity %s set QueryResult %s %s" WBTIMER_UUID WBTIMER_UUID WBThisTick.Name 
+            yield sprintf "scoreboard players set %s %s 10000000" WBTIMER_UUID WBThisTick.Name  // need initial value before can trigger a stat
+            yield "worldborder set 10000000"
+            yield "worldborder add 1000000 1000"
+            
+            yield sprintf "gamerule gameLoopFunction %s:start" FUNCTION_NAMESPACE
         |]))
     functions.Add(makeFunction("initialization2",[|
             // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
@@ -403,8 +464,9 @@ let mandelbrotProgram =
         |],cpsIStart, dict [
         cpsIStart,BasicBlock([|
             // time measurement
-            yield AtomicCommand "worldborder set 10000000"
-            yield AtomicCommand "worldborder add 1000000 1000000"
+//            yield AtomicCommand "worldborder set 10000000"
+//            yield AtomicCommand "worldborder add 1000000 1000000"
+            yield AtomicCommand(sprintf "scoreboard players set %s %s 0" WBTIMER_UUID WBAccum.Name) // TODO abstract this 
             // actual code
             yield SB(i .= 0)
             yield AtomicCommand "tp @e[name=Cursor] 0 14 0"
@@ -474,12 +536,20 @@ let mandelbrotProgram =
         cpsIFinish,BasicBlock([|
             AtomicCommand """tellraw @a ["done!"]"""
             // time measurement
+(*
             AtomicCommand("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A")
             AtomicCommand("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ worldborder get"
             AtomicCommand "scoreboard players set Time A -10000000"
             AtomicCommand "scoreboard players operation Time A += @e[name=Cursor] A"
             AtomicCommand """tellraw @a ["took ",{"score":{"name":"Time","objective":"A"}}," seconds"]"""
+*)
+            // TODO abstract this
+            AtomicCommand(sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID)
+            // TODO actually want Accum + ThisTick, but not modify Accum here; only compiler should modify Accum
+            AtomicCommand(sprintf "scoreboard players operation %s %s += %s %s" WBTIMER_UUID WBAccum.Name WBTIMER_UUID WBThisTick.Name)
+            AtomicCommand(sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name)
+            AtomicCommand(sprintf """tellraw @a ["took ",{"score":{"name":"@e[name=%s]","objective":"%s"}}," milliseconds"]""" WBTIMER_UUID WBAccum.Name)
             |],Halt)
         ])
 
