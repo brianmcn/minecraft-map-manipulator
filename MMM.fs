@@ -1673,6 +1673,10 @@ automatic game start configs (night vision, starting items), customizable
     // as above, took  85s with K=100, pre-empt at 30ms; overruns were less frequent, but still happen and are highly variable (20-50ms)
     // as above, took 786s with K= 10, pre-empt at 30ms; overruns were infrequent and small (typically only 3ms)
     // dynamic adjustments took 303s, honed in around 20-30 BBs per tick, using a targetted overrun of 60ms, window size 5, only overran target a couple times per second
+    // dynamic adjustments, when manually set to 150BBs, took 128s, stayed around 140 BBs per tick, using a targetted overrun of 60ms, window size 5, only overran target a couple times per second, but did cause server lag notes of a couple seconds every 20s or so...
+    //   result above suggests my up/down throttling are insufficient
+    // slightly adjusting throttle to make it possible to increase past noise, I complete MB in 74s, with server losing 7s along way, occasionally overruns of up to 120 (60ms over target)
+    // yeah, even better throttle completes in 71s, server only lost 5s in can't-keep-up, occasionally overruns of up to 120 (60ms over target), but few, most overruns tiny (<5ms over target)
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
 

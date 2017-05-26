@@ -197,6 +197,7 @@ let DIVISOR = functionCompilerVars.RegisterVar("DIVISOR")
 let LagVarArray = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.RegisterVar(sprintf "LagVar%d" i))
 let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagVar to update
 let Temp = functionCompilerVars.RegisterVar("Temp")
+let ThrottleArray = Array.init 6 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
 
 // TODO decide user-api of init/start/stop everything, and whether these vars make sense
 
@@ -216,6 +217,12 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
     initialization2.Add(SB(YieldNow .= 0))
     initialization2.Add(SB(TEN_MILLION .= 10000000))
     initialization2.Add(SB(DIVISOR .= (WINDOW_SIZE/5)))
+    initialization2.Add(SB(ThrottleArray.[0] .= 3))
+    initialization2.Add(SB(ThrottleArray.[1] .= 0))
+    initialization2.Add(SB(ThrottleArray.[2] .= -1))
+    initialization2.Add(SB(ThrottleArray.[3] .= -3))
+    initialization2.Add(SB(ThrottleArray.[4] .= -6))
+    initialization2.Add(SB(ThrottleArray.[5] .= -12))
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
@@ -316,13 +323,17 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID Temp.Name 
         for i = 0 to WINDOW_SIZE-1 do
             yield sprintf "scoreboard players operation %s %s += %s %s" ENTITY_UUID Temp.Name ENTITY_UUID LagVarArray.[i].Name
-        // heuristic: subtract 1 from desired for every 20% of windows lagged; add 1 to desired if less than 20% lagged
-        // in other words, add one, then subtract Temp/(WINDOW_SIZE/5)
+        // need find right heuristic to throttle... tried various ThrottleArray values initialized at top of compiler
+        // no lag     20%     40%     60%     80%    100% lag
+        //    +1       +0      -1      -2      -3      -4     // works very poorly; tiny usual bits of noise slow system to a crawl
+        //    +2       +1       0      -1      -2      -3     // works ok-ish, doesn't back off well
+        //    +3       +0      -1      -3      -6     -12     // seems plausible with limited testing, might still need to increase backoff at 40% and higher?
         yield sprintf "scoreboard players operation %s %s /= %s %s" ENTITY_UUID Temp.Name ENTITY_UUID DIVISOR.Name
-        yield sprintf "scoreboard players add %s %s 1" ENTITY_UUID DesiredBBs.Name 
-        yield sprintf "scoreboard players operation %s %s -= %s %s" ENTITY_UUID DesiredBBs.Name ENTITY_UUID Temp.Name
+        for i = 0 to 5 do
+            yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s += %s %s" ENTITY_UUID Temp.Name i Temp.Name i DesiredBBs.Name ENTITY_UUID ThrottleArray.[i].Name
         // never let desired go less than 1
         yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID DesiredBBs.Name DesiredBBs.Name 
+        // TODO if no work, DesiredBBs keeps climbing and climbing, and then once work arrived, lags for a while and takes a long time to throttle down, need a more severe throttle when Temp registers 5/5 lags
 
         // accumulate time
         yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
