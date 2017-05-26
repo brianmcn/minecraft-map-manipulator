@@ -608,37 +608,97 @@ let potionOfForesight =
         restart3
         |])
 
-// incentivize (selective) fighting more than farming... how communicate that this individual mob has no drop, but others of his type may?  Maybe CustomName "X"?
-//idea: foresight potion, shows what rare things mobs will drop
-//  - zombie/skeleton/pigzombie wear item as head armor slot
-//  - other mobs have invisible armor stand riding them that has head-armor item
-//to implement it, would have to use commands:
-//  - select an unprocessed-tag mob, mark to-process
-//  - deceide whether it gets a rare drop at all (most don't)
-//  - if so, select a 'kind' (item sans enchants) of rare drop from its table (long list of commands, PRNG to activate one)
-//  - entitydata/replaceitem the mob to display it; entitydata its DeathLootTable to drop it (loot table could still e.g. apply random enchants)
-//  - (requires factoring loot tables differently, so 'common' loot is in a separate table, so 'rare' could still reference 'common'; alternatively, could just be 'extra' loot atop normal drops)
-// /summon minecraft:zombie ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}     // zombie does not burn in sunlight, as has "helmet"
-// /summon minecraft:armor_stand ~ ~ ~ {ArmorItems:[{},{},{},{id:apple,Count:1b}]}
-// /summon spider ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,ArmorItems:[{},{},{},{id:apple,Count:1b}]}]}
-// /summon zombie ~ ~ ~ {Passengers:[{id:armor_stand,Small:1b,Invisible:1b,CustomName:"0",CustomNameVisible:1b}]}
-//  - would need to tag invisible 'riding' AS so I can remove them once they no longer have a RootVehicle https://www.reddit.com/r/Minecraft/comments/54pghm/attempting_to_detect_passenger_mobs/
-// UI: glowing shows which mobs have rare drop (very engaging); greater potion could also do AS with item above head, doesn't show if under tight roof... how know if potion wear off? (use Luck?)
-
-// to get rid of AS after host dies, can just tag all with hosts like
-//        pick one host                       find its rider
-// /execute @e[type=spider,c=1] ~ ~1 ~ execute @e[type=armor_stand,c=1,dy=3] ~ ~ ~ say hi
-// and then kill any without hosts
-
 // Hm, an ench book as the loot could be good if you need to 'get close' to 'read its name' before kill maybe... requires toggling CustomNameVisible via commands though, ugh, weird in SMP
 // actually, glowing guy with no item on his head can just be CustomNamed, and requires getting close to read name, e.g. "Feather Falling IV"
 
+//////////////////////////////////////
+
+// 'wait' drop-in module, to schedule something in the future (how work? queuing order? idempotency? ...)
+
+(*
+best idea: to schedule function F to run nTicks in future, summon armor_stand tagged 'F' and 'countdown' with score N
+general runner SB removes 1 all [tag=countdown] guys
+if score=0, then calls dispatch on those guys to read tags and call functions (1 place in system that known universe of functions; only run when time to callback)
+-----
+implement something simple first, atop those, e.g. a short music piece
+-----
+insta-enderpearl can become 'tractor beam' or 'grappling hook', put 10 AS along bresenham long axis at tenths, and every 2 ticks, TP the player to next AS
+this would use delay alongside (within) CPS machine
+-----
+Then need to generalize CPS machine to multiple programs to dispatch (e.g. run mandelbrot and tractor beam at once); pump5 or whatever dispatches all live programs
+Things like Yield and Stop now have to be per program (AS entity each program tracks), and Yielding would only occur when all AS are ready
+And generalize Yield to WaitNTicksBeforeContinue or whatnot
+ - Wait5 could be realized as a series of 5 basic blocks that do nothing and Yield (after I fix the bug where direct-tailcalls inline thru Yield), or
+ - Wait5 could be realized as a loop that inits a var to 5, subtracts 1 each loop, and if >0 stays in loop or if =0 exits loop, and yields each iteration, yeah, can do that in 'user code' now
+-----
+Preemptive multitasking with lag-detection would do a fairness thing where every program runs one step/chunk before checking wall-clock, or whatnot
+However there may be some programs that can't be pre-empted, so we might need to specify programs, or parts of programs, as cooperative only
+What is right architecture/factoring for yield/wait/cooperate/preempt?
+What is ideal programming model? This can wait, can focus on low-level.
+
+Interleaving of multiple programs can create a shared-data problem.  Failure to interleave can create starvation or lack of fairness.  
+
+There is no good way to 'lock' a portion of the world data; a mutex would cover the entire world.  That's probably untenable, unless we can guarantee that running
+all the programs serially will still fit into a tick, in which case we can just serially run them and not worry about fairness since no one gets pre-empted.
+
+I think the most practical thing is to is
+ - each block of a program should have { MustNotYield: bool, MustWaitNTicks: int } Note that MWNT only makes sense to be non-zero if MNY is false
+ - MustNotYield might refer to 'must run in this tick' or 'must not be interleaved'
+ - the former can cause starvation anyway, so when such a process exists, run it EXCLUSIVELY until it's no longer in MustNotYield state
+ - MustWaitNTicks is easy, each process has a variable that's counting down each time we start the pump, and if it's non-zero, we skip the process this tick
+ - CanYield is where we have scheduling flexibility to deal with fairness
+   - we need to measure system lag and have a policy of when to pre-empt
+   - we need a scheduling policy of which process to run next; round-robin ensures progress, but may not be 'fair' if one process uses lots of CPU 
+   - probably best to do RR, and maybe also somehow let the processes 'inquire' about recent CPU utilization so they can choose to yield or do work
+
+So the logic for the dispatcher that continually loops in pump5 is like
+    if not timeToPreempt then
+        choose next round-robin process
+        if MustWaitNTicks=0 then
+            run one block
+            while that process is in MustNotYield state
+                run one block
+        else
+            processesThatHaveWorkLeftThisTick--
+        timeToPreempt <- computeLag || processesThatHaveWorkLeftThisTick==0
+And at the start of pump1 root we subtract 1 from all processes with non-zero MustWaitNTicks values, and also do
+    processesThatHaveWorkLeftThisTick <- MAX_PROC
+so everyone has a shot to do work if they need it
+
+Actually, "run one block" is "run K blocks" where K is a constant chosen to minimize scheduler overhead while preserving system liveness
+
+Since the set of processes is known at 'compile time', we can assign each process a number, and hard-code the round-robin chooser to just be e.g. RR <- (RR+1) mod NumProcs
+
+When a process has no work left to do this tick, it MUST set MustWaitNTicks to non-zero, else it will busy wait in the scheduler.
+
+If a process has no work for the foreseeable future, it can set MustWaitNTicks to an extremely large number.  An advancement could then set it to 0 to wake it back up.
+These are the moral equivalents of STOP and START; e.g. an implicit loop wrapped through entrypoint and exits of the program.
+-----
+can I just have a chunkloader, and store all my entities in a loaded chunk out in the middle of nowhere? no more need spawn chunks
+ - what chunkloader needs nothing to start? nothing
+ - in worst case, can i summon AS at @p and spreadplayers it? (no, what if player in wrong dimension)
+ - so i guess must have player in overworld to start a thingy? (also spreadplayers chunkloader fails if over void, hm)
+ - ah, but execute-detect might work? seems to not any more... https://www.reddit.com/r/MinecraftCommands/comments/3r07sw/19_chunk_load_generator/
+ - i guess can tp the player out there briefly? but then no way to tp him back (even if leave AS, it might unload)
+ - ah, can just tp an entity out there, seems to load it.  so
+    - summon entity at overworld player (or fail with error message)
+    - tp entity far off
+    - ... then, keep tping it there? have to try see what works to keep selection of the entity (@e[...]) alive, don't need other processing of chunk apart from selection
+       - seems just constant tp not enough, nor constant spreadplayers... maybe need 5x5 chunks around to entity process? (ugh)
+       - and then once working, actually do it at 0,0 so likely to be at spawn in practice and not loading extra useless chunks (though adds risk of not noticing chunk loader breaking)
+(also, lookup all @e entities there using [x,y,z,dx,dy,dz] to ensure only that chunk searched)
+*)
 
 //////////////////////////////////////
 
-// 'wait' drop-in module, to schedule something in the future (how work?)
+// survey advancements for ideas of fun things (biomes?)
 
-//lava-dipped arrows (remote light/lava) "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears
+// snowball teleporter could turn into a grappling-hook that takes time to move over distance
+
+
+//lava-dipped arrows (remote light/lava) "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears, or lava laser
+
+// what would a UI for accessories/upgrades/trinkets/carrying-capacity/buy/sell look like? what are interesting non-armor/weapon upgrades? (arcane strike, various 'rush' buffs after kill/streak, ...)
 
 //weapon with very long cooldown but very strong (e.g. one hit at start of battle?)
 
