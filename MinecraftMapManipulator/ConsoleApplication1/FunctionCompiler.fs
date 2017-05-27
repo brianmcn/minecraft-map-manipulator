@@ -125,24 +125,32 @@ type AbstractCommand =
     | AtomicCommandThunkFragment of (unit -> string) // e.g. fun () -> sprintf "something something %s" (v.AsCommandFragment())  // needs to be eval'd after whole program is visited
     | SB of ScoreboardOperationCommand
     | CALL of FunctionCommand 
-    | Yield // express desire to yield CPU back to minecraft to run a tick after this block (cooperative multitasking)
     member this.AsCommand() =
         match this with
         | AtomicCommand s -> s
         | AtomicCommandThunkFragment f -> f()
         | SB soc -> soc.AsCommand()
         | CALL f -> f.AsCommand()
-        | Yield -> failwith "should not get here Yield"
+type WaitPolicy =
+    | MustNotYield  // next block must run after this one without interleaving or tick
+    | NoPreference
+    | MustWaitNTicks of int  // next block should not be run until N ticks in the future (N must be greater than 0)
 type BasicBlock = 
-    | BasicBlock of AbstractCommand[] * FinalAbstractCommand
+    | BasicBlock of AbstractCommand[] * FinalAbstractCommand * WaitPolicy
 type Program = 
     | Program of DropInModule[] * (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
 
 ////////////////////////
 
-// TODO this optimization would merge a BB that ends in a Yield & DirectTailCall into the next BB, which is incorrect semantics if the code needs MC to wait a tick
-// Yield should not be an AbstractCommand, rather it should be a property of a basic block, I think maybe
-let inlineAllDirectTailCallsOptimization(p) =
+// TODO this code needs more correctness testing
+let inlineDirectTailCallsOptimization(p) =
+    let merge(incomingWP, outgoingWP) =
+        match incomingWP, outgoingWP with
+        | MustNotYield, MustNotYield -> Some MustNotYield 
+        | NoPreference, NoPreference -> Some NoPreference 
+        | NoPreference, MustWaitNTicks n -> Some(MustWaitNTicks n)
+        | _ -> None
+    let canMerge(i,o) = merge(i,o) |> Option.isSome 
     match p with
     | Program(dependencyModules,init,entrypoint,origBlockDict) ->
         let finalBlockDict = new Dictionary<_,_>()
@@ -150,25 +158,31 @@ let inlineAllDirectTailCallsOptimization(p) =
         referencedBBNs.Add(entrypoint) |> ignore
         for KeyValue(bbn,block) in origBlockDict do
             match block with
-            | BasicBlock(cmds,DirectTailCall(nextBBN)) ->
+            | BasicBlock(cmds,(DirectTailCall(nextBBN) as incomingFac),incomingWP) ->
+                let mutable curWP = incomingWP
+                let mutable curFac = incomingFac 
                 let finalCmds = ResizeArray(cmds)
                 let mutable finished,nextBBN = false,nextBBN
                 while not finished do
                     let nextBB = origBlockDict.[nextBBN]
                     match nextBB with
-                    | BasicBlock(nextCmds,DirectTailCall(nextNextBBN)) ->
+                    | BasicBlock(nextCmds,(DirectTailCall(nextNextBBN) as nextFac),nextWP) when canMerge(curWP,nextWP) ->
+                        curFac <- nextFac
+                        curWP <- merge(curWP,nextWP).Value
                         finalCmds.AddRange(nextCmds)
                         nextBBN <- nextNextBBN 
-                    | BasicBlock(nextCmds,fac) ->
-                        finalCmds.AddRange(nextCmds)
-                        finalBlockDict.Add(bbn,BasicBlock(finalCmds.ToArray(),fac))
+                    | BasicBlock(_nextCmds,_fac,_) ->
+                        finalBlockDict.Add(bbn,BasicBlock(finalCmds.ToArray(),curFac,curWP))
                         finished <- true
-            | BasicBlock(_,fac) ->
+                        referencedBBNs.UnionWith[nextBBN]
+            | BasicBlock(_,fac,_) ->
                 finalBlockDict.Add(bbn,block)
                 match fac with
                 | ConditionalTailCall(_conds,ifbbn,elsebbn) ->
                     referencedBBNs.UnionWith[elsebbn]
                     referencedBBNs.UnionWith[ifbbn]
+                | DirectTailCall(bbn) ->
+                    referencedBBNs.UnionWith[bbn]
                 | _ -> ()
         let allBBNs = new HashSet<_>(origBlockDict.Keys)
         allBBNs.ExceptWith(referencedBBNs)
@@ -184,7 +198,7 @@ let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 
 let functionCompilerVars = new Scope()
 let IP = functionCompilerVars.RegisterVar("IP")
-let YieldNow = functionCompilerVars.RegisterVar("YieldNow")
+let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // currently belongs to only process, eventually each proc must have its own, and when all proc's agree, then this master flips
 let Stop = functionCompilerVars.RegisterVar("Stop")
 
 let TEN_MILLION = functionCompilerVars.RegisterVar("TEN_MILLION")
@@ -198,6 +212,7 @@ let LagVarArray = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.Register
 let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagVar to update
 let Temp = functionCompilerVars.RegisterVar("Temp")
 let ThrottleArray = Array.init 6 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
+let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork")     // was there even any work scheduled this tick? (if not, don't go increasing DesiredBB just b/c we see extra CPU)
 
 let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDict), isTracing) =
     let initialization = ResizeArray()
@@ -236,7 +251,7 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
 
     let visited = new HashSet<_>()
     let functions = ResizeArray()
-    // runner infrastructure advancements at bottom of code further below
+    // runner infrastructure functions at bottom of code further below
     let q = new Queue<_>()
     q.Enqueue(entrypoint)
     while q.Count <> 0 do
@@ -244,7 +259,7 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
         let currentBBN = q.Dequeue()
         if not(visited.Contains(currentBBN)) then
             visited.Add(currentBBN) |> ignore
-            let (BasicBlock(cmds,finish)) = blockDict.[currentBBN]
+            let (BasicBlock(cmds,finish,waitPolicy)) = blockDict.[currentBBN]
             if isTracing then
                 instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
             instructions.Add(SB(NumBBsRun .-= 1))
@@ -258,8 +273,12 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
                     instructions.Add(c)
                 | CALL(_f) ->
                     instructions.Add(c)
-                | Yield ->
-                    instructions.Add(SB(YieldNow .= 1))
+            match waitPolicy with
+            | MustWaitNTicks n ->
+                if not(n>0) then
+                    failwithf "bad MustWaitNTicks for %s" currentBBN.Name
+                instructions.Add(SB(YieldNow .= n))
+            | _ -> ()
             match finish with
             | DirectTailCall(nextBBN) ->
                 if not(blockDict.ContainsKey(nextBBN)) then
@@ -292,7 +311,10 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID NumBBsRun.Name ENTITY_UUID DesiredBBs.Name 
 
         // pump a tick
-        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
+        yield sprintf "execute %s ~ ~ ~ scoreboard players remove @s[score_%s_min=1] %s 1" ENTITY_UUID YieldNow.Name YieldNow.Name
+        //yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name     // after we go per-proc, this may be the way again
+        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID ThereWasWork.Name 
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID YieldNow.Name ThereWasWork.Name
         yield sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name FUNCTION_NAMESPACE
 
         // TODO this also fires after a Stop, but plan to remove Stop shortly
@@ -320,6 +342,22 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
         yield sprintf "scoreboard players add %s %s 1" ENTITY_UUID WindowSelect.Name
         yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 0" ENTITY_UUID WindowSelect.Name WINDOW_SIZE WindowSelect.Name 
 
+        // if there was work scheduled this tick, update DesiredBB 
+        yield sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ function %s:update_desiredbb" ENTITY_UUID ThereWasWork.Name FUNCTION_NAMESPACE
+
+        // accumulate time
+        yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
+        yield sprintf "scoreboard players operation %s %s += %s %s" WBTIMER_UUID WBAccum.Name WBTIMER_UUID WBThisTick.Name  
+        yield sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name
+        // debugging
+        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=10000060] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
+                               WBTIMER_UUID              WBThisTick.Name                                                  WBTIMER_UUID 
+
+        // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
+        yield "worldborder set 10000000"
+        yield "worldborder add 1000000 1000"
+        |]))
+    functions.Add(makeFunction("update_desiredbb",[|  // TODO could optimize slightly now that @s is ENTITY
         // compute delta-desired
         // let Temp be the sum of the lagvars
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID Temp.Name 
@@ -335,19 +373,6 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
             yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s += %s %s" ENTITY_UUID Temp.Name i Temp.Name i DesiredBBs.Name ENTITY_UUID ThrottleArray.[i].Name
         // never let desired go less than 1
         yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID DesiredBBs.Name DesiredBBs.Name 
-        // TODO if no work, DesiredBBs keeps climbing and climbing, and then once work arrived, lags for a while and takes a long time to throttle down, need a more severe throttle when Temp registers 5/5 lags
-
-        // accumulate time
-        yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
-        yield sprintf "scoreboard players operation %s %s += %s %s" WBTIMER_UUID WBAccum.Name WBTIMER_UUID WBThisTick.Name  
-        yield sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name
-        // debugging
-        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=10000060] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
-                               WBTIMER_UUID              WBThisTick.Name                                                  WBTIMER_UUID 
-
-        // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
-        yield "worldborder set 10000000"
-        yield "worldborder add 1000000 1000"
         |]))
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
@@ -359,6 +384,7 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
             |]))
     // chooser
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
+// TODO MustNotYield not yet implemented
             for KeyValue(bbn,num) in bbnNumbers do 
                 yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name  
                 yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
@@ -449,6 +475,7 @@ let ysq = mandelbrotVars.RegisterVar("ysq")
 let r1 = mandelbrotVars.RegisterVar("r1")
 let xtemp = mandelbrotVars.RegisterVar("xtemp")
 
+let mbGeneral = MustNotYield
 let mandelbrotProgram = 
     Program([||],[|
             yield AtomicCommand "kill @e[type=armor_stand,tag=mandel]"
@@ -487,11 +514,11 @@ let mandelbrotProgram =
             yield AtomicCommand "tp @e[name=Cursor] 0 14 0"
             yield AtomicCommand "fill 0 14 0 127 14 127 air"
             yield AtomicCommand "fill 0 13 0 127 13 127 wool 0"
-            |],DirectTailCall(cpsJStart))
+            |],DirectTailCall(cpsJStart),mbGeneral)
         cpsJStart,BasicBlock([|
             SB(j .= 0)
             AtomicCommand "tp @e[name=Cursor] ~ ~ 0"
-            |],DirectTailCall(cpsInnerStart))
+            |],DirectTailCall(cpsInnerStart),mbGeneral)
         cpsInnerStart,BasicBlock([|
             SB(x0 .= i)
             SB(x0 .*= XSCALE)
@@ -502,7 +529,7 @@ let mandelbrotProgram =
             SB(x .= 0)
             SB(y .= 0)
             SB(n .= 0)
-            |],DirectTailCall(whileTest))
+            |],DirectTailCall(whileTest),mbGeneral)
         whileTest,BasicBlock([|
             SB(xsq .= x)
             SB(xsq .*= x)
@@ -511,7 +538,7 @@ let mandelbrotProgram =
             SB(r1 .= xsq)
             SB(r1 .+= ysq)
             SB(r1 .-= FOURISSQ)
-            |],ConditionalTailCall(Conditional[| r1 .<= -1; n .<= 15 |], cpsInnerInner, cpsInnerFinish))
+            |],ConditionalTailCall(Conditional[| r1 .<= -1; n .<= 15 |], cpsInnerInner, cpsInnerFinish),mbGeneral)
         cpsInnerInner,BasicBlock([|
             SB(xtemp .= xsq)
             SB(xtemp .-= ysq)
@@ -523,7 +550,7 @@ let mandelbrotProgram =
             SB(y .+= y0)
             SB(x .= xtemp)
             SB(n .+= 1)
-            |],DirectTailCall(whileTest))
+            |],DirectTailCall(whileTest),mbGeneral)
         cpsInnerFinish,BasicBlock([|
 #if DIRECT16COLORTEST
             yield AtomicCommandThunkFragment(fun () -> sprintf "scoreboard players operation @e[name=Cursor] %s = %s" n.Name (n.AsCommandFragment()))
@@ -537,17 +564,15 @@ let mandelbrotProgram =
 #endif
             yield SB(j .+= 1)
             yield AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~ ~ ~1"
-            //yield Yield  // inner loop yield
             yield SB(r1 .= j)
             yield SB(r1 .-= MAXH)
-            |],ConditionalTailCall(Conditional[| r1 .<= -1 |], cpsInnerStart, cpsJFinish))
+            |],ConditionalTailCall(Conditional[| r1 .<= -1 |], cpsInnerStart, cpsJFinish),mbGeneral)  // inner loop yield
         cpsJFinish,BasicBlock([|
             SB(i .+= 1)
             AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~1 ~ ~"
-            Yield
             SB(r1 .= i)
             SB(r1 .-= MAXW)
-            |],ConditionalTailCall(Conditional[| r1 .<= -1 |], cpsJStart, cpsIFinish))
+            |],ConditionalTailCall(Conditional[| r1 .<= -1 |], cpsJStart, cpsIFinish), MustWaitNTicks 1)
         cpsIFinish,BasicBlock([|
             AtomicCommand """tellraw @a ["done!"]"""
             // time measurement
@@ -565,7 +590,7 @@ let mandelbrotProgram =
             AtomicCommand(sprintf "scoreboard players operation %s %s += %s %s" WBTIMER_UUID WBAccum.Name WBTIMER_UUID WBThisTick.Name)
             AtomicCommand(sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name)
             AtomicCommand(sprintf """tellraw @a ["took ",{"score":{"name":"@e[name=%s]","objective":"%s"}}," milliseconds"]""" WBTIMER_UUID WBAccum.Name)
-            |],Halt)
+            |],Halt,mbGeneral)
         ])
 
 

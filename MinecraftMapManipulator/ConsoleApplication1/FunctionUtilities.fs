@@ -259,9 +259,9 @@ let raycastProgram =
             AtomicCommand("execute @e[type=shulker] ~ ~ ~ teleport @e[name=RAY] ~ ~ ~")
             AtomicCommand("tp @e[type=shulker] ~ ~-300 ~") // kill shulker
 *)
-            |],DirectTailCall(whiletest))
+            |],DirectTailCall(whiletest),MustNotYield)
         whiletest,BasicBlock([|
-            |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda))
+            |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda),MustNotYield)
         loopbody,BasicBlock([|
             // remember where we are, so can back up
             AtomicCommand "execute @e[type=armor_stand,name=RAY] ~ ~ ~ summon armor_stand ~ ~ ~  {CustomName:tempAS,NoGravity:1,Invisible:1,Invulnerable:1}"
@@ -298,14 +298,12 @@ let raycastProgram =
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
             // kill tempAS
             AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
-            |],DirectTailCall(whiletest))
+            |],DirectTailCall(whiletest),MustNotYield)
         coda,BasicBlock([|
             AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" -yOffset)
             AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
             AtomicCommand("kill @e[type=snowball]")
-            Yield
-            |],ConditionalTailCall(Conditional[|TEMP .>= 0|], init, init))  // TODO stupid way to get past fact that my inliner incorrectly inlines DirectCalls through Yields
-            //|],Halt)
+            |],DirectTailCall(init),MustWaitNTicks 1)
         ])
 
 //////////////////////////////////////
@@ -694,6 +692,8 @@ If there are programs that must run every tick and don't need the help of a pump
     function pump1    # calls all programs requiring pumps for within-tick arbitrary loops/control, or programs that span ticks
 
 Can detect and log process that is responsible for lagging server (e.g. can demo with unyielding mandelbrot, alongside foresight and snowball-teleport)
+
+It might be a good policy to ensure every process gets at least one time slice each tick, if desired, hmm
 
 Can have e.g. terrain gen put command blocks in chunks that detect idle cpu to wake up and do work a la gm4 (each chunk 1/10 change build struct, unless #ticks>K, then not)
 -----
