@@ -199,8 +199,6 @@ let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a num
 let Temp = functionCompilerVars.RegisterVar("Temp")
 let ThrottleArray = Array.init 6 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
 
-// TODO decide user-api of init/start/stop everything, and whether these vars make sense
-
 let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDict), isTracing) =
     let initialization = ResizeArray()
     let initialization2 = ResizeArray()  // runs a tick after initialization
@@ -297,6 +295,10 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
         yield sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name FUNCTION_NAMESPACE
 
+        // TODO this also fires after a Stop, but plan to remove Stop shortly
+        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ tellraw @a ["the pump ran out but the processes never yielded; fix process bugs or recompile with a larger pump. stopping gameLoop"]""" ENTITY_UUID YieldNow.Name 
+        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ gamerule gameLoopFunction -""" ENTITY_UUID YieldNow.Name 
+
         // RECALL: 
         // we can't measure how much minecraft is Sleep()ing due to underutilized CPU
         // we can only try to overutilize until we see performance starting to tank, and then back off
@@ -371,7 +373,7 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
     let wbleast,wbmost = Utilities.toLeastMost(new System.Guid(WBTIMER_UUID_AS_FULL_GUID))
     functions.Add(makeFunction("initialization",[|
-            yield "kill @e[type=armor_stand]" // TODO too broad
+            yield "kill @e[type=armor_stand,tag=compiler]" // TODO possibly use x,y,z to limit chunk
             for c in initialization do
                 yield c.AsCommand()
             yield sprintf "gamerule gameLoopFunction %s:inittick1" FUNCTION_NAMESPACE
@@ -379,9 +381,9 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
     functions.Add(makeFunction("inittick1",[|
             sprintf "gamerule gameLoopFunction %s:inittick2" FUNCTION_NAMESPACE
             // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
-            sprintf "summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1}" ENTITY_UUID most least
+            sprintf """summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1,Tags:["compiler"]}""" ENTITY_UUID most least
             // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
-            sprintf "summon armor_stand -4 4 -4 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1}" WBTIMER_UUID wbmost wbleast
+            sprintf """summon armor_stand -4 4 -4 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1,Tags:["compiler"]}""" WBTIMER_UUID wbmost wbleast
             """tellraw @a ["tick1 called"]"""
         |]))
     functions.Add(makeFunction("inittick2",[|
@@ -449,20 +451,22 @@ let xtemp = mandelbrotVars.RegisterVar("xtemp")
 
 let mandelbrotProgram = 
     Program([||],[|
+            yield AtomicCommand "kill @e[type=armor_stand,tag=mandel]"
             for v in mandelbrotVars.All() do
                 yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
             // color stuff
-            yield AtomicCommand "scoreboard objectives add AS dummy"  // armor stands
 #if DIRECT16COLORTEST
 #else
+            yield AtomicCommand "scoreboard objectives add AS dummy"  // armor stands
             for i = 0 to 15 do
                 let y,z = 4,-2
                 yield AtomicCommand(sprintf "setblock %d %d %d wool %d" i y z i)
                 yield AtomicCommand(sprintf "summon armor_stand %d %d %d" i y z)
+                TODO ensure kill AS at end
                 yield AtomicCommand(sprintf "scoreboard players set @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] AS %d" i y z i)
                 yield AtomicCommand(sprintf "scoreboard players tag @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] add color" i y z)
 #endif
-            yield AtomicCommand "summon armor_stand 0 4 0 {CustomName:Cursor,NoGravity:1}"
+            yield AtomicCommand """summon armor_stand 0 4 0 {CustomName:Cursor,NoGravity:1,Tags:["mandel"]}"""
             // constants
             yield SB(FOURISSQ .= 64000000)
             yield SB(INTSCALE .= 4000)

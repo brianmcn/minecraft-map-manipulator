@@ -149,6 +149,7 @@ let yOffset = 5   // attempt to put all the armor stands not-in-my-face so that 
 // uses https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 let raycastProgram = 
     Program([|findTheta;findPhi|],[|
+        yield AtomicCommand("kill @e[type=armor_stand,name=RAY]")
         // dependencies
         for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta] do
             yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
@@ -159,6 +160,7 @@ let raycastProgram =
         yield SB(R .= 128)
         yield SB(ONE_THOUSAND .= 1000)
         // prep code
+        // TODO would be more effiicent to UUID RAY
         yield AtomicCommand "summon armor_stand 0 4 0 {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}"
         yield AtomicCommand "scoreboard players tag @p add look"
         |],init,dict[
@@ -250,8 +252,8 @@ let raycastProgram =
             SB(AZ .= TMAJOR)
             SB(AZ .-= DZ)
             // put armor stand at right starting point
-            AtomicCommand("tp @e[name=RAY] @p") // now RAY has my facing
-            AtomicCommand(sprintf "tp @e[name=RAY] ~ ~%d ~" (1+yOffset)) // eyeball level (+offset)
+            AtomicCommand("tp @e[type=armor_stand,name=RAY] @p") // now RAY has my facing
+            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" (1+yOffset)) // eyeball level (+offset)
 (* TODO snap-to-grid
             AtomicCommand("execute @p ~ ~ ~ summon shulker ~ ~1 ~ {NoAI:1}") // snap to grid
             AtomicCommand("execute @e[type=shulker] ~ ~ ~ teleport @e[name=RAY] ~ ~ ~")
@@ -262,7 +264,7 @@ let raycastProgram =
             |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda))
         loopbody,BasicBlock([|
             // remember where we are, so can back up
-            AtomicCommand "execute @e[name=RAY] ~ ~ ~ summon armor_stand ~ ~ ~  {CustomName:tempAS,NoGravity:1,Invisible:1,Invulnerable:1}"
+            AtomicCommand "execute @e[type=armor_stand,name=RAY] ~ ~ ~ summon armor_stand ~ ~ ~  {CustomName:tempAS,NoGravity:1,Invisible:1,Invulnerable:1}"
             //if AX > 0 then
             //    if FLIPX then
             //        tp RAY ~-1 ~ ~
@@ -270,18 +272,18 @@ let raycastProgram =
             //        tp RAY ~1 ~ ~
             //    AX = AX - TMAJOR
             // AX = AX + 2DX
-            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s_min=1] ~ ~ ~ tp @e[name=RAY] ~-1 ~ ~" AX.Name FLIPX.Name)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s=0] ~ ~ ~ tp @e[name=RAY] ~1 ~ ~" AX.Name FLIPX.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s_min=1] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~-1 ~ ~" AX.Name FLIPX.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~1 ~ ~" AX.Name FLIPX.Name)
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ %s" AX.Name (SB(AX .-= TMAJOR).AsCommand()))
             SB(AX .+= TDX)
             // ditto for y
-            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s_min=1] ~ ~ ~ tp @e[name=RAY] ~ ~-1 ~" AY.Name FLIPY.Name)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s=0] ~ ~ ~ tp @e[name=RAY] ~ ~1 ~" AY.Name FLIPY.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s_min=1] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~-1 ~" AY.Name FLIPY.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~1 ~" AY.Name FLIPY.Name)
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ %s" AY.Name (SB(AY .-= TMAJOR).AsCommand()))
             SB(AY .+= TDY)
             // ditto for z
-            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s_min=1] ~ ~ ~ tp @e[name=RAY] ~ ~ ~-1" AZ.Name FLIPZ.Name)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s=0] ~ ~ ~ tp @e[name=RAY] ~ ~ ~1" AZ.Name FLIPZ.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s_min=1] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~ ~-1" AZ.Name FLIPZ.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~ ~1" AZ.Name FLIPZ.Name)
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ %s" AZ.Name (SB(AZ .-= TMAJOR).AsCommand()))
             SB(AZ .+= TDZ)
             // MAJOR = MAJOR - 1
@@ -290,16 +292,16 @@ let raycastProgram =
             SB(TEMP .= 1)
             // TODO line below not work, because uses @s for TEMP, which is wrong under /execute... need a way to abstract this idiom
             //AtomicCommand(sprintf "execute @e[name=RAY] ~ ~ ~ detect ~ ~ ~ air 0 %s" (SB(TEMP .= 0).AsCommand()))
-            AtomicCommand(sprintf "execute @e[name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 execute @e[name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 scoreboard players set %s %s 0" (0-yOffset) (-1-yOffset) ENTITY_UUID TEMP.Name)
+            AtomicCommand(sprintf "execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 scoreboard players set %s %s 0" (0-yOffset) (-1-yOffset) ENTITY_UUID TEMP.Name)
             // line above has two E-Ds to check current block and block below, since player is 2-tall and we are at eyeball level
             SB(ScoreboardPlayersConditionalSet(Conditional[|TEMP .>= 1|],MAJOR,0))
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[name=tempAS] ~ ~ ~ teleport @e[name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
             // kill tempAS
-            AtomicCommand("kill @e[name=tempAS]")
+            AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
             |],DirectTailCall(whiletest))
         coda,BasicBlock([|
-            AtomicCommand(sprintf "tp @e[name=RAY] ~ ~%d ~" -yOffset)
-            AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[name=RAY]")
+            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" -yOffset)
+            AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
             AtomicCommand("kill @e[type=snowball]")
             Yield
             |],ConditionalTailCall(Conditional[|TEMP .>= 0|], init, init))  // TODO stupid way to get past fact that my inliner incorrectly inlines DirectCalls through Yields
