@@ -198,7 +198,7 @@ let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 
 let functionCompilerVars = new Scope()
 let IP = functionCompilerVars.RegisterVar("IP")
-let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // currently belongs to only process, eventually each proc must have its own, and when all proc's agree, then this master flips
+let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNotYield; currently belongs to only process, eventually each proc must have its own, and when all proc's agree, then this master flips
 let Stop = functionCompilerVars.RegisterVar("Stop")
 
 let TEN_MILLION = functionCompilerVars.RegisterVar("TEN_MILLION")
@@ -278,6 +278,8 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
                 if not(n>0) then
                     failwithf "bad MustWaitNTicks for %s" currentBBN.Name
                 instructions.Add(SB(YieldNow .= n))
+            | MustNotYield ->
+                instructions.Add(SB(YieldNow .= -1))
             | _ -> ()
             match finish with
             | DirectTailCall(nextBBN) ->
@@ -384,11 +386,21 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
             |]))
     // chooser
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
-// TODO MustNotYield not yet implemented
+            sprintf "execute @s[score_%s=-1] ~ ~ ~ function %s:dispatch_mny" YieldNow.Name FUNCTION_NAMESPACE
+            sprintf "execute @s[score_%s_min=0] ~ ~ ~ function %s:dispatch_normal" YieldNow.Name FUNCTION_NAMESPACE
+        |]))
+    functions.Add(makeFunction("dispatch_mny",[|
             for KeyValue(bbn,num) in bbnNumbers do 
-                yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name  
                 yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                    YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name 
+                                    YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
+            // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
+        |]))
+    functions.Add(makeFunction("dispatch_normal",[|
+            for KeyValue(bbn,num) in bbnNumbers do 
+                yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name     // decide if time to pre-empt (done enough work already)
+                yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                    YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
+            // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
         |]))
     // TODO gameLoopFunction does not mix with other modules well; maybe use 'tick' and one-player guards (SMP) as a runner alternative
     // init
@@ -475,7 +487,8 @@ let ysq = mandelbrotVars.RegisterVar("ysq")
 let r1 = mandelbrotVars.RegisterVar("r1")
 let xtemp = mandelbrotVars.RegisterVar("xtemp")
 
-let mbGeneral = MustNotYield
+let mbGeneral = NoPreference
+//let mbGeneral = MustNotYield
 let mandelbrotProgram = 
     Program([||],[|
             yield AtomicCommand "kill @e[type=armor_stand,tag=mandel]"

@@ -661,6 +661,19 @@ So the logic for the dispatcher that continually loops in pump5 is like
         else
             processesThatHaveWorkLeftThisTick--
         timeToPreempt <- computeLag || processesThatHaveWorkLeftThisTick==0
+CPS unrolled, that becomes
+    if MustNotYield then
+        run one more block of current process
+        update MustNotYield state
+    else
+        timeToPreempt <- computeLag || processesThatHaveWorkLeftThisTick==0
+        if not timeToPreempt then
+            choose next round-robin process
+            if MustWaitNTicks=0 then
+                run one block (K blocks, for a suitable K that minimizes scheduler overhead while preserving liveness)
+                update MustNotYield state
+            else
+                processesThatHaveWorkLeftThisTick--
 And at the start of pump1 root we subtract 1 from all processes with non-zero MustWaitNTicks values, and also do
     processesThatHaveWorkLeftThisTick <- MAX_PROC
 so everyone has a shot to do work if they need it
