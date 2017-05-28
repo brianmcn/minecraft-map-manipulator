@@ -138,7 +138,8 @@ type WaitPolicy =
 type BasicBlock = 
     | BasicBlock of AbstractCommand[] * FinalAbstractCommand * WaitPolicy
 type Program = 
-    | Program of DropInModule[] * (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
+    // TODO Scope used only for variable-uniqueness-checking by compiler, consider also having compiler be responsibile for creating objectives for each var in the scope?
+    | Program of Scope * DropInModule[] * (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
 
 ////////////////////////
 
@@ -152,7 +153,7 @@ let inlineDirectTailCallsOptimization(p) =
         | _ -> None
     let canMerge(i,o) = merge(i,o) |> Option.isSome 
     match p with
-    | Program(dependencyModules,init,entrypoint,origBlockDict) ->
+    | Program(scope,dependencyModules,init,entrypoint,origBlockDict) ->
         let finalBlockDict = new Dictionary<_,_>()
         let referencedBBNs = new HashSet<_>()
         referencedBBNs.Add(entrypoint) |> ignore
@@ -189,7 +190,7 @@ let inlineDirectTailCallsOptimization(p) =
         for unusedBBN in allBBNs do
             printfn "removing unused state '%s' after optimization" unusedBBN.Name 
             finalBlockDict.Remove(unusedBBN) |> ignore
-        Program(dependencyModules,init,entrypoint,finalBlockDict)
+        Program(scope,dependencyModules,init,entrypoint,finalBlockDict)
 
 ////////////////////////
 
@@ -197,9 +198,7 @@ let FUNCTION_NAMESPACE = "lorgon111" // functions folder name
 let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 
 let functionCompilerVars = new Scope()
-let IP = functionCompilerVars.RegisterVar("IP")
-let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNotYield; currently belongs to only process, eventually each proc must have its own, and when all proc's agree, then this master flips
-let Stop = functionCompilerVars.RegisterVar("Stop")
+let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNotYield, 0 is running, 1 means done with processing this tick
 
 let TEN_MILLION = functionCompilerVars.RegisterVar("TEN_MILLION")
 let WBThisTick = functionCompilerVars.RegisterVar("WBThisTick")   // for pre-emption, measure milliseconds past since end of last tick
@@ -211,16 +210,32 @@ let DIVISOR = functionCompilerVars.RegisterVar("DIVISOR")
 let LagVarArray = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.RegisterVar(sprintf "LagVar%d" i))
 let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagVar to update
 let Temp = functionCompilerVars.RegisterVar("Temp")
+let ChooserYield = functionCompilerVars.RegisterVar("ChooserYield")
 let ThrottleArray = Array.init 6 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
 let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork")     // was there even any work scheduled this tick? (if not, don't go increasing DesiredBB just b/c we see extra CPU)
 let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")     // the current program number (0..N-1) we are round-robining through
+let NumLiveProc = functionCompilerVars.RegisterVar("NumLiveProc")   // how many procs have work left this tick
 
 let compileToFunctions(programs, isTracing) =
+    let ProcIP = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "IP%d" i))
+    let ProcYieldNow = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "ProcYieldNow%d" i))  // -1 MustNotYield, 0 Running (or NoPreference), 1-or-more is MustWaitNTicks
     let allDependencyModules = ResizeArray()
     let allProgramInit = ResizeArray()
-    for Program(dependencyModules,programInit,_entrypoint,_blockDict) in programs do
+
+    // name-collision detection
+    // TODO detect drop-in-module function names, and compiler-specific function names, in addition to BB names
+    let allVariableNames = new System.Collections.Generic.HashSet<_>()
+    let allBBNames = new System.Collections.Generic.HashSet<_>()
+    for Program(scope,dependencyModules,programInit,_entrypoint,blockDict) in programs do
         allDependencyModules.AddRange(dependencyModules)
         allProgramInit.AddRange(programInit)
+        for v in scope.All() do
+            if not(allVariableNames.Add(v.Name)) then
+                failwithf "two programs both use a variable named '%s'" v.Name
+        for KeyValue(bbn,_) in blockDict do
+            if not(allBBNames.Add(bbn.Name)) then
+                failwithf "two programs both use a basic block named '%s'" bbn.Name
+
     let initialization = ResizeArray()
     let initialization2 = ResizeArray()  // runs a tick after initialization
     let functions = ResizeArray()
@@ -232,7 +247,6 @@ let compileToFunctions(programs, isTracing) =
 *)
     for v in functionCompilerVars.All() do
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
-    initialization2.Add(SB(Stop .= 0))
     initialization2.Add(SB(YieldNow .= 0))
     initialization2.Add(SB(TEN_MILLION .= 10000000))
     initialization2.Add(SB(DIVISOR .= (WINDOW_SIZE/5)))
@@ -242,109 +256,136 @@ let compileToFunctions(programs, isTracing) =
     initialization2.Add(SB(ThrottleArray.[3] .= -3))
     initialization2.Add(SB(ThrottleArray.[4] .= -6))
     initialization2.Add(SB(ThrottleArray.[5] .= -12))
-    initialization2.Add(SB(CurrentRR .= 1))
-    let mutable programNumber = -1
-    for Program(_dependencyModules,_programInit,entrypoint,blockDict) in programs do
-        programNumber <- programNumber + 1
-        let mutable foundEntryPointInDictionary = false
-        let mutable nextBBNNumber = 1
-        let bbnNumbers = new Dictionary<_,_>()
-        for KeyValue(bbn,_) in blockDict do
-            if bbn.Name.Length > 15 then
-                failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
-            bbnNumbers.Add(bbn, nextBBNNumber)
-            nextBBNNumber <- nextBBNNumber + 1
-            if bbn = entrypoint then
-                initialization2.Add(SB(IP .= bbnNumbers.[bbn]))
-                foundEntryPointInDictionary <- true
-        if not(foundEntryPointInDictionary) then
-            failwith "did not find entrypoint in basic block dictionary"
+    initialization2.Add(SB(CurrentRR .= 0))
+    for i = 0 to (programs |> Seq.length)-1 do
+        initialization2.Add(SB(ProcYieldNow.[i] .= 0))    // TODO some programs may want to start in a halted (99999999) state, and have command/advancement wake them later
+    do // scope programNumber to this block
+        let mutable programNumber = -1
+        for Program(_scope,_dependencyModules,_programInit,entrypoint,blockDict) in programs do
+            programNumber <- programNumber + 1
+            let mutable foundEntryPointInDictionary = false
+            let mutable nextBBNNumber = 1
+            let bbnNumbers = new Dictionary<_,_>()
+            for KeyValue(bbn,_) in blockDict do
+                if bbn.Name.Length > 15 then
+                    failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
+                bbnNumbers.Add(bbn, nextBBNNumber)
+                nextBBNNumber <- nextBBNNumber + 1
+                if bbn = entrypoint then
+                    initialization2.Add(SB(ProcIP.[programNumber] .= bbnNumbers.[bbn]))
+                    foundEntryPointInDictionary <- true
+            if not(foundEntryPointInDictionary) then
+                failwith "did not find entrypoint in basic block dictionary"
 
-        let visited = new HashSet<_>()
-        // runner infrastructure functions at bottom of code further below
-        let q = new Queue<_>()
-        q.Enqueue(entrypoint)
-        while q.Count <> 0 do
-            let instructions = ResizeArray()
-            let currentBBN = q.Dequeue()
-            if not(visited.Contains(currentBBN)) then
-                visited.Add(currentBBN) |> ignore
-                let (BasicBlock(cmds,finish,waitPolicy)) = blockDict.[currentBBN]
-                if isTracing then
-                    instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
-                instructions.Add(SB(NumBBsRun .-= 1))
-                for c in cmds do
-                    match c with 
-                    | AtomicCommand _s ->
-                        instructions.Add(c)
-                    | AtomicCommandThunkFragment _f ->
-                        instructions.Add(c)
-                    | SB(_soc) ->
-                        instructions.Add(c)
-                    | CALL(_f) ->
-                        instructions.Add(c)
-                match waitPolicy with
-                | MustWaitNTicks n ->
-                    if not(n>0) then
-                        failwithf "bad MustWaitNTicks for %s" currentBBN.Name
-                    instructions.Add(SB(YieldNow .= n))
-                | MustNotYield ->
-                    instructions.Add(SB(YieldNow .= -1))
-                | _ -> ()
-                match finish with
-                | DirectTailCall(nextBBN) ->
-                    if not(blockDict.ContainsKey(nextBBN)) then
-                        failwithf "bad DirectTailCall goto %s" nextBBN.Name
-                    q.Enqueue(nextBBN) |> ignore
-                    instructions.Add(SB(IP .= bbnNumbers.[nextBBN]))
-                | ConditionalTailCall(conds,ifbbn,elsebbn) ->
-                    if not(blockDict.ContainsKey(elsebbn)) then
-                        failwithf "bad ConditionalDirectTailCalls elsebbn %s" elsebbn.Name
-                    q.Enqueue(elsebbn) |> ignore
-                    // first set catchall
-                    instructions.Add(SB(IP .= bbnNumbers.[elsebbn]))
-                    // then do test, and if match overwrite
-                    if not(blockDict.ContainsKey(ifbbn)) then
-                        failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
-                    q.Enqueue(ifbbn) |> ignore
-                    instructions.Add(SB(IP.[conds] .= bbnNumbers.[ifbbn]))
-                | Halt ->
-                    instructions.Add(SB(YieldNow .= 1))   // to get out of the pump
-                    instructions.Add(SB(Stop .= 1))    // to not run next tick
-                functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
-        let allBBNs = new HashSet<_>(blockDict.Keys)
-        allBBNs.ExceptWith(visited)
-        if allBBNs.Count <> 0 then
-            failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
-        // dispatchers for this program
-        functions.Add(makeFunction(sprintf"dispatch_mny%d"programNumber,[|
-                for KeyValue(bbn,num) in bbnNumbers do 
-                    yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                        YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
-                // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
-            |]))
-        functions.Add(makeFunction(sprintf"dispatch_normal%d"programNumber,[|
-                for KeyValue(bbn,num) in bbnNumbers do 
-                    yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name     // decide if time to pre-empt (done enough work already)
-                    yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                        YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
-                // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
-            |]))
-    // end foreach program
+            let visited = new HashSet<_>()
+            // runner infrastructure functions at bottom of code further below
+            let q = new Queue<_>()
+            q.Enqueue(entrypoint)
+            while q.Count <> 0 do
+                let instructions = ResizeArray()
+                let currentBBN = q.Dequeue()
+                if not(visited.Contains(currentBBN)) then
+                    visited.Add(currentBBN) |> ignore
+                    let (BasicBlock(cmds,finish,waitPolicy)) = blockDict.[currentBBN]
+                    if isTracing then
+                        instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
+                    instructions.Add(SB(NumBBsRun .-= 1))
+                    for c in cmds do
+                        match c with 
+                        | AtomicCommand _s ->
+                            instructions.Add(c)
+                        | AtomicCommandThunkFragment _f ->
+                            instructions.Add(c)
+                        | SB(_soc) ->
+                            instructions.Add(c)
+                        | CALL(_f) ->
+                            instructions.Add(c)
+                    match finish,waitPolicy with
+                    | Halt,_ -> ()  // if Halt, then don't do any of this, waitPolicy is meaningless
+                    | _,MustWaitNTicks n ->
+                        if not(n>0) then
+                            failwithf "bad MustWaitNTicks for %s" currentBBN.Name
+                        instructions.Add(SB(ProcYieldNow.[programNumber] .= n))
+                        instructions.Add(SB(NumLiveProc .-= 1))
+                    | _,MustNotYield ->
+                        instructions.Add(SB(ProcYieldNow.[programNumber] .= -1))
+                        instructions.Add(SB(YieldNow .= -1))
+                    | _,NoPreference ->
+                        instructions.Add(SB(ProcYieldNow.[programNumber] .= 0))
+                    match finish with
+                    | DirectTailCall(nextBBN) ->
+                        if not(blockDict.ContainsKey(nextBBN)) then
+                            failwithf "bad DirectTailCall goto %s" nextBBN.Name
+                        q.Enqueue(nextBBN) |> ignore
+                        instructions.Add(SB(ProcIP.[programNumber] .= bbnNumbers.[nextBBN]))
+                    | ConditionalTailCall(conds,ifbbn,elsebbn) ->
+                        if not(blockDict.ContainsKey(elsebbn)) then
+                            failwithf "bad ConditionalDirectTailCalls elsebbn %s" elsebbn.Name
+                        q.Enqueue(elsebbn) |> ignore
+                        // first set catchall
+                        instructions.Add(SB(ProcIP.[programNumber] .= bbnNumbers.[elsebbn]))
+                        // then do test, and if match overwrite
+                        if not(blockDict.ContainsKey(ifbbn)) then
+                            failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
+                        q.Enqueue(ifbbn) |> ignore
+                        instructions.Add(SB(ProcIP.[programNumber].[conds] .= bbnNumbers.[ifbbn]))
+                    | Halt ->
+                        instructions.Add(SB(ProcYieldNow.[programNumber] .= 999999999))   // to get out of the pump, and sleep 'for good' (over 500 days)
+                        instructions.Add(SB(NumLiveProc .-= 1))
+                    functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
+            let allBBNs = new HashSet<_>(blockDict.Keys)
+            allBBNs.ExceptWith(visited)
+            if allBBNs.Count <> 0 then
+                failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+            // dispatchers for this program
+            functions.Add(makeFunction(sprintf"dispatch_mny%d"programNumber,[|
+                    // run one (or more, if subsequent block has higher BBN# than orig) block of this process
+                    for KeyValue(bbn,num) in bbnNumbers do 
+                        yield sprintf """execute @s[score_%s=-1,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                            ProcYieldNow.[programNumber].Name ProcIP.[programNumber].Name num ProcIP.[programNumber].Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
+                    // if we are no longer MNY, notify the pump of that change by setting YieldNow to 0
+                    yield sprintf "scoreboard players set @s[score_%s_min=0] %s 0" ProcYieldNow.[programNumber].Name YieldNow.Name 
+                |]))
+            functions.Add(makeFunction(sprintf"dispatch_normal%d"programNumber,[|
+                    yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name  // decide if time to pre-empt (done enough work already) - note this affects pump, not the proc
+                    // if not yielding, run _exactly_ one block of this process
+                    yield sprintf "scoreboard players operation @s %s = @s %s" Temp.Name ProcIP.[programNumber].Name // store next IP in Temp
+                    for KeyValue(bbn,num) in bbnNumbers do 
+                        // run only the block whose BBN# corresponds to Temp; this will update ProcIP, but not allow a subsequent BBN# to match the new value, since Temp does not change
+                        // this ensures exactly one is run (well, actually _at most_ one, since may run zero if we yielded)
+                        yield sprintf """execute @s[score_%s=0,score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                            YieldNow.Name ProcYieldNow.[programNumber].Name Temp.Name num Temp.Name num FUNCTION_NAMESPACE bbn.Name  // find next BB to run
+                |]))
+        // end foreach program
 
     // function runner infrastructure
     functions.Add(makeFunction("start",[|
+        // make compiler live
+        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
+        // make long-sleeping procs get one tick closer to waking up
+        for i = 0 to (programs |> Seq.length)-1 do
+            yield sprintf "execute %s ~ ~ ~ scoreboard players remove @s[score_%s_min=1] %s 1" ENTITY_UUID ProcYieldNow.[i].Name ProcYieldNow.[i].Name
+
         // init numbb to desired
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID NumBBsRun.Name ENTITY_UUID DesiredBBs.Name 
+        // init NumLiveProc
+        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID NumLiveProc.Name
+        for i = 0 to (programs |> Seq.length)-1 do
+            yield sprintf "execute %s ~ ~ ~ scoreboard players add @s[score_%s=0] %s 1" ENTITY_UUID ProcYieldNow.[i].Name NumLiveProc.Name
+        // init ThereWasWork
+        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID ThereWasWork.Name 
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=1] %s 1" ENTITY_UUID NumLiveProc.Name ThereWasWork.Name // any live proc means there is work
+
+        // if no work, immediately yield
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID ThereWasWork.Name YieldNow.Name
+
+        // debugging
+        //yield sprintf """execute %s ~ ~ ~ tellraw @a ["num live procs: ",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID ENTITY_UUID NumLiveProc.Name 
 
         // pump a tick
-        yield sprintf "execute %s ~ ~ ~ scoreboard players remove @s[score_%s_min=1] %s 1" ENTITY_UUID YieldNow.Name YieldNow.Name
-        //yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name     // after we go per-proc, this may be the way again
-        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID ThereWasWork.Name 
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID YieldNow.Name ThereWasWork.Name
-        yield sprintf "execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ function %s:pump1" ENTITY_UUID Stop.Name FUNCTION_NAMESPACE
+        yield sprintf "execute %s ~ ~ ~ function %s:pump1" ENTITY_UUID FUNCTION_NAMESPACE
 
-        // TODO this also fires after a Stop, but plan to remove Stop shortly
+        // catch an error condition
         yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ tellraw @a ["the pump ran out but the processes never yielded; fix process bugs or recompile with a larger pump. stopping gameLoop"]""" ENTITY_UUID YieldNow.Name 
         yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ gamerule gameLoopFunction -""" ENTITY_UUID YieldNow.Name 
 
@@ -411,9 +452,19 @@ let compileToFunctions(programs, isTracing) =
             |]))
     // chooser
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
+            yield sprintf "scoreboard players operation @s %s = @s %s" ChooserYield.Name YieldNow.Name 
             for i = 0 to (programs |> Seq.length)-1 do
-                yield sprintf "execute @s[score_%s=-1,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_mny%d" YieldNow.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
-                yield sprintf "execute @s[score_%s_min=0,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_normal%d" YieldNow.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
+                // dispatch either MNY or normal for currentRR, bot not both! (hence ChooserYield temp variable, ensures exclusion)
+                yield sprintf "execute @s[score_%s=-1,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_mny%d" ChooserYield.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
+                yield sprintf "execute @s[score_%s=0,score_%s_min=0,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_normal%d" ChooserYield.Name ChooserYield.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
+            // if NumLiveProc goes to 0, then everyone yielded, so have the pump yield
+            yield sprintf "scoreboard players set @s[score_%s=0] %s 1" NumLiveProc.Name YieldNow.Name 
+            // NOTE: if NumBBsRun reaches the limit and we pre-empt, that is the other condition for causing the pump to yield, but it happens in the dispatch_normal code
+
+            // TODO guarantee each proc gets at least one slice each tick?
+
+            // TODO can we optimize this inner loop? inspect the .mcfunction code for ideas
+
             // if not MustNotYield, then increment RoundRobin
             yield sprintf "scoreboard players add @s[score_%s_min=0] %s 1" YieldNow.Name CurrentRR.Name 
             yield sprintf "scoreboard players set @s[score_%s_min=%d] %s 0" CurrentRR.Name (programs |> Seq.length) CurrentRR.Name 
@@ -505,7 +556,7 @@ let xtemp = mandelbrotVars.RegisterVar("xtemp")
 let mbGeneral = NoPreference
 //let mbGeneral = MustNotYield
 let mandelbrotProgram = 
-    Program([||],[|
+    Program(mandelbrotVars,[||],[|
             yield AtomicCommand "kill @e[type=armor_stand,tag=mandel]"
             for v in mandelbrotVars.All() do
                 yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)

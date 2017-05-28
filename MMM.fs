@@ -1655,6 +1655,9 @@ automatic game start configs (night vision, starting items), customizable
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
     let p = FunctionCompiler.mandelbrotProgram
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
+    let r = FunctionUtilities.raycastProgram
+    let r = FunctionCompiler.inlineDirectTailCallsOptimization(r)
+    //let _init, funcs = FunctionCompiler.compileToFunctions([p;r],(*isTracing*)false)
     let _init, funcs = FunctionCompiler.compileToFunctions([p],(*isTracing*)false)
     let mutable commandCount = 0
     let allFuncs = funcs |> Seq.toArray 
@@ -1677,6 +1680,7 @@ automatic game start configs (night vision, starting items), customizable
     //   result above suggests my up/down throttling are insufficient
     // slightly adjusting throttle to make it possible to increase past noise, I complete MB in 74s, with server losing 7s along way, occasionally overruns of up to 120 (60ms over target)
     // yeah, even better throttle completes in 71s, server only lost 5s in can't-keep-up, occasionally overruns of up to 120 (60ms over target), but few, most overruns tiny (<5ms over target)
+    // mandel alone in working multi-proc scheduler takes about 105s (server lost about 17s)
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
 

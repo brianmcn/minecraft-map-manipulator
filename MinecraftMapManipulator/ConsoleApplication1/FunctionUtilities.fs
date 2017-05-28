@@ -118,7 +118,7 @@ let profileThis(suffix,pre,cmds,post) =
 open FunctionCompiler
 
 let init      = BBN"init"
-let whiletest = BBN"whiletest"
+let rwhiletest = BBN"rwhiletest"
 let loopbody  = BBN"loopbody"
 let coda      = BBN"coda"
 
@@ -148,7 +148,7 @@ let yOffset = 5   // attempt to put all the armor stands not-in-my-face so that 
 // TODO only activate when holding snowball
 // uses https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 let raycastProgram = 
-    Program([|findTheta;findPhi|],[|
+    Program(raycastVars,[|findTheta;findPhi|],[|
         yield AtomicCommand("kill @e[type=armor_stand,name=RAY]")
         // dependencies
         for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta] do
@@ -259,8 +259,8 @@ let raycastProgram =
             AtomicCommand("execute @e[type=shulker] ~ ~ ~ teleport @e[name=RAY] ~ ~ ~")
             AtomicCommand("tp @e[type=shulker] ~ ~-300 ~") // kill shulker
 *)
-            |],DirectTailCall(whiletest),MustNotYield)
-        whiletest,BasicBlock([|
+            |],DirectTailCall(rwhiletest),MustNotYield)
+        rwhiletest,BasicBlock([|
             |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda),MustNotYield)
         loopbody,BasicBlock([|
             // remember where we are, so can back up
@@ -298,7 +298,7 @@ let raycastProgram =
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
             // kill tempAS
             AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
-            |],DirectTailCall(whiletest),MustNotYield)
+            |],DirectTailCall(rwhiletest),MustNotYield)
         coda,BasicBlock([|
             AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" -yOffset)
             AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
@@ -710,6 +710,7 @@ It might be a good policy to ensure every process gets at least one time slice e
 
 Consider instancing; if I want two mandels running at different locations/zooms, what kind of variable mechanism do I need for separate instances? 
  - Namespaces for variables, summoned entity names/tags? ...
+ - Namespaces for BBN names, yikes... compiler should check uniqueness!
 
 Can have e.g. terrain gen put command blocks in chunks that detect idle cpu to wake up and do work a la gm4 (each chunk 1/10 change build struct, unless #ticks>K, then not)
 -----
