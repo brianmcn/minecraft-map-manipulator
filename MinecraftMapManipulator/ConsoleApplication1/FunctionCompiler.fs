@@ -213,11 +213,17 @@ let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a num
 let Temp = functionCompilerVars.RegisterVar("Temp")
 let ThrottleArray = Array.init 6 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
 let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork")     // was there even any work scheduled this tick? (if not, don't go increasing DesiredBB just b/c we see extra CPU)
+let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")     // the current program number (0..N-1) we are round-robining through
 
-let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDict), isTracing) =
+let compileToFunctions(programs, isTracing) =
+    let allDependencyModules = ResizeArray()
+    let allProgramInit = ResizeArray()
+    for Program(dependencyModules,programInit,_entrypoint,_blockDict) in programs do
+        allDependencyModules.AddRange(dependencyModules)
+        allProgramInit.AddRange(programInit)
     let initialization = ResizeArray()
     let initialization2 = ResizeArray()  // runs a tick after initialization
-    let mutable foundEntryPointInDictionary = false
+    let functions = ResizeArray()
 (* TODO consider
     initialization.Add(AtomicCommand("gamerule maxCommandChainLength 999999")) // affects num total commands run in any function call
     initialization.Add(AtomicCommand("gamerule commandBlockOutput false"))
@@ -236,76 +242,95 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
     initialization2.Add(SB(ThrottleArray.[3] .= -3))
     initialization2.Add(SB(ThrottleArray.[4] .= -6))
     initialization2.Add(SB(ThrottleArray.[5] .= -12))
-    let mutable nextBBNNumber = 1
-    let bbnNumbers = new Dictionary<_,_>()
-    for KeyValue(bbn,_) in blockDict do
-        if bbn.Name.Length > 15 then
-            failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
-        bbnNumbers.Add(bbn, nextBBNNumber)
-        nextBBNNumber <- nextBBNNumber + 1
-        if bbn = entrypoint then
-            initialization2.Add(SB(IP .= bbnNumbers.[bbn]))
-            foundEntryPointInDictionary <- true
-    if not(foundEntryPointInDictionary) then
-        failwith "did not find entrypoint in basic block dictionary"
+    initialization2.Add(SB(CurrentRR .= 1))
+    let mutable programNumber = -1
+    for Program(_dependencyModules,_programInit,entrypoint,blockDict) in programs do
+        programNumber <- programNumber + 1
+        let mutable foundEntryPointInDictionary = false
+        let mutable nextBBNNumber = 1
+        let bbnNumbers = new Dictionary<_,_>()
+        for KeyValue(bbn,_) in blockDict do
+            if bbn.Name.Length > 15 then
+                failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
+            bbnNumbers.Add(bbn, nextBBNNumber)
+            nextBBNNumber <- nextBBNNumber + 1
+            if bbn = entrypoint then
+                initialization2.Add(SB(IP .= bbnNumbers.[bbn]))
+                foundEntryPointInDictionary <- true
+        if not(foundEntryPointInDictionary) then
+            failwith "did not find entrypoint in basic block dictionary"
 
-    let visited = new HashSet<_>()
-    let functions = ResizeArray()
-    // runner infrastructure functions at bottom of code further below
-    let q = new Queue<_>()
-    q.Enqueue(entrypoint)
-    while q.Count <> 0 do
-        let instructions = ResizeArray()
-        let currentBBN = q.Dequeue()
-        if not(visited.Contains(currentBBN)) then
-            visited.Add(currentBBN) |> ignore
-            let (BasicBlock(cmds,finish,waitPolicy)) = blockDict.[currentBBN]
-            if isTracing then
-                instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
-            instructions.Add(SB(NumBBsRun .-= 1))
-            for c in cmds do
-                match c with 
-                | AtomicCommand _s ->
-                    instructions.Add(c)
-                | AtomicCommandThunkFragment _f ->
-                    instructions.Add(c)
-                | SB(_soc) ->
-                    instructions.Add(c)
-                | CALL(_f) ->
-                    instructions.Add(c)
-            match waitPolicy with
-            | MustWaitNTicks n ->
-                if not(n>0) then
-                    failwithf "bad MustWaitNTicks for %s" currentBBN.Name
-                instructions.Add(SB(YieldNow .= n))
-            | MustNotYield ->
-                instructions.Add(SB(YieldNow .= -1))
-            | _ -> ()
-            match finish with
-            | DirectTailCall(nextBBN) ->
-                if not(blockDict.ContainsKey(nextBBN)) then
-                    failwithf "bad DirectTailCall goto %s" nextBBN.Name
-                q.Enqueue(nextBBN) |> ignore
-                instructions.Add(SB(IP .= bbnNumbers.[nextBBN]))
-            | ConditionalTailCall(conds,ifbbn,elsebbn) ->
-                if not(blockDict.ContainsKey(elsebbn)) then
-                    failwithf "bad ConditionalDirectTailCalls elsebbn %s" elsebbn.Name
-                q.Enqueue(elsebbn) |> ignore
-                // first set catchall
-                instructions.Add(SB(IP .= bbnNumbers.[elsebbn]))
-                // then do test, and if match overwrite
-                if not(blockDict.ContainsKey(ifbbn)) then
-                    failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
-                q.Enqueue(ifbbn) |> ignore
-                instructions.Add(SB(IP.[conds] .= bbnNumbers.[ifbbn]))
-            | Halt ->
-                instructions.Add(SB(YieldNow .= 1))   // to get out of the pump
-                instructions.Add(SB(Stop .= 1))    // to not run next tick
-            functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
-    let allBBNs = new HashSet<_>(blockDict.Keys)
-    allBBNs.ExceptWith(visited)
-    if allBBNs.Count <> 0 then
-        failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+        let visited = new HashSet<_>()
+        // runner infrastructure functions at bottom of code further below
+        let q = new Queue<_>()
+        q.Enqueue(entrypoint)
+        while q.Count <> 0 do
+            let instructions = ResizeArray()
+            let currentBBN = q.Dequeue()
+            if not(visited.Contains(currentBBN)) then
+                visited.Add(currentBBN) |> ignore
+                let (BasicBlock(cmds,finish,waitPolicy)) = blockDict.[currentBBN]
+                if isTracing then
+                    instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
+                instructions.Add(SB(NumBBsRun .-= 1))
+                for c in cmds do
+                    match c with 
+                    | AtomicCommand _s ->
+                        instructions.Add(c)
+                    | AtomicCommandThunkFragment _f ->
+                        instructions.Add(c)
+                    | SB(_soc) ->
+                        instructions.Add(c)
+                    | CALL(_f) ->
+                        instructions.Add(c)
+                match waitPolicy with
+                | MustWaitNTicks n ->
+                    if not(n>0) then
+                        failwithf "bad MustWaitNTicks for %s" currentBBN.Name
+                    instructions.Add(SB(YieldNow .= n))
+                | MustNotYield ->
+                    instructions.Add(SB(YieldNow .= -1))
+                | _ -> ()
+                match finish with
+                | DirectTailCall(nextBBN) ->
+                    if not(blockDict.ContainsKey(nextBBN)) then
+                        failwithf "bad DirectTailCall goto %s" nextBBN.Name
+                    q.Enqueue(nextBBN) |> ignore
+                    instructions.Add(SB(IP .= bbnNumbers.[nextBBN]))
+                | ConditionalTailCall(conds,ifbbn,elsebbn) ->
+                    if not(blockDict.ContainsKey(elsebbn)) then
+                        failwithf "bad ConditionalDirectTailCalls elsebbn %s" elsebbn.Name
+                    q.Enqueue(elsebbn) |> ignore
+                    // first set catchall
+                    instructions.Add(SB(IP .= bbnNumbers.[elsebbn]))
+                    // then do test, and if match overwrite
+                    if not(blockDict.ContainsKey(ifbbn)) then
+                        failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
+                    q.Enqueue(ifbbn) |> ignore
+                    instructions.Add(SB(IP.[conds] .= bbnNumbers.[ifbbn]))
+                | Halt ->
+                    instructions.Add(SB(YieldNow .= 1))   // to get out of the pump
+                    instructions.Add(SB(Stop .= 1))    // to not run next tick
+                functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
+        let allBBNs = new HashSet<_>(blockDict.Keys)
+        allBBNs.ExceptWith(visited)
+        if allBBNs.Count <> 0 then
+            failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+        // dispatchers for this program
+        functions.Add(makeFunction(sprintf"dispatch_mny%d"programNumber,[|
+                for KeyValue(bbn,num) in bbnNumbers do 
+                    yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                        YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
+                // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
+            |]))
+        functions.Add(makeFunction(sprintf"dispatch_normal%d"programNumber,[|
+                for KeyValue(bbn,num) in bbnNumbers do 
+                    yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name     // decide if time to pre-empt (done enough work already)
+                    yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                        YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
+                // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
+            |]))
+    // end foreach program
 
     // function runner infrastructure
     functions.Add(makeFunction("start",[|
@@ -386,28 +411,18 @@ let compileToFunctions(Program(dependencyModules,programInit,entrypoint,blockDic
             |]))
     // chooser
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
-            sprintf "execute @s[score_%s=-1] ~ ~ ~ function %s:dispatch_mny" YieldNow.Name FUNCTION_NAMESPACE
-            sprintf "execute @s[score_%s_min=0] ~ ~ ~ function %s:dispatch_normal" YieldNow.Name FUNCTION_NAMESPACE
+            for i = 0 to (programs |> Seq.length)-1 do
+                yield sprintf "execute @s[score_%s=-1,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_mny%d" YieldNow.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
+                yield sprintf "execute @s[score_%s_min=0,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_normal%d" YieldNow.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
+            // if not MustNotYield, then increment RoundRobin
+            yield sprintf "scoreboard players add @s[score_%s_min=0] %s 1" YieldNow.Name CurrentRR.Name 
+            yield sprintf "scoreboard players set @s[score_%s_min=%d] %s 0" CurrentRR.Name (programs |> Seq.length) CurrentRR.Name 
         |]))
-    functions.Add(makeFunction("dispatch_mny",[|
-            for KeyValue(bbn,num) in bbnNumbers do 
-                yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                    YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
-            // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
-        |]))
-    functions.Add(makeFunction("dispatch_normal",[|
-            for KeyValue(bbn,num) in bbnNumbers do 
-                yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name     // decide if time to pre-empt (done enough work already)
-                yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                    YieldNow.Name IP.Name num IP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
-            // TODO as the universe of BBs grows, this creates more overhead... can I turn the state machine of each individual process into something more efficient... somehow?
-        |]))
-    // TODO gameLoopFunction does not mix with other modules well; maybe use 'tick' and one-player guards (SMP) as a runner alternative
     // init
-    for DropInModule(_,oneTimeInit,funcs) in dependencyModules do
+    for DropInModule(_,oneTimeInit,funcs) in allDependencyModules do
         initialization2.AddRange(oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd)))
         functions.AddRange(funcs)
-    initialization2.AddRange(programInit)
+    initialization2.AddRange(allProgramInit)
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
     let wbleast,wbmost = Utilities.toLeastMost(new System.Guid(WBTIMER_UUID_AS_FULL_GUID))
     functions.Add(makeFunction("initialization",[|

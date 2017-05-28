@@ -1655,7 +1655,7 @@ automatic game start configs (night vision, starting items), customizable
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
     let p = FunctionCompiler.mandelbrotProgram
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
-    let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
+    let _init, funcs = FunctionCompiler.compileToFunctions([p],(*isTracing*)false)
     let mutable commandCount = 0
     let allFuncs = funcs |> Seq.toArray 
     for name,cmds in allFuncs do
@@ -1693,7 +1693,7 @@ automatic game start configs (night vision, starting items), customizable
 
     let p = FunctionUtilities.raycastProgram
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
-    let _init, funcs = FunctionCompiler.compileToFunctions(p,(*isTracing*)false)
+    let _init, funcs = FunctionCompiler.compileToFunctions([p],(*isTracing*)false)
     let mutable commandCount = 0
     let uuid = System.Guid.NewGuid()
     let least,most = Utilities.toLeastMost(uuid)

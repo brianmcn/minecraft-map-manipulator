@@ -708,6 +708,9 @@ Can detect and log process that is responsible for lagging server (e.g. can demo
 
 It might be a good policy to ensure every process gets at least one time slice each tick, if desired, hmm
 
+Consider instancing; if I want two mandels running at different locations/zooms, what kind of variable mechanism do I need for separate instances? 
+ - Namespaces for variables, summoned entity names/tags? ...
+
 Can have e.g. terrain gen put command blocks in chunks that detect idle cpu to wake up and do work a la gm4 (each chunk 1/10 change build struct, unless #ticks>K, then not)
 -----
 can I just have a chunkloader, and store all my entities in a loaded chunk out in the middle of nowhere? no more need spawn chunks
