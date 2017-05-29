@@ -121,7 +121,6 @@ type FinalAbstractCommand =
     | Halt
 type AbstractCommand =
     | AtomicCommand of string // e.g. "tellraw blah", "worldborder ..."
-    // TODO is this needed now that Visit() is removed?
     | AtomicCommandThunkFragment of (unit -> string) // e.g. fun () -> sprintf "something something %s" (v.AsCommandFragment())  // needs to be eval'd after whole program is visited
     | SB of ScoreboardOperationCommand
     | CALL of FunctionCommand 
@@ -203,9 +202,10 @@ let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNo
 let TEN_MILLION = functionCompilerVars.RegisterVar("TEN_MILLION")
 let WBThisTick = functionCompilerVars.RegisterVar("WBThisTick")   // for pre-emption, measure milliseconds past since end of last tick
 let WBAccum = functionCompilerVars.RegisterVar("WBAccum")         // for user-space time measurement, accumulate time across ticks
+// TODO rename to reflect USE_BB_COUNT, e.g. may be BBs or commands
 let DesiredBBs = functionCompilerVars.RegisterVar("DesiredBBs")   // number of desired basic blocks to run (dynamically computed based on lag history)
 let NumBBsRun = functionCompilerVars.RegisterVar("NumBBsRun")     // number of basic blocks left to run this tick (starts at DesiredBBs and counts down)
-let WINDOW_SIZE = 5      // (should be divisible by 5) how many ticks into the past we keep track of, to see if lagging, to dynamically adjust how much we run
+let WINDOW_SIZE = 10      // (should be divisible by 5) how many ticks into the past we keep track of, to see if lagging, to dynamically adjust how much we run
 let DIVISOR = functionCompilerVars.RegisterVar("DIVISOR")
 let LagVarArray = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.RegisterVar(sprintf "LagVar%d" i))
 let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagVar to update
@@ -215,6 +215,13 @@ let ThrottleArray = Array.init 6 (fun i -> functionCompilerVars.RegisterVar(spri
 let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork")     // was there even any work scheduled this tick? (if not, don't go increasing DesiredBB just b/c we see extra CPU)
 let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")     // the current program number (0..N-1) we are round-robining through
 let NumLiveProc = functionCompilerVars.RegisterVar("NumLiveProc")   // how many procs have work left this tick
+
+let TARGETED_MS_OVERSHOOT = 4   // how many more ms than 50ms per tick we aim for (recall, can only measure lag, not how much MC sleeps, so must overshoot)
+let DISPLAY_MS_OVERSHOOT  = 8   // how many more ms than 50ms per tick we display in the chat if we overrun
+let TARGETED_WB = 10000000 + 50 + TARGETED_MS_OVERSHOOT   // world border size to aim at
+let DISPLAY_WB  = 10000000 + 50 + DISPLAY_MS_OVERSHOOT    // world border size to print at
+
+let DESIRED_INIT = 3000   // number of commands to initially target
 
 let compileToFunctions(programs, isTracing) =
     let ProcIP = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "IP%d" i))
@@ -239,6 +246,7 @@ let compileToFunctions(programs, isTracing) =
     let initialization = ResizeArray()
     let initialization2 = ResizeArray()  // runs a tick after initialization
     let functions = ResizeArray()
+    let functionThunks = ResizeArray()
 (* TODO consider
     initialization.Add(AtomicCommand("gamerule maxCommandChainLength 999999")) // affects num total commands run in any function call
     initialization.Add(AtomicCommand("gamerule commandBlockOutput false"))
@@ -250,12 +258,26 @@ let compileToFunctions(programs, isTracing) =
     initialization2.Add(SB(YieldNow .= 0))
     initialization2.Add(SB(TEN_MILLION .= 10000000))
     initialization2.Add(SB(DIVISOR .= (WINDOW_SIZE/5)))
+#if USE_BB_COUNT
+        // no lag     20%     40%     60%     80%    100% lag
+        //    +1       +0      -1      -2      -3      -4     // works very poorly; tiny usual bits of noise slow system to a crawl
+        //    +2       +1       0      -1      -2      -3     // works ok-ish, doesn't back off well
+        //    +3       +0      -1      -3      -6     -12     // seems plausible with limited testing, might still need to increase backoff at 40% and higher?
     initialization2.Add(SB(ThrottleArray.[0] .= 3))
     initialization2.Add(SB(ThrottleArray.[1] .= 0))
     initialization2.Add(SB(ThrottleArray.[2] .= -1))
     initialization2.Add(SB(ThrottleArray.[3] .= -3))
     initialization2.Add(SB(ThrottleArray.[4] .= -6))
     initialization2.Add(SB(ThrottleArray.[5] .= -12))
+#else
+    initialization2.Add(SB(ThrottleArray.[0] .= +71))
+    initialization2.Add(SB(ThrottleArray.[1] .= -3))
+    initialization2.Add(SB(ThrottleArray.[2] .= -19))
+    initialization2.Add(SB(ThrottleArray.[3] .= -39))
+    initialization2.Add(SB(ThrottleArray.[4] .= -131))
+    initialization2.Add(SB(ThrottleArray.[5] .= -357))
+#endif
+    let mutable avgNumCmdsOverheadInnerLoop = 0
     initialization2.Add(SB(CurrentRR .= 0))
     for i = 0 to (programs |> Seq.length)-1 do
         initialization2.Add(SB(ProcYieldNow.[i] .= 0))    // TODO some programs may want to start in a halted (99999999) state, and have command/advancement wake them later
@@ -289,7 +311,13 @@ let compileToFunctions(programs, isTracing) =
                     let (BasicBlock(cmds,finish,waitPolicy)) = blockDict.[currentBBN]
                     if isTracing then
                         instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
-                    instructions.Add(SB(NumBBsRun .-= 1))
+#if USE_BB_COUNT
+                    //instructions.Add(SB(NumBBsRun .-= 1))
+                    instructions.Add(AtomicCommandThunkFragment(fun() -> sprintf "scoreboard players remove @s %s 1" NumBBsRun.Name))
+#else
+                    let mutable numCmdsThisBB = 0
+                    instructions.Add(AtomicCommandThunkFragment(fun() -> sprintf "scoreboard players remove @s %s %d" NumBBsRun.Name (numCmdsThisBB+avgNumCmdsOverheadInnerLoop)))
+#endif
                     for c in cmds do
                         match c with 
                         | AtomicCommand _s ->
@@ -332,7 +360,8 @@ let compileToFunctions(programs, isTracing) =
                     | Halt ->
                         instructions.Add(SB(ProcYieldNow.[programNumber] .= 999999999))   // to get out of the pump, and sleep 'for good' (over 500 days)
                         instructions.Add(SB(NumLiveProc .-= 1))
-                    functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
+                    numCmdsThisBB <- instructions |> Seq.length 
+                    functionThunks.Add(fun() -> makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
             let allBBNs = new HashSet<_>(blockDict.Keys)
             allBBNs.ExceptWith(visited)
             if allBBNs.Count <> 0 then
@@ -346,7 +375,7 @@ let compileToFunctions(programs, isTracing) =
                     // if we are no longer MNY, notify the pump of that change by setting YieldNow to 0
                     yield sprintf "scoreboard players set @s[score_%s_min=0] %s 0" ProcYieldNow.[programNumber].Name YieldNow.Name 
                 |]))
-            functions.Add(makeFunction(sprintf"dispatch_normal%d"programNumber,[|
+            let dispatchNormalBody = [|
                     yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumBBsRun.Name YieldNow.Name  // decide if time to pre-empt (done enough work already) - note this affects pump, not the proc
                     // if not yielding, run _exactly_ one block of this process
                     yield sprintf "scoreboard players operation @s %s = @s %s" Temp.Name ProcIP.[programNumber].Name // store next IP in Temp
@@ -355,7 +384,9 @@ let compileToFunctions(programs, isTracing) =
                         // this ensures exactly one is run (well, actually _at most_ one, since may run zero if we yielded)
                         yield sprintf """execute @s[score_%s=0,score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
                                             YieldNow.Name ProcYieldNow.[programNumber].Name Temp.Name num Temp.Name num FUNCTION_NAMESPACE bbn.Name  // find next BB to run
-                |]))
+                |]
+            avgNumCmdsOverheadInnerLoop <- avgNumCmdsOverheadInnerLoop + dispatchNormalBody.Length // currently keep running sum...
+            functions.Add(makeFunction(sprintf"dispatch_normal%d"programNumber,dispatchNormalBody))
         // end foreach program
 
     // function runner infrastructure
@@ -397,7 +428,7 @@ let compileToFunctions(programs, isTracing) =
         // measure 
         yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
         yield sprintf "scoreboard players set %s %s 0" WBTIMER_UUID Temp.Name 
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=10000060] %s 1" WBTIMER_UUID WBThisTick.Name Temp.Name
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 1" WBTIMER_UUID WBThisTick.Name TARGETED_WB Temp.Name
         // WBTIMER Temp now records 1 or 0 if we are lagging or not
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID Temp.Name WBTIMER_UUID Temp.Name 
 
@@ -411,6 +442,8 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 0" ENTITY_UUID WindowSelect.Name WINDOW_SIZE WindowSelect.Name 
 
         // if there was work scheduled this tick, update DesiredBB 
+        // TODO this is incorrect; in mandel+ray, Desired increases without limit after mandel finishes, because ray does a check-no-snowball-then-yield
+        // the correct thing is to update Desired only if not-all-processes-chose-to-yield-by-the-end, or alternatively phrased, if we needed to force a pre-empt
         yield sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ function %s:update_desiredbb" ENTITY_UUID ThereWasWork.Name FUNCTION_NAMESPACE
 
         // accumulate time
@@ -418,8 +451,8 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "scoreboard players operation %s %s += %s %s" WBTIMER_UUID WBAccum.Name WBTIMER_UUID WBThisTick.Name  
         yield sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name
         // debugging
-        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=10000060] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
-                               WBTIMER_UUID              WBThisTick.Name                                                  WBTIMER_UUID 
+        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=%d] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
+                               WBTIMER_UUID        WBThisTick.Name DISPLAY_WB                                          WBTIMER_UUID 
 
         // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
         yield "worldborder set 10000000"
@@ -432,10 +465,6 @@ let compileToFunctions(programs, isTracing) =
         for i = 0 to WINDOW_SIZE-1 do
             yield sprintf "scoreboard players operation %s %s += %s %s" ENTITY_UUID Temp.Name ENTITY_UUID LagVarArray.[i].Name
         // need find right heuristic to throttle... tried various ThrottleArray values initialized at top of compiler
-        // no lag     20%     40%     60%     80%    100% lag
-        //    +1       +0      -1      -2      -3      -4     // works very poorly; tiny usual bits of noise slow system to a crawl
-        //    +2       +1       0      -1      -2      -3     // works ok-ish, doesn't back off well
-        //    +3       +0      -1      -3      -6     -12     // seems plausible with limited testing, might still need to increase backoff at 40% and higher?
         yield sprintf "scoreboard players operation %s %s /= %s %s" ENTITY_UUID Temp.Name ENTITY_UUID DIVISOR.Name
         for i = 0 to 5 do
             yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s += %s %s" ENTITY_UUID Temp.Name i Temp.Name i DesiredBBs.Name ENTITY_UUID ThrottleArray.[i].Name
@@ -451,7 +480,7 @@ let compileToFunctions(programs, isTracing) =
                     yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" YieldNow.Name FUNCTION_NAMESPACE (i+1)
             |]))
     // chooser
-    functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|
+    let chooserBody = [|
             yield sprintf "scoreboard players operation @s %s = @s %s" ChooserYield.Name YieldNow.Name 
             for i = 0 to (programs |> Seq.length)-1 do
                 // dispatch either MNY or normal for currentRR, bot not both! (hence ChooserYield temp variable, ensures exclusion)
@@ -468,7 +497,10 @@ let compileToFunctions(programs, isTracing) =
             // if not MustNotYield, then increment RoundRobin
             yield sprintf "scoreboard players add @s[score_%s_min=0] %s 1" YieldNow.Name CurrentRR.Name 
             yield sprintf "scoreboard players set @s[score_%s_min=%d] %s 0" CurrentRR.Name (programs |> Seq.length) CurrentRR.Name 
-        |]))
+        |]
+    avgNumCmdsOverheadInnerLoop <- avgNumCmdsOverheadInnerLoop / (programs |> Seq.length)   // ... had sum of normal dispatchers, figure average
+    avgNumCmdsOverheadInnerLoop <- avgNumCmdsOverheadInnerLoop + chooserBody.Length         // ... and add constant overhead from chooser; that's approx how many commands of total overhead
+    functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),chooserBody))
     // init
     for DropInModule(_,oneTimeInit,funcs) in allDependencyModules do
         initialization2.AddRange(oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd)))
@@ -498,7 +530,7 @@ let compileToFunctions(programs, isTracing) =
             for i = 0 to WINDOW_SIZE-1 do
                 yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID LagVarArray.[i].Name
             yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID WindowSelect.Name
-            yield sprintf "scoreboard players set %s %s 1" ENTITY_UUID DesiredBBs.Name
+            yield sprintf "scoreboard players set %s %s %d" ENTITY_UUID DesiredBBs.Name DESIRED_INIT
 
             yield sprintf "stats entity %s set QueryResult %s %s" WBTIMER_UUID WBTIMER_UUID WBThisTick.Name 
             yield sprintf "scoreboard players set %s %s 10000000" WBTIMER_UUID WBThisTick.Name  // need initial value before can trigger a stat
@@ -514,12 +546,16 @@ let compileToFunctions(programs, isTracing) =
                 yield c.AsCommand()
         |]))
 
+    for thunk in functionThunks do
+        functions.Add(thunk())
+
     sprintf """function %s:initialization""" FUNCTION_NAMESPACE, functions
 
 ////////////////////////
 
 // Mandelbrot
 
+let cpsPrefix = BBN"cpsprefix"
 let cpsIStart = BBN"cpsistart"
 let cpsJStart = BBN"cpsjstart"
 let cpsInnerStart = BBN"cpsinnerstart"
@@ -555,11 +591,25 @@ let xtemp = mandelbrotVars.RegisterVar("xtemp")
 
 let mbGeneral = NoPreference
 //let mbGeneral = MustNotYield
+let MANDEL_UUID = "1-1-1-0-9"
+let MANDEL_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000009"
+let mbleast,mbmost = Utilities.toLeastMost(new System.Guid(MANDEL_UUID_AS_FULL_GUID))
 let mandelbrotProgram = 
     Program(mandelbrotVars,[||],[|
             yield AtomicCommand "kill @e[type=armor_stand,tag=mandel]"
             for v in mandelbrotVars.All() do
                 yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
+            // constants
+            yield SB(FOURISSQ .= 64000000)
+            yield SB(INTSCALE .= 4000)
+            yield SB(MAXH .= 128)
+            yield SB(MAXW .= 128)
+            yield SB(XSCALE .= 96)
+            yield SB(YSCALE .= 62)
+            yield SB(XMIN .= -8400)
+            yield SB(YMIN .= -4000)
+        |],cpsPrefix, dict [
+        cpsPrefix,BasicBlock([|
             // color stuff
 #if DIRECT16COLORTEST
 #else
@@ -572,17 +622,9 @@ let mandelbrotProgram =
                 yield AtomicCommand(sprintf "scoreboard players set @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] AS %d" i y z i)
                 yield AtomicCommand(sprintf "scoreboard players tag @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] add color" i y z)
 #endif
-            yield AtomicCommand """summon armor_stand 0 4 0 {CustomName:Cursor,NoGravity:1,Tags:["mandel"]}"""
-            // constants
-            yield SB(FOURISSQ .= 64000000)
-            yield SB(INTSCALE .= 4000)
-            yield SB(MAXH .= 128)
-            yield SB(MAXW .= 128)
-            yield SB(XSCALE .= 96)
-            yield SB(YSCALE .= 62)
-            yield SB(XMIN .= -8400)
-            yield SB(YMIN .= -4000)
-        |],cpsIStart, dict [
+            // note: cannot summon uuid'd entity in same tick it was killed
+            yield AtomicCommand(sprintf """summon armor_stand 0 4 0 {CustomName:Cursor,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1,Tags:["mandel"]}""" mbmost mbleast)
+            |],DirectTailCall(cpsIStart),mbGeneral)
         cpsIStart,BasicBlock([|
             // time measurement
 //            yield AtomicCommand "worldborder set 10000000"
@@ -590,13 +632,13 @@ let mandelbrotProgram =
             yield AtomicCommand(sprintf "scoreboard players set %s %s 0" WBTIMER_UUID WBAccum.Name) // TODO abstract this 
             // actual code
             yield SB(i .= 0)
-            yield AtomicCommand "tp @e[name=Cursor] 0 14 0"
+            yield AtomicCommand(sprintf "tp %s 0 14 0" MANDEL_UUID)
             yield AtomicCommand "fill 0 14 0 127 14 127 air"
             yield AtomicCommand "fill 0 13 0 127 13 127 wool 0"
             |],DirectTailCall(cpsJStart),mbGeneral)
         cpsJStart,BasicBlock([|
             SB(j .= 0)
-            AtomicCommand "tp @e[name=Cursor] ~ ~ 0"
+            AtomicCommand(sprintf "tp %s ~ ~ 0" MANDEL_UUID)
             |],DirectTailCall(cpsInnerStart),mbGeneral)
         cpsInnerStart,BasicBlock([|
             SB(x0 .= i)
@@ -632,9 +674,9 @@ let mandelbrotProgram =
             |],DirectTailCall(whileTest),mbGeneral)
         cpsInnerFinish,BasicBlock([|
 #if DIRECT16COLORTEST
-            yield AtomicCommandThunkFragment(fun () -> sprintf "scoreboard players operation @e[name=Cursor] %s = %s" n.Name (n.AsCommandFragment()))
+            yield AtomicCommandThunkFragment(fun () -> sprintf "scoreboard players operation %s %s = %s" MANDEL_UUID n.Name (n.AsCommandFragment()))
             for zzz = 0 to 15 do
-                yield AtomicCommand(sprintf "execute @e[name=Cursor,score_%s=%d,score_%s_min=%d] ~ ~ ~ setblock ~ ~ ~ wool %d" n.Name (zzz+1) n.Name (zzz+1) zzz)
+                yield AtomicCommand(sprintf "execute %s ~ ~ ~ execute @s[score_%s=%d,score_%s_min=%d] ~ ~ ~ setblock ~ ~ ~ wool %d" MANDEL_UUID n.Name (zzz+1) n.Name (zzz+1) zzz)
 #else
             yield AtomicCommandThunkFragment(fun () -> sprintf "scoreboard players operation @e[tag=color] AS -= %s" (n.AsCommandFragment()))
             yield AtomicCommand "execute @e[tag=color,score_AS=-1,score_AS_min=-1] ~ ~ ~ clone ~ ~ ~ ~ ~ ~ 0 4 0"
@@ -642,27 +684,19 @@ let mandelbrotProgram =
             yield AtomicCommand "execute @e[name=Cursor] ~ ~ ~ clone 0 4 0 0 4 0 ~ ~ ~"
 #endif
             yield SB(j .+= 1)
-            yield AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~ ~ ~1"
+            yield AtomicCommand(sprintf "execute %s ~ ~ ~ tp @e[c=1] ~ ~ ~1" MANDEL_UUID)
             yield SB(r1 .= j)
             yield SB(r1 .-= MAXH)
             |],ConditionalTailCall(Conditional[| r1 .<= -1 |], cpsInnerStart, cpsJFinish),mbGeneral)  // inner loop yield
         cpsJFinish,BasicBlock([|
             SB(i .+= 1)
-            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ tp @e[c=1] ~1 ~ ~"
+            AtomicCommand(sprintf "execute %s ~ ~ ~ tp @e[c=1] ~1 ~ ~" MANDEL_UUID)
             SB(r1 .= i)
             SB(r1 .-= MAXW)
             |],ConditionalTailCall(Conditional[| r1 .<= -1 |], cpsJStart, cpsIFinish), MustWaitNTicks 1)
         cpsIFinish,BasicBlock([|
             AtomicCommand """tellraw @a ["done!"]"""
             // time measurement
-(*
-            AtomicCommand("stats entity @e[name=Cursor] set QueryResult @e[name=Cursor] A")
-            AtomicCommand("scoreboard players set @e[name=Cursor] A 1") // need initial value before can trigger a stat
-            AtomicCommand "execute @e[name=Cursor] ~ ~ ~ worldborder get"
-            AtomicCommand "scoreboard players set Time A -10000000"
-            AtomicCommand "scoreboard players operation Time A += @e[name=Cursor] A"
-            AtomicCommand """tellraw @a ["took ",{"score":{"name":"Time","objective":"A"}}," seconds"]"""
-*)
             // TODO abstract this
             AtomicCommand(sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID)
             // TODO actually want Accum + ThisTick, but not modify Accum here; only compiler should modify Accum

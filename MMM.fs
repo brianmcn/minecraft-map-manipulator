@@ -1657,8 +1657,8 @@ automatic game start configs (night vision, starting items), customizable
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
     let r = FunctionUtilities.raycastProgram
     let r = FunctionCompiler.inlineDirectTailCallsOptimization(r)
-    //let _init, funcs = FunctionCompiler.compileToFunctions([p;r],(*isTracing*)false)
-    let _init, funcs = FunctionCompiler.compileToFunctions([p],(*isTracing*)false)
+    let _init, funcs = FunctionCompiler.compileToFunctions([p;r],(*isTracing*)false)
+    //let _init, funcs = FunctionCompiler.compileToFunctions([p],(*isTracing*)false)
     let mutable commandCount = 0
     let allFuncs = funcs |> Seq.toArray 
     for name,cmds in allFuncs do

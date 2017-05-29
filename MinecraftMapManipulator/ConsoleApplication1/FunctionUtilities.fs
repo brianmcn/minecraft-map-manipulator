@@ -117,16 +117,19 @@ let profileThis(suffix,pre,cmds,post) =
 
 open FunctionCompiler
 
-let init      = BBN"init"
+let testsnow   = BBN"testsnow"
+let raybegin   = BBN"raybegin"
+let rayskip    = BBN"rayskip"
 let rwhiletest = BBN"rwhiletest"
-let loopbody  = BBN"loopbody"
-let coda      = BBN"coda"
+let loopbody   = BBN"loopbody"
+let coda       = BBN"coda"
 
 let raycastVars = new Scope()
 // constants
 let R = raycastVars.RegisterVar("R")
 let ONE_THOUSAND = raycastVars.RegisterVar("ONE_THOUSAND")
 // variables
+let HOLDSNOW = raycastVars.RegisterVar("HOLDSNOW")
 let DX = raycastVars.RegisterVar("DX")
 let DY = raycastVars.RegisterVar("DY")
 let DZ = raycastVars.RegisterVar("DZ")
@@ -145,7 +148,6 @@ let AZ = raycastVars.RegisterVar("AZ")
 
 let yOffset = 5   // attempt to put all the armor stands not-in-my-face so that I can throw snowballs
 
-// TODO only activate when holding snowball
 // uses https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 let raycastProgram = 
     Program(raycastVars,[|findTheta;findPhi|],[|
@@ -160,11 +162,24 @@ let raycastProgram =
         yield SB(R .= 128)
         yield SB(ONE_THOUSAND .= 1000)
         // prep code
-        // TODO would be more effiicent to UUID RAY
-        yield AtomicCommand "summon armor_stand 0 4 0 {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}"
         yield AtomicCommand "scoreboard players tag @p add look"
-        |],init,dict[
-        init,BasicBlock([|
+        |],testsnow,dict[
+        testsnow,BasicBlock([|
+            // test for if we're holding snowball
+            SB(HOLDSNOW .= 0)
+            AtomicCommand(sprintf """scoreboard players tag @p remove holdsnow""")
+            AtomicCommand(sprintf """scoreboard players tag @p add holdsnow {SelectedItem:{id:"minecraft:snowball"}}""")
+            AtomicCommand(sprintf """execute @p[tag=holdsnow] ~ ~ ~ scoreboard players set %s %s 1""" ENTITY_UUID HOLDSNOW.Name)
+            // see if we need to summon the AS
+            AtomicCommand(sprintf """scoreboard players tag @p add needsray""")
+            AtomicCommand(sprintf """execute @e[type=armor_stand,name=RAY] ~ ~ ~ scoreboard players tag @p remove needsray""")
+            // TODO would be more effiicent to UUID RAY
+            AtomicCommand "execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}"
+            |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],raybegin,rayskip),MustNotYield)
+        rayskip,BasicBlock([|
+            AtomicCommand("kill @e[type=armor_stand,name=RAY]")
+            |],DirectTailCall(testsnow),MustWaitNTicks 1)
+        raybegin,BasicBlock([|
             AtomicCommand(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE)
             AtomicCommand(sprintf "function %s:findPhi" FunctionCompiler.FUNCTION_NAMESPACE)
             //let DX = - R cos(theta) sin(phi)
@@ -303,7 +318,7 @@ let raycastProgram =
             AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" -yOffset)
             AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
             AtomicCommand("kill @e[type=snowball]")
-            |],DirectTailCall(init),MustWaitNTicks 1)
+            |],DirectTailCall(testsnow),MustWaitNTicks 1)
         ])
 
 //////////////////////////////////////
@@ -707,6 +722,8 @@ If there are programs that must run every tick and don't need the help of a pump
 Can detect and log process that is responsible for lagging server (e.g. can demo with unyielding mandelbrot, alongside foresight and snowball-teleport)
 
 It might be a good policy to ensure every process gets at least one time slice each tick, if desired, hmm
+
+Deal with time estimation; BBs are not the best unit of measurement, but are kinda the best unit of 'running', how best to 'weight'/estimate them?
 
 Consider instancing; if I want two mandels running at different locations/zooms, what kind of variable mechanism do I need for separate instances? 
  - Namespaces for variables, summoned entity names/tags? ...
