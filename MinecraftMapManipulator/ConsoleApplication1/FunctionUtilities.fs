@@ -173,8 +173,8 @@ let raycastProgram =
             // see if we need to summon the AS
             AtomicCommand(sprintf """scoreboard players tag @p add needsray""")
             AtomicCommand(sprintf """execute @e[type=armor_stand,name=RAY] ~ ~ ~ scoreboard players tag @p remove needsray""")
-            // TODO would be more effiicent to UUID RAY
-            AtomicCommand "execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}"
+            // TODO would be more efficient to UUID RAY
+            AtomicCommand(sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}" ENTITY_UUID HOLDSNOW.Name)
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],raybegin,rayskip),MustNotYield)
         rayskip,BasicBlock([|
             AtomicCommand("kill @e[type=armor_stand,name=RAY]")

@@ -211,18 +211,22 @@ let LagVarArray = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.Register
 let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagVar to update
 let Temp = functionCompilerVars.RegisterVar("Temp")
 let ChooserYield = functionCompilerVars.RegisterVar("ChooserYield")
-let ThrottleArray = Array.init 6 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
+let ThrottleArray = Array.init 7 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
 let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork")     // was there even any work scheduled this tick? (if not, don't go increasing DesiredBB just b/c we see extra CPU)
 let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")     // the current program number (0..N-1) we are round-robining through
 let NumLiveProc = functionCompilerVars.RegisterVar("NumLiveProc")   // how many procs have work left this tick
 
-let TARGETED_MS_OVERSHOOT = 4   // how many more ms than 50ms per tick we aim for (recall, can only measure lag, not how much MC sleeps, so must overshoot)
-let DISPLAY_MS_OVERSHOOT  = 8   // how many more ms than 50ms per tick we display in the chat if we overrun
+let TARGETED_MS_OVERSHOOT = 0   // how many more ms than 50ms per tick we aim for (recall, can only measure lag, not how much MC sleeps, so must overshoot)
+let EXTRA_MS_OVERSHOOT    = 5   // how many more ms than 50ms per tick we notice for an extra LagVar penalty
+let DISPLAY_MS_OVERSHOOT  = 1   // how many more ms than 50ms per tick we display in the chat if we overrun
 let TARGETED_WB = 10000000 + 50 + TARGETED_MS_OVERSHOOT   // world border size to aim at
+let EXTRA_WB    = 10000000 + 50 + EXTRA_MS_OVERSHOOT      // world border size giving extra LagVar penalty
 let DISPLAY_WB  = 10000000 + 50 + DISPLAY_MS_OVERSHOOT    // world border size to print at
 
-let DESIRED_INIT = 3000   // number of commands to initially target
+let DESIRED_INIT = 3000   // number of commands to initially target - this must be an overshoot, as the throttling only works while overshooting
+let UNDERSHOOT   = 1500   // minimum number of commands - this must be an undershoot, and we'll reset to an overshoot
 
+let DEBUG_THROTTLE = false
 let compileToFunctions(programs, isTracing) =
     let ProcIP = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "IP%d" i))
     let ProcYieldNow = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "ProcYieldNow%d" i))  // -1 MustNotYield, 0 Running (or NoPreference), 1-or-more is MustWaitNTicks
@@ -271,11 +275,12 @@ let compileToFunctions(programs, isTracing) =
     initialization2.Add(SB(ThrottleArray.[5] .= -12))
 #else
     initialization2.Add(SB(ThrottleArray.[0] .= +71))
-    initialization2.Add(SB(ThrottleArray.[1] .= -3))
-    initialization2.Add(SB(ThrottleArray.[2] .= -19))
-    initialization2.Add(SB(ThrottleArray.[3] .= -39))
-    initialization2.Add(SB(ThrottleArray.[4] .= -131))
-    initialization2.Add(SB(ThrottleArray.[5] .= -357))
+    initialization2.Add(SB(ThrottleArray.[1] .= -0))    // Note: these penalties do not have to be large, since they effectively are multiplied by WINDOW_SIZE (re-penalized N times until expiry)
+    initialization2.Add(SB(ThrottleArray.[2] .= -1))
+    initialization2.Add(SB(ThrottleArray.[3] .= -1))
+    initialization2.Add(SB(ThrottleArray.[4] .= -2))
+    initialization2.Add(SB(ThrottleArray.[5] .= -17))
+    initialization2.Add(SB(ThrottleArray.[6] .= -47))
 #endif
     let mutable avgNumCmdsOverheadInnerLoop = 0
     initialization2.Add(SB(CurrentRR .= 0))
@@ -429,7 +434,8 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
         yield sprintf "scoreboard players set %s %s 0" WBTIMER_UUID Temp.Name 
         yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 1" WBTIMER_UUID WBThisTick.Name TARGETED_WB Temp.Name
-        // WBTIMER Temp now records 1 or 0 if we are lagging or not
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 2" WBTIMER_UUID WBThisTick.Name EXTRA_WB Temp.Name
+        // WBTIMER Temp now records 1 (or 2) or 0 if we are lagging (heavily) or not
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID Temp.Name WBTIMER_UUID Temp.Name 
 
         // update lagvar
@@ -451,8 +457,9 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "scoreboard players operation %s %s += %s %s" WBTIMER_UUID WBAccum.Name WBTIMER_UUID WBThisTick.Name  
         yield sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name
         // debugging
-        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=%d] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
-                               WBTIMER_UUID        WBThisTick.Name DISPLAY_WB                                          WBTIMER_UUID 
+        if DEBUG_THROTTLE then
+            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=%d] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
+                                   WBTIMER_UUID        WBThisTick.Name DISPLAY_WB                                          WBTIMER_UUID 
 
         // restart the timer _before_ yielding to Minecraft, so our next measurement will be after MC takes its slice of the next 50ms
         yield "worldborder set 10000000"
@@ -468,8 +475,11 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "scoreboard players operation %s %s /= %s %s" ENTITY_UUID Temp.Name ENTITY_UUID DIVISOR.Name
         for i = 0 to 5 do
             yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s += %s %s" ENTITY_UUID Temp.Name i Temp.Name i DesiredBBs.Name ENTITY_UUID ThrottleArray.[i].Name
-        // never let desired go less than 1
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID DesiredBBs.Name DesiredBBs.Name 
+        yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d] %s += %s %s" ENTITY_UUID Temp.Name 6 DesiredBBs.Name ENTITY_UUID ThrottleArray.[6].Name
+        // never let desired go less than UNDERSHOOT
+        if DEBUG_THROTTLE then
+            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=%d] ~ ~ ~ tellraw @a ["undershot, resetting"]""" ENTITY_UUID DesiredBBs.Name UNDERSHOOT 
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=%d] %s %d" ENTITY_UUID DesiredBBs.Name UNDERSHOOT DesiredBBs.Name DESIRED_INIT
         |]))
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4
