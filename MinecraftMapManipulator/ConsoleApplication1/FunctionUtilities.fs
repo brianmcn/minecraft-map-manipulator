@@ -402,41 +402,27 @@ let getCoords =
         yield sprintf """scoreboard players set %s %s 1""" ENTITY_UUID coordsTemp.Name // stats'd entity must be initialized before can update
     |]
     let coords_body = "coords_body",([|
-        yield SB(coordsX .= 0)
+        yield SB(coordsX .= 30000000)
         let cur = ref 33554432
         while !cur > 0 do
             // tp AS ~cur ~ ~
             yield AtomicCommand(sprintf "execute %s ~ ~ ~ tp @e[type=armor_stand,tag=GC_AS] ~%d ~ ~" COORDS_UUID !cur)
             // if SuccessCount=1 then
-            //    x = x+1
-            yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ scoreboard players add %s %s 1""" coordsTemp.Name ENTITY_UUID coordsX.Name)
-            if !cur > 1 then
-                // x = x * 2
-                yield SB(coordsX .+= coordsX)
+            //    x = x-cur
+            yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ scoreboard players remove %s %s %d""" coordsTemp.Name ENTITY_UUID coordsX.Name !cur)
             // cur = cur / 2
             cur := !cur / 2
-        // x = 30000000 - x
-        yield SB(coordsTemp .= coordsX)
-        yield SB(coordsX .= 30000000)
-        yield SB(coordsX .-= coordsTemp)
 
-        yield SB(coordsZ .= 0)
+        yield SB(coordsZ .= 30000000)
         let cur = ref 33554432
         while !cur > 0 do
             // tp AS ~ ~ ~cur
             yield AtomicCommand(sprintf "execute %s ~ ~ ~ tp @e[type=armor_stand,tag=GC_AS] ~ ~ ~%d" COORDS_UUID !cur)
             // if SuccessCount=1 then
-            //    z = z+1
-            yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ scoreboard players add %s %s 1""" coordsTemp.Name ENTITY_UUID coordsZ.Name)
-            if !cur > 1 then
-                // z = z * 2
-                yield SB(coordsZ .+= coordsZ)
+            //    z = z-cur
+            yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ scoreboard players remove %s %s %d""" coordsTemp.Name ENTITY_UUID coordsZ.Name !cur)
             // cur = cur / 2
             cur := !cur / 2
-        // z = 30000000 - z
-        yield SB(coordsTemp .= coordsZ)
-        yield SB(coordsZ .= 30000000)
-        yield SB(coordsZ .-= coordsTemp)
 
         yield AtomicCommand("kill @e[type=armor_stand,tag=GC_AS]")
         |]|>Array.map(fun c -> c.AsCommand()))
