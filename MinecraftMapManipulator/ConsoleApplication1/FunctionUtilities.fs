@@ -180,8 +180,8 @@ let raycastProgram =
             AtomicCommand("kill @e[type=armor_stand,name=RAY]")
             |],DirectTailCall(testsnow),MustWaitNTicks 1)
         raybegin,BasicBlock([|
-            AtomicCommand(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE)
-            AtomicCommand(sprintf "function %s:findPhi" FunctionCompiler.FUNCTION_NAMESPACE)
+            AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
+            AtomicCommandWithExtraCost(sprintf "function %s:findPhi" FunctionCompiler.FUNCTION_NAMESPACE, 24)
             //let DX = - R cos(theta) sin(phi)
             SB(DX .= 0)
             SB(DX .-= R)
@@ -378,6 +378,77 @@ let prng =
         sprintf "execute %s ~ ~ ~ function %s:prngBody" ENTITY_UUID FUNCTION_NAMESPACE
         |]
     DropInModule("prng",oneTimeInit,[|prngBody;prngMain|])
+
+//////////////////////////////////////
+
+let coordsScope = new Scope()
+let coordsX = coordsScope.RegisterVar("coordsX")
+let coordsZ = coordsScope.RegisterVar("coordsZ")
+let coordsTemp = coordsScope.RegisterVar("coordsTemp")
+// entity who is the stats'd executor
+let COORDS_UUID = "1-1-1-0-8"
+let COORDS_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000008"
+let gcleast,gcmost = Utilities.toLeastMost(new System.Guid(COORDS_UUID_AS_FULL_GUID))
+// TODO abstract the whole UUID'd armor stand thing, have a general registry
+let getCoords =
+    let oneTimeInit = [|
+        // declare variables
+        for v in coordsScope.All() do
+            yield sprintf "scoreboard objectives add %s dummy" v.Name
+        // place any long-lasting objects in the world
+        // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
+        yield sprintf """summon armor_stand -5 4 -5 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1,Tags:["compiler"]}""" COORDS_UUID gcmost gcleast
+        yield sprintf """stats entity @e[name=%s] set SuccessCount @e[name=%s] %s""" COORDS_UUID ENTITY_UUID coordsTemp.Name
+        yield sprintf """scoreboard players set %s %s 1""" ENTITY_UUID coordsTemp.Name // stats'd entity must be initialized before can update
+    |]
+    let coords_body = "coords_body",([|
+        yield SB(coordsX .= 0)
+        let cur = ref 33554432
+        while !cur > 0 do
+            // tp AS ~cur ~ ~
+            yield AtomicCommand(sprintf "execute %s ~ ~ ~ tp @e[type=armor_stand,tag=GC_AS] ~%d ~ ~" COORDS_UUID !cur)
+            // if SuccessCount=1 then
+            //    x = x+1
+            yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ scoreboard players add %s %s 1""" coordsTemp.Name ENTITY_UUID coordsX.Name)
+            if !cur > 1 then
+                // x = x * 2
+                yield SB(coordsX .+= coordsX)
+            // cur = cur / 2
+            cur := !cur / 2
+        // x = 30000000 - x
+        yield SB(coordsTemp .= coordsX)
+        yield SB(coordsX .= 30000000)
+        yield SB(coordsX .-= coordsTemp)
+
+        yield SB(coordsZ .= 0)
+        let cur = ref 33554432
+        while !cur > 0 do
+            // tp AS ~ ~ ~cur
+            yield AtomicCommand(sprintf "execute %s ~ ~ ~ tp @e[type=armor_stand,tag=GC_AS] ~ ~ ~%d" COORDS_UUID !cur)
+            // if SuccessCount=1 then
+            //    z = z+1
+            yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ scoreboard players add %s %s 1""" coordsTemp.Name ENTITY_UUID coordsZ.Name)
+            if !cur > 1 then
+                // z = z * 2
+                yield SB(coordsZ .+= coordsZ)
+            // cur = cur / 2
+            cur := !cur / 2
+        // z = 30000000 - z
+        yield SB(coordsTemp .= coordsZ)
+        yield SB(coordsZ .= 30000000)
+        yield SB(coordsZ .-= coordsTemp)
+
+        yield AtomicCommand("kill @e[type=armor_stand,tag=GC_AS]")
+        |]|>Array.map(fun c -> c.AsCommand()))
+    let get_coords = "get_coords",[|
+        "# get_coords"
+        "# inputs: one entity is tagged with 'GetCoords'"
+        "# outputs: coordsX, coordsZ"
+        // summoned 0.5 less in x/z because it measures e.g. anything above 37 (like 37.1) as 38, want the rounded version
+        sprintf """execute @e[tag=GetCoords,c=1] ~ ~ ~ summon armor_stand ~-0.5 ~ ~-0.5 {NoGravity:1b,Invulnerable:1b,Invisible:1b,Marker:1b,Tags:["GC_AS"]}"""
+        sprintf "execute %s ~ ~ ~ function %s:coords_body" ENTITY_UUID FUNCTION_NAMESPACE
+        |]
+    DropInModule("get_coords",oneTimeInit,[|coords_body;get_coords|])
 
 //////////////////////////////////////
 
@@ -640,74 +711,11 @@ implement something simple first, atop those, e.g. a short music piece
 insta-enderpearl can become 'tractor beam' or 'grappling hook', put 10 AS along bresenham long axis at tenths, and every 2 ticks, TP the player to next AS
 this would use delay alongside (within) CPS machine
 -----
-Then need to generalize CPS machine to multiple programs to dispatch (e.g. run mandelbrot and tractor beam at once); pump5 or whatever dispatches all live programs
-Things like Yield and Stop now have to be per program (AS entity each program tracks), and Yielding would only occur when all AS are ready
-And generalize Yield to WaitNTicksBeforeContinue or whatnot
- - Wait5 could be realized as a series of 5 basic blocks that do nothing and Yield (after I fix the bug where direct-tailcalls inline thru Yield), or
- - Wait5 could be realized as a loop that inits a var to 5, subtracts 1 each loop, and if >0 stays in loop or if =0 exits loop, and yields each iteration, yeah, can do that in 'user code' now
------
-Preemptive multitasking with lag-detection would do a fairness thing where every program runs one step/chunk before checking wall-clock, or whatnot
-However there may be some programs that can't be pre-empted, so we might need to specify programs, or parts of programs, as cooperative only
-What is right architecture/factoring for yield/wait/cooperate/preempt?
-What is ideal programming model? This can wait, can focus on low-level.
-
-Interleaving of multiple programs can create a shared-data problem.  Failure to interleave can create starvation or lack of fairness.  
-
-There is no good way to 'lock' a portion of the world data; a mutex would cover the entire world.  That's probably untenable, unless we can guarantee that running
-all the programs serially will still fit into a tick, in which case we can just serially run them and not worry about fairness since no one gets pre-empted.
-
-I think the most practical thing is to is
- - each block of a program should have { MustNotYield: bool, MustWaitNTicks: int } Note that MWNT only makes sense to be non-zero if MNY is false
- - MustNotYield might refer to 'must run in this tick' or 'must not be interleaved'
- - the former can cause starvation anyway, so when such a process exists, run it EXCLUSIVELY until it's no longer in MustNotYield state
- - MustWaitNTicks is easy, each process has a variable that's counting down each time we start the pump, and if it's non-zero, we skip the process this tick
- - CanYield is where we have scheduling flexibility to deal with fairness
-   - we need to measure system lag and have a policy of when to pre-empt
-   - we need a scheduling policy of which process to run next; round-robin ensures progress, but may not be 'fair' if one process uses lots of CPU 
    - probably best to do RR, and maybe also somehow let the processes 'inquire' about recent CPU utilization so they can choose to yield or do work
-
-So the logic for the dispatcher that continually loops in pump5 is like
-    if not timeToPreempt then
-        choose next round-robin process
-        if MustWaitNTicks=0 then
-            run one block (K blocks, for a suitable K that minimizes scheduler overhead while preserving liveness)
-            while that process is in MustNotYield state
-                run one block (not K, to avoid skipping ahead into a different MustNotYield section)
-        else
-            processesThatHaveWorkLeftThisTick--
-        timeToPreempt <- computeLag || processesThatHaveWorkLeftThisTick==0
-CPS unrolled, that becomes
-    if MustNotYield then
-        run one more block of current process
-        update MustNotYield state
-    else
-        timeToPreempt <- computeLag || processesThatHaveWorkLeftThisTick==0
-        if not timeToPreempt then
-            choose next round-robin process
-            if MustWaitNTicks=0 then
-                run one block (K blocks, for a suitable K that minimizes scheduler overhead while preserving liveness)
-                update MustNotYield state
-            else
-                processesThatHaveWorkLeftThisTick--
-And at the start of pump1 root we subtract 1 from all processes with non-zero MustWaitNTicks values, and also do
-    processesThatHaveWorkLeftThisTick <- MAX_PROC
-so everyone has a shot to do work if they need it
 
 Actually, "run one block" is "run K blocks" where K is a constant chosen to minimize scheduler overhead while preserving system liveness.  
 Hmm, but also need to ensure e.g. that a system that alternates between MustNotYield blocks and CanYield blocks with K=2 doesn't get stuck in exclusion, so only run one block 
 at a time once past K, or alternatively only run one block at a time in the MustNotYield loop.
-
-Since the set of processes is known at 'compile time', we can assign each process a number, and hard-code the round-robin chooser to just be e.g. RR <- (RR+1) mod NumProcs
-Actually, since each Proc has its own Must... variables, we need e.g. a global "makeProcessVariable" function in F# to make a Var for those, and since they are different
-objectives in Minecraft, we need to hardcode/inline the round-robinness in the scheduler.  So when codegen happens, all P Processes are known, and the scheduler codegens inside
-pump5 something akin to
-    dispatcher code for proc1
-    dispatcher code for proc2
-    ...
-    dispatcher code for procP
-(and note that if all P processes are done, or if lag says time to pre-empt, dispatchers and the pump will all cancel out and yield to minecraft)
-
-In terms of representation, I think each Process should just use its int ProcVar to be MustWaitNTicks, and a value of -1 represents MustNotYield.
 
 When a process has no work left to do this tick, it MUST set MustWaitNTicks to non-zero, else it will busy wait in the scheduler.
 
@@ -719,11 +727,7 @@ If there are programs that must run every tick and don't need the help of a pump
     # any other of those style programs
     function pump1    # calls all programs requiring pumps for within-tick arbitrary loops/control, or programs that span ticks
 
-Can detect and log process that is responsible for lagging server (e.g. can demo with unyielding mandelbrot, alongside foresight and snowball-teleport)
-
 It might be a good policy to ensure every process gets at least one time slice each tick, if desired, hmm
-
-Deal with time estimation; BBs are not the best unit of measurement, but are kinda the best unit of 'running', how best to 'weight'/estimate them?
 
 Consider instancing; if I want two mandels running at different locations/zooms, what kind of variable mechanism do I need for separate instances? 
  - Namespaces for variables, summoned entity names/tags? ...
@@ -752,7 +756,6 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 
 // snowball teleporter could turn into a grappling-hook that takes time to move over distance
 
-
 //lava-dipped arrows (remote light/lava) "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears, or lava laser
 
 // what would a UI for accessories/upgrades/trinkets/carrying-capacity/buy/sell look like? what are interesting non-armor/weapon upgrades? (arcane strike, various 'rush' buffs after kill/streak, ...)
@@ -768,4 +771,18 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 
 // one-way-home teleport mechanic? something time consuming you can't use in battle? drink potion, gives you nausea->blindness over 5s, then tp home
 
+// 'desire lines' grass repeatedly walked on changes to dirt, etc (see gm4)
 
+// 'enderman support class' from gm4 is cool idea (endermen give buffs to nearby mobs, to incentivize player to get rid of them)
+
+// idea of 'flat villages', e.g. detect flattish spaces to add villages, rather than minecrafty way on sides of mountains ridiculously?
+
+// ideas: use randomness/misc from environmnt http://gamemode4.wikia.com/wiki/Dangerous_Dungeon_Structure_Pack
+
+// ideas: now with biomes, change underground http://gamemode4.wikia.com/wiki/Cooler_Caves_Expansion_Pack
+//  - start in one cell of a biome, and radiate armor-stand outwards flood-fill-like to either reach edge of biome, or reach some other limit of existence/player-nearness to stop?
+//  - need chunk-finding algorithm
+//  - need to eval an area is reasonablyh big before we start
+//  - need to find a space-filling al to expand perimiter with minimum num armor stands or cmd blocks
+//  - need to stop if age reaches a certain value, or if player underground/within certain range
+//  - should make surface-visible something for ease of debugging

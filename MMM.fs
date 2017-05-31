@@ -1708,8 +1708,11 @@ automatic game start configs (night vision, starting items), customizable
         yield! FunctionUtilities.profileThis("p",[],["scoreboard players add @p A 1"],[])
         yield! FunctionUtilities.profileThis("x",[],["scoreboard players add x A 1"],[])
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
+        yield  "test",[|"scoreboard players add @s A 1"|]
         yield! FunctionUtilities.profileThis("cwe",[],["execute @s[score_A_min=0] ~ ~ ~ function lorgon111:test"],[])
         yield! FunctionUtilities.profileThis("cwi",[],["function lorgon111:test if @p[score_A_min=0]"],[])
+        yield! FunctionUtilities.profileThis("ecwe",[],["execute @e[score_A_min=0] ~ ~ ~ execute @p ~ ~ ~ function lorgon111:test"],[])
+        yield! FunctionUtilities.profileThis("ecwi",[],["function lorgon111:test if @e[score_A_min=0]"],[])  // idea is to demo that if need score from something else but want to preserve @s, 'if' may be valuable
         yield! FunctionUtilities.profileThis("wbg",[],["worldborder get"],[])
         yield! FunctionUtilities.profileThis("ewbg",[],["execute 1-1-1-0-1 ~ ~ ~ worldborder get"],[])
         yield! FunctionUtilities.profileThis("enwbg",[],["execute @e[name=1-1-1-0-1] ~ ~ ~ worldborder get"],[])
@@ -1730,6 +1733,18 @@ automatic game start configs (night vision, starting items), customizable
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.potionOfForesight  
         yield "foresight_init",init
         yield! fs
+        let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.getCoords  
+        yield "gc_init",init
+        yield! fs
+        yield "get_my_coords",[|
+            "scoreboard players tag @p add GetCoords"
+            sprintf "function %s:get_coords" FunctionCompiler.FUNCTION_NAMESPACE 
+            "scoreboard objectives add Coords dummy"
+            sprintf "scoreboard players operation X Coords = %s %s" FunctionCompiler.ENTITY_UUID FunctionUtilities.coordsX.Name
+            sprintf "scoreboard players operation Z Coords = %s %s" FunctionCompiler.ENTITY_UUID FunctionUtilities.coordsZ.Name
+            "scoreboard objectives setdisplay sidebar Coords"
+            "scoreboard players tag @p remove GetCoords"
+            |]
         |]
     for name,cmds in allFuncs do
         let path = worldFolder + (sprintf """\data\functions\%s\%s.mcfunction""" FunctionCompiler.FUNCTION_NAMESPACE name)
