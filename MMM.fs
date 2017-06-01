@@ -1657,8 +1657,23 @@ automatic game start configs (night vision, starting items), customizable
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
     let r = FunctionUtilities.raycastProgram
     let r = FunctionCompiler.inlineDirectTailCallsOptimization(r)
-    let _init, funcs = FunctionCompiler.compileToFunctions([p;r],(*isTracing*)false)
-    //let _init, funcs = FunctionCompiler.compileToFunctions([p],(*isTracing*)false)
+    let cbbn = FunctionCompiler.BBN "gc_prog"
+    let c = FunctionCompiler.Program(FunctionUtilities.coordsScope, [|FunctionUtilities.getCoords|], [|
+            FunctionCompiler.AtomicCommand("scoreboard objectives add Coords dummy")
+            FunctionCompiler.AtomicCommand("scoreboard objectives setdisplay sidebar Coords")
+            |], 
+            cbbn, dict[cbbn,FunctionCompiler.BasicBlock([|
+            FunctionCompiler.AtomicCommand("scoreboard players tag @p add GetCoords")
+            FunctionCompiler.AtomicCommandWithExtraCost(sprintf "function %s:get_coords" FunctionCompiler.FUNCTION_NAMESPACE, 110)
+            FunctionCompiler.AtomicCommand(sprintf "scoreboard players operation X Coords = %s %s" FunctionCompiler.ENTITY_UUID FunctionUtilities.coordsX.Name)
+            FunctionCompiler.AtomicCommand(sprintf "scoreboard players operation Z Coords = %s %s" FunctionCompiler.ENTITY_UUID FunctionUtilities.coordsZ.Name)
+            FunctionCompiler.AtomicCommand("scoreboard players tag @p remove GetCoords")
+            |], FunctionCompiler.DirectTailCall(cbbn), FunctionCompiler.MustWaitNTicks 1)])
+    let c = FunctionCompiler.inlineDirectTailCallsOptimization(c)
+    let m = NoteblockMusic.convert()
+    let m = FunctionCompiler.inlineDirectTailCallsOptimization(m)
+    let _init, funcs = FunctionCompiler.compileToFunctions([p;r;c;m],(*isTracing*)false)
+    //let _init, funcs = FunctionCompiler.compileToFunctions([m],(*isTracing*)false)
     let mutable commandCount = 0
     let allFuncs = funcs |> Seq.toArray 
     for name,cmds in allFuncs do

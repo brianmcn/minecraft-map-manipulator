@@ -311,6 +311,7 @@ let raycastProgram =
             // line above has two E-Ds to check current block and block below, since player is 2-tall and we are at eyeball level
             SB(ScoreboardPlayersConditionalSet(Conditional[|TEMP .>= 1|],MAJOR,0))
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
+            // TODO rather than summon/kill in the loop, better to keep it around
             // kill tempAS
             AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
             |],DirectTailCall(rwhiletest),MustNotYield)

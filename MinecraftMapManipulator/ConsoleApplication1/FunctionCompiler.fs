@@ -214,9 +214,10 @@ let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a num
 let Temp = functionCompilerVars.RegisterVar("Temp")
 let ChooserYield = functionCompilerVars.RegisterVar("ChooserYield")
 let ThrottleArray = Array.init 7 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
-let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork") // was there even any work scheduled this tick? (if not, don't go increasing Desired just b/c we see extra CPU)
-let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")       // the current program number (0..N-1) we are round-robining through
-let NumLiveProc = functionCompilerVars.RegisterVar("NumLiveProc")   // how many procs have work left this tick
+let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork")  // was there even any work scheduled this tick? (if not, don't go increasing Desired just b/c we see extra CPU)
+let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")        // the current program number (0..N-1) we are round-robining through
+let NumLiveProc = functionCompilerVars.RegisterVar("NumLiveProc")    // how many procs have work left this tick
+let NumProcInNeed = functionCompilerVars.RegisterVar("NumProcInNeed")// how many procs have work left this tick, but have not yet had a time slice
 
 let TARGETED_MS_OVERSHOOT   = 0   // how many more ms than 50ms per tick we aim for (recall, can only measure lag, not how much MC sleeps, so must overshoot)
 let EXTRA_MS_OVERSHOOT      = 5   // how many more ms than 50ms per tick we notice for an extra LagVar penalty
@@ -231,9 +232,9 @@ let EXTRA_WB    = 10000000 + 50 + EXTRA_MS_OVERSHOOT      // world border size g
 let DISPLAY_WB  = 10000000 + 50 + DISPLAY_MS_OVERSHOOT    // world border size to print at (DEBUG_THROTTLE)
 
 let DESIRED_INIT = 3000   // number of commands to initially target - this must be an overshoot, as the throttling only works while overshooting
-let UNDERSHOOT   = 1500   // minimum number of commands - this must be an undershoot, and we'll reset to an overshoot
+let UNDERSHOOT   =  500   // minimum number of commands - this must be an undershoot, and we'll reset to an overshoot
 
-let DEBUG_THROTTLE = false
+let DEBUG_THROTTLE = true
 let compileToFunctions(programs, isTracing) =
     let ProcIP = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "IP%d" i))
     let ProcYieldNow = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "ProcYieldNow%d" i))  // -1 MustNotYield, 0 Running (or NoPreference), 1-or-more is MustWaitNTicks
@@ -334,6 +335,7 @@ let compileToFunctions(programs, isTracing) =
                             instructions.Add(c)
                         | CALL(_f) ->
                             instructions.Add(c)
+                    instructions.Add(SB(NumProcInNeed .-= 1))
                     match finish,waitPolicy with
                     | Halt,_ -> ()  // if Halt, then don't do any of this, waitPolicy is meaningless
                     | _,MustWaitNTicks n ->
@@ -382,14 +384,15 @@ let compileToFunctions(programs, isTracing) =
                     yield sprintf "scoreboard players set @s[score_%s_min=0] %s 0" ProcYieldNow.[programNumber].Name YieldNow.Name 
                 |]))
             let dispatchNormalBody = [|
-                    yield sprintf """scoreboard players set @s[score_%s=0] %s 1""" NumRun.Name YieldNow.Name  // decide if time to pre-empt (done enough work already) - note this affects pump, not the proc
+                    // decide if time to pre-empt (all procs had at least one slice; overall done enough work already) - note this affects pump, not the proc
+                    yield sprintf """scoreboard players set @s[score_%s=0,score_%s=0] %s 1""" NumProcInNeed.Name NumRun.Name YieldNow.Name  
                     // if not yielding, run _exactly_ one block of this process
                     yield sprintf "scoreboard players operation @s %s = @s %s" Temp.Name ProcIP.[programNumber].Name // store next IP in Temp
                     for KeyValue(bbn,num) in bbnNumbers do 
                         // run only the block whose BBN# corresponds to Temp; this will update ProcIP, but not allow a subsequent BBN# to match the new value, since Temp does not change
-                        // this ensures exactly one is run (well, actually _at most_ one, since may run zero if we yielded)
-                        yield sprintf """execute @s[score_%s=0,score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                            YieldNow.Name ProcYieldNow.[programNumber].Name Temp.Name num Temp.Name num FUNCTION_NAMESPACE bbn.Name  // find next BB to run
+                        // this ensures exactly one is run (well, actually _at most_ one, since may run zero if we got pre-empted)
+                        yield sprintf """execute @s[score_%s=0,score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                            YieldNow.Name Temp.Name num Temp.Name num FUNCTION_NAMESPACE bbn.Name  // find next BB to run
                 |]
             avgNumCmdsOverheadInnerLoop <- avgNumCmdsOverheadInnerLoop + dispatchNormalBody.Length // currently keep running sum...
             functions.Add(makeFunction(sprintf"dispatch_normal%d"programNumber,dispatchNormalBody))
@@ -409,6 +412,8 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID NumLiveProc.Name
         for i = 0 to (programs |> Seq.length)-1 do
             yield sprintf "execute %s ~ ~ ~ scoreboard players add @s[score_%s=0] %s 1" ENTITY_UUID ProcYieldNow.[i].Name NumLiveProc.Name
+        // init NumProcInNeed 
+        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID NumProcInNeed.Name ENTITY_UUID NumLiveProc.Name 
         // init ThereWasWork
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID ThereWasWork.Name 
         yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=1] %s 1" ENTITY_UUID NumLiveProc.Name ThereWasWork.Name // any live proc means there is work
@@ -456,6 +461,8 @@ let compileToFunctions(programs, isTracing) =
         // if there was work scheduled this tick, update DesiredBB 
         // TODO this is incorrect; in mandel+ray, Desired increases without limit after mandel finishes, because ray does a check-no-snowball-then-yield
         // the correct thing is to update Desired only if not-all-processes-chose-to-yield-by-the-end, or alternatively phrased, if we needed to force a pre-empt
+        // (force pre-empt could be YieldVar=2?)
+        // TODO what about LagVars? shouldn't update them either if no pre-empt, right? Same for WindowSelect?
         yield sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ function %s:update_desiredbb" ENTITY_UUID ThereWasWork.Name FUNCTION_NAMESPACE
 
         // accumulate time
@@ -515,12 +522,10 @@ let compileToFunctions(programs, isTracing) =
             for i = 0 to (programs |> Seq.length)-1 do
                 // dispatch either MNY or normal for currentRR, bot not both! (hence ChooserYield temp variable, ensures exclusion)
                 yield sprintf "execute @s[score_%s=-1,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_mny%d" ChooserYield.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
-                yield sprintf "execute @s[score_%s=0,score_%s_min=0,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_normal%d" ChooserYield.Name ChooserYield.Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
+                yield sprintf "execute @s[score_%s=0,score_%s_min=0,score_%s=0,score_%s=%d,score_%s_min=%d] ~ ~ ~ function %s:dispatch_normal%d" ChooserYield.Name ChooserYield.Name ProcYieldNow.[i].Name CurrentRR.Name i CurrentRR.Name i FUNCTION_NAMESPACE i
             // if NumLiveProc goes to 0, then everyone yielded, so have the pump yield
             yield sprintf "scoreboard players set @s[score_%s=0] %s 1" NumLiveProc.Name YieldNow.Name 
             // NOTE: if NumRun reaches the limit and we pre-empt, that is the other condition for causing the pump to yield, but it happens in the dispatch_normal code
-
-            // TODO guarantee each proc gets at least one slice each tick?
 
             // TODO can we optimize this inner loop? inspect the .mcfunction code for ideas
 
