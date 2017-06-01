@@ -204,10 +204,11 @@ let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNo
 
 let TEN_MILLION = functionCompilerVars.RegisterVar("TEN_MILLION")
 let WBThisTick = functionCompilerVars.RegisterVar("WBThisTick")   // for pre-emption, measure milliseconds past since end of last tick
+let CmdThisTick = functionCompilerVars.RegisterVar("CmdThisTick") // measure milliseconds that 'we ate doing computation' this tick
 let WBAccum = functionCompilerVars.RegisterVar("WBAccum")         // for user-space time measurement, accumulate time across ticks
 let Desired = functionCompilerVars.RegisterVar("Desired")         // number of desired commands to run (dynamically computed based on lag history)
 let NumRun = functionCompilerVars.RegisterVar("NumRun")           // number of commands left to run this tick (starts at Desired and counts down)
-let WINDOW_SIZE = 39      // how many ticks into the past we keep track of, to see if lagging, to dynamically adjust how much we run
+let WINDOW_SIZE = 59      // how many ticks into the past we keep track of, to see if lagging, to dynamically adjust how much we run
 let WS_VAR = functionCompilerVars.RegisterVar("WS_VAR")  // WINDOW_SIZE as a constant
 let LagExactA = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.RegisterVar(sprintf "LagExactA%d" i))
 let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagExactA to update
@@ -219,6 +220,7 @@ let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")        // the curr
 let NumLiveProc = functionCompilerVars.RegisterVar("NumLiveProc")    // how many procs have work left this tick
 let NumProcInNeed = functionCompilerVars.RegisterVar("NumProcInNeed")// how many procs have work left this tick, but have not yet had a time slice
 
+let DESIRED_INIT = 4000
 let DISPLAY_MS_OVERSHOOT    = 51   // threshold we display in the chat if we overrun
 #if LAG_ATTRIBUTION
 // TODO attribution doesn't do very well, because it samples only one tick, really need a window history to do it well, probably, expensive
@@ -387,6 +389,11 @@ let compileToFunctions(programs, isTracing) =
 
     // function runner infrastructure
     functions.Add(makeFunction("start",[|
+        // measure time when we got control...
+        yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
+        // copy measurement onto entity as CmdThisTick
+        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID CmdThisTick.Name WBTIMER_UUID WBThisTick.Name 
+
         // make compiler live
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID YieldNow.Name
         // make long-sleeping procs get one tick closer to waking up
@@ -426,9 +433,14 @@ let compileToFunctions(programs, isTracing) =
         // immediately restart the timer, so we measure a full cycle with fewest instructions between measurement and restart
         yield "worldborder set 10000000"
         yield "worldborder add 1000000 1000"
-        // copy measurement onto entity
+        // copy measurement onto entity as WBThisTick
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID WBThisTick.Name WBTIMER_UUID WBThisTick.Name 
-        // convert measurement to milliseconds (ms)
+        // compute how much time we spent running commands since the gameLoopFunction began, store in CmdThisTick
+        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID Temp.Name ENTITY_UUID WBThisTick.Name 
+        yield sprintf "scoreboard players operation %s %s -= %s %s" ENTITY_UUID Temp.Name ENTITY_UUID CmdThisTick.Name 
+        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID CmdThisTick.Name ENTITY_UUID Temp.Name 
+
+        // convert WBThisTick measurement to milliseconds (ms)
         yield sprintf "scoreboard players operation %s %s -= %s %s" ENTITY_UUID WBThisTick.Name ENTITY_UUID TEN_MILLION.Name 
 
         // update lag/window info (regardless of whether we've been doing work, after all MC could be lagging on its own, and we need to know)
@@ -442,8 +454,8 @@ let compileToFunctions(programs, isTracing) =
         if DEBUG_THROTTLE then
 //            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=%d] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}},"  avg:",{"score":{"name":"@e[name=%s]","objective":"AvgOverrun"}}]""" 
 //                                   ENTITY_UUID        WBThisTick.Name DISPLAY_MS_OVERSHOOT                                   ENTITY_UUID                                                    ENTITY_UUID 
-            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ tellraw @a ["measured: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}},"  avg:",{"score":{"name":"@e[name=%s]","objective":"AvgOverrun"}},"  LagThisTick:",{"score":{"name":"@e[name=%s]","objective":"LagThisTick"}}]""" 
-                                    ENTITY_UUID      WindowSelect.Name                                               ENTITY_UUID                                                      ENTITY_UUID                                                                ENTITY_UUID 
+            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ tellraw @a ["avg ms per tick:",{"score":{"name":"@e[name=%s]","objective":"AvgOverrun"}},"  CmdThisTick:",{"score":{"name":"@e[name=%s]","objective":"CmdThisTick"}}]""" 
+                                    ENTITY_UUID      WindowSelect.Name                                                       ENTITY_UUID                                                      ENTITY_UUID    
 
 #if LAG_ATTRIBUTION
         // lag attribution
@@ -476,14 +488,20 @@ let compileToFunctions(programs, isTracing) =
         // We'll say if we see a measurement lower than, say, 35, we create an extra penalty of say 25.
         // Also if we see a measurement lower than 48, we create a small nominal penalty of say 2; we don't want noise to interfere, but we also want to ensure we're backing off if needed.
 
+        // TODO the problem with this strategy is that if 60-40-60-40 is how MC wants to do things, there may still be plenty of mc-sleep, but I can't see it because I just see 60-60-60-60...
+        // I need to measure TPS, and increase while it's >=20, and decrease when it goes below.
+        // And I also need to be careful of overcorrecting, as with a long window, each tick sees mostly the same average as the previous tick.
+
         // set LagThisTick to measured value
         yield sprintf "scoreboard players operation @s %s = @s %s" LagThisTick.Name WBThisTick.Name
+(*
         // if LagThisTick <= 48, set Temp to 102-LagThisTick, then assign back to LagThisTick
         // but if LagThisTick <= 35, set Temp to 125-LagThisTick, then assign back to LagThisTick
         yield sprintf "scoreboard players set @s[score_%s=48] %s 102" LagThisTick.Name Temp.Name
         yield sprintf "scoreboard players set @s[score_%s=35] %s 125" LagThisTick.Name Temp.Name
         yield sprintf "scoreboard players operation @s[score_%s=48] %s -= @s %s" LagThisTick.Name Temp.Name LagThisTick.Name 
         yield sprintf "scoreboard players operation @s[score_%s=48] %s = @s %s" LagThisTick.Name LagThisTick.Name Temp.Name 
+*)
 
         // update lagexact
         for i = 0 to WINDOW_SIZE-1 do
@@ -502,6 +520,7 @@ let compileToFunctions(programs, isTracing) =
         |]))
     functions.Add(makeFunction("update_desired",[|
         // compute delta-desired
+(*
         // AvgOverrun can never be <= 48 (see above for why) 
         // increase the throttle
         for lag,inc in [49,15
@@ -527,6 +546,17 @@ let compileToFunctions(programs, isTracing) =
             yield sprintf "scoreboard players remove @s[score_%s_min=%d,score_%s=%d] %s %d" AvgOverrun.Name lag AvgOverrun.Name lag Desired.Name inc
         // final decrease
         yield sprintf "scoreboard players remove @s[score_%s_min=67] %s 21" AvgOverrun.Name Desired.Name
+*)
+        
+        yield sprintf "scoreboard players add @s[score_%s=49] %s 6" AvgOverrun.Name Desired.Name
+        yield sprintf "scoreboard players remove @s[score_%s_min=51] %s 1" AvgOverrun.Name Desired.Name
+        yield sprintf "scoreboard players remove @s[score_%s_min=52] %s 2" AvgOverrun.Name Desired.Name
+        yield sprintf "scoreboard players remove @s[score_%s_min=53] %s 3" AvgOverrun.Name Desired.Name
+        yield sprintf "scoreboard players remove @s[score_%s_min=58] %s 5" AvgOverrun.Name Desired.Name
+        yield sprintf "scoreboard players remove @s[score_%s_min=65] %s 15" AvgOverrun.Name Desired.Name
+        // if WE ate more that 48ms this tick, throttle back a lot - this helps get out of state where MC is constantly losing ticks
+        // TODO average this over window, so less noise-prone
+        yield sprintf "scoreboard players remove @s[score_%s_min=48] %s 60" CmdThisTick.Name Desired.Name
         // ensure desired never below 1
         yield sprintf "scoreboard players set @s[score_%s=0] %s 1" Desired.Name Desired.Name
         |]))
@@ -588,7 +618,7 @@ let compileToFunctions(programs, isTracing) =
             for i = 0 to WINDOW_SIZE-1 do
                 yield sprintf "scoreboard players set %s %s 50" ENTITY_UUID LagExactA.[i].Name
             yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID WindowSelect.Name
-            yield sprintf "scoreboard players set %s %s 1" ENTITY_UUID Desired.Name
+            yield sprintf "scoreboard players set %s %s %d" ENTITY_UUID Desired.Name DESIRED_INIT
 
             yield sprintf "stats entity %s set QueryResult %s %s" WBTIMER_UUID WBTIMER_UUID WBThisTick.Name 
             yield sprintf "scoreboard players set %s %s 10000000" WBTIMER_UUID WBThisTick.Name  // need initial value before can trigger a stat
@@ -658,7 +688,6 @@ let mandelbrotProgram =
             for v in mandelbrotVars.All() do
                 yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
             // constants
-(*
             yield SB(FOURISSQ .= 64000000)
             yield SB(INTSCALE .= 4000)
             yield SB(MAXH .= 128)
@@ -667,7 +696,7 @@ let mandelbrotProgram =
             yield SB(YSCALE .= 62)
             yield SB(XMIN .= -8400)
             yield SB(YMIN .= -4000)
-*)
+(*
             yield SB(FOURISSQ .= 64000000)
             yield SB(INTSCALE .= 4000)
             yield SB(MAXH .= 128)
@@ -676,6 +705,7 @@ let mandelbrotProgram =
             yield SB(YSCALE .= 12)
             yield SB(XMIN .= -1120)
             yield SB(YMIN .= 3200)
+*)
         |],cpsPrefix, dict [
         cpsPrefix,BasicBlock([|
             // color stuff

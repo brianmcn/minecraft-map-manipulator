@@ -1696,6 +1696,8 @@ automatic game start configs (night vision, starting items), customizable
     // slightly adjusting throttle to make it possible to increase past noise, I complete MB in 74s, with server losing 7s along way, occasionally overruns of up to 120 (60ms over target)
     // yeah, even better throttle completes in 71s, server only lost 5s in can't-keep-up, occasionally overruns of up to 120 (60ms over target), but few, most overruns tiny (<5ms over target)
     // mandel alone in working multi-proc scheduler takes about 105s (server lost about 17s)
+    // mandel+music in multi-proc took 175s (server lost only 4s)
+    // mandel+music in multi-proc with non-averaged CmdThisTick-extra-throttle took 319s (server _never_lagged_)
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
 
