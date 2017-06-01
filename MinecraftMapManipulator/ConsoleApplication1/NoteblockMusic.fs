@@ -31,12 +31,13 @@ let pitchArray = [|
 type Notes = 
     | F | G | A | B | C | Rest
     member this.Pitch =
+        let K = 1
         match this with
-        | F -> pitchArray.[12]
-        | G -> pitchArray.[14]
-        | A -> pitchArray.[16]
-        | B -> pitchArray.[18]
-        | C -> pitchArray.[19]
+        | F -> pitchArray.[12-K]
+        | G -> pitchArray.[14-K]
+        | A -> pitchArray.[16-K]
+        | B -> pitchArray.[18-K]
+        | C -> pitchArray.[19-K]
         | Rest -> failwith "no pitch for Rest"
 
 // Sonic Green Hill Zone

@@ -208,10 +208,13 @@ let WBAccum = functionCompilerVars.RegisterVar("WBAccum")         // for user-sp
 let Desired = functionCompilerVars.RegisterVar("Desired")         // number of desired commands to run (dynamically computed based on lag history)
 let NumRun = functionCompilerVars.RegisterVar("NumRun")           // number of commands left to run this tick (starts at Desired and counts down)
 let WINDOW_SIZE = 10      // (should be divisible by 5) how many ticks into the past we keep track of, to see if lagging, to dynamically adjust how much we run
+let WS_VAR = functionCompilerVars.RegisterVar("WS_VAR")  // WINDOW_SIZE as a constant
 let DIVISOR = functionCompilerVars.RegisterVar("DIVISOR")
 let LagVarArray = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.RegisterVar(sprintf "LagVar%d" i))
+let LagExactA = Array.init WINDOW_SIZE (fun i -> functionCompilerVars.RegisterVar(sprintf "LagExactA%d" i))
 let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a number in range 0..WINDOW_SIZE-1, increments each tick, chooses LagVar to update
 let Temp = functionCompilerVars.RegisterVar("Temp")
+let AvgOverrun = functionCompilerVars.RegisterVar("AvgOverrun")
 let ChooserYield = functionCompilerVars.RegisterVar("ChooserYield")
 let ThrottleArray = Array.init 7 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
 let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")        // the current program number (0..N-1) we are round-robining through
@@ -272,6 +275,7 @@ let compileToFunctions(programs, isTracing) =
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
     initialization2.Add(SB(YieldNow .= 0))
     initialization2.Add(SB(TEN_MILLION .= 10000000))
+    initialization2.Add(SB(WS_VAR .= WINDOW_SIZE))
     initialization2.Add(SB(DIVISOR .= (WINDOW_SIZE/5)))
     initialization2.Add(SB(ThrottleArray.[0] .= +71))
     initialization2.Add(SB(ThrottleArray.[1] .= -0))    // Note: these penalties do not have to be large, since they effectively are multiplied by WINDOW_SIZE (re-penalized N times until expiry)
@@ -442,8 +446,8 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "scoreboard players operation %s %s -= %s %s" WBTIMER_UUID WBAccum.Name ENTITY_UUID TEN_MILLION.Name
         // debugging
         if DEBUG_THROTTLE then
-            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=%d] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}}]""" 
-                                   WBTIMER_UUID        WBThisTick.Name DISPLAY_WB                                          WBTIMER_UUID 
+            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s_min=%d] ~ ~ ~ tellraw @a ["overrun: ",{"score":{"name":"@e[name=%s]","objective":"WBThisTick"}},"  avg:",{"score":{"name":"@e[name=%s]","objective":"AvgOverrun"}}]""" 
+                                   WBTIMER_UUID        WBThisTick.Name DISPLAY_WB                                          WBTIMER_UUID                                                    ENTITY_UUID 
 
 #if LAG_ATTRIBUTION
         // lag attribution
@@ -476,10 +480,20 @@ let compileToFunctions(programs, isTracing) =
         // WBTIMER Temp now records 1 (or 2) or 0 if we are lagging (heavily) or not
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID Temp.Name WBTIMER_UUID Temp.Name 
 
-        // update lagvar
+        // update lagvar & lagexact
         for i = 0 to WINDOW_SIZE-1 do
             yield sprintf "scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s = @s %s" 
                                     WindowSelect.Name i WindowSelect.Name i LagVarArray.[i].Name    Temp.Name  
+            yield sprintf "scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s = %s %s" 
+                                    WindowSelect.Name i WindowSelect.Name i LagExactA.[i].Name    WBTIMER_UUID WBThisTick.Name
+            yield sprintf "scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s -= @s %s" 
+                                    WindowSelect.Name i WindowSelect.Name i LagExactA.[i].Name    TEN_MILLION.Name 
+
+        // compute AvgOverrun
+        yield sprintf "scoreboard players set @s %s 0" AvgOverrun.Name 
+        for i = 0 to WINDOW_SIZE-1 do
+            yield sprintf "scoreboard players operation @s %s += @s %s" AvgOverrun.Name LagExactA.[i].Name
+        yield sprintf "scoreboard players operation @s %s /= @s %s" AvgOverrun.Name WS_VAR.Name 
 
         // increment windowselect (mod WINDOW_SIZE)
         yield sprintf "scoreboard players add %s %s 1" ENTITY_UUID WindowSelect.Name
@@ -487,14 +501,14 @@ let compileToFunctions(programs, isTracing) =
 
         // compute delta-desired
         // let Temp be the sum of the lagvars
-        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID Temp.Name 
+        yield sprintf "scoreboard players set @s %s 0" Temp.Name 
         for i = 0 to WINDOW_SIZE-1 do
-            yield sprintf "scoreboard players operation %s %s += %s %s" ENTITY_UUID Temp.Name ENTITY_UUID LagVarArray.[i].Name
+            yield sprintf "scoreboard players operation @s %s += @s %s" Temp.Name LagVarArray.[i].Name
         // need find right heuristic to throttle... tried various ThrottleArray values initialized at top of compiler
-        yield sprintf "scoreboard players operation %s %s /= %s %s" ENTITY_UUID Temp.Name ENTITY_UUID DIVISOR.Name
+        yield sprintf "scoreboard players operation @s %s /= @s %s" Temp.Name DIVISOR.Name
         for i = 0 to 5 do
             yield sprintf "scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s += %s %s" Temp.Name i Temp.Name i Desired.Name ENTITY_UUID ThrottleArray.[i].Name
-        yield sprintf "scoreboard players operation @s[score_%s_min=%d] %s += %s %s" Temp.Name 6 Desired.Name ENTITY_UUID ThrottleArray.[6].Name
+        yield sprintf "scoreboard players operation @s[score_%s_min=%d] %s += @s %s" Temp.Name 6 Desired.Name ThrottleArray.[6].Name
         // never let desired go less than UNDERSHOOT
         if DEBUG_THROTTLE then
             yield sprintf """execute @s[score_%s=%d] ~ ~ ~ tellraw @a ["undershot, resetting"]""" Desired.Name UNDERSHOOT 
@@ -557,6 +571,7 @@ let compileToFunctions(programs, isTracing) =
             
             for i = 0 to WINDOW_SIZE-1 do
                 yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID LagVarArray.[i].Name
+                yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID LagExactA.[i].Name
             yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID WindowSelect.Name
             yield sprintf "scoreboard players set %s %s %d" ENTITY_UUID Desired.Name DESIRED_INIT
 
