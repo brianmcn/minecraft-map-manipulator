@@ -200,7 +200,7 @@ let FUNCTION_NAMESPACE = "lorgon111" // functions folder name
 let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 
 let functionCompilerVars = new Scope()
-let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNotYield, 0 is running, 1 means done with processing this tick
+let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNotYield, 0 is running, 1 means done with processing this tick because every proc yielded, 2 means done because overran desired
 
 let TEN_MILLION = functionCompilerVars.RegisterVar("TEN_MILLION")
 let WBThisTick = functionCompilerVars.RegisterVar("WBThisTick")   // for pre-emption, measure milliseconds past since end of last tick
@@ -214,7 +214,6 @@ let WindowSelect = functionCompilerVars.RegisterVar("WindowSelect")     // a num
 let Temp = functionCompilerVars.RegisterVar("Temp")
 let ChooserYield = functionCompilerVars.RegisterVar("ChooserYield")
 let ThrottleArray = Array.init 7 (fun i -> functionCompilerVars.RegisterVar(sprintf "Throttle%d" i))
-let ThereWasWork = functionCompilerVars.RegisterVar("ThereWasWork")  // was there even any work scheduled this tick? (if not, don't go increasing Desired just b/c we see extra CPU)
 let CurrentRR = functionCompilerVars.RegisterVar("CurrentRR")        // the current program number (0..N-1) we are round-robining through
 let NumLiveProc = functionCompilerVars.RegisterVar("NumLiveProc")    // how many procs have work left this tick
 let NumProcInNeed = functionCompilerVars.RegisterVar("NumProcInNeed")// how many procs have work left this tick, but have not yet had a time slice
@@ -231,6 +230,7 @@ let TARGETED_WB = 10000000 + 50 + TARGETED_MS_OVERSHOOT   // world border size t
 let EXTRA_WB    = 10000000 + 50 + EXTRA_MS_OVERSHOOT      // world border size giving extra LagVar penalty
 let DISPLAY_WB  = 10000000 + 50 + DISPLAY_MS_OVERSHOOT    // world border size to print at (DEBUG_THROTTLE)
 
+// TODO goal is to get rid of these; purely dynamic throttle that can adapt appropriately
 let DESIRED_INIT = 3000   // number of commands to initially target - this must be an overshoot, as the throttling only works while overshooting
 let UNDERSHOOT   =  500   // minimum number of commands - this must be an undershoot, and we'll reset to an overshoot
 
@@ -385,7 +385,7 @@ let compileToFunctions(programs, isTracing) =
                 |]))
             let dispatchNormalBody = [|
                     // decide if time to pre-empt (all procs had at least one slice; overall done enough work already) - note this affects pump, not the proc
-                    yield sprintf """scoreboard players set @s[score_%s=0,score_%s=0] %s 1""" NumProcInNeed.Name NumRun.Name YieldNow.Name  
+                    yield sprintf """scoreboard players set @s[score_%s=0,score_%s=0] %s 2""" NumProcInNeed.Name NumRun.Name YieldNow.Name  
                     // if not yielding, run _exactly_ one block of this process
                     yield sprintf "scoreboard players operation @s %s = @s %s" Temp.Name ProcIP.[programNumber].Name // store next IP in Temp
                     for KeyValue(bbn,num) in bbnNumbers do 
@@ -414,9 +414,6 @@ let compileToFunctions(programs, isTracing) =
             yield sprintf "execute %s ~ ~ ~ scoreboard players add @s[score_%s=0] %s 1" ENTITY_UUID ProcYieldNow.[i].Name NumLiveProc.Name
         // init NumProcInNeed 
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID NumProcInNeed.Name ENTITY_UUID NumLiveProc.Name 
-        // init ThereWasWork
-        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID ThereWasWork.Name 
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=1] %s 1" ENTITY_UUID NumLiveProc.Name ThereWasWork.Name // any live proc means there is work
 #if LAG_ATTRIBUTION
         // init ProcRun
         for i = 0 to (programs |> Seq.length)-1 do
@@ -424,7 +421,7 @@ let compileToFunctions(programs, isTracing) =
 #endif
 
         // if no work, immediately yield
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID ThereWasWork.Name YieldNow.Name
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=0] %s 1" ENTITY_UUID NumLiveProc.Name YieldNow.Name
 
         // debugging
         //yield sprintf """execute %s ~ ~ ~ tellraw @a ["num live procs: ",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID ENTITY_UUID NumLiveProc.Name 
@@ -436,34 +433,8 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ tellraw @a ["the pump ran out but the processes never yielded; fix process bugs or recompile with a larger pump. stopping gameLoop"]""" ENTITY_UUID YieldNow.Name 
         yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ gamerule gameLoopFunction -""" ENTITY_UUID YieldNow.Name 
 
-        // RECALL: 
-        // we can't measure how much minecraft is Sleep()ing due to underutilized CPU
-        // we can only try to overutilize until we see performance starting to tank, and then back off
-        // as a result, we need to try to overrun by a small bit; need to tune to find good balance
-
-        // measure 
-        yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
-        yield sprintf "scoreboard players set %s %s 0" WBTIMER_UUID Temp.Name 
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 1" WBTIMER_UUID WBThisTick.Name TARGETED_WB Temp.Name
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 2" WBTIMER_UUID WBThisTick.Name EXTRA_WB Temp.Name
-        // WBTIMER Temp now records 1 (or 2) or 0 if we are lagging (heavily) or not
-        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID Temp.Name WBTIMER_UUID Temp.Name 
-
-        // update lagvar
-        for i = 0 to WINDOW_SIZE-1 do
-            yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s = @s %s" 
-                                 ENTITY_UUID    WindowSelect.Name i WindowSelect.Name i LagVarArray.[i].Name    Temp.Name  
-
-        // increment windowselect (mod WINDOW_SIZE)
-        yield sprintf "scoreboard players add %s %s 1" ENTITY_UUID WindowSelect.Name
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 0" ENTITY_UUID WindowSelect.Name WINDOW_SIZE WindowSelect.Name 
-
-        // if there was work scheduled this tick, update DesiredBB 
-        // TODO this is incorrect; in mandel+ray, Desired increases without limit after mandel finishes, because ray does a check-no-snowball-then-yield
-        // the correct thing is to update Desired only if not-all-processes-chose-to-yield-by-the-end, or alternatively phrased, if we needed to force a pre-empt
-        // (force pre-empt could be YieldVar=2?)
-        // TODO what about LagVars? shouldn't update them either if no pre-empt, right? Same for WindowSelect?
-        yield sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ function %s:update_desiredbb" ENTITY_UUID ThereWasWork.Name FUNCTION_NAMESPACE
+        // if work got pre-empted this tick, update lag/window/Desired
+        yield sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=2] ~ ~ ~ function %s:update_desired" ENTITY_UUID YieldNow.Name FUNCTION_NAMESPACE
 
         // accumulate time
         yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
@@ -491,7 +462,29 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf """tellraw @a ["Major lag detected, here is a current process summary... "%s]""" (sb.ToString())
         |]))
 #endif
-    functions.Add(makeFunction("update_desiredbb",[|  // TODO could optimize slightly now that @s is ENTITY
+    functions.Add(makeFunction("update_desired",[|
+        // RECALL: 
+        // we can't measure how much minecraft is Sleep()ing due to underutilized CPU
+        // we can only try to overutilize until we see performance starting to tank, and then back off
+        // as a result, we need to try to overrun by a small bit; need to tune to find good balance
+
+        // measure 
+        yield sprintf "execute %s ~ ~ ~ worldborder get" WBTIMER_UUID 
+        yield sprintf "scoreboard players set %s %s 0" WBTIMER_UUID Temp.Name 
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 1" WBTIMER_UUID WBThisTick.Name TARGETED_WB Temp.Name
+        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s_min=%d] %s 2" WBTIMER_UUID WBThisTick.Name EXTRA_WB Temp.Name
+        // WBTIMER Temp now records 1 (or 2) or 0 if we are lagging (heavily) or not
+        yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID Temp.Name WBTIMER_UUID Temp.Name 
+
+        // update lagvar
+        for i = 0 to WINDOW_SIZE-1 do
+            yield sprintf "scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s = @s %s" 
+                                    WindowSelect.Name i WindowSelect.Name i LagVarArray.[i].Name    Temp.Name  
+
+        // increment windowselect (mod WINDOW_SIZE)
+        yield sprintf "scoreboard players add %s %s 1" ENTITY_UUID WindowSelect.Name
+        yield sprintf "scoreboard players set @s[score_%s_min=%d] %s 0" WindowSelect.Name WINDOW_SIZE WindowSelect.Name 
+
         // compute delta-desired
         // let Temp be the sum of the lagvars
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID Temp.Name 
@@ -500,12 +493,12 @@ let compileToFunctions(programs, isTracing) =
         // need find right heuristic to throttle... tried various ThrottleArray values initialized at top of compiler
         yield sprintf "scoreboard players operation %s %s /= %s %s" ENTITY_UUID Temp.Name ENTITY_UUID DIVISOR.Name
         for i = 0 to 5 do
-            yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s += %s %s" ENTITY_UUID Temp.Name i Temp.Name i Desired.Name ENTITY_UUID ThrottleArray.[i].Name
-        yield sprintf "execute %s ~ ~ ~ scoreboard players operation @s[score_%s_min=%d] %s += %s %s" ENTITY_UUID Temp.Name 6 Desired.Name ENTITY_UUID ThrottleArray.[6].Name
+            yield sprintf "scoreboard players operation @s[score_%s_min=%d,score_%s=%d] %s += %s %s" Temp.Name i Temp.Name i Desired.Name ENTITY_UUID ThrottleArray.[i].Name
+        yield sprintf "scoreboard players operation @s[score_%s_min=%d] %s += %s %s" Temp.Name 6 Desired.Name ENTITY_UUID ThrottleArray.[6].Name
         // never let desired go less than UNDERSHOOT
         if DEBUG_THROTTLE then
-            yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=%d] ~ ~ ~ tellraw @a ["undershot, resetting"]""" ENTITY_UUID Desired.Name UNDERSHOOT 
-        yield sprintf "execute %s ~ ~ ~ scoreboard players set @s[score_%s=%d] %s %d" ENTITY_UUID Desired.Name UNDERSHOOT Desired.Name DESIRED_INIT
+            yield sprintf """execute @s[score_%s=%d] ~ ~ ~ tellraw @a ["undershot, resetting"]""" Desired.Name UNDERSHOOT 
+        yield sprintf "scoreboard players set @s[score_%s=%d] %s %d" Desired.Name UNDERSHOOT Desired.Name DESIRED_INIT
         |]))
     // pump loop (finite cps without deep recursion)
     let MAX_PUMP_DEPTH = 4

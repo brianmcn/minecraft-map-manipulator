@@ -1672,7 +1672,7 @@ automatic game start configs (night vision, starting items), customizable
     let c = FunctionCompiler.inlineDirectTailCallsOptimization(c)
     let m = NoteblockMusic.convert()
     let m = FunctionCompiler.inlineDirectTailCallsOptimization(m)
-    let _init, funcs = FunctionCompiler.compileToFunctions([p;r;c;m],(*isTracing*)false)
+    let _init, funcs = FunctionCompiler.compileToFunctions([r;c;m],(*isTracing*)false)
     //let _init, funcs = FunctionCompiler.compileToFunctions([m],(*isTracing*)false)
     let mutable commandCount = 0
     let allFuncs = funcs |> Seq.toArray 
