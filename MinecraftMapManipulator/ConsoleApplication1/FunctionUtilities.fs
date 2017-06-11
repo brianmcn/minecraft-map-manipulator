@@ -310,8 +310,11 @@ let raycastProgram =
             |],DirectTailCall(rwhiletest),MustNotYield)
         coda,BasicBlock([|
             AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
-            // TODO snap to grid
-            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" -yOffset)
+            AtomicCommand("""execute @e[type=armor_stand,name=RAY] ~ ~ ~ summon leash_knot ~ ~-500 ~ {Tags:["snapToGrid"]}""")   // -500 so as to not be visible to players
+            AtomicCommand("""tp @e[type=armor_stand,name=RAY] @e[type=leash_knot,tag=snapToGrid]""")
+            AtomicCommand("""tp @e[type=armor_stand,name=RAY] ~ ~500 ~""")  // +500 to offset leash_knot visibility offset 
+            AtomicCommand("""kill @e[type=leash_knot,tag=snapToGrid]""")
+            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%.2f ~" -(float yOffset + 0.5))
             AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
             AtomicCommand("kill @e[type=snowball]")
             |],DirectTailCall(testsnow),MustWaitNTicks 1)
