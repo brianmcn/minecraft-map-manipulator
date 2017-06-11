@@ -1653,7 +1653,7 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\Prerelease1test"""
-    let p = FunctionCompiler.mandelbrotProgram
+    let p = FunctionCompiler.mandelbrotProgram(14)
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
     let r = FunctionUtilities.raycastProgram
     let r = FunctionCompiler.inlineDirectTailCallsOptimization(r)
@@ -1712,9 +1712,11 @@ automatic game start configs (night vision, starting items), customizable
         """scoreboard players set @s nPotionActive 600"""  // 30s, fragile interaction with foresight
         |])
 
-    let p = FunctionUtilities.raycastProgram
+    let p = FunctionCompiler.mandelbrotProgram(94)
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
-    let _init, funcs = FunctionCompiler.compileToFunctions([p],(*isTracing*)false)
+    let r = FunctionUtilities.raycastProgram
+    let r = FunctionCompiler.inlineDirectTailCallsOptimization(r)
+    let _init, funcs = FunctionCompiler.compileToFunctions([p;r],(*isTracing*)false)
     let mutable commandCount = 0
     let uuid = System.Guid.NewGuid()
     let least,most = Utilities.toLeastMost(uuid)

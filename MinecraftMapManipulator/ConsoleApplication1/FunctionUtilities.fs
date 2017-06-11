@@ -739,6 +739,31 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 
 //////////////////////////////////////
 
+// portal gun: raycast to shoot them out, particles or something to mark spot, and can use world-coord-checker to tp you there (a la wubbi)?  would work even to unloaded places!
+//  - can't do particles anywhere in world from 0,0,0 AS (too many commands/functions even with binary), either need entity or relative to player
+//  - entity has problem that if player goes away, entity may remain and be unloaded, many GC issues, so
+//  - relative to player is best, can see if portal location <= N distance radially from player, and if so, display particles relative to player, but
+//  - then if player move 0.3 block, the particles will also move 0.3 blocks, so need a way to snap-to-grid in coordinate-math
+//  - summon leash_knot works, within-tick can summon another entity from l_k and is centered
+//  - note that we want to snap-to-grid at the _end_ of the raycast; probably want to use actual eyeball location at start and while raycast, for better 'feel' of results
+// so next TODO is to abstract my raycast thingy and make it more efficient
+//  - make it a module; input is tagged player, output is rayx/rayy/rayz as well as the RAY AS entity, all work is grid-snapped coords
+//     - yes, it can be a module, not a program, by having its own dedicated CPS pump, since it's all MustNotYield (would be faster than program scheduler overhead anyway)
+//     - disadvantage of module v program is that we can no longer give the scheduler an accurate measure to load-balance other programs, hmm (AtomicCommandWithExtraCost)
+//     - advantage of module is can publish it separately for people other than me to consume
+//  - make a compiler that can compile a program to a standalone module, with own CPS pump, but no scheduler
+//     - program runs in one tick; "MustWaitNTicks 1" is like "Halt", anything other than MWNT1/MNY is a compilation error
+//        - may want an EveryTick abstraction ideally, where an EveryTick program compiles 'Halt' to 'wait 1' rather than 'wait 9999999' in the scheduler-compiler
+//        - EveryTick programs do not admit NoPreference or MWNT, in either scheduler-compiler or module-compiler; both produce compile errors for those
+//     - as standalone module, needs option to also summon ENTITY if not part of one of my scheduled programs which sets up ENTITY (and help for users to modify coords to their spawn chunks)
+//  - ensure program still work as part of old muti-task, while get new module working from same program code
+//  - then make new client for portal gun to display particles or something
+//  - will need a constantly running teleporter, e.g. if player's coords exactly equal blue portal coords, then tp to orange portal coords, and vice versa
+//     - and need some cooldown (5s?) so not constantly tp back and forth, hmm, that will require across-tick logic, I guess just a score on the player that constantly decrements is fine, no biggie
+
+// online terrain-gen that uses chunkloaders to create (and modify?) terrain outside the player's viewdistance?
+//  - can test using spectators-gen-chunks=false, and spectate to see what i have wrought?
+
 // survey advancements for ideas of fun things (biomes?)
 
 // snowball teleporter could turn into a grappling-hook that takes time to move over distance

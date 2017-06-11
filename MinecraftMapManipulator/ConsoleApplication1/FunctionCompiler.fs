@@ -363,6 +363,7 @@ let compileToFunctions(programs, isTracing) =
             allBBNs.ExceptWith(visited)
             if allBBNs.Count <> 0 then
                 failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+            // TODO consider giving programs names, and putting code for each program in name\bbn rather than just umping all code in functions namespace folder
             // dispatchers for this program
             functions.Add(makeFunction(sprintf"dispatch_mny%d"programNumber,[|
                     // run one (or more, if subsequent block has higher BBN# than orig) block of this process
@@ -377,6 +378,8 @@ let compileToFunctions(programs, isTracing) =
                     yield sprintf """scoreboard players set @s[score_%s=0,score_%s=0] %s 2""" NumProcInNeed.Name NumRun.Name YieldNow.Name  
                     // if not yielding, run _exactly_ one block of this process
                     yield sprintf "scoreboard players operation @s %s = @s %s" Temp.Name ProcIP.[programNumber].Name // store next IP in Temp
+                    // TODO binary search is less overhead, esp. when many BBs, but must adjust avgNumCmdsOverheadInnerLoop appropriately (also apply to MNY above)
+                    // TODO could do even better if can predict frequencies and put common BBs at the top of the tree and rare at bottom (Huffman coding)
                     for KeyValue(bbn,num) in bbnNumbers do 
                         // run only the block whose BBN# corresponds to Temp; this will update ProcIP, but not allow a subsequent BBN# to match the new value, since Temp does not change
                         // this ensures exactly one is run (well, actually _at most_ one, since may run zero if we got pre-empted)
@@ -400,7 +403,7 @@ let compileToFunctions(programs, isTracing) =
         for i = 0 to (programs |> Seq.length)-1 do
             yield sprintf "execute %s ~ ~ ~ scoreboard players remove @s[score_%s_min=1] %s 1" ENTITY_UUID ProcYieldNow.[i].Name ProcYieldNow.[i].Name
 
-        // init numbb to desired
+        // init NumRun to desired
         yield sprintf "scoreboard players operation %s %s = %s %s" ENTITY_UUID NumRun.Name ENTITY_UUID Desired.Name 
         // init NumLiveProc & ProcGotSlice
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID NumLiveProc.Name
@@ -555,8 +558,12 @@ let compileToFunctions(programs, isTracing) =
         yield sprintf "scoreboard players remove @s[score_%s_min=58] %s 5" AvgOverrun.Name Desired.Name
         yield sprintf "scoreboard players remove @s[score_%s_min=65] %s 15" AvgOverrun.Name Desired.Name
         // if WE ate more that 48ms this tick, throttle back a lot - this helps get out of state where MC is constantly losing ticks
+        // TODO 48 is arbitrary, how decide best number for e.g. multiplayer server? need some typical cpu utilization baseline, hm
         // TODO average this over window, so less noise-prone
         yield sprintf "scoreboard players remove @s[score_%s_min=48] %s 60" CmdThisTick.Name Desired.Name
+        // Note: an alternate strategy for above is that if we see multiple ticks in a row come in under 50, MC must be doing the 'play faster ticks to catch up' thing, though that also needs a 'cap' on our side to ensure we're not doing more than 50ms (all of it)
+        // Note: another strategy would be external monitoring of CPU utilization (e.g. task manager) that somehow auto-send commands to the server console
+
         // ensure desired never below 1
         yield sprintf "scoreboard players set @s[score_%s=0] %s 1" Desired.Name Desired.Name
         |]))
@@ -581,6 +588,8 @@ let compileToFunctions(programs, isTracing) =
             // NOTE: if NumRun reaches the limit and we pre-empt, that is the other condition for causing the pump to yield, but it happens in the dispatch_normal code
 
             // TODO can we optimize this inner loop? inspect the .mcfunction code for ideas
+
+            // TODO when NumLiveProc becomes 1, maybe I can avoid dispatch loop and process-swapping?
 
             // if not MustNotYield, then increment RoundRobin
             yield sprintf "scoreboard players add @s[score_%s_min=0] %s 1" YieldNow.Name CurrentRR.Name 
@@ -682,7 +691,7 @@ let mbGeneral = NoPreference
 let MANDEL_UUID = "1-1-1-0-9"
 let MANDEL_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000009"
 let mbleast,mbmost = Utilities.toLeastMost(new System.Guid(MANDEL_UUID_AS_FULL_GUID))
-let mandelbrotProgram = 
+let mandelbrotProgram(yLevel) = 
     Program(mandelbrotVars,[||],[|
             yield AtomicCommand "kill @e[type=armor_stand,tag=mandel]"
             for v in mandelbrotVars.All() do
@@ -730,9 +739,9 @@ let mandelbrotProgram =
             yield AtomicCommand(sprintf "scoreboard players set %s %s 0" ENTITY_UUID WBAccum.Name) // TODO abstract this 
             // actual code
             yield SB(i .= 0)
-            yield AtomicCommand(sprintf "tp %s 0 14 0" MANDEL_UUID)
-            yield AtomicCommand "fill 0 14 0 127 14 127 air"
-            yield AtomicCommand "fill 0 13 0 127 13 127 wool 0"
+            yield AtomicCommand(sprintf "tp %s 0 %d 0" MANDEL_UUID yLevel)
+            yield AtomicCommand(sprintf "fill 0 %d 0 127 %d 127 air" yLevel yLevel)
+            yield AtomicCommand(sprintf "fill 0 %d 0 127 %d 127 wool 0" (yLevel-1) (yLevel-1))
             |],DirectTailCall(cpsJStart),mbGeneral)
         cpsJStart,BasicBlock([|
             SB(j .= 0)
