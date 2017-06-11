@@ -175,6 +175,7 @@ let raycastProgram =
             AtomicCommand(sprintf """execute @e[type=armor_stand,name=RAY] ~ ~ ~ scoreboard players tag @p remove needsray""")
             // TODO would be more efficient to UUID RAY
             AtomicCommand(sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}" ENTITY_UUID HOLDSNOW.Name)
+            AtomicCommand(sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:tempAS,NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1}" ENTITY_UUID HOLDSNOW.Name)
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],raybegin,rayskip),MustNotYield)
         rayskip,BasicBlock([|
             AtomicCommand("kill @e[type=armor_stand,name=RAY]")
@@ -257,29 +258,24 @@ let raycastProgram =
             //let TMAJOR = MAJOR + MAJOR
             SB(TMAJOR .= MAJOR)
             SB(TMAJOR .+= MAJOR)
-            //let AX = TMAJOR - DX
-            SB(AX .= TMAJOR)
-            SB(AX .-= DX)
-            //let AY = TMAJOR - DY
-            SB(AY .= TMAJOR)
-            SB(AY .-= DY)
-            //let AZ = TMAJOR - DZ
-            SB(AZ .= TMAJOR)
-            SB(AZ .-= DZ)
+            //let AX = TDX - MAJOR
+            SB(AX .= TDX)
+            SB(AX .-= MAJOR)
+            //let AY = TDY - MAJOR
+            SB(AY .= TDY)
+            SB(AY .-= MAJOR)
+            //let AZ = TDZ - MAJOR
+            SB(AZ .= TDZ)
+            SB(AZ .-= MAJOR)
             // put armor stand at right starting point
             AtomicCommand("tp @e[type=armor_stand,name=RAY] @p") // now RAY has my facing
             AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" (1+yOffset)) // eyeball level (+offset)
-(* TODO snap-to-grid
-            AtomicCommand("execute @p ~ ~ ~ summon shulker ~ ~1 ~ {NoAI:1}") // snap to grid
-            AtomicCommand("execute @e[type=shulker] ~ ~ ~ teleport @e[name=RAY] ~ ~ ~")
-            AtomicCommand("tp @e[type=shulker] ~ ~-300 ~") // kill shulker
-*)
             |],DirectTailCall(rwhiletest),MustNotYield)
         rwhiletest,BasicBlock([|
             |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda),MustNotYield)
         loopbody,BasicBlock([|
             // remember where we are, so can back up
-            AtomicCommand "execute @e[type=armor_stand,name=RAY] ~ ~ ~ summon armor_stand ~ ~ ~  {CustomName:tempAS,NoGravity:1,Invisible:1,Invulnerable:1}"
+            AtomicCommand "tp @e[type=armor_stand,name=tempAS] @e[type=armor_stand,name=RAY]"
             //if AX > 0 then
             //    if FLIPX then
             //        tp RAY ~-1 ~ ~
@@ -311,11 +307,10 @@ let raycastProgram =
             // line above has two E-Ds to check current block and block below, since player is 2-tall and we are at eyeball level
             SB(ScoreboardPlayersConditionalSet(Conditional[|TEMP .>= 1|],MAJOR,0))
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
-            // TODO rather than summon/kill in the loop, better to keep it around
-            // kill tempAS
-            AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
             |],DirectTailCall(rwhiletest),MustNotYield)
         coda,BasicBlock([|
+            AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
+            // TODO snap to grid
             AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" -yOffset)
             AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
             AtomicCommand("kill @e[type=snowball]")
