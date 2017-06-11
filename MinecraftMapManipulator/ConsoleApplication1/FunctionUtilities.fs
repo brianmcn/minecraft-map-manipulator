@@ -174,11 +174,12 @@ let raycastProgram =
             AtomicCommand(sprintf """scoreboard players tag @p add needsray""")
             AtomicCommand(sprintf """execute @e[type=armor_stand,name=RAY] ~ ~ ~ scoreboard players tag @p remove needsray""")
             // TODO would be more efficient to UUID RAY
-            AtomicCommand(sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:RAY,NoGravity:1,Invisible:1,Glowing:1,Invulnerable:1}" ENTITY_UUID HOLDSNOW.Name)
-            AtomicCommand(sprintf "execute %s ~ ~ ~ execute @s[score_%s_min=1] ~ ~ ~ execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:tempAS,NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1}" ENTITY_UUID HOLDSNOW.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:RAY,NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1}" HOLDSNOW.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @p[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:tempAS,NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1}" HOLDSNOW.Name)
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],raybegin,rayskip),MustNotYield)
         rayskip,BasicBlock([|
             AtomicCommand("kill @e[type=armor_stand,name=RAY]")
+            AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
             |],DirectTailCall(testsnow),MustWaitNTicks 1)
         raybegin,BasicBlock([|
             AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
@@ -269,7 +270,7 @@ let raycastProgram =
             SB(AZ .-= MAJOR)
             // put armor stand at right starting point
             AtomicCommand("tp @e[type=armor_stand,name=RAY] @p") // now RAY has my facing
-            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%d ~" (1+yOffset)) // eyeball level (+offset)
+            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%2f ~" (1.65 + float yOffset)) // RAY position (its feet) are at my eyeball level (+offset)
             |],DirectTailCall(rwhiletest),MustNotYield)
         rwhiletest,BasicBlock([|
             |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda),MustNotYield)
@@ -299,22 +300,27 @@ let raycastProgram =
             SB(AZ .+= TDZ)
             // MAJOR = MAJOR - 1
             SB(MAJOR .-= 1)
+            
             // detect non-air and exit loop early
             SB(TEMP .= 1)
-            // TODO line below not work, because uses @s for TEMP, which is wrong under /execute... need a way to abstract this idiom
-            //AtomicCommand(sprintf "execute @e[name=RAY] ~ ~ ~ detect ~ ~ ~ air 0 %s" (SB(TEMP .= 0).AsCommand()))
-            AtomicCommand(sprintf "execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%d ~ air 0 scoreboard players set %s %s 0" (0-yOffset) (-1-yOffset) ENTITY_UUID TEMP.Name)
-            // line above has two E-Ds to check current block and block below, since player is 2-tall and we are at eyeball level
+            // for my snowball TP program, may make sense to 'look from eyes to feet' when looking downwards and 'look from feet to head' when looking upwards
+            // line below has two E-Ds to check current block and block above, since player is 2-tall and we are at looking downwards to check for feet-collision
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%.2f ~ air 0 execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%.2f ~ air 0 scoreboard players set %s %s 0" FLIPY.Name (-0.0 - float yOffset) (+1.0 - float yOffset) ENTITY_UUID TEMP.Name)
+            // line below has two E-Ds to check current block and block below, since player is 2-tall and we are at looking up and checking for head-collision
+            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%.2f ~ air 0 execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~%.2f ~ air 0 scoreboard players set %s %s 0" FLIPY.Name (-0.0 - float yOffset) (-1.0 - float yOffset) ENTITY_UUID TEMP.Name)
+            // TODO should not detect 2 air in abstracted module, should be just bresenham one-block-thick ray...
             SB(ScoreboardPlayersConditionalSet(Conditional[|TEMP .>= 1|],MAJOR,0))
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~" TEMP.Name) // tp RAY to tempAS but preserve RAY's facing direction
+            // TEMP==1 means collision, TEMP==0 means still in air
+
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~" TEMP.Name) // tp RAY back to tempAS if we collided, but preserve RAY's facing direction
             |],DirectTailCall(rwhiletest),MustNotYield)
         coda,BasicBlock([|
-            AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
             AtomicCommand("""execute @e[type=armor_stand,name=RAY] ~ ~ ~ summon leash_knot ~ ~-500 ~ {Tags:["snapToGrid"]}""")   // -500 so as to not be visible to players
-            AtomicCommand("""tp @e[type=armor_stand,name=RAY] @e[type=leash_knot,tag=snapToGrid]""")
+            AtomicCommand("""execute @e[type=leash_knot,tag=snapToGrid] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~""")   // snap RAY to grid, but preserve facing
             AtomicCommand("""tp @e[type=armor_stand,name=RAY] ~ ~500 ~""")  // +500 to offset leash_knot visibility offset 
             AtomicCommand("""kill @e[type=leash_knot,tag=snapToGrid]""")
-            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%.2f ~" -(float yOffset + 0.5))
+            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%.2f ~" (-0.5 - float yOffset))
+            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~-1 ~" FLIPY.Name)  // if were looking up, then move down 1 because AS head is in collision now
             AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
             AtomicCommand("kill @e[type=snowball]")
             |],DirectTailCall(testsnow),MustWaitNTicks 1)
