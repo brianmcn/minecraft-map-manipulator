@@ -275,6 +275,7 @@ let raycastProgram =
         rwhiletest,BasicBlock([|
             |],ConditionalTailCall(Conditional[| MAJOR .>= 1 |],loopbody,coda),MustNotYield)
         loopbody,BasicBlock([|
+            // TODO could tease apart all 8 octants into separate functions, as an optimization
             // remember where we are, so can back up
             AtomicCommand "tp @e[type=armor_stand,name=tempAS] @e[type=armor_stand,name=RAY]"
             //if AX > 0 then
@@ -289,6 +290,10 @@ let raycastProgram =
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ %s" AX.Name (SB(AX .-= TMAJOR).AsCommand()))
             SB(AX .+= TDX)
             // ditto for y
+            // TODO could I change all the '1'/'-1' I am TPing to M, where M could be e.g. 0.5 and get more collision-detection-precision (at extra computation cost to get same max radius)?
+            // more than that, see http://www.cse.yorku.ca/~amana/research/grid.pdf
+            // would be cool visual to highlight all blocks ray passes through, and have a second player look from another perspective to see it.
+            // might be best to implement an integer version in F# first to make sure understand alg perfectly?
             AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s_min=1] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~-1 ~" AY.Name FLIPY.Name)
             AtomicCommand(sprintf "execute @s[score_%s_min=1,score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~1 ~" AY.Name FLIPY.Name)
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ %s" AY.Name (SB(AY .-= TMAJOR).AsCommand()))
@@ -440,6 +445,50 @@ let getCoords =
         sprintf "execute %s ~ ~ ~ function %s:coords_body" ENTITY_UUID FUNCTION_NAMESPACE
         |]
     DropInModule("get_coords",oneTimeInit,[|coords_body;get_coords|])
+
+//////////////////////////////////////
+
+let fracScope = new Scope()
+let fracX = fracScope.RegisterVar("fracX")
+let fracY = fracScope.RegisterVar("fracY")
+let fracZ = fracScope.RegisterVar("fracZ")
+// TODO any uuids?
+let fracCoords =
+    let oneTimeInit = [|
+        // declare variables
+        for v in fracScope.All() do
+            yield sprintf "scoreboard objectives add %s dummy" v.Name
+    |]
+    let frac_coords = "frac_coords",[|
+        yield "# frac_coords"
+        yield "# inputs: calling entity (@s) is who we'll get coords for"
+        yield "# outputs: fracX, fracY, fracZ"
+
+        yield """summon leash_knot ~ ~-500 ~ {Tags:["frac_lk"],Invulnerable:1b}"""
+        yield """execute @e[tag=frac_lk] ~ ~ ~ summon armor_stand ~ ~500 ~ {Tags:["frac_grid"],Invulnerable:1b,NoGravity:1b,Invisible:1b}"""
+        yield "kill @e[tag=frac_lk]"
+        yield """summon armor_stand ~ ~ ~ {Tags:["frac_as"],Invulnerable:1b,NoGravity:1b,Invisible:1b}"""
+
+        for d in [1024; 512; 256; 128; 64; 32; 16; 8; 4; 2; 1] do
+            let f = float d / 1000.0
+            yield sprintf "scoreboard players tag @e[tag=frac_grid] add frac_toofar"
+            // TODO put next 3 lines in function with frac_as as @s caller
+            yield sprintf "tp @e[tag=frac_as] ~%.3f ~ ~" f
+            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players remove @e[tag=frac_grid,dx=1] %s %d" fracX.Name d
+            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players tag @e[tag=frac_grid,dx=1] remove frac_toofar"
+            yield sprintf "execute @e[tag=frac_toofar] ~ ~ ~ tp @e[tag=frac_as] ~-%.3f ~ ~" f
+
+        yield "teleport @e[tag=frac_as] ~ ~ ~"  // reset to start
+
+        // TODO Y and Z
+
+        yield sprintf "scoreboard players set %s %s 999" ENTITY_UUID fracX.Name // account for intersection overlap of AS and LK
+        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracX.Name fracX.Name 
+
+        yield "kill @e[tag=frac_as]"
+        yield "kill @e[tag=frac_grid]"
+        |]
+    DropInModule("frac_coords",oneTimeInit,[|frac_coords|])
 
 //////////////////////////////////////
 
@@ -742,6 +791,21 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 *)
 
 //////////////////////////////////////
+
+
+
+// first TODO is to make a non-Bresenham raycast algorithm and check that it no longer has precision errors I see from Bresenham:
+//  - target no exact when I an near edge of block (more exact when my eyes near center block)
+//  - target sometimes not next to collision (diagonally away)
+// I have notes on paper how to implement exact raycast-voxel collisions in sequence.  
+// First step of that is to implement a thingy which can detect your fractional coordinates to 0.001 accuracy.
+//  - testfor near leash_knot with r=1, binary search teleport to hone in
+// Note that simplest/best 'selection' technique is a single raycast out from eyeballs of player until air just before collision, then (start GREEN)
+//  - if was looking down, first check square above for air, else check square below for air, else RED
+//  - else (if was looking up), first check square below for air, else check square above for air, else RED
+//  - then if GREEN, can tp to it, but if RED cannot because selected square without 'room'; the double-ray-casts are too complicated/expensive
+//  - can use glowing magma cube with team color to display red/green and selected-block raycast (and have glowing AS when green but no displayed AS when red)
+
 
 // portal gun: raycast to shoot them out, particles or something to mark spot, and can use world-coord-checker to tp you there (a la wubbi)?  would work even to unloaded places!
 //  - can't do particles anywhere in world from 0,0,0 AS (too many commands/functions even with binary), either need entity or relative to player
