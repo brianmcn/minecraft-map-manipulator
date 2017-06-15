@@ -477,13 +477,34 @@ let fracCoords =
             yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players remove @e[tag=frac_grid,dx=1] %s %d" fracX.Name d
             yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players tag @e[tag=frac_grid,dx=1] remove frac_toofar"
             yield sprintf "execute @e[tag=frac_toofar] ~ ~ ~ tp @e[tag=frac_as] ~-%.3f ~ ~" f
+        yield sprintf "scoreboard players set %s %s 999" ENTITY_UUID fracX.Name // account for intersection overlap of AS and LK
+        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracX.Name fracX.Name 
 
         yield "teleport @e[tag=frac_as] ~ ~ ~"  // reset to start
 
-        // TODO Y and Z
+        for d in [1024; 512; 256; 128; 64; 32; 16; 8; 4; 2; 1] do
+            let f = float d / 1000.0
+            yield sprintf "scoreboard players tag @e[tag=frac_grid] add frac_toofar"
+            // TODO put next 3 lines in function with frac_as as @s caller
+            yield sprintf "tp @e[tag=frac_as] ~ ~-%.3f ~" f
+            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players add @e[tag=frac_grid,dy=1] %s %d" fracY.Name d
+            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players tag @e[tag=frac_grid,dy=1] remove frac_toofar"
+            yield sprintf "execute @e[tag=frac_toofar] ~ ~ ~ tp @e[tag=frac_as] ~ ~%.3f ~" f
+        yield sprintf "scoreboard players set %s %s -1000" ENTITY_UUID fracY.Name // account for intersection overlap of AS and LK
+        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracY.Name fracY.Name 
 
-        yield sprintf "scoreboard players set %s %s 999" ENTITY_UUID fracX.Name // account for intersection overlap of AS and LK
-        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracX.Name fracX.Name 
+        yield "teleport @e[tag=frac_as] ~ ~ ~"  // reset to start
+
+        for d in [1024; 512; 256; 128; 64; 32; 16; 8; 4; 2; 1] do
+            let f = float d / 1000.0
+            yield sprintf "scoreboard players tag @e[tag=frac_grid] add frac_toofar"
+            // TODO put next 3 lines in function with frac_as as @s caller
+            yield sprintf "tp @e[tag=frac_as] ~ ~ ~%.3f" f
+            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players remove @e[tag=frac_grid,dz=1] %s %d" fracZ.Name d
+            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players tag @e[tag=frac_grid,dz=1] remove frac_toofar"
+            yield sprintf "execute @e[tag=frac_toofar] ~ ~ ~ tp @e[tag=frac_as] ~ ~ ~-%.3f" f
+        yield sprintf "scoreboard players set %s %s 999" ENTITY_UUID fracZ.Name // account for intersection overlap of AS and LK
+        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracZ.Name fracZ.Name 
 
         yield "kill @e[tag=frac_as]"
         yield "kill @e[tag=frac_grid]"
