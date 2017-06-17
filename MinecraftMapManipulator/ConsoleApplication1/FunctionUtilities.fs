@@ -55,7 +55,7 @@ let findPhi =
         for v in phiScope.All() do
             yield sprintf "scoreboard objectives add %s dummy" v.Name
         |]
-    FunctionCompiler.DropInModule("findPhi",oneTimeInit,funcs.ToArray())
+    FunctionCompiler.DropInModule("findPhi",oneTimeInit,[||],funcs.ToArray())
 
 let thetaScope = new FunctionCompiler.Scope()
 let vtheta = thetaScope.RegisterVar("theta")
@@ -72,7 +72,7 @@ let findTheta =
         for v in thetaScope.All() do
             yield sprintf "scoreboard objectives add %s dummy" v.Name
         |]
-    FunctionCompiler.DropInModule("findTheta",oneTimeInit,funcs.ToArray())
+    FunctionCompiler.DropInModule("findTheta",oneTimeInit,[||],funcs.ToArray())
 
 //////////////////////////////////////
 
@@ -152,9 +152,10 @@ let raycastProgram =
 
     Program(raycastVars,[|findTheta;findPhi|],[|
         yield AtomicCommand("kill @e[type=armor_stand,name=RAY]")
-        // dependencies
-        for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta] do
-            yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
+// TODO verify compiler is doing this
+//        // dependencies
+//        for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta] do
+//            yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
         // SB init
         for v in raycastVars.All() do
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
@@ -163,7 +164,7 @@ let raycastProgram =
         yield SB(ONE_THOUSAND .= 1000)
         // prep code
         yield AtomicCommand "scoreboard players tag @p add look"
-        |],testsnow,dict[
+        |],[||],testsnow,dict[
         testsnow,BasicBlock([|
             // test for if we're holding snowball
             SB(HOLDSNOW .= 0)
@@ -387,7 +388,7 @@ let prng =
         //    Is a trade-off; place I do intend to call it next does not have 1-1-1-0-1 as the sender, so not a slam dunk... maybe always have 2 versions of utils?
         sprintf "execute %s ~ ~ ~ function %s:prngBody" ENTITY_UUID FUNCTION_NAMESPACE
         |]
-    DropInModule("prng",oneTimeInit,[|prngBody;prngMain|])
+    DropInModule("prng",oneTimeInit,[||],[|prngBody;prngMain|])
 
 //////////////////////////////////////
 
@@ -408,6 +409,7 @@ let getCoords =
         // place any long-lasting objects in the world
         // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
         yield sprintf """summon armor_stand -5 4 -5 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1,Tags:["compiler"]}""" COORDS_UUID gcmost gcleast
+        // TODO break init here into two ticks where kill any old version of this entity
         yield sprintf """stats entity @e[name=%s] set SuccessCount @e[name=%s] %s""" COORDS_UUID ENTITY_UUID coordsTemp.Name
         yield sprintf """scoreboard players set %s %s 1""" ENTITY_UUID coordsTemp.Name // stats'd entity must be initialized before can update
     |]
@@ -444,20 +446,36 @@ let getCoords =
         sprintf """execute @e[tag=GetCoords,c=1] ~ ~ ~ summon armor_stand ~-0.5 ~ ~-0.5 {NoGravity:1b,Invulnerable:1b,Invisible:1b,Marker:1b,Tags:["GC_AS"]}"""
         sprintf "execute %s ~ ~ ~ function %s:coords_body" ENTITY_UUID FUNCTION_NAMESPACE
         |]
-    DropInModule("get_coords",oneTimeInit,[|coords_body;get_coords|])
+    DropInModule("get_coords",oneTimeInit,[||],[|coords_body;get_coords|])
 
 //////////////////////////////////////
+
+let makeUUIDas(digit1,digit2) =
+    let UUID = sprintf "1-1-1-%c-%c" digit1 digit2 
+    let UUID_AS_FULL_GUID = sprintf "00000001-0001-0001-000%c-00000000000%c" digit1 digit2 
+    let least,most = Utilities.toLeastMost(new System.Guid(UUID_AS_FULL_GUID))
+    let nbt = sprintf "CustomName:%s,UUIDMost:%dl,UUIDLeast:%dl" UUID most least
+    UUID, nbt
 
 let fracScope = new Scope()
 let fracX = fracScope.RegisterVar("fracX")
 let fracY = fracScope.RegisterVar("fracY")
 let fracZ = fracScope.RegisterVar("fracZ")
-// TODO any uuids?
 let fracCoords =
-    let oneTimeInit = [|
+    let FRAC_AS_UUID,FRAC_AS_NBT = makeUUIDas('2','0')
+    let FRAC_GRID_UUID,FRAC_GRID_NBT = makeUUIDas('2','1')
+    let oneTimeInit1 = [|
         // declare variables
         for v in fracScope.All() do
             yield sprintf "scoreboard objectives add %s dummy" v.Name
+        // kill prior permanent entities
+        yield sprintf "kill %s" FRAC_AS_UUID 
+        yield sprintf "kill %s" FRAC_GRID_UUID 
+    |]
+    let oneTimeInit2 = [|
+        // permanent entities
+        yield sprintf """summon armor_stand ~ ~ ~ {Invulnerable:1b,NoGravity:1b,Invisible:1b,Marker:1b,%s}""" FRAC_AS_NBT 
+        yield sprintf """summon armor_stand ~ ~ ~ {Invulnerable:1b,NoGravity:1b,Invisible:1b,Marker:1b,%s}""" FRAC_GRID_NBT 
     |]
     let frac_coords = "frac_coords",[|
         yield "# frac_coords"
@@ -465,51 +483,53 @@ let fracCoords =
         yield "# outputs: fracX, fracY, fracZ"
 
         yield """summon leash_knot ~ ~-500 ~ {Tags:["frac_lk"],Invulnerable:1b}"""
-        yield """execute @e[tag=frac_lk] ~ ~ ~ summon armor_stand ~ ~500 ~ {Tags:["frac_grid"],Invulnerable:1b,NoGravity:1b,Invisible:1b,Marker:1b}"""
+        yield sprintf """execute @e[tag=frac_lk] ~ ~ ~ teleport %s ~ ~500 ~""" FRAC_GRID_UUID 
         yield "kill @e[tag=frac_lk]"
-        yield """summon armor_stand ~ ~ ~ {Tags:["frac_as"],Invulnerable:1b,NoGravity:1b,Invisible:1b,Marker:1b}"""
+
+        yield sprintf "scoreboard players set %s %s 0" FRAC_GRID_UUID fracX.Name 
+        yield sprintf "scoreboard players set %s %s 0" FRAC_GRID_UUID fracY.Name 
+        yield sprintf "scoreboard players set %s %s 0" FRAC_GRID_UUID fracZ.Name 
+
+        yield sprintf "teleport %s ~ ~ ~" FRAC_AS_UUID  // reset to start
 
         for d in [1024; 512; 256; 128; 64; 32; 16; 8; 4; 2; 1] do
             let f = float d / 1000.0
-            yield sprintf "scoreboard players tag @e[tag=frac_grid] add frac_toofar"
+            yield sprintf "scoreboard players tag %s add frac_toofar" FRAC_GRID_UUID 
             // TODO put next 3 lines in function with frac_as as @s caller
-            yield sprintf "tp @e[tag=frac_as] ~%.3f ~ ~" f
-            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players remove @e[tag=frac_grid,dx=1] %s %d" fracX.Name d
-            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players tag @e[tag=frac_grid,dx=1] remove frac_toofar"
-            yield sprintf "execute @e[tag=frac_toofar] ~ ~ ~ tp @e[tag=frac_as] ~-%.3f ~ ~" f
+            yield sprintf "tp %s ~%.3f ~ ~" FRAC_AS_UUID f
+            yield sprintf "execute %s ~ ~ ~ scoreboard players remove @e[name=%s,dx=1] %s %d" FRAC_AS_UUID FRAC_GRID_UUID fracX.Name d
+            yield sprintf "execute %s ~ ~ ~ scoreboard players tag @e[name=%s,dx=1] remove frac_toofar" FRAC_AS_UUID FRAC_GRID_UUID 
+            yield sprintf "execute %s ~ ~ ~ execute @s[tag=frac_toofar] ~ ~ ~ tp %s ~-%.3f ~ ~" FRAC_GRID_UUID FRAC_AS_UUID f
         yield sprintf "scoreboard players set %s %s 999" ENTITY_UUID fracX.Name // account for intersection overlap of AS and LK
-        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracX.Name fracX.Name 
+        yield sprintf "scoreboard players operation %s %s += %s %s" ENTITY_UUID fracX.Name FRAC_GRID_UUID fracX.Name 
 
-        yield "teleport @e[tag=frac_as] ~ ~ ~"  // reset to start
+        yield sprintf "teleport %s ~ ~ ~" FRAC_AS_UUID  // reset to start
 
         for d in [1024; 512; 256; 128; 64; 32; 16; 8; 4; 2; 1] do
             let f = float d / 1000.0
-            yield sprintf "scoreboard players tag @e[tag=frac_grid] add frac_toofar"
+            yield sprintf "scoreboard players tag %s add frac_toofar" FRAC_GRID_UUID
             // TODO put next 3 lines in function with frac_as as @s caller
-            yield sprintf "tp @e[tag=frac_as] ~ ~-%.3f ~" f
-            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players add @e[tag=frac_grid,dy=1] %s %d" fracY.Name d
-            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players tag @e[tag=frac_grid,dy=1] remove frac_toofar"
-            yield sprintf "execute @e[tag=frac_toofar] ~ ~ ~ tp @e[tag=frac_as] ~ ~%.3f ~" f
+            yield sprintf "tp %s ~ ~-%.3f ~" FRAC_AS_UUID f
+            yield sprintf "execute %s ~ ~ ~ scoreboard players add @e[name=%s,dy=1] %s %d" FRAC_AS_UUID FRAC_GRID_UUID fracY.Name d
+            yield sprintf "execute %s ~ ~ ~ scoreboard players tag @e[name=%s,dy=1] remove frac_toofar" FRAC_AS_UUID FRAC_GRID_UUID
+            yield sprintf "execute %s ~ ~ ~ execute @s[tag=frac_toofar] ~ ~ ~ tp %s ~ ~%.3f ~" FRAC_GRID_UUID FRAC_AS_UUID f
         yield sprintf "scoreboard players set %s %s -1000" ENTITY_UUID fracY.Name // account for intersection overlap of AS and LK
-        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracY.Name fracY.Name 
+        yield sprintf "scoreboard players operation %s %s += %s %s" ENTITY_UUID fracY.Name FRAC_GRID_UUID fracY.Name 
 
-        yield "teleport @e[tag=frac_as] ~ ~ ~"  // reset to start
+        yield sprintf "teleport %s ~ ~ ~" FRAC_AS_UUID  // reset to start
 
         for d in [1024; 512; 256; 128; 64; 32; 16; 8; 4; 2; 1] do
             let f = float d / 1000.0
-            yield sprintf "scoreboard players tag @e[tag=frac_grid] add frac_toofar"
+            yield sprintf "scoreboard players tag %s add frac_toofar" FRAC_GRID_UUID 
             // TODO put next 3 lines in function with frac_as as @s caller
-            yield sprintf "tp @e[tag=frac_as] ~ ~ ~%.3f" f
-            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players remove @e[tag=frac_grid,dz=1] %s %d" fracZ.Name d
-            yield sprintf "execute @e[tag=frac_as] ~ ~ ~ scoreboard players tag @e[tag=frac_grid,dz=1] remove frac_toofar"
-            yield sprintf "execute @e[tag=frac_toofar] ~ ~ ~ tp @e[tag=frac_as] ~ ~ ~-%.3f" f
+            yield sprintf "tp %s ~ ~ ~%.3f" FRAC_AS_UUID f
+            yield sprintf "execute %s ~ ~ ~ scoreboard players remove @e[name=%s,dz=1] %s %d" FRAC_AS_UUID FRAC_GRID_UUID fracZ.Name d
+            yield sprintf "execute %s ~ ~ ~ scoreboard players tag @e[name=%s,dz=1] remove frac_toofar" FRAC_AS_UUID FRAC_GRID_UUID
+            yield sprintf "execute %s ~ ~ ~ execute @s[tag=frac_toofar] ~ ~ ~ tp %s ~ ~ ~-%.3f" FRAC_GRID_UUID FRAC_AS_UUID f
         yield sprintf "scoreboard players set %s %s 999" ENTITY_UUID fracZ.Name // account for intersection overlap of AS and LK
-        yield sprintf "scoreboard players operation %s %s += @e[tag=frac_grid] %s" ENTITY_UUID fracZ.Name fracZ.Name 
-
-        yield "kill @e[tag=frac_as]"
-        yield "kill @e[tag=frac_grid]"
+        yield sprintf "scoreboard players operation %s %s += %s %s" ENTITY_UUID fracZ.Name FRAC_GRID_UUID fracZ.Name 
         |]
-    DropInModule("frac_coords",oneTimeInit,[|frac_coords|])
+    DropInModule("frac_coords",oneTimeInit1,oneTimeInit2,[|frac_coords|])
 
 //////////////////////////////////////
 
@@ -551,9 +571,10 @@ let perfectRaycastProgram =
         yield AtomicCommand("kill @e[type=armor_stand,name=RAY]")
         yield AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
         yield AtomicCommand("kill @e[type=armor_stand,name=looker]")
-        // dependencies
-        for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta; fracCoords] do
-            yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
+// TODO verify compiler did this
+//        // dependencies
+//        for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta; fracCoords] do
+//            yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
         // SB init
         for v in praycastVars.All() do
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
@@ -566,7 +587,7 @@ let perfectRaycastProgram =
 #else
         yield AtomicCommand "scoreboard players tag @p add look"
 #endif
-        |],ptestsnow,dict[
+        |],[||],ptestsnow,dict[
         ptestsnow,BasicBlock([|
             // test for if we're holding snowball
             SB(HOLDSNOW .= 0)
@@ -835,7 +856,7 @@ let conwayLife =
         "tp @e[type=skeleton] ~ ~-200 ~"
         // todo add methusalah/glider eggs?
         |]
-    DropInModule("life",oneTimeInit,[|
+    DropInModule("life",oneTimeInit,[||],[|
         count_neighbors
         has_buffer_neighbor
         check1
@@ -983,7 +1004,7 @@ let potionOfForesight =
         "function lorgon111:prng_init"
         "gamerule gameLoopFunction lorgon111:foresight_loop"
         |]
-    DropInModule("foresight_loop",oneTimeInit,[|
+    DropInModule("foresight_loop",oneTimeInit,[||],[|
         foresight_loop
         process_zombies 
         process_zombie 
@@ -1060,14 +1081,15 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 
 //////////////////////////////////////
 
+// optimize praycast with UUIDs and @s
+// change code to write out (and call) functions in separate folders for each program and drop-in
+// write compiler to compiler one-tick thingy into non-scheduler code
 
 
 // first TODO is to make a non-Bresenham raycast algorithm and check that it no longer has precision errors I see from Bresenham:
 //  - target no exact when I an near edge of block (more exact when my eyes near center block)
 //  - target sometimes not next to collision (diagonally away)
-// I have notes on paper how to implement exact raycast-voxel collisions in sequence.  
-// First step of that is to implement a thingy which can detect your fractional coordinates to 0.001 accuracy.
-//  - testfor near leash_knot with r=1, binary search teleport to hone in
+//  - can clip through corners
 // Note that simplest/best 'selection' technique is a single raycast out from eyeballs of player until air just before collision, then (start GREEN)
 //  - if was looking down, first check square above for air, else check square below for air, else RED
 //  - else (if was looking up), first check square below for air, else check square above for air, else RED

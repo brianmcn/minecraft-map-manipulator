@@ -1662,7 +1662,7 @@ automatic game start configs (night vision, starting items), customizable
     let c = FunctionCompiler.Program(FunctionUtilities.coordsScope, [|FunctionUtilities.getCoords; FunctionUtilities.fracCoords|], [|
             FunctionCompiler.AtomicCommand("scoreboard objectives add Coords dummy")
             FunctionCompiler.AtomicCommand("scoreboard objectives setdisplay sidebar Coords")
-            |], 
+            |], [||],
             cbbn, dict[cbbn,FunctionCompiler.BasicBlock([|
             FunctionCompiler.AtomicCommand("scoreboard players tag @p add GetCoords")
             FunctionCompiler.AtomicCommandWithExtraCost(sprintf "function %s:get_coords" FunctionCompiler.FUNCTION_NAMESPACE, 110)
@@ -1747,6 +1747,7 @@ automatic game start configs (night vision, starting items), customizable
         yield! FunctionUtilities.profileThis("zet",[],["scoreboard players add @e[tag=the_guy] A 1"],[])  // 5800ms @ 400zombies
         yield! FunctionUtilities.profileThis("zert",[],["scoreboard players add @e[r=1,tag=the_guy] A 1"],[])  // 1700ms @ 400zombies
         yield drank_luck
+(*
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.prng 
         yield "prng_init",init
         yield! fs
@@ -1756,6 +1757,7 @@ automatic game start configs (night vision, starting items), customizable
         let (FunctionCompiler.DropInModule(_,init,fs)) = FunctionUtilities.getCoords  
         yield "gc_init",init
         yield! fs
+*)
         yield "get_my_coords",[|
             "scoreboard players tag @p add GetCoords"
             sprintf "function %s:get_coords" FunctionCompiler.FUNCTION_NAMESPACE 

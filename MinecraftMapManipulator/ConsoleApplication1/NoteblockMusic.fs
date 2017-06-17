@@ -117,4 +117,4 @@ let convert() =
             (if i=64 then DirectTailCall(bbns.[0]) else DirectTailCall(bbns.[bbn+1])),
             MustWaitNTicks(rests*ticksPerEighth)))
         bbn <- bbn + 1
-    Program(new Scope(),[||],[||],bbns.[0],dict basicBlocks)
+    Program(new Scope(),[||],[||],[||],bbns.[0],dict basicBlocks)

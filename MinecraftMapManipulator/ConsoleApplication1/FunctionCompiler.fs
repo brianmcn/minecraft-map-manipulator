@@ -108,7 +108,7 @@ type Scope() =
 
 // TODO maybe make oneTimeInit a named function, written to disk that other modules call
 // TODO move all the function code out of this assembly, can go in own, and MMM-like stuff can be in new assembly that refs both
-type DropInModule = DropInModule of (*name*)string * (*oneTimeInit*) string[] * ((*name*) string * (*bodyCmds*) string[])[]
+type DropInModule = DropInModule of (*name*)string * (*oneTimeInit*) string[] * (*oneTimeInit a tick later*) string[] * ((*name*) string * (*bodyCmds*) string[])[]
 
 ////////////////////////
 
@@ -141,7 +141,7 @@ type BasicBlock =
     | BasicBlock of AbstractCommand[] * FinalAbstractCommand * WaitPolicy
 type Program = 
     // TODO Scope used only for variable-uniqueness-checking by compiler, consider also having compiler be responsibile for creating objectives for each var in the scope?
-    | Program of Scope * DropInModule[] * (*one-time init*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
+    | Program of Scope * DropInModule[] * (*one-time init*)AbstractCommand[] * (*one-time init a tick later*)AbstractCommand[] * (*entrypoint*)BasicBlockName * IDictionary<BasicBlockName,BasicBlock>
 
 ////////////////////////
 
@@ -155,7 +155,7 @@ let inlineDirectTailCallsOptimization(p) =
         | _ -> None
     let canMerge(i,o) = merge(i,o) |> Option.isSome 
     match p with
-    | Program(scope,dependencyModules,init,entrypoint,origBlockDict) ->
+    | Program(scope,dependencyModules,init1,init2,entrypoint,origBlockDict) ->
         let finalBlockDict = new Dictionary<_,_>()
         let referencedBBNs = new HashSet<_>()
         referencedBBNs.Add(entrypoint) |> ignore
@@ -192,7 +192,7 @@ let inlineDirectTailCallsOptimization(p) =
         for unusedBBN in allBBNs do
             printfn "removing unused state '%s' after optimization" unusedBBN.Name 
             finalBlockDict.Remove(unusedBBN) |> ignore
-        Program(scope,dependencyModules,init,entrypoint,finalBlockDict)
+        Program(scope,dependencyModules,init1,init2,entrypoint,finalBlockDict)
 
 ////////////////////////
 
@@ -237,15 +237,17 @@ let compileToFunctions(programs, isTracing) =
     let ProcRun = Array.init (programs |> Seq.length) (fun i -> functionCompilerVars.RegisterVar(sprintf "ProcRun%d" i))  // approx num statements run by this process this tick (used for lag-attribution)
 #endif
     let allDependencyModules = ResizeArray()
-    let allProgramInit = ResizeArray()
+    let allProgramInit1 = ResizeArray()
+    let allProgramInit2 = ResizeArray()
 
     // name-collision detection
     // TODO detect drop-in-module function names, and compiler-specific function names, in addition to BB names
     let allVariableNames = new System.Collections.Generic.HashSet<_>()
     let allBBNames = new System.Collections.Generic.HashSet<_>()
-    for Program(scope,dependencyModules,programInit,_entrypoint,blockDict) in programs do
+    for Program(scope,dependencyModules,programInit1,programInit2,_entrypoint,blockDict) in programs do
         allDependencyModules.AddRange(dependencyModules)
-        allProgramInit.AddRange(programInit)
+        allProgramInit1.AddRange(programInit1)
+        allProgramInit2.AddRange(programInit2)
         for v in scope.All() do
             if not(allVariableNames.Add(v.Name)) then
                 failwithf "two programs both use a variable named '%s'" v.Name
@@ -255,6 +257,7 @@ let compileToFunctions(programs, isTracing) =
 
     let initialization = ResizeArray()
     let initialization2 = ResizeArray()  // runs a tick after initialization
+    let initialization3 = ResizeArray()  // runs 2 ticks after initialization
     let functions = ResizeArray()
     let functionThunks = ResizeArray()
 (* TODO consider
@@ -274,7 +277,7 @@ let compileToFunctions(programs, isTracing) =
         initialization2.Add(SB(ProcYieldNow.[i] .= 0))    // TODO some programs may want to start in a halted (99999999) state, and have command/advancement wake them later
     do // scope programNumber to this block
         let mutable programNumber = -1
-        for Program(_scope,_dependencyModules,_programInit,entrypoint,blockDict) in programs do
+        for Program(_scope,_dependencyModules,_programInit1,_programInit2,entrypoint,blockDict) in programs do
             programNumber <- programNumber + 1
             let mutable foundEntryPointInDictionary = false
             let mutable nextBBNNumber = 1
@@ -599,10 +602,13 @@ let compileToFunctions(programs, isTracing) =
     avgNumCmdsOverheadInnerLoop <- avgNumCmdsOverheadInnerLoop + chooserBody.Length         // ... and add constant overhead from chooser; that's approx how many commands of total overhead
     functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),chooserBody))
     // init
-    for DropInModule(_,oneTimeInit,funcs) in allDependencyModules do
-        initialization2.AddRange(oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd)))
+    for DropInModule(_,oneTimeInit1,oneTimeInit2,funcs) in allDependencyModules do
+        initialization2.AddRange(oneTimeInit1 |> Seq.map (fun cmd -> AtomicCommand(cmd)))
+        // TODO is there ever a case where a program's first-tick init depends on a drop-in's second tick init? for now, assume no.
+        initialization3.AddRange(oneTimeInit2 |> Seq.map (fun cmd -> AtomicCommand(cmd)))
         functions.AddRange(funcs)
-    initialization2.AddRange(allProgramInit)
+    initialization2.AddRange(allProgramInit1)
+    initialization3.AddRange(allProgramInit2)
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
     let wbleast,wbmost = Utilities.toLeastMost(new System.Guid(WBTIMER_UUID_AS_FULL_GUID))
     functions.Add(makeFunction("initialization",[|
@@ -620,6 +626,7 @@ let compileToFunctions(programs, isTracing) =
             """tellraw @a ["tick1 called"]"""
         |]))
     functions.Add(makeFunction("inittick2",[|
+            yield sprintf "gamerule gameLoopFunction %s:inittick3" FUNCTION_NAMESPACE
             yield """tellraw @a ["tick2 called"]"""
             // Note: seems you cannot refer to UUID in same tick you just summoned it
             yield sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID FUNCTION_NAMESPACE
@@ -633,14 +640,19 @@ let compileToFunctions(programs, isTracing) =
             yield sprintf "scoreboard players set %s %s 10000000" WBTIMER_UUID WBThisTick.Name  // need initial value before can trigger a stat
             yield "worldborder set 10000000"
             yield "worldborder add 1000000 1000"
-            
-            yield sprintf "gamerule gameLoopFunction %s:start" FUNCTION_NAMESPACE
         |]))
     functions.Add(makeFunction("initialization2",[|
             // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
             yield """tellraw @a ["2 called"]"""
             for c in initialization2 do
                 yield c.AsCommand()
+        |]))
+    functions.Add(makeFunction("inittick3",[|
+            // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
+            yield """tellraw @a ["3 called"]"""
+            for c in initialization3 do
+                yield c.AsCommand()
+            yield sprintf "gamerule gameLoopFunction %s:start" FUNCTION_NAMESPACE
         |]))
 
     for thunk in functionThunks do
@@ -715,7 +727,7 @@ let mandelbrotProgram(yLevel) =
             yield SB(XMIN .= -1120)
             yield SB(YMIN .= 3200)
 *)
-        |],cpsPrefix, dict [
+        |],[||],cpsPrefix, dict [
         cpsPrefix,BasicBlock([|
             // color stuff
 #if DIRECT16COLORTEST
