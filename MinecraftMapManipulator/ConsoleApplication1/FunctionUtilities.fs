@@ -152,10 +152,6 @@ let raycastProgram =
 
     Program(raycastVars,[|findTheta;findPhi|],[|
         yield AtomicCommand("kill @e[type=armor_stand,name=RAY]")
-// TODO verify compiler is doing this
-//        // dependencies
-//        for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta] do
-//            yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
         // SB init
         for v in raycastVars.All() do
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
@@ -567,27 +563,27 @@ let perfectRaycastProgram =
     let FRACY_OFFSET = int(eyesAboveFeet * 1000.0) - 1000
     let MAX = 64000   // travel at most 64 blocks
 
+    let RAY_UUID,RAY_NBT = makeUUIDas('3','0')
+    let TEMPAS_UUID,TEMPAS_NBT = makeUUIDas('3','1')
+
     Program(praycastVars,[|findTheta;findPhi;fracCoords|],[|
-        yield AtomicCommand("kill @e[type=armor_stand,name=RAY]")
-        yield AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
+        yield AtomicCommand(sprintf "kill %s" RAY_UUID)
+        yield AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
         yield AtomicCommand("kill @e[type=armor_stand,name=looker]")
-// TODO verify compiler did this
-//        // dependencies
-//        for DropInModule(_,oneTimeInit,_) in [findPhi; findTheta; fracCoords] do
-//            yield! oneTimeInit |> Seq.map (fun cmd -> AtomicCommand(cmd))
         // SB init
         for v in praycastVars.All() do
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
         // constants
         yield SB(ONE_THOUSAND .= 1000)
-        // prep code
+        |],[|
+        // summoning permanent entities and other prep code
 #if DEBUG_WITH_LOOKER
         yield AtomicCommand "scoreboard players tag @p remove look"
         yield AtomicCommand """summon armor_stand 0 0 0 {CustomName:looker,NoGravity:1,Invulnerable:1,ArmorItems:[{},{},{},{id:"minecraft:iron_helmet",Count:1b}],Tags:["look"]}"""
 #else
         yield AtomicCommand "scoreboard players tag @p add look"
 #endif
-        |],[||],ptestsnow,dict[
+        |],ptestsnow,dict[
         ptestsnow,BasicBlock([|
             // test for if we're holding snowball
             SB(HOLDSNOW .= 0)
@@ -596,14 +592,13 @@ let perfectRaycastProgram =
             AtomicCommand(sprintf """execute @p[tag=holdsnow] ~ ~ ~ scoreboard players set %s %s 1""" ENTITY_UUID HOLDSNOW.Name)
             // see if we need to summon the AS
             AtomicCommand(sprintf """scoreboard players tag @e[tag=look] add needsray""")
-            AtomicCommand(sprintf """execute @e[type=armor_stand,name=RAY] ~ ~ ~ scoreboard players tag @e[tag=look] remove needsray""")
-            // TODO would be more efficient to UUID RAY
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:RAY,CustomNameVisible:0,NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1}" HOLDSNOW.Name)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {CustomName:tempAS,CustomNameVisible:0,NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1}" HOLDSNOW.Name)
+            AtomicCommand(sprintf """execute %s ~ ~ ~ scoreboard players tag @e[tag=look] remove needsray""" RAY_UUID)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name RAY_NBT)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1,%s}" HOLDSNOW.Name TEMPAS_NBT)
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],praybegin,prayskip),MustNotYield)
         prayskip,BasicBlock([|
-            AtomicCommand("kill @e[type=armor_stand,name=RAY]")
-            AtomicCommand("kill @e[type=armor_stand,name=tempAS]")
+            AtomicCommand(sprintf "kill %s" RAY_UUID)
+            AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         praybegin,BasicBlock([|
             AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
@@ -664,7 +659,7 @@ let perfectRaycastProgram =
             AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(RDZ .= TEMP).AsCommand()))
 
             // put armor stand at right starting point
-            AtomicCommand(sprintf "execute @e[tag=look] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~%2f ~ ~ ~" (eyesAboveFeet + float yOffset)) // RAY position (its feet) are at looker eyeball level (+offset)
+            AtomicCommand(sprintf "execute @e[tag=look] ~ ~ ~ teleport %s ~ ~%2f ~ ~ ~" RAY_UUID (eyesAboveFeet + float yOffset)) // RAY position (its feet) are at looker eyeball level (+offset)
 
             // initial values
             //if FLIPX
@@ -707,7 +702,7 @@ let perfectRaycastProgram =
             |],ConditionalTailCall(Conditional[| DONE .<= 0 |],ploopbody,pcoda),MustNotYield)
         ploopbody,BasicBlock([|
             // remember where we are, so can back up
-            AtomicCommand "tp @e[type=armor_stand,name=tempAS] @e[type=armor_stand,name=RAY]"
+            AtomicCommand(sprintf "tp %s %s" TEMPAS_UUID RAY_UUID)
             // find the smallest, step in its direction, increment, test for done
             SB(TEMP .= CURX)
             SB(TEMP .-= CURY)
@@ -719,11 +714,11 @@ let perfectRaycastProgram =
         pzleast,BasicBlock([|
             // z was least
             // step 1 in z direction (using FLIPZ to determine + or -)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~ ~-1" FLIPZ.Name)
-            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~ ~1" FLIPZ.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp %s ~ ~ ~-1" FLIPZ.Name RAY_UUID)
+            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ tp %s ~ ~ ~1" FLIPZ.Name RAY_UUID)
             // see if air here, if not stop
             SB(DONE .= 1)
-            AtomicCommand(sprintf "execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~-%d ~ air 0 scoreboard players set %s %s 0" yOffset ENTITY_UUID DONE.Name)
+            AtomicCommand(sprintf "execute %s ~ ~ ~ detect ~ ~-%d ~ air 0 scoreboard players set %s %s 0" RAY_UUID yOffset ENTITY_UUID DONE.Name)
             // see if traveled far enough to stop
             AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=%d] %s 1" CURZ.Name MAX DONE.Name)
 //            AtomicCommand(sprintf """tellraw @a ["step z - CURX:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURY:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURZ:",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID CURX.Name ENTITY_UUID CURY.Name ENTITY_UUID CURZ.Name)
@@ -732,11 +727,11 @@ let perfectRaycastProgram =
         pyleast,BasicBlock([|
             // y was least
             // step 1 in y direction (using FLIPY to determine + or -)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~-1 ~" FLIPY.Name)
-            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~ ~1 ~" FLIPY.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp %s ~ ~-1 ~" FLIPY.Name RAY_UUID)
+            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ tp %s ~ ~1 ~" FLIPY.Name RAY_UUID)
             // see if air here, if not stop
             SB(DONE .= 1)
-            AtomicCommand(sprintf "execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~-%d ~ air 0 scoreboard players set %s %s 0" yOffset ENTITY_UUID DONE.Name)
+            AtomicCommand(sprintf "execute %s ~ ~ ~ detect ~ ~-%d ~ air 0 scoreboard players set %s %s 0" RAY_UUID yOffset ENTITY_UUID DONE.Name)
             // see if traveled far enough to stop
             AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=%d] %s 1" CURY.Name MAX DONE.Name)
 //            AtomicCommand(sprintf """tellraw @a ["step y - CURX:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURY:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURZ:",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID CURX.Name ENTITY_UUID CURY.Name ENTITY_UUID CURZ.Name)
@@ -749,11 +744,11 @@ let perfectRaycastProgram =
         pxleast,BasicBlock([|
             // x was least
             // step 1 in x direction (using FLIPX to determine + or -)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~-1 ~ ~" FLIPX.Name)
-            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ tp @e[type=armor_stand,name=RAY] ~1 ~ ~" FLIPX.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp %s ~-1 ~ ~" FLIPX.Name RAY_UUID)
+            AtomicCommand(sprintf "execute @s[score_%s=0] ~ ~ ~ tp %s ~1 ~ ~" FLIPX.Name RAY_UUID)
             // see if air here, if not stop
             SB(DONE .= 1)
-            AtomicCommand(sprintf "execute @e[type=armor_stand,name=RAY] ~ ~ ~ detect ~ ~-%d ~ air 0 scoreboard players set %s %s 0" yOffset ENTITY_UUID DONE.Name)
+            AtomicCommand(sprintf "execute %s ~ ~ ~ detect ~ ~-%d ~ air 0 scoreboard players set %s %s 0" RAY_UUID yOffset ENTITY_UUID DONE.Name)
             // see if traveled far enough to stop
             AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=%d] %s 1" CURX.Name MAX DONE.Name)
 //            AtomicCommand(sprintf """tellraw @a ["step x - CURX:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURY:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURZ:",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID CURX.Name ENTITY_UUID CURY.Name ENTITY_UUID CURZ.Name)
@@ -761,20 +756,20 @@ let perfectRaycastProgram =
             |],DirectTailCall(ploopfinish),MustNotYield)
         ploopfinish,BasicBlock([|
 #if DEBUG_WITH_LOOKER
-            AtomicCommand(sprintf "execute @e[type=armor_stand,name=RAY] ~ ~-%d ~ particle happyVillager ~ ~ ~ 0 0 0 0 0" yOffset)
+            AtomicCommand(sprintf "execute %s ~ ~-%d ~ particle happyVillager ~ ~ ~ 0 0 0 0 0" RAY_UUID yOffset)
 #endif
 //            AtomicCommand(sprintf """tellraw @a ["loop - CURX:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURY:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURZ:",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID CURX.Name ENTITY_UUID CURY.Name ENTITY_UUID CURZ.Name)
             |],DirectTailCall(prwhiletest),MustNotYield)
         pcoda,BasicBlock([|
 //            AtomicCommand(sprintf """tellraw @a ["done!"]""")
-            AtomicCommand(sprintf "execute @e[type=armor_stand,name=tempAS] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~") // tp RAY back to tempAS, but preserve RAY's facing direction
-            AtomicCommand("""execute @e[type=armor_stand,name=RAY] ~ ~ ~ summon leash_knot ~ ~-500 ~ {Tags:["snapToGrid"]}""")   // -500 so as to not be visible to players
-            AtomicCommand("""execute @e[type=leash_knot,tag=snapToGrid] ~ ~ ~ teleport @e[type=armor_stand,name=RAY] ~ ~ ~""")   // snap RAY to grid, but preserve facing
-            AtomicCommand("""tp @e[type=armor_stand,name=RAY] ~ ~500 ~""")  // +500 to offset leash_knot visibility offset 
-            AtomicCommand("""kill @e[type=leash_knot,tag=snapToGrid]""")
-            AtomicCommand(sprintf "tp @e[type=armor_stand,name=RAY] ~ ~%.2f ~" (-0.5 - float yOffset))
+            AtomicCommand(sprintf "execute %s ~ ~ ~ teleport %s ~ ~ ~" TEMPAS_UUID RAY_UUID) // tp RAY back to tempAS, but preserve RAY's facing direction
+            AtomicCommand(sprintf """execute %s ~ ~ ~ summon leash_knot ~ ~-500 ~ {Tags:["snapToGrid"]}""" RAY_UUID)   // -500 so as to not be visible to players
+            AtomicCommand(sprintf """execute @e[type=leash_knot,tag=snapToGrid] ~ ~ ~ teleport %s ~ ~ ~""" RAY_UUID)   // snap RAY to grid, but preserve facing
+            AtomicCommand(sprintf """tp %s ~ ~500 ~""" RAY_UUID)  // +500 to offset leash_knot visibility offset 
+            AtomicCommand(sprintf """kill @e[type=leash_knot,tag=snapToGrid]""")
+            AtomicCommand(sprintf "tp %s ~ ~%.2f ~" RAY_UUID (-0.5 - float yOffset))
             // TODO whole red/green logic
-            AtomicCommand("execute @e[type=snowball] ~ ~ ~ tp @p @e[type=armor_stand,name=RAY]")
+            AtomicCommand(sprintf "execute @e[type=snowball] ~ ~ ~ tp @p %s" RAY_UUID)
             AtomicCommand("kill @e[type=snowball]")
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         ])
@@ -1081,7 +1076,6 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 
 //////////////////////////////////////
 
-// optimize praycast with UUIDs and @s
 // change code to write out (and call) functions in separate folders for each program and drop-in
 // write compiler to compiler one-tick thingy into non-scheduler code
 
