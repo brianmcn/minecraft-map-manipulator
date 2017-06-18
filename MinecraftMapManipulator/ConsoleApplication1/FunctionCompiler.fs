@@ -199,6 +199,166 @@ let inlineDirectTailCallsOptimization(p) =
 let FUNCTION_NAMESPACE = "lorgon111" // functions folder name
 let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 
+////////////////////////
+// compile to one-tick
+
+let onetickCompilerVars = new Scope()
+let otcIP = onetickCompilerVars.RegisterVar("otcIP")
+let StopPump = onetickCompilerVars.RegisterVar("StopPump")  // done processing this tick
+
+let compileToOneTick(program, isTracing) =
+    // TODO any name-collision detection?
+
+    let initialization = ResizeArray()
+    let initialization2 = ResizeArray()  // runs a tick after initialization
+    let initialization3 = ResizeArray()  // runs 2 ticks after initialization
+    let functions = ResizeArray()
+
+    for v in onetickCompilerVars.All() do
+        initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
+    let (Program(scope,dependencyModules,programInit1,programInit2,entrypoint,blockDict)) = program
+    let mutable foundEntryPointInDictionary = false
+    let mutable nextBBNNumber = 1
+    let bbnNumbers = new Dictionary<_,_>()
+    for KeyValue(bbn,_) in blockDict do
+        if bbn.Name.Length > 15 then
+            failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
+        bbnNumbers.Add(bbn, nextBBNNumber)
+        nextBBNNumber <- nextBBNNumber + 1
+        if bbn = entrypoint then
+            initialization2.Add(SB(otcIP .= bbnNumbers.[bbn]))
+            foundEntryPointInDictionary <- true
+    if not(foundEntryPointInDictionary) then
+        failwith "did not find entrypoint in basic block dictionary"
+
+    let visited = new HashSet<_>()
+    // runner infrastructure functions at bottom of code further below
+    let q = new Queue<_>()
+    q.Enqueue(entrypoint)
+    while q.Count <> 0 do
+        let instructions = ResizeArray()
+        let currentBBN = q.Dequeue()
+        if not(visited.Contains(currentBBN)) then
+            visited.Add(currentBBN) |> ignore
+            let (BasicBlock(cmds,finish,waitPolicy)) = blockDict.[currentBBN]
+            if isTracing then
+                instructions.Add(AtomicCommand(sprintf """tellraw @a ["start block: %s"]""" currentBBN.Name))
+            for c in cmds do
+                match c with 
+                | AtomicCommand _s ->
+                    instructions.Add(c)
+                | AtomicCommandWithExtraCost(_s,cost) ->
+                    instructions.Add(c)
+                | AtomicCommandThunkFragment _f ->
+                    instructions.Add(c)
+                | SB(_soc) ->
+                    instructions.Add(c)
+                | CALL(_f) ->
+                    instructions.Add(c)
+            match waitPolicy with
+            | MustWaitNTicks 1 -> 
+                instructions.Add(SB(StopPump .= 1)) // ok, this is same as 'halt'
+            | MustWaitNTicks _ ->
+                failwithf "bad MustWaitNTicks for %s, can only be 1 in one-tick compiler" currentBBN.Name
+            | MustNotYield -> () // ok, this is typical for one-tick
+            | NoPreference ->
+                failwithf "bad NoPreference for %s, should only be MustNotYield in one-tick compiler" currentBBN.Name
+            match finish with
+            | DirectTailCall(nextBBN) ->
+                if not(blockDict.ContainsKey(nextBBN)) then
+                    failwithf "bad DirectTailCall goto %s" nextBBN.Name
+                q.Enqueue(nextBBN) |> ignore
+                instructions.Add(SB(otcIP .= bbnNumbers.[nextBBN]))
+            | ConditionalTailCall(conds,ifbbn,elsebbn) ->
+                if not(blockDict.ContainsKey(elsebbn)) then
+                    failwithf "bad ConditionalDirectTailCalls elsebbn %s" elsebbn.Name
+                q.Enqueue(elsebbn) |> ignore
+                // first set catchall
+                instructions.Add(SB(otcIP .= bbnNumbers.[elsebbn]))
+                // then do test, and if match overwrite
+                if not(blockDict.ContainsKey(ifbbn)) then
+                    failwithf "bad ConditionalDirectTailCalls %s" ifbbn.Name
+                q.Enqueue(ifbbn) |> ignore
+                instructions.Add(SB(otcIP.[conds] .= bbnNumbers.[ifbbn]))
+            | Halt ->
+                instructions.Add(SB(StopPump .= 1))
+            functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
+    let allBBNs = new HashSet<_>(blockDict.Keys)
+    allBBNs.ExceptWith(visited)
+    if allBBNs.Count <> 0 then
+        failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
+    // TODO consider giving programs names, and putting code for each program in name\bbn rather than just lumping all code in functions namespace folder
+    // dispatchers for this program
+    functions.Add(makeFunction("otc_dispatch",[|
+            // run one (or more, if subsequent block has higher BBN# than orig) block of this process
+            for KeyValue(bbn,num) in bbnNumbers do 
+                yield sprintf """execute @s[score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
+                                    otcIP.Name num otcIP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
+        |]))
+
+    // function runner infrastructure
+    functions.Add(makeFunction("start",[|
+        // make compiler live
+        yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID StopPump.Name
+
+        // PUMP A TICK
+        yield sprintf "execute %s ~ ~ ~ function %s:pump1" ENTITY_UUID FUNCTION_NAMESPACE
+
+        // catch an error condition
+        yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ tellraw @a ["the otc pump ran out but the process never yielded; fix process bugs or recompile with a larger pump."]""" ENTITY_UUID StopPump.Name 
+        |]))
+    // pump loop (finite cps without deep recursion)
+    let MAX_PUMP_DEPTH = 4
+    let MAX_PUMP_WIDTH = 10   // (width ^ depth) is max iters
+    for i = 1 to MAX_PUMP_DEPTH do
+        functions.Add(makeFunction(sprintf"pump%d"i,[|    // TODO put this and all other one-tick-compiler funcs in its own directory/namespace named after the one program
+                for _x = 1 to MAX_PUMP_WIDTH do 
+                    yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" StopPump.Name FUNCTION_NAMESPACE (i+1)
+            |]))
+    functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|sprintf "function %s:otc_dispatch" FUNCTION_NAMESPACE|]))
+    // init
+    for DropInModule(_,oneTimeInit1,oneTimeInit2,funcs) in dependencyModules do
+        initialization2.AddRange(oneTimeInit1 |> Seq.map (fun cmd -> AtomicCommand(cmd)))
+        // TODO is there ever a case where a program's first-tick init depends on a drop-in's second tick init? for now, assume no.
+        initialization3.AddRange(oneTimeInit2 |> Seq.map (fun cmd -> AtomicCommand(cmd)))
+        functions.AddRange(funcs)
+    initialization2.AddRange(programInit1)
+    initialization3.AddRange(programInit2)
+    // TODO conditionally do this if there's another compiler live
+    let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
+    functions.Add(makeFunction("initialization",[|
+            yield "kill @e[type=armor_stand,tag=compiler]" // TODO possibly use x,y,z to limit chunk
+            for c in initialization do
+                yield c.AsCommand()
+            yield sprintf "gamerule gameLoopFunction %s:inittick1" FUNCTION_NAMESPACE
+        |]))
+    functions.Add(makeFunction("inittick1",[|
+            sprintf "gamerule gameLoopFunction %s:inittick2" FUNCTION_NAMESPACE
+            // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
+            sprintf """summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1,Tags:["compiler"]}""" ENTITY_UUID most least
+            // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
+        |]))
+    functions.Add(makeFunction("inittick2",[|
+            yield sprintf "gamerule gameLoopFunction %s:inittick3" FUNCTION_NAMESPACE
+            // Note: seems you cannot refer to UUID in same tick you just summoned it
+            yield sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID FUNCTION_NAMESPACE
+        |]))
+    functions.Add(makeFunction("initialization2",[|
+            // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
+            for c in initialization2 do
+                yield c.AsCommand()
+        |]))
+    functions.Add(makeFunction("inittick3",[|
+            // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
+            for c in initialization3 do
+                yield c.AsCommand()
+            yield sprintf "gamerule gameLoopFunction %s:start" FUNCTION_NAMESPACE
+        |]))
+    sprintf """function %s:initialization""" FUNCTION_NAMESPACE, functions
+
+////////////////////////
+// multi-program compiler/scheduler
+
 let functionCompilerVars = new Scope()
 let YieldNow = functionCompilerVars.RegisterVar("YieldNow")   // -1 means MustNotYield, 0 is running, 1 means done with processing this tick because every proc yielded, 2 means done because overran desired
 
@@ -366,7 +526,7 @@ let compileToFunctions(programs, isTracing) =
             allBBNs.ExceptWith(visited)
             if allBBNs.Count <> 0 then
                 failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
-            // TODO consider giving programs names, and putting code for each program in name\bbn rather than just umping all code in functions namespace folder
+            // TODO consider giving programs names, and putting code for each program in name\bbn rather than just lumping all code in functions namespace folder
             // dispatchers for this program
             functions.Add(makeFunction(sprintf"dispatch_mny%d"programNumber,[|
                     // run one (or more, if subsequent block has higher BBN# than orig) block of this process
