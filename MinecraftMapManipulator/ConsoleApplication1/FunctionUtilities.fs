@@ -564,6 +564,7 @@ let perfectRaycastProgram =
     let FRACY_OFFSET = int(eyesAboveFeet * 1000.0) - 1000
     let MAX = 64000   // travel at most 64 blocks
 
+    // TODO show collision box
     let RAY_UUID,RAY_NBT = makeUUIDas('3','0')
     let TEMPAS_UUID,TEMPAS_NBT = makeUUIDas('3','1')
     // magma_cubes of Size:1 are a good size, but killing them splits them into Size:0 guys, and those guys have duplicate UUIDs, ruining everything
@@ -591,6 +592,10 @@ let perfectRaycastProgram =
         yield SB(ONE_THOUSAND .= 1000)
         |],[|
         // summoning permanent entities and other prep code
+        for i = 0 to 7 do
+            yield AtomicCommand(sprintf """summon magma_cube ~ ~ ~ {Team:RayTeam,Size:0,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:0,Invulnerable:1,%s}""" MAGMA_NBT.[i])
+            yield AtomicCommand(sprintf "effect %s invisibility 999999 1 true" MAGMA_UUID.[i])
+            //yield AtomicCommand(sprintf "effect %s weakness 999999 5 true" HOLDSNOW.Name MAGMA_UUID.[i]) // sadly, they hurt and knock back survival players regardless
 #if DEBUG_WITH_LOOKER
         yield AtomicCommand "scoreboard players tag @p remove look"
         yield AtomicCommand """summon armor_stand 0 0 0 {CustomName:looker,NoGravity:1,Invulnerable:1,ArmorItems:[{},{},{},{id:"minecraft:iron_helmet",Count:1b}],Tags:["look"]}"""
@@ -604,20 +609,20 @@ let perfectRaycastProgram =
             yield AtomicCommand(sprintf """scoreboard players tag @p remove holdsnow""")
             yield AtomicCommand(sprintf """scoreboard players tag @p add holdsnow {SelectedItem:{id:"minecraft:snowball"}}""")
             yield AtomicCommand(sprintf """execute @p[tag=holdsnow] ~ ~ ~ scoreboard players set %s %s 1""" ENTITY_UUID HOLDSNOW.Name)
-            // see if we need to summon the AS
-            yield AtomicCommand(sprintf """scoreboard players tag @e[tag=look] add needsray""")
-            yield AtomicCommand(sprintf """execute %s ~ ~ ~ scoreboard players tag @e[tag=look] remove needsray""" RAY_UUID)
-            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {Team:RayTeam,NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name RAY_NBT)
-            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1,%s}" HOLDSNOW.Name TEMPAS_NBT)
+            // see if we need to summon the AS, if so HOLDSNOW becomes 2
+            yield AtomicCommand(sprintf """scoreboard players add @s[score_%s_min=1] %s 1""" HOLDSNOW.Name HOLDSNOW.Name)
+            yield AtomicCommand(sprintf """execute %s ~ ~ ~ scoreboard players remove %s %s 1""" RAY_UUID ENTITY_UUID HOLDSNOW.Name)
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=2] ~ ~ ~ execute @p[tag=holdsnow] ~ ~ ~ summon armor_stand ~ ~10 ~ {Team:RayTeam,NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name RAY_NBT)
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=2] ~ ~ ~ execute @p[tag=holdsnow] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1,%s}" HOLDSNOW.Name TEMPAS_NBT)
             for i = 0 to 7 do
-                yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon magma_cube ~ ~100 ~ {Team:RayTeam,Size:0,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,%s}""" HOLDSNOW.Name MAGMA_NBT.[i])
-                yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ effect %s invisibility 999999 1 true" HOLDSNOW.Name MAGMA_UUID.[i])
-                //yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ effect %s weakness 999999 5 true" HOLDSNOW.Name MAGMA_UUID.[i]) // sadly, they hurt and knock back survival players regardless
+                yield AtomicCommand(sprintf """execute @s[score_%s_min=2] ~ ~ ~ entitydata %s {Glowing:1b}""" HOLDSNOW.Name MAGMA_UUID.[i])
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],praybegin,prayskip),MustNotYield)
         prayskip,BasicBlock([|
             yield AtomicCommand(sprintf "kill %s" RAY_UUID)
             yield AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
-            yield! KILL_MAGMAS
+            for i = 0 to 7 do
+                yield AtomicCommand(sprintf """entitydata %s {Glowing:0b}""" MAGMA_UUID.[i])
+                yield AtomicCommand(sprintf """tp %s %s""" MAGMA_UUID.[i] ENTITY_UUID)
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         praybegin,BasicBlock([|
             AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
@@ -1123,6 +1128,8 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 
 //////////////////////////////////////
 
+// location of spawn chunks (for a drop-in, where to place entity to make work anywhere in world)
+// singleplayer
 // change scheduler code to write out (and call) functions in separate folders for each program and drop-in (like I did with one-tick compiler)
 
 
