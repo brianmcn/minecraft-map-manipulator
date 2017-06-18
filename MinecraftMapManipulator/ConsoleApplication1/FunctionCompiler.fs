@@ -217,7 +217,7 @@ let compileToOneTick(program, isTracing) =
     let initialization3 = ResizeArray()  // runs 2 ticks after initialization
     let functions = ResizeArray()
 
-    let transformBBN(bbn:BasicBlockName) = BBN(sprintf "%s/%s" "TODO" bbn.Name)  // TODO
+    let transformBBN(bbn:BasicBlockName) = BBN(sprintf "%s/%s" "raycast" bbn.Name)  // TODO - let program choose name
 
     for v in onetickCompilerVars.All() do
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
@@ -343,7 +343,6 @@ let compileToOneTick(program, isTracing) =
         |]))
     functions.Add(makeFunction(otName"inittick2",[|
             yield sprintf "gamerule gameLoopFunction %s:%s/inittick3" FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
-            // Note: seems you cannot refer to UUID in same tick you just summoned it
             yield sprintf "execute %s ~ ~ ~ function %s:%s/initialization2" ENTITY_UUID FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
         |]))
     functions.Add(makeFunction(otName"initialization2",[|
@@ -792,7 +791,6 @@ let compileToFunctions(programs, isTracing) =
     functions.Add(makeFunction("inittick2",[|
             yield sprintf "gamerule gameLoopFunction %s:inittick3" FUNCTION_NAMESPACE
             yield """tellraw @a ["tick2 called"]"""
-            // Note: seems you cannot refer to UUID in same tick you just summoned it
             yield sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID FUNCTION_NAMESPACE
             
             for i = 0 to WINDOW_SIZE-1 do

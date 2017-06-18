@@ -557,6 +557,7 @@ let perfectRaycastProgram =
     let CURX = praycastVars.RegisterVar("CURX")
     let CURY = praycastVars.RegisterVar("CURY")
     let CURZ = praycastVars.RegisterVar("CURZ")
+    let FOUND_BELOW = praycastVars.RegisterVar("FOUND_BELOW")
 
     let yOffset = 5   // attempt to put all the armor stands not-in-my-face so that I can throw snowballs
     let eyesAboveFeet = 1.625  // how much higher camera (eyes) is than y coord showed on f3 screen as player coord (feet)
@@ -565,14 +566,18 @@ let perfectRaycastProgram =
 
     let RAY_UUID,RAY_NBT = makeUUIDas('3','0')
     let TEMPAS_UUID,TEMPAS_NBT = makeUUIDas('3','1')
+    let MAGMA_UUID,MAGMA_NBT = makeUUIDas('3','2')
 
     Program(praycastVars,[|findTheta;findPhi;fracCoords|],[|
         yield AtomicCommand(sprintf "kill %s" RAY_UUID)
         yield AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
+        yield AtomicCommand(sprintf "tp %s ~ -1000 ~" MAGMA_UUID)
         yield AtomicCommand("kill @e[type=armor_stand,name=looker]")
         // SB init
         for v in praycastVars.All() do
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
+        yield AtomicCommand(sprintf "scoreboard teams add RayTeam")
+        yield AtomicCommand(sprintf "scoreboard teams option RayTeam collisionRule never")
         // constants
         yield SB(ONE_THOUSAND .= 1000)
         |],[|
@@ -595,10 +600,15 @@ let perfectRaycastProgram =
             AtomicCommand(sprintf """execute %s ~ ~ ~ scoreboard players tag @e[tag=look] remove needsray""" RAY_UUID)
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name RAY_NBT)
             AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1,%s}" HOLDSNOW.Name TEMPAS_NBT)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon magma_cube ~ ~10 ~ {Size:1,Silent:1,NoAI:1,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name MAGMA_NBT)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ effect %s invisibility 999999 1 true" HOLDSNOW.Name MAGMA_UUID)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ scoreboard teams join RayTeam %s" HOLDSNOW.Name RAY_UUID)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ scoreboard teams join RayTeam %s" HOLDSNOW.Name MAGMA_UUID)
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],praybegin,prayskip),MustNotYield)
         prayskip,BasicBlock([|
             AtomicCommand(sprintf "kill %s" RAY_UUID)
             AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
+            AtomicCommand(sprintf "tp %s ~ -1000 ~" MAGMA_UUID)
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         praybegin,BasicBlock([|
             AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
@@ -768,8 +778,27 @@ let perfectRaycastProgram =
             AtomicCommand(sprintf """tp %s ~ ~500 ~""" RAY_UUID)  // +500 to offset leash_knot visibility offset 
             AtomicCommand(sprintf """kill @e[type=leash_knot,tag=snapToGrid]""")
             AtomicCommand(sprintf "tp %s ~ ~%.2f ~" RAY_UUID (-0.5 - float yOffset))
-            // TODO whole red/green logic
-            AtomicCommand(sprintf "execute @e[type=snowball] ~ ~ ~ tp @p %s" RAY_UUID)
+            // red/green logic: 
+            SB(TEMP .= 0) // TEMP==0 means here RED, TEMP==1 means here GREEN
+            SB(FOUND_BELOW .= 0) // like TEMP but for spot one below RAY
+            // if was looking down, first check square above for air...
+            AtomicCommand(sprintf "execute @s[score_%s_min=0] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~1 ~ air 0 scoreboard players set %s %s 1" vtheta.Name RAY_UUID ENTITY_UUID TEMP.Name)
+            // ...else check square below for air
+            AtomicCommand(sprintf "execute @s[score_%s=0,score_%s_min=0] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~-1 ~ air 0 scoreboard players set %s %s 1" TEMP.Name vtheta.Name RAY_UUID ENTITY_UUID FOUND_BELOW.Name)
+            // if was looking up, first check square above for air...
+            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~1 ~ air 0 scoreboard players set %s %s 1" vtheta.Name RAY_UUID ENTITY_UUID TEMP.Name)
+            // ...else check square below for air
+            AtomicCommand(sprintf "execute @s[score_%s=0,score_%s=-1] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~-1 ~ air 0 scoreboard players set %s %s 1" TEMP.Name vtheta.Name RAY_UUID ENTITY_UUID FOUND_BELOW.Name)
+            // Now, either TEMP is 1 (RAY is in right spot, GREEN), or FOUND_BELOW is 1 (RAY is one above right spot, GREEN), or neither (RED)
+            AtomicCommand(sprintf "tp %s %s" MAGMA_UUID RAY_UUID)
+            AtomicCommand(sprintf "tp %s ~ ~ ~ 0 0" MAGMA_UUID)
+            // TODO if magma is summoned inside player, dies & splits - why?
+            AtomicCommand("scoreboard teams option RayTeam color Red")
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp %s ~ ~-1 ~" FOUND_BELOW.Name RAY_UUID)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ scoreboard players set @s %s 1" FOUND_BELOW.Name TEMP.Name)
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ scoreboard teams option RayTeam color Green" TEMP.Name)
+            // do teleport if GREEN
+            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=snowball] ~ ~ ~ tp @p %s" TEMP.Name RAY_UUID)
             AtomicCommand("kill @e[type=snowball]")
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         ])
@@ -1076,8 +1105,7 @@ can I just have a chunkloader, and store all my entities in a loaded chunk out i
 
 //////////////////////////////////////
 
-// change code to write out (and call) functions in separate folders for each program and drop-in
-// write compiler to compiler one-tick thingy into non-scheduler code
+// change scheduler code to write out (and call) functions in separate folders for each program and drop-in (like I did with one-tick compiler)
 
 
 // first TODO is to make a non-Bresenham raycast algorithm and check that it no longer has precision errors I see from Bresenham:
