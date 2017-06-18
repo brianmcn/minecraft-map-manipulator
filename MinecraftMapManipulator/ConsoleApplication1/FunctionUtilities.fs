@@ -566,18 +566,27 @@ let perfectRaycastProgram =
 
     let RAY_UUID,RAY_NBT = makeUUIDas('3','0')
     let TEMPAS_UUID,TEMPAS_NBT = makeUUIDas('3','1')
-    let MAGMA_UUID,MAGMA_NBT = makeUUIDas('3','2')
-
+    // magma_cubes of Size:1 are a good size, but killing them splits them into Size:0 guys, and those guys have duplicate UUIDs, ruining everything
+    // instead, use eight Size:0 guys to mark a cube
+    let MAGMA_UUID,MAGMA_NBT = 
+        let a = [| for i = '2' to '9' do yield makeUUIDas('3',i) |]
+        Array.init 8 (fun i -> fst a.[i]), Array.init 8 (fun i -> snd a.[i])
+    let KILL_MAGMAS = [|
+        for i = 0 to 7 do
+            yield AtomicCommand(sprintf "tp %s ~ -1000 ~" MAGMA_UUID.[i])
+            yield AtomicCommand(sprintf "kill %s" MAGMA_UUID.[i])
+            yield AtomicCommand(sprintf "entitydata %s {DeathTime:19}" MAGMA_UUID.[i]) // UUIDs will hang around during death animation, ruining everything, so skip it
+        |]
     Program(praycastVars,[|findTheta;findPhi;fracCoords|],[|
         yield AtomicCommand(sprintf "kill %s" RAY_UUID)
         yield AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
-        yield AtomicCommand(sprintf "tp %s ~ -1000 ~" MAGMA_UUID)
+        yield! KILL_MAGMAS
         yield AtomicCommand("kill @e[type=armor_stand,name=looker]")
         // SB init
         for v in praycastVars.All() do
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
         yield AtomicCommand(sprintf "scoreboard teams add RayTeam")
-        yield AtomicCommand(sprintf "scoreboard teams option RayTeam collisionRule never")
+        yield AtomicCommand(sprintf "scoreboard teams option RayTeam collisionRule never")  // magma_cube should not collide with player
         // constants
         yield SB(ONE_THOUSAND .= 1000)
         |],[|
@@ -591,24 +600,24 @@ let perfectRaycastProgram =
         |],ptestsnow,dict[
         ptestsnow,BasicBlock([|
             // test for if we're holding snowball
-            SB(HOLDSNOW .= 0)
-            AtomicCommand(sprintf """scoreboard players tag @p remove holdsnow""")
-            AtomicCommand(sprintf """scoreboard players tag @p add holdsnow {SelectedItem:{id:"minecraft:snowball"}}""")
-            AtomicCommand(sprintf """execute @p[tag=holdsnow] ~ ~ ~ scoreboard players set %s %s 1""" ENTITY_UUID HOLDSNOW.Name)
+            yield SB(HOLDSNOW .= 0)
+            yield AtomicCommand(sprintf """scoreboard players tag @p remove holdsnow""")
+            yield AtomicCommand(sprintf """scoreboard players tag @p add holdsnow {SelectedItem:{id:"minecraft:snowball"}}""")
+            yield AtomicCommand(sprintf """execute @p[tag=holdsnow] ~ ~ ~ scoreboard players set %s %s 1""" ENTITY_UUID HOLDSNOW.Name)
             // see if we need to summon the AS
-            AtomicCommand(sprintf """scoreboard players tag @e[tag=look] add needsray""")
-            AtomicCommand(sprintf """execute %s ~ ~ ~ scoreboard players tag @e[tag=look] remove needsray""" RAY_UUID)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name RAY_NBT)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1,%s}" HOLDSNOW.Name TEMPAS_NBT)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon magma_cube ~ ~10 ~ {Size:1,Silent:1,NoAI:1,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name MAGMA_NBT)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ effect %s invisibility 999999 1 true" HOLDSNOW.Name MAGMA_UUID)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ scoreboard teams join RayTeam %s" HOLDSNOW.Name RAY_UUID)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ scoreboard teams join RayTeam %s" HOLDSNOW.Name MAGMA_UUID)
+            yield AtomicCommand(sprintf """scoreboard players tag @e[tag=look] add needsray""")
+            yield AtomicCommand(sprintf """execute %s ~ ~ ~ scoreboard players tag @e[tag=look] remove needsray""" RAY_UUID)
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {Team:RayTeam,NoGravity:1,Invisible:0,Glowing:1,Invulnerable:1,%s}" HOLDSNOW.Name RAY_NBT)
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1,%s}" HOLDSNOW.Name TEMPAS_NBT)
+            for i = 0 to 7 do
+                yield AtomicCommand(sprintf """execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ summon magma_cube ~ ~100 ~ {Team:RayTeam,Size:0,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,%s}""" HOLDSNOW.Name MAGMA_NBT.[i])
+                yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ effect %s invisibility 999999 1 true" HOLDSNOW.Name MAGMA_UUID.[i])
+                //yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[tag=needsray] ~ ~ ~ effect %s weakness 999999 5 true" HOLDSNOW.Name MAGMA_UUID.[i]) // sadly, they hurt and knock back survival players regardless
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],praybegin,prayskip),MustNotYield)
         prayskip,BasicBlock([|
-            AtomicCommand(sprintf "kill %s" RAY_UUID)
-            AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
-            AtomicCommand(sprintf "tp %s ~ -1000 ~" MAGMA_UUID)
+            yield AtomicCommand(sprintf "kill %s" RAY_UUID)
+            yield AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
+            yield! KILL_MAGMAS
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         praybegin,BasicBlock([|
             AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
@@ -772,34 +781,43 @@ let perfectRaycastProgram =
             |],DirectTailCall(prwhiletest),MustNotYield)
         pcoda,BasicBlock([|
 //            AtomicCommand(sprintf """tellraw @a ["done!"]""")
-            AtomicCommand(sprintf "execute %s ~ ~ ~ teleport %s ~ ~ ~" TEMPAS_UUID RAY_UUID) // tp RAY back to tempAS, but preserve RAY's facing direction
-            AtomicCommand(sprintf """execute %s ~ ~ ~ summon leash_knot ~ ~-500 ~ {Tags:["snapToGrid"]}""" RAY_UUID)   // -500 so as to not be visible to players
-            AtomicCommand(sprintf """execute @e[type=leash_knot,tag=snapToGrid] ~ ~ ~ teleport %s ~ ~ ~""" RAY_UUID)   // snap RAY to grid, but preserve facing
-            AtomicCommand(sprintf """tp %s ~ ~500 ~""" RAY_UUID)  // +500 to offset leash_knot visibility offset 
-            AtomicCommand(sprintf """kill @e[type=leash_knot,tag=snapToGrid]""")
-            AtomicCommand(sprintf "tp %s ~ ~%.2f ~" RAY_UUID (-0.5 - float yOffset))
+            yield AtomicCommand(sprintf "execute %s ~ ~ ~ teleport %s ~ ~ ~" TEMPAS_UUID RAY_UUID) // tp RAY back to tempAS, but preserve RAY's facing direction
+            yield AtomicCommand(sprintf """execute %s ~ ~ ~ summon leash_knot ~ ~-500 ~ {Tags:["snapToGrid"]}""" RAY_UUID)   // -500 so as to not be visible to players
+            yield AtomicCommand(sprintf """execute @e[type=leash_knot,tag=snapToGrid] ~ ~ ~ teleport %s ~ ~ ~""" RAY_UUID)   // snap RAY to grid, but preserve facing
+            yield AtomicCommand(sprintf """tp %s ~ ~500 ~""" RAY_UUID)  // +500 to offset leash_knot visibility offset 
+            yield AtomicCommand(sprintf """kill @e[type=leash_knot,tag=snapToGrid]""")
+            yield AtomicCommand(sprintf "tp %s ~ ~%.2f ~" RAY_UUID (-0.5 - float yOffset))
             // red/green logic: 
-            SB(TEMP .= 0) // TEMP==0 means here RED, TEMP==1 means here GREEN
-            SB(FOUND_BELOW .= 0) // like TEMP but for spot one below RAY
+            yield SB(TEMP .= 0) // TEMP==0 means here RED, TEMP==1 means here GREEN
+            yield SB(FOUND_BELOW .= 0) // like TEMP but for spot one below RAY
             // if was looking down, first check square above for air...
-            AtomicCommand(sprintf "execute @s[score_%s_min=0] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~1 ~ air 0 scoreboard players set %s %s 1" vtheta.Name RAY_UUID ENTITY_UUID TEMP.Name)
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=0] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~1 ~ air 0 scoreboard players set %s %s 1" vtheta.Name RAY_UUID ENTITY_UUID TEMP.Name)
             // ...else check square below for air
-            AtomicCommand(sprintf "execute @s[score_%s=0,score_%s_min=0] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~-1 ~ air 0 scoreboard players set %s %s 1" TEMP.Name vtheta.Name RAY_UUID ENTITY_UUID FOUND_BELOW.Name)
+            yield AtomicCommand(sprintf "execute @s[score_%s=0,score_%s_min=0] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~-1 ~ air 0 scoreboard players set %s %s 1" TEMP.Name vtheta.Name RAY_UUID ENTITY_UUID FOUND_BELOW.Name)
             // if was looking up, first check square above for air...
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~1 ~ air 0 scoreboard players set %s %s 1" vtheta.Name RAY_UUID ENTITY_UUID TEMP.Name)
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~1 ~ air 0 scoreboard players set %s %s 1" vtheta.Name RAY_UUID ENTITY_UUID TEMP.Name)
             // ...else check square below for air
-            AtomicCommand(sprintf "execute @s[score_%s=0,score_%s=-1] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~-1 ~ air 0 scoreboard players set %s %s 1" TEMP.Name vtheta.Name RAY_UUID ENTITY_UUID FOUND_BELOW.Name)
+            yield AtomicCommand(sprintf "execute @s[score_%s=0,score_%s=-1] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~-1 ~ air 0 scoreboard players set %s %s 1" TEMP.Name vtheta.Name RAY_UUID ENTITY_UUID FOUND_BELOW.Name)
             // Now, either TEMP is 1 (RAY is in right spot, GREEN), or FOUND_BELOW is 1 (RAY is one above right spot, GREEN), or neither (RED)
-            AtomicCommand(sprintf "tp %s %s" MAGMA_UUID RAY_UUID)
-            AtomicCommand(sprintf "tp %s ~ ~ ~ 0 0" MAGMA_UUID)
-            // TODO if magma is summoned inside player, dies & splits - why?
-            AtomicCommand("scoreboard teams option RayTeam color Red")
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp %s ~ ~-1 ~" FOUND_BELOW.Name RAY_UUID)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ scoreboard players set @s %s 1" FOUND_BELOW.Name TEMP.Name)
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ scoreboard teams option RayTeam color Green" TEMP.Name)
+            // display a highlighted cube where the player cast the ray
+            for i = 0 to 7 do
+                yield AtomicCommand(sprintf "tp %s %s" MAGMA_UUID.[i] RAY_UUID)
+            yield AtomicCommand(sprintf "tp %s ~-0.25 ~ ~-0.25 0 0" MAGMA_UUID.[0])
+            yield AtomicCommand(sprintf "tp %s ~+0.25 ~ ~-0.25 0 0" MAGMA_UUID.[1])
+            yield AtomicCommand(sprintf "tp %s ~-0.25 ~ ~+0.25 0 0" MAGMA_UUID.[2])
+            yield AtomicCommand(sprintf "tp %s ~+0.25 ~ ~+0.25 0 0" MAGMA_UUID.[3])
+            yield AtomicCommand(sprintf "tp %s ~-0.25 ~+0.5 ~-0.25 0 0" MAGMA_UUID.[4])
+            yield AtomicCommand(sprintf "tp %s ~+0.25 ~+0.5 ~-0.25 0 0" MAGMA_UUID.[5])
+            yield AtomicCommand(sprintf "tp %s ~-0.25 ~+0.5 ~+0.25 0 0" MAGMA_UUID.[6])
+            yield AtomicCommand(sprintf "tp %s ~+0.25 ~+0.5 ~+0.25 0 0" MAGMA_UUID.[7])
+            // set up colors and move armor stand if needed
+            yield AtomicCommand("scoreboard teams option RayTeam color Red")
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp %s ~ ~-1 ~" FOUND_BELOW.Name RAY_UUID)
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ scoreboard players set @s %s 1" FOUND_BELOW.Name TEMP.Name)
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ scoreboard teams option RayTeam color Green" TEMP.Name)
             // do teleport if GREEN
-            AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=snowball] ~ ~ ~ tp @p %s" TEMP.Name RAY_UUID)
-            AtomicCommand("kill @e[type=snowball]")
+            yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ execute @e[type=snowball] ~ ~ ~ tp @p %s" TEMP.Name RAY_UUID)
+            yield AtomicCommand("kill @e[type=snowball]")
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         ])
 
