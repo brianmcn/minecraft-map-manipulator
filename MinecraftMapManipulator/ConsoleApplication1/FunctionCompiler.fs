@@ -202,11 +202,14 @@ let makeFunction(name,instructions) = (name,instructions|>Seq.toArray)
 ////////////////////////
 // compile to one-tick
 
-let onetickCompilerVars = new Scope()
-let otcIP = onetickCompilerVars.RegisterVar("otcIP")
-let StopPump = onetickCompilerVars.RegisterVar("StopPump")  // done processing this tick
-
 let compileToOneTick(program, isTracing) =
+    let ONE_TICK_DIRECTORY = "one_tick"
+    let otName(s) = sprintf "%s/%s" ONE_TICK_DIRECTORY s
+
+    let onetickCompilerVars = new Scope()
+    let otcIP = onetickCompilerVars.RegisterVar("otcIP")
+    let StopPump = onetickCompilerVars.RegisterVar("StopPump")  // done processing this tick
+
     // TODO any name-collision detection?
 
     let initialization = ResizeArray()
@@ -214,15 +217,15 @@ let compileToOneTick(program, isTracing) =
     let initialization3 = ResizeArray()  // runs 2 ticks after initialization
     let functions = ResizeArray()
 
+    let transformBBN(bbn:BasicBlockName) = BBN(sprintf "%s/%s" "TODO" bbn.Name)  // TODO
+
     for v in onetickCompilerVars.All() do
         initialization.Add(AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name))
-    let (Program(scope,dependencyModules,programInit1,programInit2,entrypoint,blockDict)) = program
+    let (Program(_scope,dependencyModules,programInit1,programInit2,entrypoint,blockDict)) = program
     let mutable foundEntryPointInDictionary = false
     let mutable nextBBNNumber = 1
     let bbnNumbers = new Dictionary<_,_>()
     for KeyValue(bbn,_) in blockDict do
-        if bbn.Name.Length > 15 then
-            failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
         bbnNumbers.Add(bbn, nextBBNNumber)
         nextBBNNumber <- nextBBNNumber + 1
         if bbn = entrypoint then
@@ -247,7 +250,7 @@ let compileToOneTick(program, isTracing) =
                 match c with 
                 | AtomicCommand _s ->
                     instructions.Add(c)
-                | AtomicCommandWithExtraCost(_s,cost) ->
+                | AtomicCommandWithExtraCost(_s,_cost) ->
                     instructions.Add(c)
                 | AtomicCommandThunkFragment _f ->
                     instructions.Add(c)
@@ -282,27 +285,27 @@ let compileToOneTick(program, isTracing) =
                 instructions.Add(SB(otcIP.[conds] .= bbnNumbers.[ifbbn]))
             | Halt ->
                 instructions.Add(SB(StopPump .= 1))
-            functions.Add(makeFunction(currentBBN.Name, instructions |> Seq.map (fun c -> c.AsCommand())))
+            functions.Add(makeFunction(transformBBN(currentBBN).Name, instructions |> Seq.map (fun c -> c.AsCommand())))
     let allBBNs = new HashSet<_>(blockDict.Keys)
     allBBNs.ExceptWith(visited)
     if allBBNs.Count <> 0 then
         failwithf "there were unreferenced basic block names, including for example %s" (allBBNs |> Seq.head).Name
     // TODO consider giving programs names, and putting code for each program in name\bbn rather than just lumping all code in functions namespace folder
     // dispatchers for this program
-    functions.Add(makeFunction("otc_dispatch",[|
+    functions.Add(makeFunction(otName"otc_dispatch",[|
             // run one (or more, if subsequent block has higher BBN# than orig) block of this process
             for KeyValue(bbn,num) in bbnNumbers do 
                 yield sprintf """execute @s[score_%s_min=%d,score_%s=%d] ~ ~ ~ function %s:%s""" 
-                                    otcIP.Name num otcIP.Name num FUNCTION_NAMESPACE bbn.Name           // find next BB to run
+                                    otcIP.Name num otcIP.Name num FUNCTION_NAMESPACE (transformBBN(bbn).Name)           // find next BB to run
         |]))
 
     // function runner infrastructure
-    functions.Add(makeFunction("start",[|
+    functions.Add(makeFunction(otName"start",[|
         // make compiler live
         yield sprintf "scoreboard players set %s %s 0" ENTITY_UUID StopPump.Name
 
         // PUMP A TICK
-        yield sprintf "execute %s ~ ~ ~ function %s:pump1" ENTITY_UUID FUNCTION_NAMESPACE
+        yield sprintf "execute %s ~ ~ ~ function %s:%s/pump1" ENTITY_UUID FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
 
         // catch an error condition
         yield sprintf """execute %s ~ ~ ~ execute @s[score_%s=0] ~ ~ ~ tellraw @a ["the otc pump ran out but the process never yielded; fix process bugs or recompile with a larger pump."]""" ENTITY_UUID StopPump.Name 
@@ -311,11 +314,11 @@ let compileToOneTick(program, isTracing) =
     let MAX_PUMP_DEPTH = 4
     let MAX_PUMP_WIDTH = 10   // (width ^ depth) is max iters
     for i = 1 to MAX_PUMP_DEPTH do
-        functions.Add(makeFunction(sprintf"pump%d"i,[|    // TODO put this and all other one-tick-compiler funcs in its own directory/namespace named after the one program
+        functions.Add(makeFunction(otName(sprintf"pump%d"i),[|
                 for _x = 1 to MAX_PUMP_WIDTH do 
-                    yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:pump%d""" StopPump.Name FUNCTION_NAMESPACE (i+1)
+                    yield sprintf """execute @s[score_%s=0] ~ ~ ~ function %s:%s/pump%d""" StopPump.Name FUNCTION_NAMESPACE ONE_TICK_DIRECTORY (i+1)
             |]))
-    functions.Add(makeFunction(sprintf"pump%d"(MAX_PUMP_DEPTH+1),[|sprintf "function %s:otc_dispatch" FUNCTION_NAMESPACE|]))
+    functions.Add(makeFunction(otName(sprintf"pump%d"(MAX_PUMP_DEPTH+1)),[|sprintf "function %s:%s/otc_dispatch" FUNCTION_NAMESPACE ONE_TICK_DIRECTORY|]))
     // init
     for DropInModule(_,oneTimeInit1,oneTimeInit2,funcs) in dependencyModules do
         initialization2.AddRange(oneTimeInit1 |> Seq.map (fun cmd -> AtomicCommand(cmd)))
@@ -326,35 +329,35 @@ let compileToOneTick(program, isTracing) =
     initialization3.AddRange(programInit2)
     // TODO conditionally do this if there's another compiler live
     let least,most = Utilities.toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
-    functions.Add(makeFunction("initialization",[|
+    functions.Add(makeFunction(otName"initialization",[|
             yield "kill @e[type=armor_stand,tag=compiler]" // TODO possibly use x,y,z to limit chunk
             for c in initialization do
                 yield c.AsCommand()
-            yield sprintf "gamerule gameLoopFunction %s:inittick1" FUNCTION_NAMESPACE
+            yield sprintf "gamerule gameLoopFunction %s:%s/inittick1" FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
         |]))
-    functions.Add(makeFunction("inittick1",[|
-            sprintf "gamerule gameLoopFunction %s:inittick2" FUNCTION_NAMESPACE
+    functions.Add(makeFunction(otName"inittick1",[|
+            sprintf "gamerule gameLoopFunction %s:%s/inittick2" FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
             // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
             sprintf """summon armor_stand -3 4 -3 {CustomName:%s,NoGravity:1,UUIDMost:%dl,UUIDLeast:%dl,Invulnerable:1,Tags:["compiler"]}""" ENTITY_UUID most least
             // TODO what location is this entity? it needs to be safe in spawn chunks, but who knows where that is, hm, drop thru end portal?
         |]))
-    functions.Add(makeFunction("inittick2",[|
-            yield sprintf "gamerule gameLoopFunction %s:inittick3" FUNCTION_NAMESPACE
+    functions.Add(makeFunction(otName"inittick2",[|
+            yield sprintf "gamerule gameLoopFunction %s:%s/inittick3" FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
             // Note: seems you cannot refer to UUID in same tick you just summoned it
-            yield sprintf "execute %s ~ ~ ~ function %s:initialization2" ENTITY_UUID FUNCTION_NAMESPACE
+            yield sprintf "execute %s ~ ~ ~ function %s:%s/initialization2" ENTITY_UUID FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
         |]))
-    functions.Add(makeFunction("initialization2",[|
+    functions.Add(makeFunction(otName"initialization2",[|
             // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
             for c in initialization2 do
                 yield c.AsCommand()
         |]))
-    functions.Add(makeFunction("inittick3",[|
+    functions.Add(makeFunction(otName"inittick3",[|
             // This is code that runs assuming @s has been set up (compiler SB init, and user code init)
             for c in initialization3 do
                 yield c.AsCommand()
-            yield sprintf "gamerule gameLoopFunction %s:start" FUNCTION_NAMESPACE
+            yield sprintf "gamerule gameLoopFunction %s:%s/start" FUNCTION_NAMESPACE ONE_TICK_DIRECTORY
         |]))
-    sprintf """function %s:initialization""" FUNCTION_NAMESPACE, functions
+    sprintf """function %s:%s/initialization""" FUNCTION_NAMESPACE ONE_TICK_DIRECTORY, functions
 
 ////////////////////////
 // multi-program compiler/scheduler
@@ -443,6 +446,7 @@ let compileToFunctions(programs, isTracing) =
             let mutable nextBBNNumber = 1
             let bbnNumbers = new Dictionary<_,_>()
             for KeyValue(bbn,_) in blockDict do
+                // TODO this check is nonsense, yes? the name is not in the scoreboard?
                 if bbn.Name.Length > 15 then
                     failwithf "scoreboard names can only be up to 15 characters: %s" bbn.Name
                 bbnNumbers.Add(bbn, nextBBNNumber)
