@@ -564,20 +564,49 @@ let perfectRaycastProgram =
     let FRACY_OFFSET = int(eyesAboveFeet * 1000.0) - 1000
     let MAX = 64000   // travel at most 64 blocks
 
-    // TODO show collision box
     let RAY_UUID,RAY_NBT = makeUUIDas('3','0')
     let TEMPAS_UUID,TEMPAS_NBT = makeUUIDas('3','1')
+    let LK_UUID,LK_NBT = makeUUIDas('4','0')
     // magma_cubes of Size:1 are a good size, but killing them splits them into Size:0 guys, and those guys have duplicate UUIDs, ruining everything
     // instead, use eight Size:0 guys to mark a cube
     let MAGMA_UUID,MAGMA_NBT = 
         let a = [| for i = '2' to '9' do yield makeUUIDas('3',i) |]
+        Array.init 8 (fun i -> fst a.[i]), Array.init 8 (fun i -> snd a.[i])
+    let CMAGMA_UUID,CMAGMA_NBT = 
+        let a = [| for i = '2' to '9' do yield makeUUIDas('4',i) |]
         Array.init 8 (fun i -> fst a.[i]), Array.init 8 (fun i -> snd a.[i])
     let KILL_MAGMAS = [|
         for i = 0 to 7 do
             yield AtomicCommand(sprintf "tp %s ~ -1000 ~" MAGMA_UUID.[i])
             yield AtomicCommand(sprintf "kill %s" MAGMA_UUID.[i])
             yield AtomicCommand(sprintf "entitydata %s {DeathTime:19}" MAGMA_UUID.[i]) // UUIDs will hang around during death animation, ruining everything, so skip it
+            yield AtomicCommand(sprintf "tp %s ~ -1000 ~" CMAGMA_UUID.[i])
+            yield AtomicCommand(sprintf "kill %s" CMAGMA_UUID.[i])
+            yield AtomicCommand(sprintf "entitydata %s {DeathTime:19}" CMAGMA_UUID.[i]) // UUIDs will hang around during death animation, ruining everything, so skip it
         |]
+    let SNAP_RAY_TO_GRID = [|
+            yield AtomicCommand(sprintf """execute %s ~ ~ ~ summon leash_knot ~ ~-500 ~ {%s}""" RAY_UUID LK_NBT)   // -500 so as to not be visible to players
+            yield AtomicCommand(sprintf """execute %s ~ ~ ~ teleport %s ~ ~ ~""" LK_UUID RAY_UUID)   // snap RAY to grid, but preserve facing
+            yield AtomicCommand(sprintf """tp %s ~ ~500 ~""" RAY_UUID)  // +500 to offset leash_knot visibility offset 
+            yield AtomicCommand(sprintf """kill %s""" LK_UUID)
+        |]
+    let ARRANGE_MAGMAS_BY_RAY(mag:_[]) = [|
+            let D = 0.02
+            let LR = 0.25 - D
+            let BOT = D
+            let TOP = 0.5 - D
+            for i = 0 to 7 do
+                yield AtomicCommand(sprintf "tp %s %s" mag.[i] RAY_UUID)
+            yield AtomicCommand(sprintf "tp %s ~-%.2f ~+%.2f ~-%.2f 0 0" mag.[0] LR BOT LR)
+            yield AtomicCommand(sprintf "tp %s ~+%.2f ~+%.2f ~-%.2f 0 0" mag.[1] LR BOT LR)
+            yield AtomicCommand(sprintf "tp %s ~-%.2f ~+%.2f ~+%.2f 0 0" mag.[2] LR BOT LR)
+            yield AtomicCommand(sprintf "tp %s ~+%.2f ~+%.2f ~+%.2f 0 0" mag.[3] LR BOT LR)
+            yield AtomicCommand(sprintf "tp %s ~-%.2f ~+%.2f ~-%.2f 0 0" mag.[4] LR TOP LR)
+            yield AtomicCommand(sprintf "tp %s ~+%.2f ~+%.2f ~-%.2f 0 0" mag.[5] LR TOP LR)
+            yield AtomicCommand(sprintf "tp %s ~-%.2f ~+%.2f ~+%.2f 0 0" mag.[6] LR TOP LR)
+            yield AtomicCommand(sprintf "tp %s ~+%.2f ~+%.2f ~+%.2f 0 0" mag.[7] LR TOP LR)
+        |]
+
     Program(praycastVars,[|findTheta;findPhi;fracCoords|],[|
         yield AtomicCommand(sprintf "kill %s" RAY_UUID)
         yield AtomicCommand(sprintf "kill %s" TEMPAS_UUID)
@@ -588,6 +617,9 @@ let perfectRaycastProgram =
             yield AtomicCommand(sprintf "scoreboard objectives add %s dummy" v.Name)
         yield AtomicCommand(sprintf "scoreboard teams add RayTeam")
         yield AtomicCommand(sprintf "scoreboard teams option RayTeam collisionRule never")  // magma_cube should not collide with player
+        yield AtomicCommand(sprintf "scoreboard teams add CollideTeam")  // shows non-air collision box
+        yield AtomicCommand(sprintf "scoreboard teams option CollideTeam collisionRule never")  // magma_cube should not collide with player
+        yield AtomicCommand(sprintf "scoreboard teams option CollideTeam color Blue")
         // constants
         yield SB(ONE_THOUSAND .= 1000)
         |],[|
@@ -596,6 +628,9 @@ let perfectRaycastProgram =
             yield AtomicCommand(sprintf """summon magma_cube ~ ~ ~ {Team:RayTeam,Size:0,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:0,Invulnerable:1,%s}""" MAGMA_NBT.[i])
             yield AtomicCommand(sprintf "effect %s invisibility 999999 1 true" MAGMA_UUID.[i])
             //yield AtomicCommand(sprintf "effect %s weakness 999999 5 true" HOLDSNOW.Name MAGMA_UUID.[i]) // sadly, they hurt and knock back survival players regardless
+            yield AtomicCommand(sprintf """summon magma_cube ~ ~ ~ {Team:CollideTeam,Size:0,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:0,Invulnerable:1,%s}""" CMAGMA_NBT.[i])
+            yield AtomicCommand(sprintf "effect %s invisibility 999999 1 true" CMAGMA_UUID.[i])
+            //yield AtomicCommand(sprintf "effect %s weakness 999999 5 true" HOLDSNOW.Name CMAGMA_UUID.[i]) // sadly, they hurt and knock back survival players regardless
 #if DEBUG_WITH_LOOKER
         yield AtomicCommand "scoreboard players tag @p remove look"
         yield AtomicCommand """summon armor_stand 0 0 0 {CustomName:looker,NoGravity:1,Invulnerable:1,ArmorItems:[{},{},{},{id:"minecraft:iron_helmet",Count:1b}],Tags:["look"]}"""
@@ -616,6 +651,7 @@ let perfectRaycastProgram =
             yield AtomicCommand(sprintf "execute @s[score_%s_min=2] ~ ~ ~ execute @p[tag=holdsnow] ~ ~ ~ summon armor_stand ~ ~10 ~ {NoGravity:1,Invisible:1,Glowing:0,Invulnerable:1,%s}" HOLDSNOW.Name TEMPAS_NBT)
             for i = 0 to 7 do
                 yield AtomicCommand(sprintf """execute @s[score_%s_min=2] ~ ~ ~ entitydata %s {Glowing:1b}""" HOLDSNOW.Name MAGMA_UUID.[i])
+                yield AtomicCommand(sprintf """execute @s[score_%s_min=2] ~ ~ ~ entitydata %s {Glowing:1b}""" HOLDSNOW.Name CMAGMA_UUID.[i])
             |],ConditionalTailCall(Conditional[| HOLDSNOW .>= 1 |],praybegin,prayskip),MustNotYield)
         prayskip,BasicBlock([|
             yield AtomicCommand(sprintf "kill %s" RAY_UUID)
@@ -623,67 +659,69 @@ let perfectRaycastProgram =
             for i = 0 to 7 do
                 yield AtomicCommand(sprintf """entitydata %s {Glowing:0b}""" MAGMA_UUID.[i])
                 yield AtomicCommand(sprintf """tp %s %s""" MAGMA_UUID.[i] ENTITY_UUID)
+                yield AtomicCommand(sprintf """entitydata %s {Glowing:0b}""" CMAGMA_UUID.[i])
+                yield AtomicCommand(sprintf """tp %s %s""" CMAGMA_UUID.[i] ENTITY_UUID)
             |],DirectTailCall(ptestsnow),MustWaitNTicks 1)
         praybegin,BasicBlock([|
-            AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
-            AtomicCommandWithExtraCost(sprintf "function %s:findPhi" FunctionCompiler.FUNCTION_NAMESPACE, 24)
-            AtomicCommandWithExtraCost(sprintf "execute @e[tag=look] ~ ~ ~ function %s:frac_coords" FunctionCompiler.FUNCTION_NAMESPACE, 180)
+            yield AtomicCommandWithExtraCost(sprintf "function %s:findTheta" FunctionCompiler.FUNCTION_NAMESPACE, 24)
+            yield AtomicCommandWithExtraCost(sprintf "function %s:findPhi" FunctionCompiler.FUNCTION_NAMESPACE, 24)
+            yield AtomicCommandWithExtraCost(sprintf "execute @e[tag=look] ~ ~ ~ function %s:frac_coords" FunctionCompiler.FUNCTION_NAMESPACE, 180)
 
             // fracY is location of feet, but we need location of eyes, so fix it
-            SB(fracY .+= FRACY_OFFSET)  // add offset
-            AtomicCommand(sprintf "scoreboard players remove @s[score_%s_min=1000] %s 1000" fracY.Name fracY.Name)  // get it back in 000-999 range
+            yield SB(fracY .+= FRACY_OFFSET)  // add offset
+            yield AtomicCommand(sprintf "scoreboard players remove @s[score_%s_min=1000] %s 1000" fracY.Name fracY.Name)  // get it back in 000-999 range
 
             // RDX: radial distance needed to travel in order to cross 1.0 distance along x-axis
-            SB(TEMP .= vKcosTheta)
-            SB(TEMP .*= vKsinPhi)
-            SB(RDX .= -1000000000)
-            SB(RDX ./= TEMP)
+            yield SB(TEMP .= vKcosTheta)
+            yield SB(TEMP .*= vKsinPhi)
+            yield SB(RDX .= -1000000000)
+            yield SB(RDX ./= TEMP)
             // if TEMP was 0, division fails, need to clamp RDX at a value bigger than next degree, but small enough that multiplying by 1000 does not overflow
-            AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=0,score_%s=0] %s 1000000" TEMP.Name TEMP.Name RDX.Name) 
+            yield AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=0,score_%s=0] %s 1000000" TEMP.Name TEMP.Name RDX.Name) 
             // now RDX of 1000 means 1.0, 2437 means 2.437, etc.
 
             // RDY: radial distance needed to travel in order to cross 1.0 distance along y-axis
-            SB(RDY .= -1000000)
-            SB(RDY ./= vKsinTheta)
+            yield SB(RDY .= -1000000)
+            yield SB(RDY ./= vKsinTheta)
             // if vKsinTheta was 0, division fails, need to clamp RDY at a value bigger than next degree, but small enough that multiplying by 1000 does not overflow
-            AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=0,score_%s=0] %s 1000000" vKsinTheta.Name vKsinTheta.Name RDY.Name) 
+            yield AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=0,score_%s=0] %s 1000000" vKsinTheta.Name vKsinTheta.Name RDY.Name) 
 
             // RDZ: radial distance needed to travel in order to cross 1.0 distance along z-axis
-            SB(TEMP .= vKcosTheta)
-            SB(TEMP .*= vKcosPhi)
-            SB(RDZ .= 1000000000)
-            SB(RDZ ./= TEMP)
+            yield SB(TEMP .= vKcosTheta)
+            yield SB(TEMP .*= vKcosPhi)
+            yield SB(RDZ .= 1000000000)
+            yield SB(RDZ ./= TEMP)
             // if TEMP was 0, division fails, need to clamp RDZ at a value bigger than next degree, but small enough that multiplying by 1000 does not overflow
-            AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=0,score_%s=0] %s 1000000" TEMP.Name TEMP.Name RDZ.Name) 
+            yield AtomicCommand(sprintf "scoreboard players set @s[score_%s_min=0,score_%s=0] %s 1000000" TEMP.Name TEMP.Name RDZ.Name) 
 
             // all RD_ vars need to be positive, flip if needed and track what we flipped
-            SB(FLIPX .= 0)
-            SB(FLIPY .= 0)
-            SB(FLIPZ .= 0)
+            yield SB(FLIPX .= 0)
+            yield SB(FLIPY .= 0)
+            yield SB(FLIPZ .= 0)
             //if RDX < 0 then
             //    RDX = -RDX
             //    FLIPX = true
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(TEMP .= 0).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(TEMP .-= RDX).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(FLIPX .= 1).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(RDX .= TEMP).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(TEMP .= 0).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(TEMP .-= RDX).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(FLIPX .= 1).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDX.Name (SB(RDX .= TEMP).AsCommand()))
             //if RDY < 0 then
             //    RDY = -RDY
             //    FLIPY = true
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(TEMP .= 0).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(TEMP .-= RDY).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(FLIPY .= 1).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(RDY .= TEMP).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(TEMP .= 0).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(TEMP .-= RDY).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(FLIPY .= 1).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDY.Name (SB(RDY .= TEMP).AsCommand()))
             //if RDZ < 0 then
             //    RDZ = -RDZ
             //    FLIPZ = true
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(TEMP .= 0).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(TEMP .-= RDZ).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(FLIPZ .= 1).AsCommand()))
-            AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(RDZ .= TEMP).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(TEMP .= 0).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(TEMP .-= RDZ).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(FLIPZ .= 1).AsCommand()))
+            yield AtomicCommand(sprintf "execute @s[score_%s=-1] ~ ~ ~ %s" RDZ.Name (SB(RDZ .= TEMP).AsCommand()))
 
             // put armor stand at right starting point
-            AtomicCommand(sprintf "execute @e[tag=look] ~ ~ ~ teleport %s ~ ~%2f ~ ~ ~" RAY_UUID (eyesAboveFeet + float yOffset)) // RAY position (its feet) are at looker eyeball level (+offset)
+            yield AtomicCommand(sprintf "execute @e[tag=look] ~ ~ ~ teleport %s ~ ~%2f ~ ~ ~" RAY_UUID (eyesAboveFeet + float yOffset)) // RAY position (its feet) are at looker eyeball level (+offset)
 
             // initial values
             //if FLIPX
@@ -695,32 +733,33 @@ let perfectRaycastProgram =
             //    CURX .-= fracX
             //    CURX .*= RDX
             //    CURX ./= ONE_THOUSAND
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s = @s %s" FLIPX.Name CURX.Name fracX.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s *= @s %s" FLIPX.Name CURX.Name RDX.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s /= @s %s" FLIPX.Name CURX.Name ONE_THOUSAND.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s = @s %s" FLIPX.Name CURX.Name ONE_THOUSAND.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s -= @s %s" FLIPX.Name CURX.Name fracX.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s *= @s %s" FLIPX.Name CURX.Name RDX.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s /= @s %s" FLIPX.Name CURX.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s = @s %s" FLIPX.Name CURX.Name fracX.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s *= @s %s" FLIPX.Name CURX.Name RDX.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s /= @s %s" FLIPX.Name CURX.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s = @s %s" FLIPX.Name CURX.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s -= @s %s" FLIPX.Name CURX.Name fracX.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s *= @s %s" FLIPX.Name CURX.Name RDX.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s /= @s %s" FLIPX.Name CURX.Name ONE_THOUSAND.Name)
             //same for y
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s = @s %s" FLIPY.Name CURY.Name fracY.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s *= @s %s" FLIPY.Name CURY.Name RDY.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s /= @s %s" FLIPY.Name CURY.Name ONE_THOUSAND.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s = @s %s" FLIPY.Name CURY.Name ONE_THOUSAND.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s -= @s %s" FLIPY.Name CURY.Name fracY.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s *= @s %s" FLIPY.Name CURY.Name RDY.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s /= @s %s" FLIPY.Name CURY.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s = @s %s" FLIPY.Name CURY.Name fracY.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s *= @s %s" FLIPY.Name CURY.Name RDY.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s /= @s %s" FLIPY.Name CURY.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s = @s %s" FLIPY.Name CURY.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s -= @s %s" FLIPY.Name CURY.Name fracY.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s *= @s %s" FLIPY.Name CURY.Name RDY.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s /= @s %s" FLIPY.Name CURY.Name ONE_THOUSAND.Name)
             //same for z
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s = @s %s" FLIPZ.Name CURZ.Name fracZ.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s *= @s %s" FLIPZ.Name CURZ.Name RDZ.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s /= @s %s" FLIPZ.Name CURZ.Name ONE_THOUSAND.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s = @s %s" FLIPZ.Name CURZ.Name ONE_THOUSAND.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s -= @s %s" FLIPZ.Name CURZ.Name fracZ.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s *= @s %s" FLIPZ.Name CURZ.Name RDZ.Name)
-            AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s /= @s %s" FLIPZ.Name CURZ.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s = @s %s" FLIPZ.Name CURZ.Name fracZ.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s *= @s %s" FLIPZ.Name CURZ.Name RDZ.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s_min=1] %s /= @s %s" FLIPZ.Name CURZ.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s = @s %s" FLIPZ.Name CURZ.Name ONE_THOUSAND.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s -= @s %s" FLIPZ.Name CURZ.Name fracZ.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s *= @s %s" FLIPZ.Name CURZ.Name RDZ.Name)
+            yield AtomicCommand(sprintf "scoreboard players operation @s[score_%s=0] %s /= @s %s" FLIPZ.Name CURZ.Name ONE_THOUSAND.Name)
             // loop prep
-            SB(DONE .= 0)
+            yield SB(DONE .= 0)
 //            AtomicCommand(sprintf """tellraw @a ["init - CURX:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURY:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURZ:",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID CURX.Name ENTITY_UUID CURY.Name ENTITY_UUID CURZ.Name)
+            yield! SNAP_RAY_TO_GRID
             |],DirectTailCall(prwhiletest),MustNotYield)
         prwhiletest,BasicBlock([|
             |],ConditionalTailCall(Conditional[| DONE .<= 0 |],ploopbody,pcoda),MustNotYield)
@@ -785,13 +824,11 @@ let perfectRaycastProgram =
 //            AtomicCommand(sprintf """tellraw @a ["loop - CURX:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURY:",{"score":{"name":"@e[name=%s]","objective":"%s"}}," CURZ:",{"score":{"name":"@e[name=%s]","objective":"%s"}}]""" ENTITY_UUID CURX.Name ENTITY_UUID CURY.Name ENTITY_UUID CURZ.Name)
             |],DirectTailCall(prwhiletest),MustNotYield)
         pcoda,BasicBlock([|
+            yield AtomicCommand(sprintf "tp %s ~ ~%.2f ~" RAY_UUID (-0.5 - float yOffset))  // un-offset RAY to draw collision box
+            yield! ARRANGE_MAGMAS_BY_RAY(CMAGMA_UUID)
 //            AtomicCommand(sprintf """tellraw @a ["done!"]""")
             yield AtomicCommand(sprintf "execute %s ~ ~ ~ teleport %s ~ ~ ~" TEMPAS_UUID RAY_UUID) // tp RAY back to tempAS, but preserve RAY's facing direction
-            yield AtomicCommand(sprintf """execute %s ~ ~ ~ summon leash_knot ~ ~-500 ~ {Tags:["snapToGrid"]}""" RAY_UUID)   // -500 so as to not be visible to players
-            yield AtomicCommand(sprintf """execute @e[type=leash_knot,tag=snapToGrid] ~ ~ ~ teleport %s ~ ~ ~""" RAY_UUID)   // snap RAY to grid, but preserve facing
-            yield AtomicCommand(sprintf """tp %s ~ ~500 ~""" RAY_UUID)  // +500 to offset leash_knot visibility offset 
-            yield AtomicCommand(sprintf """kill @e[type=leash_knot,tag=snapToGrid]""")
-            yield AtomicCommand(sprintf "tp %s ~ ~%.2f ~" RAY_UUID (-0.5 - float yOffset))
+            yield AtomicCommand(sprintf "tp %s ~ ~%.2f ~" RAY_UUID (-0.5 - float yOffset))  // un-offset RAY to draw teleport box  
             // red/green logic: 
             yield SB(TEMP .= 0) // TEMP==0 means here RED, TEMP==1 means here GREEN
             yield SB(FOUND_BELOW .= 0) // like TEMP but for spot one below RAY
@@ -805,16 +842,7 @@ let perfectRaycastProgram =
             yield AtomicCommand(sprintf "execute @s[score_%s=0,score_%s=-1] ~ ~ ~ execute %s ~ ~ ~ detect ~ ~-1 ~ air 0 scoreboard players set %s %s 1" TEMP.Name vtheta.Name RAY_UUID ENTITY_UUID FOUND_BELOW.Name)
             // Now, either TEMP is 1 (RAY is in right spot, GREEN), or FOUND_BELOW is 1 (RAY is one above right spot, GREEN), or neither (RED)
             // display a highlighted cube where the player cast the ray
-            for i = 0 to 7 do
-                yield AtomicCommand(sprintf "tp %s %s" MAGMA_UUID.[i] RAY_UUID)
-            yield AtomicCommand(sprintf "tp %s ~-0.25 ~ ~-0.25 0 0" MAGMA_UUID.[0])
-            yield AtomicCommand(sprintf "tp %s ~+0.25 ~ ~-0.25 0 0" MAGMA_UUID.[1])
-            yield AtomicCommand(sprintf "tp %s ~-0.25 ~ ~+0.25 0 0" MAGMA_UUID.[2])
-            yield AtomicCommand(sprintf "tp %s ~+0.25 ~ ~+0.25 0 0" MAGMA_UUID.[3])
-            yield AtomicCommand(sprintf "tp %s ~-0.25 ~+0.5 ~-0.25 0 0" MAGMA_UUID.[4])
-            yield AtomicCommand(sprintf "tp %s ~+0.25 ~+0.5 ~-0.25 0 0" MAGMA_UUID.[5])
-            yield AtomicCommand(sprintf "tp %s ~-0.25 ~+0.5 ~+0.25 0 0" MAGMA_UUID.[6])
-            yield AtomicCommand(sprintf "tp %s ~+0.25 ~+0.5 ~+0.25 0 0" MAGMA_UUID.[7])
+            yield! ARRANGE_MAGMAS_BY_RAY(MAGMA_UUID)
             // set up colors and move armor stand if needed
             yield AtomicCommand("scoreboard teams option RayTeam color Red")
             yield AtomicCommand(sprintf "execute @s[score_%s_min=1] ~ ~ ~ tp %s ~ ~-1 ~" FOUND_BELOW.Name RAY_UUID)
