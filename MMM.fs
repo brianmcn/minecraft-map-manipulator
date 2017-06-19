@@ -1703,6 +1703,7 @@ automatic game start configs (night vision, starting items), customizable
 
     let worldFolder = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\pre1world"""
 
+(*
     let advancements =
         ["testing/drank_luck",Advancement(None,NoDisplay,Reward([||],[||],0,sprintf"%s:drank_luck"FunctionCompiler.FUNCTION_NAMESPACE),
             [|Criterion("did",MC"consume_item",[|Item(MC"potion",1,MC"luck")|])|],[|[|"did"|]|])
@@ -1713,12 +1714,15 @@ automatic game start configs (night vision, starting items), customizable
         """advancement revoke @a only testing:drank_luck"""
         """scoreboard players set @s nPotionActive 600"""  // 30s, fragile interaction with foresight
         |])
+*)
 
     let p = FunctionCompiler.mandelbrotProgram(94)
     let p = FunctionCompiler.inlineDirectTailCallsOptimization(p)
-    let r = FunctionUtilities.raycastProgram
+//    let r = FunctionUtilities.raycastProgram
+    let r = FunctionUtilities.perfectRaycastProgram
     let r = FunctionCompiler.inlineDirectTailCallsOptimization(r)
-    let _init, funcs = FunctionCompiler.compileToFunctions([p;r],(*isTracing*)false)
+//    let _init, funcs = FunctionCompiler.compileToFunctions([p;r],(*isTracing*)false)
+    let _init, funcs = FunctionCompiler.compileToOneTick(r,(*isTracing*)false)
     let mutable commandCount = 0
     let uuid = System.Guid.NewGuid()
     let least,most = Utilities.toLeastMost(uuid)
@@ -1726,6 +1730,7 @@ automatic game start configs (night vision, starting items), customizable
     let killCmd = sprintf "kill %s" (uuid.ToString())
     let allFuncs = [|
         yield! funcs
+(*
         yield! FunctionUtilities.profileThis("p",[],["scoreboard players add @p A 1"],[])
         yield! FunctionUtilities.profileThis("x",[],["scoreboard players add x A 1"],[])
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
@@ -1768,6 +1773,7 @@ automatic game start configs (night vision, starting items), customizable
             "scoreboard objectives setdisplay sidebar Coords"
             "scoreboard players tag @p remove GetCoords"
             |]
+*)
         |]
     for name,cmds in allFuncs do
         let path = worldFolder + (sprintf """\data\functions\%s\%s.mcfunction""" FunctionCompiler.FUNCTION_NAMESPACE name)
@@ -1777,6 +1783,7 @@ automatic game start configs (night vision, starting items), customizable
         commandCount <- commandCount + cmds.Length 
     printfn "%d commands were written to %d functions" commandCount allFuncs.Length 
 
+(*
     let zombieWithDiamond = 
             Pools [Pool(Roll(1,1), [LootTables.Item("minecraft:diamond", []), 1, 0, []])
                    Pool(Roll(1,1), [LootTable("minecraft:entities/zombie"), 1, 0, []])]
@@ -1794,6 +1801,7 @@ automatic game start configs (night vision, starting items), customizable
                                 "lorgon111:spider_with_flint",spiderWithFlint 
                                 "lorgon111:spider_with_cake",spiderWithCake 
                                ],worldFolder)
+*)
 
 #if YADDA
 

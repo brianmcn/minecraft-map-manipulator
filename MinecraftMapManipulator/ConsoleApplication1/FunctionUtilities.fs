@@ -19,14 +19,14 @@ let binaryLookup(prefix, entityTag, minSel, maxSel, exp, k, offset, fs) =
                     for f in fs do
                         let obj,num = f i
                         outputObjectives.Add(obj) |> ignore
-                        yield sprintf "execute @e[tag=%s,%s=%d,%s=%d] ~ ~ ~ scoreboard players set %s %s %d" entityTag minSel i maxSel i FunctionCompiler.ENTITY_UUID obj num
+                        yield sprintf "execute @s[%s=%d,%s=%d] ~ ~ ~ scoreboard players set %s %s %d" minSel i maxSel i FunctionCompiler.ENTITY_UUID obj num
                 |])
         else
             let mid = (hi-lo)/2 + lo
             let midn = mid+1
             functions.Add(name,[|
-                yield sprintf "execute @e[tag=%s,%s=%d,%s=%d] ~ ~ ~ function %s:%s" entityTag minSel lo maxSel mid FunctionCompiler.FUNCTION_NAMESPACE (makeName(lo,mid))
-                yield sprintf "execute @e[tag=%s,%s=%d,%s=%d] ~ ~ ~ function %s:%s" entityTag minSel midn maxSel hi FunctionCompiler.FUNCTION_NAMESPACE (makeName(midn,hi))
+                yield sprintf "execute @s[%s=%d,%s=%d] ~ ~ ~ function %s:%s" minSel lo maxSel mid FunctionCompiler.FUNCTION_NAMESPACE (makeName(lo,mid))
+                yield sprintf "execute @s[%s=%d,%s=%d] ~ ~ ~ function %s:%s" minSel midn maxSel hi FunctionCompiler.FUNCTION_NAMESPACE (makeName(midn,hi))
                 |])
             go(lo,mid)
             go(midn,hi)
@@ -35,7 +35,7 @@ let binaryLookup(prefix, entityTag, minSel, maxSel, exp, k, offset, fs) =
         sprintf "# %s" prefix
         sprintf "# inputs: an entity has already been tagged '%s'" entityTag
         sprintf "# outputs: %A" (outputObjectives |> Seq.toList)
-        sprintf "function %s:%s" FunctionCompiler.FUNCTION_NAMESPACE (makeName(offset,offset+n*k))
+        sprintf "execute @e[tag=%s] ~ ~ ~ function %s:%s" entityTag FunctionCompiler.FUNCTION_NAMESPACE (makeName(offset,offset+n*k))
         |])
     functions
 
