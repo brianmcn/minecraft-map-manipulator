@@ -9,10 +9,9 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LocalMCServer", "LocalMCSer
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSServerLogic", "FSServerLogic\FSServerLogic.fsproj", "{77C39DA7-CBC1-404C-B71E-E1E793BC277C}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Minecraft_1_13", "Minecraft_1_13\Minecraft_1_13.fsproj", "{62D48867-8E1A-45A1-93F8-011928EA7986}"
+EndProject
 Global
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -30,6 +29,10 @@ Global
 		{77C39DA7-CBC1-404C-B71E-E1E793BC277C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{77C39DA7-CBC1-404C-B71E-E1E793BC277C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{77C39DA7-CBC1-404C-B71E-E1E793BC277C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{62D48867-8E1A-45A1-93F8-011928EA7986}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{62D48867-8E1A-45A1-93F8-011928EA7986}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{62D48867-8E1A-45A1-93F8-011928EA7986}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{62D48867-8E1A-45A1-93F8-011928EA7986}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

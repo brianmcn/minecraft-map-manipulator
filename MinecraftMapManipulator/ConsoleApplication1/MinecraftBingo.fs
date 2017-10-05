@@ -1,5 +1,10 @@
 ﻿// BUGS
 // waiting-to-spawn and card-update lobby signs are WALL signs but not right-clickable, violating convention
+// i4 buy cartographer map, overwrites map1 data
+// idea: arrow as alternative item to bone
+// idea: beacon at spawn to mark its location
+// idea: 'blind' card (covered items)
+
 
 // STATS:
 //
