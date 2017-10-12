@@ -59,27 +59,82 @@ setup
  - constants initialized
  - ?build lobby?
  - any permanent entities
+*)
 
 
+let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
+// TODO implement gameloop function that calls callbacks and decrements countdowns
+let continuationNum = ref 1
+let newName() = 
+    let r = sprintf "cont%d" !continuationNum
+    incr continuationNum
+    r
+let compile(f) =
+    let rec replaceScores(s:string) = 
+        let i = s.IndexOf("$SCORE(")
+        if i <> -1 then
+            let j = s.IndexOf(')',i)
+            let info = s.Substring(i+7,j-i-7)
+            let s = s.Remove(i,j-i+1)
+            let s = s.Insert(i,sprintf "@e[tag=scoreAS,score_%s]" info)
+            replaceScores(s)
+        else
+            s
+    let replaceContinue(s:string) = 
+        let i = s.IndexOf("$CONTINUEASAT(")
+        if i <> -1 then
+            if i <> 0 then failwith "$CONTINUEASAT must be only thing on the line"
+            let j = s.IndexOf(')',i)
+            if j <> s.Length-1 then failwith "$CONTINUEASAT must be only thing on the line"
+            let info = s.Substring(i+14,j-i-14)
+            // $CONTINUEASAT(entity) will
+            //  - create a new named .mcfunction for the continuation
+            //  - execute as entity at @s then function the new function
+            let nn = newName()
+            [|sprintf "execute as %s at @s then function %s" info nn|], true
+        else
+            let i = s.IndexOf("$NTICKSLATER(")
+            if i <> -1 then
+                if i <> 0 then failwith "$NTICKSLATER must be only thing on the line"
+                let j = s.IndexOf(')',i)
+                if j <> s.Length-1 then failwith "$NTICKSLATER must be only thing on the line"
+                let info = s.Substring(i+13,j-i-13)
+                // $NTICKSLATER(n) will
+                //  - create a new named .mcfunction for the continuation
+                //  - create a new scoreboard objective for it
+                //  - set the value of e.g. @e[tag=callbackAS] in the new objective to 'n'
+                //     - but first check the existing score was 0; this system can't register the same callback function more than once at a time, that would be an error (no re-entrancy)
+                //  - add a hook in the gameloop that, foreach callback function in the global registry, will check the score, and
+                //     - if the score is ..0, do nothing (unscheduled)
+                //     - if the score is 1, call the corresponding callback function (time to continue now)
+                //     - else subtract 1 from the score (get 1 tick closer to calling it)
+                let nn = newName()
+                allCallbackFunctions.Add(nn)
+                [|
+                    sprintf """execute if @e[tag=callbackAS,score_%s=1..] then tellraw @a ["error, re-entrant callback %s"]""" nn nn
+                    sprintf "scoreboard players set @e[tag=callbackAS] %s %s" nn info
+                |], true
+            else
+                [|s|], false
+    let a = f |> Seq.toArray 
+    // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,score_...]"
+    let a = a |> Array.map replaceScores
+    // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
+    let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS]"))
+    [|
+        let cur = ResizeArray()
+        let i = ref 0
+        while !i < a.Length do
+            let b,stop = replaceContinue(a.[!i])
+            cur.AddRange(b)
+            if stop then
+                yield cur.ToArray()
+                cur.Clear()
+            incr i
+        yield cur.ToArray()
+    |]
 
-
-We need a compiler from reasonable-programming to Minecraft functions.  The compiler is mostly simple, the main things it will do include:
-    $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
-    $SCORE(...) is maybe e.g. "@e[tag=scoreAS,score_...]
-    $NTICKSLATER(n) will
-     - create a new named .mcfunction for the continuation
-     - create a new scoreboard objective for it
-     - set the value of e.g. @e[tag=callbackAS] in the new objective to 'n'
-        - but first check the existing score was 0; this system can't register the same callback function more than once at a time, that would be an error (no re-entrancy)
-     - add a hook in the gameloop that, foreach callback function in the global registry, will check the score, and
-        - if the score is ..0, do nothing (unscheduled)
-        - if the score is 1, call the corresponding callback function (time to continue now)
-        - else subtract 1 from the score (get 1 tick closer to calling it)
-    $CONTINUEASAT(entity) will
-     - create a new named .mcfunction for the continuation
-     - execute as entity at @s then function the new function
-
-TODO "Damage:0s" is maybe no longer the nbt of map0? check it out
+//TODO "Damage:0s" is maybe no longer the nbt of map0? check it out
 let find_player_who_dropped_map =
     [|
     "scoreboard players set $ENTITY SomeoneIsMapUpdating 0"
@@ -93,7 +148,7 @@ let find_player_who_dropped_map_core =
     [|
     // tag all players near dropped maps as wanting to tp
     "execute at @e[type=Item,nbt={Item:{id:\"minecraft:filled_map\",Damage:0s}}] then scoreboard players tag @a[r=5] add playerThatWantsToUpdate"
-    TODO verify "at @e" will loop, that is, perform the chained command for each entity
+    //TODO verify "at @e" will loop, that is, perform the chained command for each entity
     // choose a random one to be the tp'er
     "scoreboard players tag @r[tag=playerThatWantsToUpdate] add playerThatIsMapUpdating"
     // clear the 'wanting' flags
@@ -103,6 +158,8 @@ let find_player_who_dropped_map_core =
     // start the TP sequence for the chosen guy
     "execute as @p[tag=playerThatIsMapUpdating] at @s then function player_updates_map"
     |]
+// TODO
+let MAP_UPDATE_ROOM = "62 10 72"
 let player_updates_map =  // called as and at that player
     [|
     "summon area_effect_cloud ~ ~ ~ {Tags:[\"whereToTpBackTo\"],Duration:1000}"  // summon now, need to wait a tick to TP
@@ -112,7 +169,7 @@ let player_updates_map =  // called as and at that player
     """tellraw @a [{"selector":"@p[tag=playerThatIsMapUpdating]"}," is updating the BINGO map"]"""
     "entitydata @e[type=!Player,r=62] {PersistenceRequired:1}"  // preserve mobs
     "tp @e[tag=whereToTpBackTo] @p[tag=playerThatIsMapUpdating]"  // a tick after summoning, tp marker to player, to preserve facing direction
-    sprintf "tp @s %s 180 0" MAP_UPDATE_ROOM.STR
+    sprintf "tp @s %s 180 0" MAP_UPDATE_ROOM
     "particle portal ~ ~ ~ 3 2 3 1 99 @s"
     "playsound entity.endermen.teleport ambient @a"
     "$NTICKSLATER(30)" // TODO adjust timing?
@@ -121,16 +178,14 @@ let player_updates_map =  // called as and at that player
     "entitydata @e[type=!Player,r=72] {PersistenceRequired:0}"  // don't leak mobs
     "particle portal ~ ~ ~ 3 2 3 1 99 @s"
     "playsound entity.endermen.teleport ambient @a"
-    sprintf "setworldspawn %s" MAP_UPDATE_ROOM.STR
+    sprintf "setworldspawn %s" MAP_UPDATE_ROOM
     "scoreboard players tag @p[tag=playerThatIsMapUpdating] remove playerThatIsMapUpdating"
-    TODO keep this feature? "scoreboard players set hasAnyoneUpdatedMap S 1"
+    //TODO keep this feature? "scoreboard players set hasAnyoneUpdatedMap S 1"
     "kill @e[tag=whereToTpBackTo]"
     |]
-
-
-
-
-
-
-
-*)
+let test() = 
+    //let r = compile(find_player_who_dropped_map)
+    let r = compile(player_updates_map)
+    printfn "%A" r
+    printfn ""
+    printfn "callbacks: %A" (allCallbackFunctions.ToArray())
