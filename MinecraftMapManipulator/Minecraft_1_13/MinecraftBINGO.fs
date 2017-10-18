@@ -63,13 +63,18 @@ setup
 
 
 let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
-// TODO implement gameloop function that calls callbacks and decrements countdowns
 let continuationNum = ref 1
 let newName() = 
     let r = sprintf "cont%d" !continuationNum
     incr continuationNum
     r
-let compile(f) =
+let gameLoopContinuationCheck() =
+    [|
+        for f in allCallbackFunctions do
+            yield sprintf "execute if @e[tag=callbackAS,score_%s=1] then function %s" f f
+            yield sprintf "scoreboard players remove @e[tag=callbackAS,score_%s=1..] %s 1" f f
+    |]
+let compile(f,name) =
     let rec replaceScores(s:string) = 
         let i = s.IndexOf("$SCORE(")
         if i <> -1 then
@@ -91,7 +96,7 @@ let compile(f) =
             //  - create a new named .mcfunction for the continuation
             //  - execute as entity at @s then function the new function
             let nn = newName()
-            [|sprintf "execute as %s at @s then function %s" info nn|], true
+            [|sprintf "execute as %s at @s then function %s" info nn|], nn
         else
             let i = s.IndexOf("$NTICKSLATER(")
             if i <> -1 then
@@ -113,9 +118,9 @@ let compile(f) =
                 [|
                     sprintf """execute if @e[tag=callbackAS,score_%s=1..] then tellraw @a ["error, re-entrant callback %s"]""" nn nn
                     sprintf "scoreboard players set @e[tag=callbackAS] %s %s" nn info
-                |], true
+                |], nn
             else
-                [|s|], false
+                [|s|], null
     let a = f |> Seq.toArray 
     // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,score_...]"
     let a = a |> Array.map replaceScores
@@ -123,15 +128,17 @@ let compile(f) =
     let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS]"))
     [|
         let cur = ResizeArray()
+        let curName = ref name
         let i = ref 0
         while !i < a.Length do
-            let b,stop = replaceContinue(a.[!i])
+            let b,nn = replaceContinue(a.[!i])
             cur.AddRange(b)
-            if stop then
-                yield cur.ToArray()
+            if nn<>null then
+                yield !curName, cur.ToArray()
                 cur.Clear()
+                curName := nn
             incr i
-        yield cur.ToArray()
+        yield !curName, cur.ToArray()
     |]
 
 //TODO "Damage:0s" is maybe no longer the nbt of map0? check it out
@@ -184,8 +191,9 @@ let player_updates_map =  // called as and at that player
     "kill @e[tag=whereToTpBackTo]"
     |]
 let test() = 
-    //let r = compile(find_player_who_dropped_map)
-    let r = compile(player_updates_map)
+    //let r = compile(find_player_who_dropped_map,"find_player_who_dropped_map")
+    let r = compile(player_updates_map,"player_updates_map")
     printfn "%A" r
     printfn ""
     printfn "callbacks: %A" (allCallbackFunctions.ToArray())
+    printfn "gameLoopContinuationCheck: %A" (gameLoopContinuationCheck())
