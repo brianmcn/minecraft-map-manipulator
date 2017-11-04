@@ -10,6 +10,9 @@ Things to test in snapshot
 
     TODO "Damage:0s" is maybe no longer the nbt of map0? check it out
 
+    item ids for e.g. dyes?
+
+    understand data packs, how to turn off e.g. vanilla advancements/crafting
 
 
 
@@ -21,6 +24,14 @@ ignore lockout, custom modes, and item chests in initial version
 bug: https://www.reddit.com/r/minecraftbingo/comments/74sd7m/broken_seed_spawn_in_a_waterfall_and_die_in_a_wall/
 bugs & ideas from top of old file
 
+art assets should now be saved as structures (could find way to write my old data, but no way to read new arts without binary reader)
+cardgen is an easy module to work on first?
+
+
+feature ideas:
+ - beacon at spawn
+ - randomly put people on 1/2/3/4 teams
+ - 'blind' covered play
 
 architecture
 
@@ -36,7 +47,7 @@ helper functions
  - team-got-an-item (announce, add score, check for win/lockout)
  - various 'win' announcements/fireworks/scoreboard
  - worldborder timekeeper logic (compute actual seconds)
- - find spawn point based on seed (maybe different logic/implementation from now? ...)
+ - find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
  - compute lockout goal
 
 blocks
@@ -197,3 +208,100 @@ let test() =
     printfn ""
     printfn "callbacks: %A" (allCallbackFunctions.ToArray())
     printfn "gameLoopContinuationCheck: %A" (gameLoopContinuationCheck())
+let ensureDirOfFile(filename) = 
+    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore
+let writeFunctionsToResourcePack(packName, funcs) =
+    let ROOT = """C:\Users\Admin1\AppData\Roaming\.minecraft\resourcepacks"""
+    let FOLDER = packName
+    let meta = 
+            """
+            {
+               "pack": {
+                  "pack_format": 3,
+                  "description": "BINGO Data Pack"
+               }
+            }
+            """
+    let mcmetaFilename = System.IO.Path.Combine(ROOT, FOLDER, "pack.mcmeta")
+    ensureDirOfFile(mcmetaFilename)
+    System.IO.File.WriteAllText(mcmetaFilename, meta)
+    let FUNCTIONSDIR = System.IO.Path.Combine(ROOT, FOLDER, """data\BINGO\functions""")
+    for name,code in funcs do
+        let fn = System.IO.Path.Combine(FUNCTIONSDIR, name+".mcfunction")
+        ensureDirOfFile(fn)
+        System.IO.File.WriteAllLines(fn, code)
+let testWrite() = 
+    //let r = compile(find_player_who_dropped_map,"find_player_who_dropped_map")
+    let r = compile(player_updates_map,"player_updates_map")
+    writeFunctionsToResourcePack("BINGO", r)
+        
+        
+
+
+
+////////////////////////////////////////////////
+
+let bingoItems =
+        [|
+            [|  -1, "diamond"          ,"" ; -1, "diamond_hoe"      ,"" ; -1, "diamond_axe"         ,"" |]
+            [|  -1, "bone"             ,"" ; +8, "dye"              ,"gray_dye" ; +8, "dye"                 ,"gray_dye" |]
+            [|  -1, "ender_pearl"      ,"" ; -1, "ender_pearl"      ,"" ; -1, "slime_ball"          ,"" |]
+            [|  +2, "tallgrass"        ,"fern" ; -1, "vine"             ,"" ; -1, "deadbush"            ,"" |]
+            [|  -1, "brick"            ,"" ; -1, "flower_pot"       ,"" ; -1, "flower_pot"          ,"" |]
+            [|  -1, "glass_bottle"     ,"" ; -1, "glass_bottle"     ,"" ; -1, "glass_bottle"        ,"" |]
+            [|  -1, "melon"            ,"" ; -1, "melon"            ,"" ; -1, "speckled_melon"      ,"" |]
+            [|  +0, "dye"              ,"ink_sac" ; -1, "book"             ,"" ; -1, "writable_book"       ,"" |]
+            [|  -1, "apple"            ,"" ; -1, "golden_shovel"    ,"" ; -1, "golden_apple"        ,"" |]
+            [|  -1, "flint"            ,"" ; -1, "flint"            ,"" ; -1, "flint_and_steel"     ,"" |]
+            [|  +3, "dye"              ,"cocoa_bean" ; -1, "cookie"           ,"" ; -1, "cookie"              ,"" |]
+            [|  -1, "pumpkin_seeds"    ,"" ; -1, "pumpkin_seeds"    ,"" ; -1, "pumpkin_pie"         ,"" |]
+            [|  -1, "rail"             ,"" ; -1, "rail"             ,"" ; -1, "rail"                ,"" |]
+            [|  -1, "mushroom_stew"    ,"" ; -1, "mushroom_stew"    ,"" ; -1, "mushroom_stew"       ,"" |]
+            [|  -1, "sugar"            ,"" ; -1, "spider_eye"       ,"" ; -1, "fermented_spider_eye","" |]
+            [|  +2, "dye"              ,"cactus_green" ; +2, "dye"              ,"cactus_green" ;+10, "dye"                 ,"lime_dye" |]
+            [|  +4, "dye"              ,"lapis" ; +5, "dye"              ,"purple_dye" ; +6, "dye"                 ,"cyan_dye" |]
+            [|  -1, "beetroot_soup"    ,"" ; -1, "emerald"          ,"" ; -1, "emerald"             ,"" |]
+            [|  -1, "furnace_minecart" ,"" ; -1, "chest_minecart"   ,"" ; -1, "tnt_minecart"        ,"" |]
+            [|  -1, "gunpowder"        ,"" ; -1, "fireworks"        ,"" ; -1, "fireworks"           ,"" |]
+            [|  -1, "compass"          ,"" ; -1, "compass"          ,"" ; -1, "map"                 ,"" |]
+            [|  +1, "sapling"          ,"spruce_sapling" ; +1, "sapling"          ,"spruce_sapling" ; +4, "sapling"             ,"acacia_sapling" |]
+            [|  -1, "cauldron"         ,"" ; -1, "cauldron"         ,"" ; -1, "cauldron"            ,"" |]
+            [|  -1, "name_tag"         ,"" ; -1, "saddle"           ,"" ; -1, "enchanted_book"      ,"" |]
+            [|  -1, "milk_bucket"      ,"" ; -1, "egg"              ,"" ; -1, "cake"                ,"" |]
+            [|  -1, "fish"             ,"" ; -1, "fish"             ,"" ; -1, "fish"                ,"" |]
+            [|  -1, "sign"             ,"" ; -1, "item_frame"       ,"" ; -1, "painting"            ,"" |]
+            [|  -1, "golden_sword"     ,"" ; -1, "clock"            ,"" ; -1, "golden_rail"         ,"" |]
+            [|  -1, "hopper"           ,"" ; -1, "hopper"           ,"" ; -1, "hopper_minecart"     ,"" |]
+            [|  -1, "repeater"         ,"" ; -1, "repeater"         ,"" ; -1, "repeater"            ,"" |]
+        |]
+
+let flatBingoItems = 
+    let orig = [|
+        for a in bingoItems do
+            for x in a do
+                yield x
+        |]
+    let trim = // remove duplicates
+        let r = ResizeArray()
+        for x in orig do
+            if not(r.Contains(x)) then
+                r.Add(x)
+        r
+    trim.ToArray()
+
+let makeSavingStructureBlocks() =
+    let cmds = ResizeArray()
+    let mutable i = 0
+    let mutable x,z = 3,3
+    while i < flatBingoItems.Length do
+        let _dmg,itemid,desc = flatBingoItems.[i]
+        let name = if desc="" then itemid else desc
+        cmds.Add(sprintf "setblock %d 2 %d minecraft:structure_block 0" x z)
+        cmds.Add(sprintf """blockdata %d 2 %d {metadata:"",mirror:"NONE",ignoreEntities:1b,mode:"SAVE",rotation:"NONE",posX:0,posY:-2,posZ:0,sizeX:17,sizeY:2,sizeZ:17,integrity:1.0f,showair:1b,powered:0b,seed:0L,author:"Lorgon111",name:"%s",id:"minecraft:structure_block",showboundingbox:1b}""" x z name)
+        x <- x + 18
+        i <- i + 1
+        if i%8=0 then
+            x <- 3
+            z <- z + 18
+    writeFunctionsToResourcePack("testing",[|"autobingo",cmds.ToArray()|])
+    ()
