@@ -275,6 +275,11 @@ let bingoItems =
             [|  -1, "repeater"         ,"" ; -1, "repeater"         ,"" ; -1, "repeater"            ,"" |]
         |]
 
+let nameOfBingoItem x = 
+    let _dmg,itemid,desc = x
+    let name = if desc="" then itemid else desc
+    name
+
 let flatBingoItems = 
     let orig = [|
         for a in bingoItems do
@@ -294,8 +299,7 @@ let makeSavingStructureBlocks() =
     let mutable i = 0
     let mutable x,z = 3,3
     while i < flatBingoItems.Length do
-        let _dmg,itemid,desc = flatBingoItems.[i]
-        let name = if desc="" then itemid else desc
+        let name = nameOfBingoItem flatBingoItems.[i]
         cmds.Add(sprintf "setblock %d 2 %d minecraft:structure_block 0" x z)
         cmds.Add(sprintf """blockdata %d 2 %d {metadata:"",mirror:"NONE",ignoreEntities:1b,mode:"SAVE",rotation:"NONE",posX:0,posY:-2,posZ:0,sizeX:17,sizeY:2,sizeZ:17,integrity:1.0f,showair:1b,powered:0b,seed:0L,author:"Lorgon111",name:"%s",id:"minecraft:structure_block",showboundingbox:1b}""" x z name)
         x <- x + 18
@@ -305,3 +309,95 @@ let makeSavingStructureBlocks() =
             z <- z + 18
     writeFunctionsToResourcePack("testing",[|"autobingo",cmds.ToArray()|])
     ()
+
+///////////////////////////////////////////////////////////////////////////////
+
+// card gen sketch
+(*
+have 28 temp AS numbered 0-27, sitting inside cmd blocks that function choose_bin_NN
+scoreboard players set BINS X 28
+prng(BINS)
+scoreboard players operation @e[tag=chooser] X -= prng X
+execute at @e[tag=chooser,score_X=0] then blockdata ~ ~ ~ {auto:1b}
+kill @e[tag=chooser,score_X=0]
+scoreboard players remove @e[tag=chooser,score_X=0..] X 1
+scoreboard players operation @e[tag=chooser] X += prng X
+scoreboard players remove BINS X 1
+
+BLEAH
+
+simpler implementation - just use scoreboard
+prng(28)
+run that guy (will set flag to say already run)
+if it was new, decrement the countdown
+repeat until done
+will waste a lot of computation choosing duplicates, but _so_ much simpler to implement, and good enough
+
+init:
+    SB set bin00 0
+    ...
+    SB set bin27 0
+choose1:
+    prng(28)
+    call that guy (binary dispatch)
+call_bin_xx:
+    execute if $SCORE(binxx=1) then function choose1
+    execute unless $SCORE(binxx=1) then function call_bin_xx_body
+call_bin_xx_body:
+    SB set binxx 1
+    do structure cloning
+    do checker setup
+*)
+
+let cardgen_functions = [|
+    yield "cardgen_init", [|
+        for i = 0 to bingoItems.Length-1 do
+            yield sprintf "scoreboard players set @e[tag=scoreAS] bin%02d 0" i
+        |]
+    yield "cardgen_choose1", [|
+    yield "scoreboard players set @e[tag=scoreAS] MOD 28"
+    yield "function PRNG" // TODO implement
+    for i = 0 to bingoItems.Length-1 do
+        yield sprintf "execute if $SCORE(S=%d) then function cardgen_bin%02d" i i  // TODO binary dispatch?
+    |]
+    for i = 0 to bingoItems.Length-1 do
+        yield sprintf "cardgen_bin%02d" i, [|
+            sprintf "execute if $SCORE(bin%02d=1) then function cardgen_choose1" i
+            sprintf "execute unless $SCORE(bin%02d=1) then function cardgen_binbody%02d" i i
+            |]
+    for i = 0 to bingoItems.Length-1 do
+        yield sprintf "cardgen_binbody%02d" i, [|
+            sprintf "scoreboard players set @e[tag=scoreAS] bin%02d 1" i
+            "scoreboard players set @e[tag=scoreAS] MOD 3"
+            "function PRNG" // TODO implement
+            sprintf "execute if $SCORE(S=0) then say TODO structure clone %s" (nameOfBingoItem bingoItems.[i].[0])
+            sprintf "execute if $SCORE(S=0) then say TODO checker setup %s" (nameOfBingoItem bingoItems.[i].[0])
+            sprintf "execute if $SCORE(S=1) then say TODO structure clone %s" (nameOfBingoItem bingoItems.[i].[1])
+            sprintf "execute if $SCORE(S=1) then say TODO checker setup %s" (nameOfBingoItem bingoItems.[i].[1])
+            sprintf "execute if $SCORE(S=2) then say TODO structure clone %s" (nameOfBingoItem bingoItems.[i].[2])
+            sprintf "execute if $SCORE(S=2) then say TODO checker setup %s" (nameOfBingoItem bingoItems.[i].[2])
+            |]
+    yield "cardgen_makecard", [|
+        (*
+        init AS for location first card structure
+        init AS for location first checker
+        function choose1
+        move ASs 'right'
+        function choose1
+        move ASs 'right'
+        function choose1
+        move ASs 'right'
+        function choose1
+        move ASs 'right'
+        function choose1
+        move ASs 'back & down'
+        (copy that 5x)
+        *)
+        |]
+    |]
+let cardgen_compile() =
+    let r = [|
+        for name,code in cardgen_functions do
+            yield! compile(code, name)
+        |]
+    printfn "%A" r
