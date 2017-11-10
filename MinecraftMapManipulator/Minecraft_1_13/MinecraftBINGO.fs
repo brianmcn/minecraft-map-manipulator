@@ -2,6 +2,13 @@
 
 (*
 
+https://minecraft.gamepedia.com/1.13/Flattening
+
+https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
+
+
+
+
 Things to test in snapshot
 
     TODO verify "at @e" will loop, that is, perform the chained command for each entity
@@ -13,6 +20,11 @@ Things to test in snapshot
     item ids for e.g. dyes?
 
     understand data packs, how to turn off e.g. vanilla advancements/crafting
+
+
+almost floating point math...
+/execute store result entity @e[type=item,limit=1] Pos[2] double 0.001 run data get entity @e[type=item,limit=1] Pos[0] 1000.0
+/data get entity @e[type=item,limit=1]
 
 
 
@@ -73,6 +85,7 @@ setup
 *)
 
 
+let NS = "test"
 let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
 let continuationNum = ref 1
 let newName() = 
@@ -82,8 +95,9 @@ let newName() =
 let gameLoopContinuationCheck() =
     [|
         for f in allCallbackFunctions do
-            yield sprintf "execute if @e[tag=callbackAS,score_%s=1] run function %s" f f
-            yield sprintf "scoreboard players remove @e[tag=callbackAS,score_%s=1..] %s 1" f f
+            yield sprintf "execute if entity @e[tag=callbackAS,scores={%s=1}] run function %s:%s" f NS f
+            yield sprintf "scoreboard players remove @e[tag=callbackAS,scores={%s=1..}] %s 1" f f
+            // TODO if cont3 sets cont4, then cont4 gets run same tick when it intended to run next tick
     |]
 let compile(f,name) =
     let rec replaceScores(s:string) = 
@@ -92,7 +106,7 @@ let compile(f,name) =
             let j = s.IndexOf(')',i)
             let info = s.Substring(i+7,j-i-7)
             let s = s.Remove(i,j-i+1)
-            let s = s.Insert(i,sprintf "@e[tag=scoreAS,score_%s]" info)
+            let s = s.Insert(i,sprintf "@e[tag=scoreAS,scores={%s}]" info)
             replaceScores(s)
         else
             s
@@ -127,17 +141,17 @@ let compile(f,name) =
                 let nn = newName()
                 allCallbackFunctions.Add(nn)
                 [|
-                    sprintf """execute if @e[tag=callbackAS,score_%s=1..] run tellraw @a ["error, re-entrant callback %s"]""" nn nn
+                    sprintf """execute if entity @e[tag=callbackAS,scores={%s=1..}] run tellraw @a ["error, re-entrant callback %s"]""" nn nn
                     sprintf "scoreboard players set @e[tag=callbackAS] %s %s" nn info
                 |], nn
             else
                 [|s|], null
     let a = f |> Seq.toArray 
-    // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,score_...]"
+    // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
     let a = a |> Array.map replaceScores
     // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
     let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS]"))
-    [|
+    let r = [|
         let cur = ResizeArray()
         let curName = ref name
         let i = ref 0
@@ -151,19 +165,34 @@ let compile(f,name) =
             incr i
         yield !curName, cur.ToArray()
     |]
+#if DEBUG
+    let r = [|
+        for name,code in r do
+//            yield name, [| yield sprintf """tellraw @a ["calling '%s'"]""" name; yield! code |]
+            yield name, [| yield sprintf """say ---calling '%s'---""" name; yield! code |]
+        |]
+#endif    
+    r
 
 ///////////////////////////////////////////////////////
 
-let PRNG_init = [|
-    "scoreboard objectives add PRNG_MOD dummy"
-    "scoreboard objectives add PRNG_OUT dummy"
-    "scoreboard objectives add Calc dummy"
-    "scoreboard players set A Calc 1103515245"
-    "scoreboard players set C Calc 12345"
-    "scoreboard players set Two Calc 2"
-    "scoreboard players set TwoToSixteen Calc 65536"
+let prng_init() = [|
+    yield "scoreboard objectives add PRNG_MOD dummy"
+    yield "scoreboard objectives add PRNG_OUT dummy"
+    yield "scoreboard objectives add Calc dummy"
+    yield "scoreboard players set A Calc 1103515245"
+    yield "scoreboard players set C Calc 12345"
+    yield "scoreboard players set Two Calc 2"
+    yield "scoreboard players set TwoToSixteen Calc 65536"
+    yield "kill @e[tag=scoreAS]"
+    yield "summon armor_stand 1 1 1 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1}"    
+    // TODO move this to right spot
+    yield "kill @e[tag=callbackAS]"
+    yield "summon armor_stand 1 1 1 {Tags:[\"callbackAS\"],NoGravity:1,Marker:1}"    
+    for cbn in allCallbackFunctions do
+        yield sprintf "scoreboard objectives add %s dummy" cbn
     |]
-let PRNG = [|
+let prng = [|
         // compute next Z value with PRNG
         "scoreboard players operation Z Calc *= A Calc"
         "scoreboard players operation Z Calc += C Calc"
@@ -175,9 +204,9 @@ let PRNG = [|
         "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
         // get a number in the desired range
         "scoreboard players operation @e[tag=scoreAS] PRNG_OUT = K Calc"
-        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT %%= @e[tag=scoreAS] PRNG_MOD"
+        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT %= @e[tag=scoreAS] PRNG_MOD"
         "scoreboard players operation @e[tag=scoreAS] PRNG_OUT += @e[tag=scoreAS] PRNG_MOD" // ensure non-negative
-        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT %%= @e[tag=scoreAS] PRNG_MOD"
+        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT %= @e[tag=scoreAS] PRNG_MOD"
     |]
 
 ///////////////////////////////////////////////////////
@@ -194,9 +223,9 @@ let find_player_who_dropped_map =
     "scoreboard players set $ENTITY SomeoneIsMapUpdating 0"
     "execute as @a[tag=playerThatIsMapUpdating] run scoreboard players set $ENTITY SomeoneIsMapUpdating 1"
     // if someone already updating, kill all droppedMap entities
-    "execute if $SCORE(SomeoneIsMapUpdating=1) run kill @e[type=Item,nbt={Item:{id:\"minecraft:filled_map\",Damage:0s}}]"
+    "execute if entity $SCORE(SomeoneIsMapUpdating=1) run kill @e[type=Item,nbt={Item:{id:\"minecraft:filled_map\",Damage:0s}}]"
     // if no one updating yet, do the main work
-    "execute if $SCORE(SomeoneIsMapUpdating=0) run function TODO:find_player_who_dropped_map_core"
+    "execute if entity $SCORE(SomeoneIsMapUpdating=0) run function TODO:find_player_who_dropped_map_core"
     |]
 let find_player_who_dropped_map_core =
     [|
@@ -377,7 +406,7 @@ choose1:
     prng(28)
     call that guy (binary dispatch)
 call_bin_xx:
-    execute if $SCORE(binxx=1) run function choose1
+    execute if entity $SCORE(binxx=1) run function choose1
     execute unless $SCORE(binxx=1) run function call_bin_xx_body
 call_bin_xx_body:
     SB set binxx 1
@@ -398,52 +427,59 @@ let cardgen_functions = [|
             yield sprintf "scoreboard players set @e[tag=scoreAS] bin%02d 0" i
         |]
     yield "cardgen_choose1", [|
-    yield "scoreboard players set @e[tag=scoreAS] PRNG_MOD 28"
-    yield "function PRNG"
-    yield "scoreboard players operation @e[tag=scoreAS] CARDGENTEMP = @e[tag=scoreAS] PRNG_OUT" // need cached copy, as inner calls may overwrite the variable 
-    for i = 0 to bingoItems.Length-1 do
-        yield sprintf "execute if $SCORE(CARDGENTEMP=%d) run function cardgen_bin%02d" i i  // TODO binary dispatch?
+        yield "scoreboard players set @e[tag=scoreAS] PRNG_MOD 28"
+        yield sprintf "function %s:prng" NS
+        yield "scoreboard players operation @e[tag=scoreAS] CARDGENTEMP = @e[tag=scoreAS] PRNG_OUT" // need cached copy, as inner calls may overwrite the variable 
+        for i = 0 to bingoItems.Length-1 do
+            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d) run function %s:cardgen_bin%02d" i NS i  // TODO binary dispatch?
     |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cardgen_bin%02d" i, [|
-            sprintf "execute if $SCORE(bin%02d=1) run function cardgen_choose1" i
-            sprintf "execute unless $SCORE(bin%02d=1) run function cardgen_binbody%02d" i i
+            sprintf "execute if entity $SCORE(bin%02d=1) run function %s:cardgen_choose1" i NS
+            sprintf "execute unless entity $SCORE(bin%02d=1) run function %s:cardgen_binbody%02d" i NS i
             |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cardgen_binbody%02d" i, [|
-            sprintf "scoreboard players set @e[tag=scoreAS] bin%02d 1" i
-            "scoreboard players set @e[tag=scoreAS] PRNG_MOD 3"
-            "function PRNG"
-            sprintf "execute if $SCORE(PRNG_OUT=0) run say TODO structure clone %s" (nameOfBingoItem bingoItems.[i].[0])
-            sprintf "execute if $SCORE(PRNG_OUT=0) run say TODO checker setup %s" (nameOfBingoItem bingoItems.[i].[0])
-            sprintf "execute if $SCORE(PRNG_OUT=1) run say TODO structure clone %s" (nameOfBingoItem bingoItems.[i].[1])
-            sprintf "execute if $SCORE(PRNG_OUT=1) run say TODO checker setup %s" (nameOfBingoItem bingoItems.[i].[1])
-            sprintf "execute if $SCORE(PRNG_OUT=2) run say TODO structure clone %s" (nameOfBingoItem bingoItems.[i].[2])
-            sprintf "execute if $SCORE(PRNG_OUT=2) run say TODO checker setup %s" (nameOfBingoItem bingoItems.[i].[2])
+            yield sprintf "scoreboard players set @e[tag=scoreAS] bin%02d 1" i
+            yield sprintf "scoreboard players set @e[tag=scoreAS] PRNG_MOD 3"
+            yield sprintf "function %s:prng" NS
+            for j = 0 to 2 do
+                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" j (nameOfBingoItem bingoItems.[i].[0])
+                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" j
+                yield sprintf "execute if entity $SCORE(PRNG_OUT=%d) run say TODO checker setup %s" j (nameOfBingoItem bingoItems.[i].[j])
             |]
     yield "cardgen_makecard", [|
-        (*
-        init AS for location first card structure
-        init AS for location first checker
-        function choose1
-        move ASs 'right'
-        function choose1
-        move ASs 'right'
-        function choose1
-        move ASs 'right'
-        function choose1
-        move ASs 'right'
-        function choose1
-        move ASs 'back & down'
-        (copy that 5x)
-        *)
+        sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1}"""
+        sprintf "say TODO init AS for location first checker"
+        sprintf "function %s:cardgen_choose1" NS
+        sprintf "$NTICKSLATER(1)"
+        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+        sprintf "function %s:cardgen_choose1" NS
+        sprintf "$NTICKSLATER(1)"
+        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+        sprintf "function %s:cardgen_choose1" NS
+        sprintf "$NTICKSLATER(1)"
+        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+        sprintf "function %s:cardgen_choose1" NS
+        sprintf "$NTICKSLATER(1)"
+        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+        sprintf "function %s:cardgen_choose1" NS
+        sprintf "say TODO move ASs 'back & down'"
+        sprintf "say TODO (copy that 5x)"
+        sprintf "kill @e[tag=sky]"
         |]
     |]
 let cardgen_compile() =
     let r = [|
-        yield! compile(PRNG, "PRNG")
-        yield! compile(PRNG_init, "PRNG_init")
         for name,code in cardgen_functions do
             yield! compile(code, name)
+        yield "theloop",gameLoopContinuationCheck()
+        yield! compile(prng, "prng")
+        yield! compile(prng_init(), "prng_init")
         |]
     printfn "%A" r
+    //let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\data\functions\test\"""
+    let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions"""
+    for name,code in r do
+        let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
+        System.IO.File.WriteAllLines(FIL, code)
