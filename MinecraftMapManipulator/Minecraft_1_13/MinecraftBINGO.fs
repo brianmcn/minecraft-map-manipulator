@@ -2,10 +2,15 @@
 
 (*
 
+
+
+
+
 https://minecraft.gamepedia.com/1.13/Flattening
 
 https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
 
+can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
 
 
 
@@ -44,6 +49,7 @@ feature ideas:
  - beacon at spawn
  - randomly put people on 1/2/3/4 teams
  - 'blind' covered play
+ - use achievement toasts rather than chat for got-item notifications?
 
 architecture
 
@@ -94,10 +100,15 @@ let newName() =
     r
 let gameLoopContinuationCheck() =
     [|
+#if DEBUG
+//        yield "say ---calling gameLoop---"
+#endif    
+        // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
+        for f in allCallbackFunctions do
+            yield sprintf "scoreboard players remove @e[tag=callbackAS,scores={%s=1..}] %s 1" f f
+        // then call all that need to go now
         for f in allCallbackFunctions do
             yield sprintf "execute if entity @e[tag=callbackAS,scores={%s=1}] run function %s:%s" f NS f
-            yield sprintf "scoreboard players remove @e[tag=callbackAS,scores={%s=1..}] %s 1" f f
-            // TODO if cont3 sets cont4, then cont4 gets run same tick when it intended to run next tick
     |]
 let compile(f,name) =
     let rec replaceScores(s:string) = 
@@ -141,8 +152,8 @@ let compile(f,name) =
                 let nn = newName()
                 allCallbackFunctions.Add(nn)
                 [|
-                    sprintf """execute if entity @e[tag=callbackAS,scores={%s=1..}] run tellraw @a ["error, re-entrant callback %s"]""" nn nn
-                    sprintf "scoreboard players set @e[tag=callbackAS] %s %s" nn info
+                    sprintf """execute if entity @e[tag=callbackAS,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" nn nn
+                    sprintf "scoreboard players set @e[tag=callbackAS] %s %d" nn (int info + 1) // +1 because we decr at start of gameloop
                 |], nn
             else
                 [|s|], null
@@ -429,7 +440,26 @@ let cardgen_functions = [|
     yield "cardgen_choose1", [|
         yield "scoreboard players set @e[tag=scoreAS] PRNG_MOD 28"
         yield sprintf "function %s:prng" NS
-        yield "scoreboard players operation @e[tag=scoreAS] CARDGENTEMP = @e[tag=scoreAS] PRNG_OUT" // need cached copy, as inner calls may overwrite the variable 
+        // need cached copy, as inner calls may overwrite the variable - argh, still incorrect because recursion re-entrancy overwrites this cache
+        // TODO can schedule into future with NTICKSLATER, or schedule into future-this-tick by having a dispatcher root a la CPS (note: even with CPS, need to simulate array to deal with recursion)
+        // or just avoid recursion, which means need bounded loops, which means need a different algorithm, or else simulating unbounded loops with a pump, ... argh, why can't things be simple...
+        // ...
+        // what if I gave myself finite arrays, by having N long-lived entities which had fixed index 0..N-1 and could have score names attached, what would I do with it?
+        // I guess just fisher-yates shuffle for bingo cardgen, for example...    @e[tag=array,scores={index=0}]  indexing still sucks, must subtract i from all, find one equal to 0, add i back...
+        // ...
+        // what if i gave myself re-entrant variables via
+        //     summon armor_stand 1 1 1 {Tags:["reentrant"]}
+        //     scoreboard players add @e[tag=reentrant] FRAME 1
+        //     @e[tag=reentrant,scores={FRAME=1}]    is now a local environment
+        //     ...
+        //     kill @e[tag=reentrant,scores={FRAME=1}]
+        //     scoreboard players remove@e[tag=reentrant] FRAME 1
+        // except that I don't think I can address in the same tick I summon it, so maybe need a finite large of array of them sitting around from the start, and then just shift all the frames:
+        //     (initialize system with a bunch of reentrant AS with FRAME scores of 0, -1, -2, ...
+        //     scoreboard players add @e[tag=reentrant] FRAME 1
+        //     @e[tag=reentrant,scores={FRAME=1}]    is now a local environment
+        //     scoreboard players remove@e[tag=reentrant] FRAME 1
+        yield "scoreboard players operation @e[tag=scoreAS] CARDGENTEMP = @e[tag=scoreAS] PRNG_OUT" 
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d) run function %s:cardgen_bin%02d" i NS i  // TODO binary dispatch?
     |]
@@ -444,29 +474,30 @@ let cardgen_functions = [|
             yield sprintf "scoreboard players set @e[tag=scoreAS] PRNG_MOD 3"
             yield sprintf "function %s:prng" NS
             for j = 0 to 2 do
-                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" j (nameOfBingoItem bingoItems.[i].[0])
+                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" j (nameOfBingoItem bingoItems.[i].[j])
                 yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" j
                 yield sprintf "execute if entity $SCORE(PRNG_OUT=%d) run say TODO checker setup %s" j (nameOfBingoItem bingoItems.[i].[j])
             |]
     yield "cardgen_makecard", [|
-        sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1}"""
-        sprintf "say TODO init AS for location first checker"
-        sprintf "function %s:cardgen_choose1" NS
-        sprintf "$NTICKSLATER(1)"
-        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-        sprintf "function %s:cardgen_choose1" NS
-        sprintf "$NTICKSLATER(1)"
-        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-        sprintf "function %s:cardgen_choose1" NS
-        sprintf "$NTICKSLATER(1)"
-        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-        sprintf "function %s:cardgen_choose1" NS
-        sprintf "$NTICKSLATER(1)"
-        sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-        sprintf "function %s:cardgen_choose1" NS
-        sprintf "say TODO move ASs 'back & down'"
-        sprintf "say TODO (copy that 5x)"
-        sprintf "kill @e[tag=sky]"
+        yield sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1}"""
+        yield sprintf "say TODO init AS for location first checker"
+        for _x = 1 to 5 do
+            yield sprintf "$NTICKSLATER(1)"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "$NTICKSLATER(1)"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "$NTICKSLATER(1)"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "$NTICKSLATER(1)"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "$NTICKSLATER(1)"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~-96 ~ ~24"
+        yield sprintf "kill @e[tag=sky]"
         |]
     |]
 let cardgen_compile() =
@@ -476,6 +507,7 @@ let cardgen_compile() =
         yield "theloop",gameLoopContinuationCheck()
         yield! compile(prng, "prng")
         yield! compile(prng_init(), "prng_init")
+        yield "init",[|"kill @e[type=!player]";sprintf"function %s:prng_init"NS;sprintf"function %s:cardgen_init"NS|]
         |]
     printfn "%A" r
     //let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\data\functions\test\"""
