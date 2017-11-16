@@ -2,6 +2,12 @@
 
 (*
 
+this about skylinerw's "else feature"
+before a 'switch', set a global flag, condition each branch on the flag, and first instruction of each called branch function unsets the flag
+it's a transaction, yes? safe?
+annoying that caller and callee have to coordinate, but seems simple and workable?
+
+
 
 
 
@@ -11,6 +17,13 @@ https://minecraft.gamepedia.com/1.13/Flattening
 https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
 
 can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
+
+
+
+
+can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
+    // first manually merge in some pose data [0f,0f,0f]
+    execute store result entity @e[type=armor_stand,limit=1] Pose.LeftArm[0] float 8.0 run data get entity @p Pos[0] 1.0
 
 
 
@@ -50,6 +63,8 @@ feature ideas:
  - randomly put people on 1/2/3/4 teams
  - 'blind' covered play
  - use achievement toasts rather than chat for got-item notifications?
+ - arrow/activator-/detector-rail
+ - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc
 
 architecture
 
@@ -459,6 +474,7 @@ let cardgen_functions = [|
         //     scoreboard players add @e[tag=reentrant] FRAME 1
         //     @e[tag=reentrant,scores={FRAME=1}]    is now a local environment
         //     scoreboard players remove@e[tag=reentrant] FRAME 1
+        // ugh, the more I think about it, CPS and recursion-less functions is the only reasonable way to reason about control flow in this 'language'.
         yield "scoreboard players operation @e[tag=scoreAS] CARDGENTEMP = @e[tag=scoreAS] PRNG_OUT" 
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d) run function %s:cardgen_bin%02d" i NS i  // TODO binary dispatch?
@@ -515,3 +531,68 @@ let cardgen_compile() =
     for name,code in r do
         let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
         System.IO.File.WriteAllLines(FIL, code)
+
+(*
+    init sky AS location
+    NTICKSLATER(1)
+    inline loop 5x do
+        inline loop 5x do
+            //choose1
+            found = -1
+            loop
+                r = prng(28)
+                if not binsUsed[r] then   // inlined array
+                    binsUsed[r] = true
+                    found = r
+                exitif found>=0
+            done
+            r = prng(3)
+            //
+            structure at sky AS inline-decoded with values of (found,r)
+            // TODO command block checkers
+            tp right
+        done
+        tp downleft
+    done
+    kill sky AS    
+*)
+
+(*
+    // or if we had arrays of ints
+    A = array(28)
+    inline loop i = 0 to 27 do
+        A[i] = i
+    done
+    inline loop i = 27 downto 0 do
+        let r = prng(i)
+        temp = A[r]
+        A[r] = A[i]
+        A[i] = temp
+    done
+    init sky AS location
+    NTICKSLATER(1)
+    i = 0
+    inline loop 5x do
+        inline loop 5x do
+            found = A[i]
+            r = prng(3)
+            structure at sky AS inline-decoded with values of (found,r)
+            // TODO command block checkers
+            tp right
+            i = i + 1
+        done
+        tp downleft
+    done
+*)
+
+(*
+    even in the array case, the 'inline-decode' of an int into specific code is a tedious long list of instructions
+    command blocks in the world an an entity to activate them make O(1) array decoding of instructions (but at most once per tick)
+    ...
+    if I did do a CPS compiler, the main IP-decoder could be an entity addressing a row of command blocks? no, the one/tick limit, argh
+*)
+
+(*
+there are too many implementation choices... I need a decision-making framework
+for example "can use entities for 'array data', but no command blocks for array/dispatch" or something
+*)
