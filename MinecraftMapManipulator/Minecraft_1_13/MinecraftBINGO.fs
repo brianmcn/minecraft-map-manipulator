@@ -203,6 +203,7 @@ let compile(f,name) =
 ///////////////////////////////////////////////////////
 
 let prng_init() = [|
+    yield "scoreboard objectives add CALL dummy"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
     yield "scoreboard objectives add PRNG_MOD dummy"
     yield "scoreboard objectives add PRNG_OUT dummy"
     yield "scoreboard objectives add Calc dummy"
@@ -455,32 +456,15 @@ let cardgen_functions = [|
     yield "cardgen_choose1", [|
         yield "scoreboard players set @e[tag=scoreAS] PRNG_MOD 28"
         yield sprintf "function %s:prng" NS
-        // need cached copy, as inner calls may overwrite the variable - argh, still incorrect because recursion re-entrancy overwrites this cache
-        // TODO can schedule into future with NTICKSLATER, or schedule into future-this-tick by having a dispatcher root a la CPS (note: even with CPS, need to simulate array to deal with recursion)
-        // or just avoid recursion, which means need bounded loops, which means need a different algorithm, or else simulating unbounded loops with a pump, ... argh, why can't things be simple...
-        // ...
-        // what if I gave myself finite arrays, by having N long-lived entities which had fixed index 0..N-1 and could have score names attached, what would I do with it?
-        // I guess just fisher-yates shuffle for bingo cardgen, for example...    @e[tag=array,scores={index=0}]  indexing still sucks, must subtract i from all, find one equal to 0, add i back...
-        // ...
-        // what if i gave myself re-entrant variables via
-        //     summon armor_stand 1 1 1 {Tags:["reentrant"]}
-        //     scoreboard players add @e[tag=reentrant] FRAME 1
-        //     @e[tag=reentrant,scores={FRAME=1}]    is now a local environment
-        //     ...
-        //     kill @e[tag=reentrant,scores={FRAME=1}]
-        //     scoreboard players remove@e[tag=reentrant] FRAME 1
-        // except that I don't think I can address in the same tick I summon it, so maybe need a finite large of array of them sitting around from the start, and then just shift all the frames:
-        //     (initialize system with a bunch of reentrant AS with FRAME scores of 0, -1, -2, ...
-        //     scoreboard players add @e[tag=reentrant] FRAME 1
-        //     @e[tag=reentrant,scores={FRAME=1}]    is now a local environment
-        //     scoreboard players remove@e[tag=reentrant] FRAME 1
-        // ugh, the more I think about it, CPS and recursion-less functions is the only reasonable way to reason about control flow in this 'language'.
         yield "scoreboard players operation @e[tag=scoreAS] CARDGENTEMP = @e[tag=scoreAS] PRNG_OUT" 
+        // ensure exactly one call
+        yield "scoreboard players set @e[tag=scoreAS] CALL 1" 
         for i = 0 to bingoItems.Length-1 do
-            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d) run function %s:cardgen_bin%02d" i NS i  // TODO binary dispatch?
+            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cardgen_bin%02d" i NS i  // TODO binary dispatch?
     |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cardgen_bin%02d" i, [|
+            "scoreboard players set @e[tag=scoreAS] CALL 0" // every exclusive-callable func needs this as first line of code
             sprintf "execute if entity $SCORE(bin%02d=1) run function %s:cardgen_choose1" i NS
             sprintf "execute unless entity $SCORE(bin%02d=1) run function %s:cardgen_binbody%02d" i NS i
             |]
