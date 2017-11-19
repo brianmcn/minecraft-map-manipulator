@@ -9,6 +9,20 @@ annoying that caller and callee have to coordinate, but seems simple and workabl
 
 
 
+magic mirror - save coords to scoreboard, then e.g.
+
+summon pig ~ ~1 ~
+tag @e[type=pig,limit=1] add foo
+execute as @e[tag=foo] run teleport @s 100000 90 100000   // actually use execute-store to faux-tp the pig based on scores
+execute as @p at @e[tag=foo] run teleport @s ~ ~ ~
+
+works (chunk is temp loaded or whatever)
+
+
+
+
+
+
 
 
 
@@ -500,6 +514,11 @@ let cardgen_functions = [|
         yield sprintf "kill @e[tag=sky]"
         |]
     |]
+let writeFunctionToDisk(name,code) =
+    //let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\data\functions\test\"""
+    let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions"""
+    let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
+    System.IO.File.WriteAllLines(FIL, code)
 let cardgen_compile() =
     let r = [|
         for name,code in cardgen_functions do
@@ -510,11 +529,38 @@ let cardgen_compile() =
         yield "init",[|"kill @e[type=!player]";sprintf"function %s:prng_init"NS;sprintf"function %s:cardgen_init"NS|]
         |]
     printfn "%A" r
-    //let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\data\functions\test\"""
-    let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions"""
     for name,code in r do
-        let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
-        System.IO.File.WriteAllLines(FIL, code)
+        writeFunctionToDisk(name,code)
+
+let magic_mirror_funcs = [|
+    "magic1", [|
+        "summon minecraft:armor_stand 10 32 10 {Rotation:[20f,20f]}" // needs some rotation to be able to store to it later
+        "scoreboard objectives add X dummy"
+        "scoreboard objectives add Y dummy"
+        "scoreboard objectives add Z dummy"
+        "scoreboard objectives add RotX dummy"
+        "scoreboard objectives add RotY dummy"
+        "execute store result score @e[type=armor_stand,limit=1] X run data get entity @p Pos[0] 128.0"
+        "execute store result score @e[type=armor_stand,limit=1] Y run data get entity @p Pos[1] 128.0"
+        "execute store result score @e[type=armor_stand,limit=1] Z run data get entity @p Pos[2] 128.0"
+        "execute store result score @e[type=armor_stand,limit=1] RotX run data get entity @p Rotation[0] 8.0"
+        "execute store result score @e[type=armor_stand,limit=1] RotY run data get entity @p Rotation[1] 8.0"
+        "tp @p 10 31 10" 
+        |]
+    "magic2", [|
+        "execute as @e[type=armor_stand,limit=1] store result entity @s Pos[0] double 0.0078125 run scoreboard players get @s X"
+        "execute as @e[type=armor_stand,limit=1] store result entity @s Pos[1] double 0.0078125 run scoreboard players get @s Y"
+        "execute as @e[type=armor_stand,limit=1] store result entity @s Pos[2] double 0.0078125 run scoreboard players get @s Z"
+        "execute as @e[type=armor_stand,limit=1] store result entity @s Rotation[0] float 0.125 run scoreboard players get @s RotX"
+        "execute as @e[type=armor_stand,limit=1] store result entity @s Rotation[1] float 0.125 run scoreboard players get @s RotY"
+        "teleport @p @e[type=armor_stand,limit=1]"
+        "kill @e[type=armor_stand]"  // TODO tag it
+        |]
+    |]
+let magic_mirror_compile() =
+    for name,code in magic_mirror_funcs do
+        writeFunctionToDisk(name,code)
+
 
 (*
     init sky AS location

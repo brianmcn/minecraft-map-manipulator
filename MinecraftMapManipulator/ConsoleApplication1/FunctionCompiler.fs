@@ -899,7 +899,7 @@ let mandelbrotProgram(yLevel) =
                 let y,z = 4,-2
                 yield AtomicCommand(sprintf "setblock %d %d %d wool %d" i y z i)
                 yield AtomicCommand(sprintf "summon armor_stand %d %d %d" i y z)
-                TODO ensure kill AS at end
+//                TODO ensure kill AS at end
                 yield AtomicCommand(sprintf "scoreboard players set @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] AS %d" i y z i)
                 yield AtomicCommand(sprintf "scoreboard players tag @e[type=armor_stand,x=%d,y=%d,z=%d,c=1] add color" i y z)
 #endif

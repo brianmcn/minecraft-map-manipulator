@@ -1730,9 +1730,9 @@ automatic game start configs (night vision, starting items), customizable
     let killCmd = sprintf "kill %s" (uuid.ToString())
     let allFuncs = [|
         yield! funcs
-(*
         yield! FunctionUtilities.profileThis("p",[],["scoreboard players add @p A 1"],[])
         yield! FunctionUtilities.profileThis("x",[],["scoreboard players add x A 1"],[])
+(*
         yield! FunctionUtilities.profileThis("uuide",[summonCmd],[sprintf "scoreboard players add %s A 1" (uuid.ToString())],[killCmd])
         yield  "test",[|"scoreboard players add @s A 1"|]
         yield! FunctionUtilities.profileThis("cwe",[],["execute @s[score_A_min=0] ~ ~ ~ function lorgon111:test"],[])
