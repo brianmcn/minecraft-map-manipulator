@@ -349,42 +349,37 @@ let testWrite() =
 
 let bingoItems =
         [|
-            [|  -1, "diamond"          ,"" ; -1, "diamond_hoe"      ,"" ; -1, "diamond_axe"         ,"" |]
-            [|  -1, "bone"             ,"" ; +8, "dye"              ,"gray_dye" ; +8, "dye"                 ,"gray_dye" |]
-            [|  -1, "ender_pearl"      ,"" ; -1, "ender_pearl"      ,"" ; -1, "slime_ball"          ,"" |]
-            [|  +2, "tallgrass"        ,"fern" ; -1, "vine"             ,"" ; -1, "deadbush"            ,"" |]
-            [|  -1, "brick"            ,"" ; -1, "flower_pot"       ,"" ; -1, "flower_pot"          ,"" |]
-            [|  -1, "glass_bottle"     ,"" ; -1, "glass_bottle"     ,"" ; -1, "glass_bottle"        ,"" |]
-            [|  -1, "melon"            ,"" ; -1, "melon"            ,"" ; -1, "speckled_melon"      ,"" |]
-            [|  +0, "dye"              ,"ink_sac" ; -1, "book"             ,"" ; -1, "writable_book"       ,"" |]
-            [|  -1, "apple"            ,"" ; -1, "golden_shovel"    ,"" ; -1, "golden_apple"        ,"" |]
-            [|  -1, "flint"            ,"" ; -1, "flint"            ,"" ; -1, "flint_and_steel"     ,"" |]
-            [|  +3, "dye"              ,"cocoa_bean" ; -1, "cookie"           ,"" ; -1, "cookie"              ,"" |]
-            [|  -1, "pumpkin_seeds"    ,"" ; -1, "pumpkin_seeds"    ,"" ; -1, "pumpkin_pie"         ,"" |]
-            [|  -1, "rail"             ,"" ; -1, "rail"             ,"" ; -1, "rail"                ,"" |]
-            [|  -1, "mushroom_stew"    ,"" ; -1, "mushroom_stew"    ,"" ; -1, "mushroom_stew"       ,"" |]
-            [|  -1, "sugar"            ,"" ; -1, "spider_eye"       ,"" ; -1, "fermented_spider_eye","" |]
-            [|  +2, "dye"              ,"cactus_green" ; +2, "dye"              ,"cactus_green" ;+10, "dye"                 ,"lime_dye" |]
-            [|  +4, "dye"              ,"lapis" ; +5, "dye"              ,"purple_dye" ; +6, "dye"                 ,"cyan_dye" |]
-            [|  -1, "beetroot_soup"    ,"" ; -1, "emerald"          ,"" ; -1, "emerald"             ,"" |]
-            [|  -1, "furnace_minecart" ,"" ; -1, "chest_minecart"   ,"" ; -1, "tnt_minecart"        ,"" |]
-            [|  -1, "gunpowder"        ,"" ; -1, "fireworks"        ,"" ; -1, "fireworks"           ,"" |]
-            [|  -1, "compass"          ,"" ; -1, "compass"          ,"" ; -1, "map"                 ,"" |]
-            [|  +1, "sapling"          ,"spruce_sapling" ; +1, "sapling"          ,"spruce_sapling" ; +4, "sapling"             ,"acacia_sapling" |]
-            [|  -1, "cauldron"         ,"" ; -1, "cauldron"         ,"" ; -1, "cauldron"            ,"" |]
-            [|  -1, "name_tag"         ,"" ; -1, "saddle"           ,"" ; -1, "enchanted_book"      ,"" |]
-            [|  -1, "milk_bucket"      ,"" ; -1, "egg"              ,"" ; -1, "cake"                ,"" |]
-            [|  -1, "fish"             ,"" ; -1, "fish"             ,"" ; -1, "fish"                ,"" |]
-            [|  -1, "sign"             ,"" ; -1, "item_frame"       ,"" ; -1, "painting"            ,"" |]
-            [|  -1, "golden_sword"     ,"" ; -1, "clock"            ,"" ; -1, "golden_rail"         ,"" |]
-            [|  -1, "hopper"           ,"" ; -1, "hopper"           ,"" ; -1, "hopper_minecart"     ,"" |]
-            [|  -1, "repeater"         ,"" ; -1, "repeater"         ,"" ; -1, "repeater"            ,"" |]
+            [|  "diamond"          ; "diamond_hoe"      ; "diamond_axe"         |]
+            [|  "bone"             ; "gray_dye"         ; "gray_dye"            |]
+            [|  "ender_pearl"      ; "ender_pearl"      ; "slime_ball"          |]
+            [|  "fern"             ; "vine"             ; "dead_bush"           |]
+            [|  "brick"            ; "flower_pot"       ; "flower_pot"          |]
+            [|  "glass_bottle"     ; "glass_bottle"     ; "glass_bottle"        |]
+            [|  "melon"            ; "melon"            ; "speckled_melon"      |]
+            [|  "ink_sac"          ; "book"             ; "writable_book"       |]
+            [|  "apple"            ; "golden_shovel"    ; "golden_apple"        |]
+            [|  "flint"            ; "flint"            ; "flint_and_steel"     |]
+            [|  "cocoa_beans"      ; "cookie"           ; "cookie"              |]
+            [|  "pumpkin_seeds"    ; "pumpkin_seeds"    ; "pumpkin_pie"         |]
+            [|  "rail"             ; "rail"             ; "rail"                |]
+            [|  "mushroom_stew"    ; "mushroom_stew"    ; "mushroom_stew"       |]
+            [|  "sugar"            ; "spider_eye"       ; "fermented_spider_eye"|]
+            [|  "cactus_green"     ; "cactus_green"     ; "lime_dye"            |]
+            [|  "lapis_lazuli"     ; "purple_dye"       ; "cyan_dye"            |]
+            [|  "beetroot_soup"    ; "emerald"          ; "emerald"             |]
+            [|  "furnace_minecart" ; "chest_minecart"   ; "tnt_minecart"        |]
+            [|  "gunpowder"        ; "fireworks"        ; "fireworks"           |]
+            [|  "compass"          ; "compass"          ; "map"                 |]
+            [|  "spruce_sapling"   ; "spruce_sapling"   ; "acacia_sapling"      |]
+            [|  "cauldron"         ; "cauldron"         ; "cauldron"            |]
+            [|  "name_tag"         ; "saddle"           ; "enchanted_book"      |]
+            [|  "milk_bucket"      ; "egg"              ; "cake"                |]
+            [|  "cod"              ; "cod"              ; "cod"                 |]
+            [|  "sign"             ; "item_frame"       ; "painting"            |]
+            [|  "golden_sword"     ; "clock"            ; "powered_rail"        |]
+            [|  "hopper"           ; "hopper"           ; "hopper_minecart"     |]
+            [|  "repeater"         ; "repeater"         ; "repeater"            |]
         |]
-
-let nameOfBingoItem x = 
-    let _dmg,itemid,desc = x
-    let name = if desc="" then itemid else desc
-    name
 
 let flatBingoItems = 
     let orig = [|
@@ -405,7 +400,7 @@ let makeSavingStructureBlocks() =
     let mutable i = 0
     let mutable x,z = 3,3
     while i < flatBingoItems.Length do
-        let name = nameOfBingoItem flatBingoItems.[i]
+        let name = flatBingoItems.[i]
         cmds.Add(sprintf "setblock %d 2 %d minecraft:structure_block 0" x z)
         cmds.Add(sprintf """blockdata %d 2 %d {metadata:"",mirror:"NONE",ignoreEntities:1b,mode:"SAVE",rotation:"NONE",posX:0,posY:-2,posZ:0,sizeX:17,sizeY:2,sizeZ:17,integrity:1.0f,showair:1b,powered:0b,seed:0L,author:"Lorgon111",name:"%s",id:"minecraft:structure_block",showboundingbox:1b}""" x z name)
         x <- x + 18
@@ -488,9 +483,9 @@ let cardgen_functions = [|
             yield sprintf "scoreboard players set @e[tag=scoreAS] PRNG_MOD 3"
             yield sprintf "function %s:prng" NS
             for j = 0 to 2 do
-                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" j (nameOfBingoItem bingoItems.[i].[j])
+                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" j bingoItems.[i].[j]
                 yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" j
-                yield sprintf "execute if entity $SCORE(PRNG_OUT=%d) run say TODO checker setup %s" j (nameOfBingoItem bingoItems.[i].[j])
+                yield sprintf "execute if entity $SCORE(PRNG_OUT=%d) run say TODO checker setup %s" j bingoItems.[i].[j]
             |]
     yield "cardgen_makecard", [|
         yield sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1}"""
