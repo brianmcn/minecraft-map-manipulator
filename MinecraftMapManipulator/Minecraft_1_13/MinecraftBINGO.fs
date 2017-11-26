@@ -422,6 +422,15 @@ let checker_objectives = [|
                 yield sprintf "%sCanGet%s" t s   // redCanGet11 is 1 or 0 depending on whether the top-left square is an item it could score in the future (not yet gotten or locked out)
         yield "gotAnItem"                        // gotAnItem is 1 or 0 depending on if a gettable item was found and removed during the scoring check for a certain square this tick
         yield "gotItems"                         // gotItems is 1 or 0 depending on if one or more gettable items was found and removed during the scoring check for a certain player this tick
+        for t in TEAMS do
+            for i = 1 to 5 do
+                yield sprintf "%sWinRow%d" t i   // how many items in the row the team has
+                yield sprintf "%sWinCol%d" t i   // how many items in the col the team has
+            yield sprintf "%sWinSlash" t         // how many items in the bottom left to top right diagonal the team has
+            yield sprintf "%sWinBackslash" t     // how many items in the top left to bottom right diagonal the team has
+            yield sprintf "%sScore" t            // how many total items the team has
+        yield "lockoutGoal"                      // how many needed to win lockout (if this is a lockout game)
+        yield "TEMP"
     |]
 let checker_functions = [|
     for t in TEAMS do
@@ -435,14 +444,44 @@ let checker_functions = [|
         for s in SQUARES do
             yield sprintf "%sGotSquare%s" t s, [|       // called when player @s got square s and he is on team t
                 yield sprintf "scoreboard players set $ENTITY gotItems 1"
-                yield sprintf "TODO increment team t scores"
+                yield sprintf "scoreboard players add $ENTITY %sScore 1" t
+                yield sprintf "scoreboard players operation @a[team=%s] Score = $ENTITY %sScore" t t
                 yield sprintf "scoreboard players set $ENTITY %sCanGet%s 0" t s
                 for ot in TEAMS do
                     if ot <> t then
                         yield sprintf "execute if $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
                 yield sprintf "TODO color the game board square appropriately"
-                yield sprintf "TODO update win conditions (add to team score of row/col/diag)"
+                // update win conditions (add to team score of row/col/diag)
+                yield sprintf "scoreboard players add $ENTITY %sWinRow%c" t s.[1]
+                yield sprintf "scoreboard players add $ENTITY %sWinCol%c" t s.[0]
+                if s.[0] = s.[1] then
+                    yield sprintf "scoreboard players add $ENTITY %sWinBackslash" t
+                if int s.[0] = 6 - int s.[1] then
+                    yield sprintf "scoreboard players add $ENTITY %sWinSlash" t
                 |]
+        yield sprintf "%sCheckForWin" t, [|
+            // check for bingo
+            yield sprintf "scoreboard players set $ENTITY TEMP 0"
+            for i = 1 to 5 do
+                yield sprintf "execute if $SCORE(%sWinRow%d=5) run scoreboard players set $ENTITY TEMP 1" t i
+            for i = 1 to 5 do
+                yield sprintf "execute if $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
+            yield sprintf "execute if $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf "execute if $SCORE(%sWinBackslash=5) run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf """execute if $SCORE(TEMP=1) run tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" t
+            yield sprintf "function %s:gotAWinCommonLogic" NS
+            // check for blackout
+            yield sprintf """execute if $SCORE(%sScore=25) run tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t t
+            yield sprintf "function %s:gotAWinCommonLogic" NS
+            // check for lockout
+            yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY lockoutGoal"
+            yield sprintf "scoreboard players operation $ENTITY TEMP -= $ENTITY %sScore" t
+            yield sprintf """execute if $SCORE(isLockout=1,TEMP=0) run tellraw @a [{"selector":"@a[team=%s]"}," got the lockout goal!"]""" t
+            yield sprintf "function %s:gotAWinCommonLogic" NS
+            |]
+    yield "gotAWinCommonLogic", [|
+        // TODO update win time in scoreboard, fireworks etc, see gotAWinCommonLogic from orig bingo
+    |]
     for s in SQUARES do
         yield sprintf "check%s" s, [|
             yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
