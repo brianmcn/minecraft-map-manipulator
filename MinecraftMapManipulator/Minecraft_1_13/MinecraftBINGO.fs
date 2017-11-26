@@ -225,7 +225,7 @@ let prng_init() = [|
     yield "scoreboard players set C Calc 12345"
     yield "scoreboard players set Two Calc 2"
     yield "scoreboard players set TwoToSixteen Calc 65536"
-    yield "kill @e[tag=scoreAS]"
+    yield "kill $ENTITY"
     yield "summon armor_stand 1 1 1 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1}"    
     // TODO move this to right spot
     yield "kill @e[tag=callbackAS]"
@@ -244,10 +244,10 @@ let prng = [|
         "scoreboard players operation K Calc /= Two Calc"
         "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
         // get a number in the desired range
-        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT = K Calc"
-        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT %= @e[tag=scoreAS] PRNG_MOD"
-        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT += @e[tag=scoreAS] PRNG_MOD" // ensure non-negative
-        "scoreboard players operation @e[tag=scoreAS] PRNG_OUT %= @e[tag=scoreAS] PRNG_MOD"
+        "scoreboard players operation $ENTITY PRNG_OUT = K Calc"
+        "scoreboard players operation $ENTITY PRNG_OUT %= $ENTITY PRNG_MOD"
+        "scoreboard players operation $ENTITY PRNG_OUT += $ENTITY PRNG_MOD" // ensure non-negative
+        "scoreboard players operation $ENTITY PRNG_OUT %= $ENTITY PRNG_MOD"
     |]
 
 ///////////////////////////////////////////////////////
@@ -413,6 +413,46 @@ let makeSavingStructureBlocks() =
 
 ///////////////////////////////////////////////////////////////////////////////
 
+let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
+let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
+let checker_objectives = [|
+        for s in SQUARES do
+            yield sprintf "square%s" s           // square11 contains the index number of the flatBingoItems[] of the item in the top-left square of this card
+            for t in TEAMS do
+                yield sprintf "%sCanGet%s" t s   // redCanGet11 is 1 or 0 depending on whether the top-left square is an item it could score in the future (not yet gotten or locked out)
+        yield "gotAnItem"                        // gotAnItem is 1 or 0 depending on if a gettable item was found and removed during the scoring check for a certain square this tick
+        yield "gotItems"                         // gotItems is 1 or 0 depending on if one or more gettable items was found and removed during the scoring check for a certain player this tick
+    |]
+let checker_functions = [|
+    for t in TEAMS do
+        yield sprintf "%sInventoryChanged" t, [|        // called when player @s's inventory changed and he is on team t
+            for s in SQUARES do
+                yield sprintf "execute if $SCORE(%sCanGet%s=1) run function %s:check%s" t s NS s
+                yield sprintf "execute if $SCORE(gotAnItem=1) run function %s:%sGotSquare%s" NS t s
+            yield sprintf "execute if $SCORE(gotItems=1) then TODO announce in chat, play fireworks sound, (give drop-map-to-update reminder?)"
+            yield sprintf "execute if $SCORE(gotItems=1) then TODO check for win and lockout goal"
+            |]
+        for s in SQUARES do
+            yield sprintf "%sGotSquare%s" t s, [|       // called when player @s got square s and he is on team t
+                yield sprintf "scoreboard players set $ENTITY gotItems 1"
+                yield sprintf "TODO increment team t scores"
+                yield sprintf "scoreboard players set $ENTITY %sCanGet%s 0" t s
+                for ot in TEAMS do
+                    if ot <> t then
+                        yield sprintf "execute if $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
+                yield sprintf "TODO color the game board square appropriately"
+                yield sprintf "TODO update win conditions (add to team score of row/col/diag)"
+                |]
+    for s in SQUARES do
+        yield sprintf "check%s" s, [|
+            yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
+            for i=0 to flatBingoItems.Length-1 do
+                yield sprintf "execute if $SCORE(square%s=%d) store result score $ENTITY gotAnItem run clear @s %s 1" s i flatBingoItems.[i]
+        |]
+    |]
+
+///////////////////////////////////////////////////////////////////////////////
+
 // card gen sketch
 (*
 have 28 temp AS numbered 0-27, sitting inside cmd blocks that function choose_bin_NN
@@ -452,6 +492,7 @@ call_bin_xx_body:
 
 let cardgen_objectives = [|
     yield "CARDGENTEMP"
+    yield "squaresPlaced"
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "bin%02d" i
     |]
@@ -460,36 +501,40 @@ let cardgen_functions = [|
         for o in cardgen_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
         for i = 0 to bingoItems.Length-1 do
-            yield sprintf "scoreboard players set @e[tag=scoreAS] bin%02d 0" i
+            yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
         |]
     yield "cardgen_choose1", [|
-        yield "scoreboard players set @e[tag=scoreAS] PRNG_MOD 28"
+        yield sprintf "scoreboard players set $ENTITY PRNG_MOD 28"
         yield sprintf "function %s:prng" NS
-        yield "scoreboard players operation @e[tag=scoreAS] CARDGENTEMP = @e[tag=scoreAS] PRNG_OUT" 
+        yield sprintf "scoreboard players operation $ENTITY CARDGENTEMP = $ENTITY PRNG_OUT"
         // ensure exactly one call
-        yield "scoreboard players set @e[tag=scoreAS] CALL 1" 
+        yield sprintf "scoreboard players set $ENTITY CALL 1"
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cardgen_bin%02d" i NS i  // TODO binary dispatch?
     |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cardgen_bin%02d" i, [|
-            "scoreboard players set @e[tag=scoreAS] CALL 0" // every exclusive-callable func needs this as first line of code
+            sprintf "scoreboard players set $ENTITY CALL 0" // every exclusive-callable func needs this as first line of code
             sprintf "execute if entity $SCORE(bin%02d=1) run function %s:cardgen_choose1" i NS
             sprintf "execute unless entity $SCORE(bin%02d=1) run function %s:cardgen_binbody%02d" i NS i
             |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cardgen_binbody%02d" i, [|
-            yield sprintf "scoreboard players set @e[tag=scoreAS] bin%02d 1" i
-            yield sprintf "scoreboard players set @e[tag=scoreAS] PRNG_MOD 3"
+            yield sprintf "scoreboard players add $ENTITY squaresPlaced 1"
+            yield sprintf "scoreboard players set $ENTITY bin%02d 1" i
+            yield sprintf "scoreboard players set $ENTITY PRNG_MOD 3"
             yield sprintf "function %s:prng" NS
             for j = 0 to 2 do
                 yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" j bingoItems.[i].[j]
                 yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" j
-                yield sprintf "execute if entity $SCORE(PRNG_OUT=%d) run say TODO checker setup %s" j bingoItems.[i].[j]
+                let index = flatBingoItems |> Array.findIndex(fun x -> x = bingoItems.[i].[j])
+                for x = 1 to 5 do
+                    for y = 1 to 5 do
+                        yield sprintf "execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" j (5*(y-1)+x) x y index
             |]
     yield "cardgen_makecard", [|
         yield sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1}"""
-        yield sprintf "say TODO init AS for location first checker"
+        yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
         for _x = 1 to 5 do
             yield sprintf "$NTICKSLATER(1)"
             yield sprintf "function %s:cardgen_choose1" NS
