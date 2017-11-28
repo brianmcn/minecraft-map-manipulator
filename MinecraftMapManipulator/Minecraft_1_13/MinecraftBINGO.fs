@@ -439,6 +439,7 @@ let writeInventoryChangedHandler() =
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
     let functionText = """
 say INVENTORY TODO
+function test:red_inventory_changed
 advancement revoke @s only test:on_inventory_changed"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
 
@@ -463,6 +464,7 @@ let checker_objectives = [|
             yield sprintf "%sWinSlash" t         // how many items in the bottom left to top right diagonal the team has
             yield sprintf "%sWinBackslash" t     // how many items in the top left to bottom right diagonal the team has
             yield sprintf "%sScore" t            // how many total items the team has
+            yield sprintf "%sGotBingo" t         // 1 if they already got a bingo (don't repeatedly announce)
         yield "lockoutGoal"                      // how many needed to win lockout (if this is a lockout game)
         yield "TEMP"
     |]
@@ -480,17 +482,22 @@ let checker_functions = [|
             yield sprintf "scoreboard players set $ENTITY %sWinSlash 0" t      
             yield sprintf "scoreboard players set $ENTITY %sWinBackslash 0" t  
             yield sprintf "scoreboard players set $ENTITY %sScore 0" t         
+            yield sprintf "scoreboard players set $ENTITY %sGotBingo 0" t         
+        yield sprintf "scoreboard players set $ENTITY lockoutGoal 25"
         |]
     for t in TEAMS do
         yield sprintf "%s_inventory_changed" t, [|        // called when player @s's inventory changed and he is on team t
+            yield sprintf "scoreboard players set $ENTITY gotItems 0"
             for s in SQUARES do
+                yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
                 yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:check%s" t s NS s
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:%s_got_square_%s" NS t s
             yield sprintf "execute if entity $SCORE(gotItems=1) run say TODO announce in chat, play fireworks sound, (give drop-map-to-update reminder?)"
-            yield sprintf "execute if entity $SCORE(gotItems=1) run say TODO check for win and lockout goal"
+            yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
             yield sprintf "%s_got_square_%s" t s, [|       // called when player @s got square s and he is on team t
+                yield sprintf "say got square %s" s
                 yield sprintf "scoreboard players set $ENTITY gotItems 1"
                 yield sprintf "scoreboard players add $ENTITY %sScore 1" t
                 yield sprintf "scoreboard players operation @a[team=%s] Score = $ENTITY %sScore" t t
@@ -504,12 +511,12 @@ let checker_functions = [|
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
                 yield sprintf "fill %d %d %d %d %d %d red_terracotta replace clay" x y z (x+22) y (z+22)
                 // update win conditions (add to team score of row/col/diag)
-                yield sprintf "scoreboard players add $ENTITY %sWinRow%c" t s.[1]
-                yield sprintf "scoreboard players add $ENTITY %sWinCol%c" t s.[0]
+                yield sprintf "scoreboard players add $ENTITY %sWinRow%c 1" t s.[1]
+                yield sprintf "scoreboard players add $ENTITY %sWinCol%c 1" t s.[0]
                 if s.[0] = s.[1] then
-                    yield sprintf "scoreboard players add $ENTITY %sWinBackslash" t
-                if int s.[0] = 6 - int s.[1] then
-                    yield sprintf "scoreboard players add $ENTITY %sWinSlash" t
+                    yield sprintf "scoreboard players add $ENTITY %sWinBackslash 1" t
+                if (int s.[0] - int '0') = 6 - (int s.[1] - int '0') then
+                    yield sprintf "scoreboard players add $ENTITY %sWinSlash 1" t
                 |]
         yield sprintf "%s_check_for_win" t, [|
             // check for bingo
@@ -520,7 +527,8 @@ let checker_functions = [|
                 yield sprintf "execute if entity $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
             yield sprintf "execute if entity $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
             yield sprintf "execute if entity $SCORE(%sWinBackslash=5) run scoreboard players set $ENTITY TEMP 1" t
-            yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" t
+            yield sprintf """execute if entity $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" t t
+            yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run scoreboard players set $ENTITY %sGotBingo 1" t t
             yield sprintf "function %s:got_a_win_common_logic" NS
             // check for blackout
             yield sprintf """execute if entity $SCORE(%sScore=25) run tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t t
@@ -536,10 +544,71 @@ let checker_functions = [|
     |]
     for s in SQUARES do
         yield sprintf "check%s" s, [|
-            yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
             for i=0 to flatBingoItems.Length-1 do
-                yield sprintf "execute if entity $SCORE(square%s=%d) store result score $ENTITY gotAnItem run clear @s %s 1" s i flatBingoItems.[i]
+                // TODO more efficient binary search?
+                yield sprintf "execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1" s i flatBingoItems.[i]
+                // TODO remove this
+                yield sprintf """execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s i flatBingoItems.[i]
         |]
+    |]
+
+///////////////////////////////////////////////////////////////////////////////
+
+let makeItemChests() =
+    // prepare item display chests
+    let anyDifficultyItems = ResizeArray()
+    let otherItems = ResizeArray()
+    for i = 0 to bingoItems.Length-1 do
+        if bingoItems.[i].[0] = bingoItems.[i].[1] && bingoItems.[i].[0] = bingoItems.[i].[2] then
+            anyDifficultyItems.Add( bingoItems.[i].[0] )
+        else
+            otherItems.Add( bingoItems.[i] )
+    let anyDifficultyChest = 
+        let sb = new System.Text.StringBuilder("""{CustomName:"Items at any difficulty",Items:[""")
+        for i = 0 to anyDifficultyItems.Count-1 do
+            let item = anyDifficultyItems.[i]
+            sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" i item 1 ) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    let otherChest1 =
+        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        for i = 0 to 8 do
+            for j = 0 to 2 do
+                let item = otherItems.[i].[j]
+                sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" (i+(9*j)) item 1 ) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    let otherChest2 =
+        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        for i = 9 to 17 do
+            for j = 0 to 2 do
+                let item = otherItems.[i].[j]
+                sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" (i-9+(9*j)) item 1 ) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    let otherChest3 =
+        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        for i = 18 to otherItems.Count-1 do
+            for j = 0 to 2 do
+                let item = otherItems.[i].[j]
+                sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" (i-18+(9*j)) item 1 ) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    "make_item_chests",[|
+        let x = 60
+        let y = 50
+        let z = 100
+        yield sprintf "setblock %d %d %d chest" x y z
+        yield sprintf "data merge block %d %d %d %s" x y z anyDifficultyChest
+        let x = x + 2
+        yield sprintf "setblock %d %d %d chest" x y z
+        yield sprintf "data merge block %d %d %d %s" x y z otherChest1
+        let x = x + 2
+        yield sprintf "setblock %d %d %d chest" x y z
+        yield sprintf "data merge block %d %d %d %s" x y z otherChest2
+        let x = x + 2
+        yield sprintf "setblock %d %d %d chest" x y z
+        yield sprintf "data merge block %d %d %d %s" x y z otherChest3
     |]
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -657,7 +726,17 @@ let cardgen_compile() =
         yield "theloop",gameLoopContinuationCheck()
         yield! compile(prng, "prng")
         yield! compile(prng_init(), "prng_init")
-        yield "init",[|"kill @e[type=!player]";sprintf"function %s:prng_init"NS;sprintf"function %s:checker_init"NS;sprintf"function %s:cardgen_init"NS|]
+        yield makeItemChests()
+        yield "init",[|
+            "kill @e[type=!player]"
+            "clear @a"
+            "give @a minecraft:filled_map"
+            sprintf "function %s:make_item_chests" NS
+            sprintf"function %s:prng_init"NS
+            sprintf"function %s:checker_init"NS
+            sprintf"function %s:cardgen_init"NS
+            sprintf"function %s:cardgen_makecard"NS
+            |]
         |]
     printfn "%A" r
     for name,code in r do
