@@ -47,7 +47,8 @@ let main argv =
     //MinecraftBINGO.test()
     //MinecraftBINGO.testWrite()
     MinecraftBINGO.makeSavingStructureBlocks()
-    //MinecraftBINGO.cardgen_compile()
+    MinecraftBINGO.writeInventoryChangedHandler()
+    MinecraftBINGO.cardgen_compile()
     //MinecraftBINGO.magic_mirror_compile()
     ignore argv
     0

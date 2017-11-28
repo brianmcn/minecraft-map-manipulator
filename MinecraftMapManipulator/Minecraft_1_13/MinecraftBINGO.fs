@@ -375,7 +375,7 @@ let bingoItems =
             [|  "lapis_lazuli"     ; "purple_dye"       ; "cyan_dye"            |]
             [|  "beetroot_soup"    ; "emerald"          ; "emerald"             |]
             [|  "furnace_minecart" ; "chest_minecart"   ; "tnt_minecart"        |]
-            [|  "gunpowder"        ; "fireworks"        ; "fireworks"           |]
+            [|  "gunpowder"        ; "firework_rocket"  ; "firework_rocket"     |]
             [|  "compass"          ; "compass"          ; "map"                 |]
             [|  "spruce_sapling"   ; "spruce_sapling"   ; "acacia_sapling"      |]
             [|  "cauldron"         ; "cauldron"         ; "cauldron"            |]
@@ -421,9 +421,34 @@ let makeSavingStructureBlocks() =
     ()
 
 ///////////////////////////////////////////////////////////////////////////////
+let writeInventoryChangedHandler() =
+    let advancementText = """
+{
+    "criteria": {
+        "ic": {
+            "trigger": "minecraft:inventory_changed"
+        }
+    },
+    "requirements": [
+        ["ic"]
+    ],
+    "rewards": {
+        "function": "test:inventory_changed"
+    }
+}"""
+    System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
+    let functionText = """
+say INVENTORY TODO
+advancement revoke @s only test:on_inventory_changed"""
+    System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
+
+///////////////////////////////////////////////////////////////////////////////
+
 
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
+// TODO init code to set up teams
+// TODO init code to reset all scores
 let checker_objectives = [|
         for s in SQUARES do
             yield sprintf "square%s" s           // square11 contains the index number of the flatBingoItems[] of the item in the top-left square of this card
@@ -442,24 +467,42 @@ let checker_objectives = [|
         yield "TEMP"
     |]
 let checker_functions = [|
+    yield "checker_init", [|
+        for o in checker_objectives do
+            yield sprintf "scoreboard objectives add %s dummy" o
+        for s in SQUARES do
+            for t in TEAMS do
+                yield sprintf "scoreboard players set $ENTITY %sCanGet%s 1" t s
+        for t in TEAMS do
+            for i = 1 to 5 do
+                yield sprintf "scoreboard players set $ENTITY %sWinRow%d 0" t i
+                yield sprintf "scoreboard players set $ENTITY %sWinCol%d 0" t i
+            yield sprintf "scoreboard players set $ENTITY %sWinSlash 0" t      
+            yield sprintf "scoreboard players set $ENTITY %sWinBackslash 0" t  
+            yield sprintf "scoreboard players set $ENTITY %sScore 0" t         
+        |]
     for t in TEAMS do
-        yield sprintf "%sInventoryChanged" t, [|        // called when player @s's inventory changed and he is on team t
+        yield sprintf "%s_inventory_changed" t, [|        // called when player @s's inventory changed and he is on team t
             for s in SQUARES do
-                yield sprintf "execute if $SCORE(%sCanGet%s=1) run function %s:check%s" t s NS s
-                yield sprintf "execute if $SCORE(gotAnItem=1) run function %s:%sGotSquare%s" NS t s
-            yield sprintf "execute if $SCORE(gotItems=1) then TODO announce in chat, play fireworks sound, (give drop-map-to-update reminder?)"
-            yield sprintf "execute if $SCORE(gotItems=1) then TODO check for win and lockout goal"
+                yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:check%s" t s NS s
+                yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:%s_got_square_%s" NS t s
+            yield sprintf "execute if entity $SCORE(gotItems=1) run say TODO announce in chat, play fireworks sound, (give drop-map-to-update reminder?)"
+            yield sprintf "execute if entity $SCORE(gotItems=1) run say TODO check for win and lockout goal"
             |]
         for s in SQUARES do
-            yield sprintf "%sGotSquare%s" t s, [|       // called when player @s got square s and he is on team t
+            yield sprintf "%s_got_square_%s" t s, [|       // called when player @s got square s and he is on team t
                 yield sprintf "scoreboard players set $ENTITY gotItems 1"
                 yield sprintf "scoreboard players add $ENTITY %sScore 1" t
                 yield sprintf "scoreboard players operation @a[team=%s] Score = $ENTITY %sScore" t t
                 yield sprintf "scoreboard players set $ENTITY %sCanGet%s 0" t s
                 for ot in TEAMS do
                     if ot <> t then
-                        yield sprintf "execute if $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
-                yield sprintf "TODO color the game board square appropriately"
+                        yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
+                // TODO actual logic to color the game board square appropriately
+                let x = 4 + 24*(int s.[0] - int '0' - 1)
+                let y = 30
+                let z = 0 + 24*(int s.[1] - int '0' - 1)
+                yield sprintf "fill %d %d %d %d %d %d red_terracotta replace clay" x y z (x+22) y (z+22)
                 // update win conditions (add to team score of row/col/diag)
                 yield sprintf "scoreboard players add $ENTITY %sWinRow%c" t s.[1]
                 yield sprintf "scoreboard players add $ENTITY %sWinCol%c" t s.[0]
@@ -468,34 +511,34 @@ let checker_functions = [|
                 if int s.[0] = 6 - int s.[1] then
                     yield sprintf "scoreboard players add $ENTITY %sWinSlash" t
                 |]
-        yield sprintf "%sCheckForWin" t, [|
+        yield sprintf "%s_check_for_win" t, [|
             // check for bingo
             yield sprintf "scoreboard players set $ENTITY TEMP 0"
             for i = 1 to 5 do
-                yield sprintf "execute if $SCORE(%sWinRow%d=5) run scoreboard players set $ENTITY TEMP 1" t i
+                yield sprintf "execute if entity $SCORE(%sWinRow%d=5) run scoreboard players set $ENTITY TEMP 1" t i
             for i = 1 to 5 do
-                yield sprintf "execute if $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
-            yield sprintf "execute if $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
-            yield sprintf "execute if $SCORE(%sWinBackslash=5) run scoreboard players set $ENTITY TEMP 1" t
-            yield sprintf """execute if $SCORE(TEMP=1) run tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" t
-            yield sprintf "function %s:gotAWinCommonLogic" NS
+                yield sprintf "execute if entity $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
+            yield sprintf "execute if entity $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf "execute if entity $SCORE(%sWinBackslash=5) run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" t
+            yield sprintf "function %s:got_a_win_common_logic" NS
             // check for blackout
-            yield sprintf """execute if $SCORE(%sScore=25) run tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t t
-            yield sprintf "function %s:gotAWinCommonLogic" NS
+            yield sprintf """execute if entity $SCORE(%sScore=25) run tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t t
+            yield sprintf "function %s:got_a_win_common_logic" NS
             // check for lockout
             yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY lockoutGoal"
             yield sprintf "scoreboard players operation $ENTITY TEMP -= $ENTITY %sScore" t
-            yield sprintf """execute if $SCORE(isLockout=1,TEMP=0) run tellraw @a [{"selector":"@a[team=%s]"}," got the lockout goal!"]""" t
-            yield sprintf "function %s:gotAWinCommonLogic" NS
+            yield sprintf """execute if entity $SCORE(isLockout=1,TEMP=0) run tellraw @a [{"selector":"@a[team=%s]"}," got the lockout goal!"]""" t
+            yield sprintf "function %s:got_a_win_common_logic" NS
             |]
-    yield "gotAWinCommonLogic", [|
-        // TODO update win time in scoreboard, fireworks etc, see gotAWinCommonLogic from orig bingo
+    yield "got_a_win_common_logic", [|
+        // TODO update win time in scoreboard, fireworks etc, see got_a_win_common_logic from orig bingo
     |]
     for s in SQUARES do
         yield sprintf "check%s" s, [|
             yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
             for i=0 to flatBingoItems.Length-1 do
-                yield sprintf "execute if $SCORE(square%s=%d) store result score $ENTITY gotAnItem run clear @s %s 1" s i flatBingoItems.[i]
+                yield sprintf "execute if entity $SCORE(square%s=%d) store result score $ENTITY gotAnItem run clear @s %s 1" s i flatBingoItems.[i]
         |]
     |]
 
@@ -550,6 +593,9 @@ let cardgen_functions = [|
             yield sprintf "scoreboard objectives add %s dummy" o
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
+        // TODO put this somewhere better, fix
+        yield sprintf "fill 4 30 0 131 30 128 clay"
+        yield sprintf "fill 4 31 0 131 31 128 air"
         |]
     yield "cardgen_choose1", [|
         yield sprintf "scoreboard players set $ENTITY PRNG_MOD 28"
@@ -606,10 +652,12 @@ let cardgen_compile() =
     let r = [|
         for name,code in cardgen_functions do
             yield! compile(code, name)
+        for name,code in checker_functions do
+            yield! compile(code, name)
         yield "theloop",gameLoopContinuationCheck()
         yield! compile(prng, "prng")
         yield! compile(prng_init(), "prng_init")
-        yield "init",[|"kill @e[type=!player]";sprintf"function %s:prng_init"NS;sprintf"function %s:cardgen_init"NS|]
+        yield "init",[|"kill @e[type=!player]";sprintf"function %s:prng_init"NS;sprintf"function %s:checker_init"NS;sprintf"function %s:cardgen_init"NS|]
         |]
     printfn "%A" r
     for name,code in r do
