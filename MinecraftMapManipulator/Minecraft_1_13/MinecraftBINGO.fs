@@ -119,8 +119,15 @@ setup
  - any permanent entities
 *)
 
-
 let NS = "test"
+let writeFunctionToDisk(name,code) =
+    //let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\data\functions\test\"""
+    let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\"""+NS+"""\functions"""
+    let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
+    System.IO.File.WriteAllLines(FIL, code)
+
+
+
 let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
 let continuationNum = ref 1
 let newName() = 
@@ -401,14 +408,16 @@ let makeSavingStructureBlocks() =
     let mutable x,z = 3,3
     while i < flatBingoItems.Length do
         let name = flatBingoItems.[i]
-        cmds.Add(sprintf "setblock %d 2 %d minecraft:structure_block 0" x z)
-        cmds.Add(sprintf """blockdata %d 2 %d {metadata:"",mirror:"NONE",ignoreEntities:1b,mode:"SAVE",rotation:"NONE",posX:0,posY:-2,posZ:0,sizeX:17,sizeY:2,sizeZ:17,integrity:1.0f,showair:1b,powered:0b,seed:0L,author:"Lorgon111",name:"%s",id:"minecraft:structure_block",showboundingbox:1b}""" x z name)
+        cmds.Add(sprintf "setblock %d 2 %d minecraft:structure_block" x z)
+        cmds.Add(sprintf """data merge block %d 2 %d {metadata:"",mirror:"NONE",ignoreEntities:1b,mode:"SAVE",rotation:"NONE",posX:0,posY:-2,posZ:0,sizeX:17,sizeY:2,sizeZ:17,integrity:1.0f,showair:1b,powered:0b,seed:0L,author:"Lorgon111",name:"%s",id:"minecraft:structure_block",showboundingbox:1b}""" x z name)
         x <- x + 18
         i <- i + 1
         if i%8=0 then
             x <- 3
             z <- z + 18
-    writeFunctionsToResourcePack("testing",[|"autobingo",cmds.ToArray()|])
+    //writeFunctionsToResourcePack("testing",[|"autobingo",cmds.ToArray()|])
+    // saves to C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\generated\minecraft\structures
+    writeFunctionToDisk("make_saving_structure_blocks",cmds.ToArray())
     ()
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -593,11 +602,6 @@ let cardgen_functions = [|
         yield sprintf "kill @e[tag=sky]"
         |]
     |]
-let writeFunctionToDisk(name,code) =
-    //let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\data\functions\test\"""
-    let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions"""
-    let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
-    System.IO.File.WriteAllLines(FIL, code)
 let cardgen_compile() =
     let r = [|
         for name,code in cardgen_functions do
@@ -639,6 +643,23 @@ let magic_mirror_funcs = [|
 let magic_mirror_compile() =
     for name,code in magic_mirror_funcs do
         writeFunctionToDisk(name,code)
+
+let choose_spawn_point_functions() = [|
+    // prng -> x 4000, -2000, x10000
+    // prng -> z 4000, -2000, x10000
+    // y 130
+    // tp AS & player there (probably need to wait, currently 100 ticks)
+    // have AS function do like
+    //     execute as AS at @s if block ~ ~ ~ air run teleport ~ ~-1 ~
+    //     execute as AS at @s if block ~ ~ ~ air run function recurse
+    // then    
+    //     execute as AS at @s run setblock ~ ~ ~ obsidian
+    //     execute as @p at AS run spawnpoint ~ ~1 ~
+    //     // don't kill AS yet
+    // build skybox, put players there
+    // wait another 400 ticks for terrain or whatnot
+    // tp players to AS ~ ~1 ~
+    |]
 
 
 (*
