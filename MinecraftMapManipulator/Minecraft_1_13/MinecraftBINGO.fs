@@ -466,7 +466,12 @@ let checker_functions = [|
                 yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
                 yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:check%s" t s NS s
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:%s_got_square_%s" NS t s
-            yield sprintf "execute if entity $SCORE(gotItems=1) run say TODO announce in chat, play fireworks sound, (give drop-map-to-update reminder?)"
+            yield sprintf """execute if entity $SCORE(gotItems=1) run tellraw @a [{"selector":"@s]"}," got an item! (",{"score":{"name":"@s","objective":"Score"}}," in ",{"score":{"name":"Time","objective":"Score"}},"s)"]"""
+            (* TODO
+            yield U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
+            yield C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
+            *)
+            yield sprintf "execute if entity $SCORE(gotItems=1) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
@@ -502,19 +507,45 @@ let checker_functions = [|
             yield sprintf "execute if entity $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
             yield sprintf "execute if entity $SCORE(%sWinBackslash=5) run scoreboard players set $ENTITY TEMP 1" t
             yield sprintf """execute if entity $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" t t
+            yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run function %s:got_a_win_common_logic" t NS
             yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run scoreboard players set $ENTITY %sGotBingo 1" t t
-            yield sprintf "function %s:got_a_win_common_logic" NS
             // check for blackout
             yield sprintf """execute if entity $SCORE(%sScore=25) run tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t t
-            yield sprintf "function %s:got_a_win_common_logic" NS
+            yield sprintf "execute if entity $SCORE(%sScore=25) run function %s:got_a_win_common_logic" t NS
             // check for lockout
             yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY lockoutGoal"
             yield sprintf "scoreboard players operation $ENTITY TEMP -= $ENTITY %sScore" t
             yield sprintf """execute if entity $SCORE(isLockout=1,TEMP=0) run tellraw @a [{"selector":"@a[team=%s]"}," got the lockout goal!"]""" t
-            yield sprintf "function %s:got_a_win_common_logic" NS
+            yield sprintf "execute if entity $SCORE(isLockout=1,TEMP=0) run function %s:got_a_win_common_logic" NS
             |]
     yield "got_a_win_common_logic", [|
-        // TODO update win time in scoreboard, fireworks etc, see got_a_win_common_logic from orig bingo
+        (* TODO
+        // put time on scoreboard
+        yield "scoreboard players operation Minutes S = Time Score"
+        yield "scoreboard players operation Minutes S /= Sixty Calc"
+        yield "scoreboard players operation Seconds S = Time Score"
+        yield "scoreboard players operation Seconds S %= Sixty Calc"
+        yield "scoreboard players set Minutes Score 0"
+        yield "scoreboard players set Seconds Score 0"
+        yield "scoreboard players operation Minutes Score -= Minutes S"
+        yield "scoreboard players operation Seconds Score -= Seconds S"
+        *)
+        // option to return to lobby
+        yield """tellraw @a ["You can keep playing, or"]"""
+        yield """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        // fireworks
+        yield """execute as @a at @s run summon fireworks_rocket ~3 ~0 ~0 {LifeTime:20}"""
+        yield "$NTICKSLATER(8)"    // TODO note that this could be a re-entrant callback, e.g. you get bingo, and two ticks later you get the lockout goal, and so there are two schedulings of the same callback active
+        yield """execute as @a at @s run summon fireworks_rocket ~0 ~0 ~3 {LifeTime:20}"""
+        yield "$NTICKSLATER(8)"
+        yield """execute as @a at @s run summon fireworks_rocket ~-3 ~0 ~0 {LifeTime:20}"""
+        yield "$NTICKSLATER(8)"
+        yield """execute as @a at @s run summon fireworks_rocket ~0 ~0 ~-3 {LifeTime:20}"""
+        yield "$NTICKSLATER(8)"
+        yield """execute as @a at @s run playsound entity.firework.blast ambient @s ~ ~ ~"""
+        yield "$NTICKSLATER(8)"
+        yield """execute as @a at @s run playsound entity.firework.twinkle ambient @s ~ ~ ~"""
+
     |]
     for s in SQUARES do
         yield sprintf "check%s" s, [|
