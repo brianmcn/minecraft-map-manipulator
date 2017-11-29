@@ -1,8 +1,7 @@
 ﻿module MinecraftBINGO
 
 (*
-
-this about skylinerw's "else feature"
+think about skylinerw's "else feature"
 before a 'switch', set a global flag, condition each branch on the flag, and first instruction of each called branch function unsets the flag
 it's a transaction, yes? safe?
 annoying that caller and callee have to coordinate, but seems simple and workable?
@@ -20,19 +19,11 @@ works (chunk is temp loaded or whatever)
 
 
 
-
-
-
-
-
-
 https://minecraft.gamepedia.com/1.13/Flattening
-
 https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
 
 can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
-
-
+can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
 
 
 can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
@@ -60,16 +51,11 @@ almost floating point math...
 
 
 
-check-for-items code should still be in-game command blocks like now
-
-
 cut the tutorial for good
 ignore lockout, custom modes, and item chests in initial version
 bug: https://www.reddit.com/r/minecraftbingo/comments/74sd7m/broken_seed_spawn_in_a_waterfall_and_die_in_a_wall/
 bugs & ideas from top of old file
 
-art assets should now be saved as structures (could find way to write my old data, but no way to read new arts without binary reader)
-cardgen is an easy module to work on first?
 
 
 feature ideas:
@@ -83,14 +69,14 @@ feature ideas:
 architecture
 
 helper functions
- - PRNG
- - make new card (clone art, setup checker command blocks)
+ x PRNG
+ x make new card (clone art, setup checker command blocks)
  - finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
  - make new seeded card
- - make new random card
+ x make new random card
  - ensure card updated (player holding map at spawn)
  - begin a game (lots of logic here...)
- - check for bingo (5-in-a-row logic)
+ x check for bingo (5-in-a-row logic)
  - team-got-an-item (announce, add score, check for win/lockout)
  - various 'win' announcements/fireworks/scoreboard
  - worldborder timekeeper logic (compute actual seconds)
@@ -98,10 +84,8 @@ helper functions
  - compute lockout goal
 
 blocks
- - art assets
+ x art assets
  - ?lobby? (or code that write it?)
- - ?commands-per-item? (testfor/clear, and also clone-art-to-location)
- - fixed commands-per-item (add score, color card, lockout, ...)
 
 ongoing per-tick code
  - updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
@@ -259,12 +243,6 @@ let prng = [|
 
 ///////////////////////////////////////////////////////
 
-
-
-
-
-
-
 //TODO "Damage:0s" is maybe no longer the nbt of map0? check it out
 let find_player_who_dropped_map =
     [|
@@ -348,10 +326,6 @@ let testWrite() =
     let r = compile(player_updates_map,"player_updates_map")
     writeFunctionsToResourcePack("BINGO", r)
         
-        
-
-
-
 ////////////////////////////////////////////////
 
 let bingoItems =
@@ -421,6 +395,7 @@ let makeSavingStructureBlocks() =
     ()
 
 ///////////////////////////////////////////////////////////////////////////////
+
 let writeInventoryChangedHandler() =
     let advancementText = """
 {
@@ -444,7 +419,6 @@ advancement revoke @s only test:on_inventory_changed"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
 
 ///////////////////////////////////////////////////////////////////////////////
-
 
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
@@ -613,43 +587,6 @@ let makeItemChests() =
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// card gen sketch
-(*
-have 28 temp AS numbered 0-27, sitting inside cmd blocks that function choose_bin_NN
-scoreboard players set BINS X 28
-prng(BINS)
-scoreboard players operation @e[tag=chooser] X -= prng X
-execute at @e[tag=chooser,score_X=0] run blockdata ~ ~ ~ {auto:1b}
-kill @e[tag=chooser,score_X=0]
-scoreboard players remove @e[tag=chooser,score_X=0..] X 1
-scoreboard players operation @e[tag=chooser] X += prng X
-scoreboard players remove BINS X 1
-
-BLEAH
-
-simpler implementation - just use scoreboard
-prng(28)
-run that guy (will set flag to say already run)
-if it was new, decrement the countdown
-repeat until done
-will waste a lot of computation choosing duplicates, but _so_ much simpler to implement, and good enough
-
-init:
-    SB set bin00 0
-    ...
-    SB set bin27 0
-choose1:
-    prng(28)
-    call that guy (binary dispatch)
-call_bin_xx:
-    execute if entity $SCORE(binxx=1) run function choose1
-    execute unless $SCORE(binxx=1) run function call_bin_xx_body
-call_bin_xx_body:
-    SB set binxx 1
-    do structure cloning
-    do checker setup
-*)
-
 let cardgen_objectives = [|
     yield "CARDGENTEMP"
     yield "squaresPlaced"
@@ -789,67 +726,3 @@ let choose_spawn_point_functions() = [|
     |]
 
 
-(*
-    init sky AS location
-    NTICKSLATER(1)
-    inline loop 5x do
-        inline loop 5x do
-            //choose1
-            found = -1
-            loop
-                r = prng(28)
-                if not binsUsed[r] then   // inlined array
-                    binsUsed[r] = true
-                    found = r
-                exitif found>=0
-            done
-            r = prng(3)
-            //
-            structure at sky AS inline-decoded with values of (found,r)
-            // TODO command block checkers
-            tp right
-        done
-        tp downleft
-    done
-    kill sky AS    
-*)
-
-(*
-    // or if we had arrays of ints
-    A = array(28)
-    inline loop i = 0 to 27 do
-        A[i] = i
-    done
-    inline loop i = 27 downto 0 do
-        let r = prng(i)
-        temp = A[r]
-        A[r] = A[i]
-        A[i] = temp
-    done
-    init sky AS location
-    NTICKSLATER(1)
-    i = 0
-    inline loop 5x do
-        inline loop 5x do
-            found = A[i]
-            r = prng(3)
-            structure at sky AS inline-decoded with values of (found,r)
-            // TODO command block checkers
-            tp right
-            i = i + 1
-        done
-        tp downleft
-    done
-*)
-
-(*
-    even in the array case, the 'inline-decode' of an int into specific code is a tedious long list of instructions
-    command blocks in the world an an entity to activate them make O(1) array decoding of instructions (but at most once per tick)
-    ...
-    if I did do a CPS compiler, the main IP-decoder could be an entity addressing a row of command blocks? no, the one/tick limit, argh
-*)
-
-(*
-there are too many implementation choices... I need a decision-making framework
-for example "can use entities for 'array data', but no command blocks for array/dispatch" or something
-*)
