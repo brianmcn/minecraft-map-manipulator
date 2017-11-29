@@ -8,16 +8,6 @@ annoying that caller and callee have to coordinate, but seems simple and workabl
 
 
 
-magic mirror - save coords to scoreboard, then e.g.
-
-summon pig ~ ~1 ~
-tag @e[type=pig,limit=1] add foo
-execute as @e[tag=foo] run teleport @s 100000 90 100000   // actually use execute-store to faux-tp the pig based on scores
-execute as @p at @e[tag=foo] run teleport @s ~ ~ ~
-
-works (chunk is temp loaded or whatever)
-
-
 
 https://minecraft.gamepedia.com/1.13/Flattening
 https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
@@ -78,7 +68,7 @@ helper functions
  - begin a game (lots of logic here...)
  x check for bingo (5-in-a-row logic)
  - team-got-an-item (announce, add score, check for win/lockout)
- - various 'win' announcements/fireworks/scoreboard
+ x various 'win' announcements/fireworks/scoreboard
  - worldborder timekeeper logic (compute actual seconds)
  - find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
  - compute lockout goal
@@ -181,7 +171,7 @@ let compile(f,name) =
     // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
     let a = a |> Array.map replaceScores
     // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
-    let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS]"))
+    let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS,limit=1]"))
     let r = [|
         let cur = ResizeArray()
         let curName = ref name
@@ -199,8 +189,8 @@ let compile(f,name) =
 #if DEBUG
     let r = [|
         for name,code in r do
-//            yield name, [| yield sprintf """tellraw @a ["calling '%s'"]""" name; yield! code |]
-            yield name, [| yield sprintf """say ---calling '%s'---""" name; yield! code |]
+            yield name, [| yield sprintf """tellraw @a ["calling '%s'"]""" name; yield! code |]
+//            yield name, [| yield sprintf """say ---calling '%s'---""" name; yield! code |]
         |]
 #endif    
     r
@@ -239,6 +229,157 @@ let prng = [|
         "scoreboard players operation $ENTITY PRNG_OUT %= $ENTITY PRNG_MOD"
         "scoreboard players operation $ENTITY PRNG_OUT += $ENTITY PRNG_MOD" // ensure non-negative
         "scoreboard players operation $ENTITY PRNG_OUT %= $ENTITY PRNG_MOD"
+    |]
+
+///////////////////////////////////////////////////////
+
+let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
+let game_objectives = [|
+    yield "isLockout"
+    yield "lockoutGoal"
+    yield "numActiveTeams"
+    yield "hasAnyoneUpdatedMap"
+    yield "gameInProgress"
+    for t in TEAMS do
+        yield sprintf "%sSpawnX" t   // a number between 1 and 999 that needs to be multipled by 10000
+        yield sprintf "%sSpawnY" t   // height of surface there
+        yield sprintf "%sSpawnZ" t   // a number between 1 and 999 that needs to be multipled by 10000
+    |]
+let game_functions = [|
+    yield "game_init", [|
+        for o in game_objectives do
+            yield sprintf "scoreboard objectives add %s dummy" o
+        // TODO
+        yield "scoreboard players set $ENTITY isLockout 0"
+        yield "scoreboard players set $ENTITY hasAnyoneUpdatedMap 0"
+        yield "scoreboard players set $ENTITY gameInProgress 0"
+        |]
+    yield "compute_height", [|
+        yield "execute as @e[tag=CurrentSpawn] at @s run teleport @s ~ 230 ~"
+        for _i = 1 to 230 do
+            yield "execute as @e[tag=CurrentSpawn] at @s if block ~ ~-1 ~ minecraft:air run teleport @s ~ ~-1 ~"
+            (*
+            // TODO remove debugging
+            yield "execute as @e[tag=CurrentSpawn] store result score $ENTITY redSpawnY run data get entity @s Pos[1] 1.0"
+            yield """execute as @e[tag=CurrentSpawn] at @s if block ~ ~-1 ~ minecraft:air run tellraw @a ["saw air: ",{"score":{"name":"@e[tag=scoreAS]","objective":"redSpawnY"}}]"""
+            yield """execute as @e[tag=CurrentSpawn] at @s unless block ~ ~-1 ~ minecraft:air run tellraw @a ["saw non-air"]"""
+            *)
+        yield "execute as @e[tag=CurrentSpawn] at @s run setblock ~ ~-1 ~ minecraft:obsidian"
+        |]
+    for t in TEAMS do
+        yield sprintf "do_%s_spawn" t, [|
+            yield sprintf "function %s:prng" NS
+            yield sprintf "scoreboard players operation $ENTITY %sSpawnX = $ENTITY PRNG_OUT" t
+            yield sprintf "scoreboard players add $ENTITY %sSpawnX 1" t
+            yield sprintf "function %s:prng" NS
+            yield sprintf "scoreboard players operation $ENTITY %sSpawnZ = $ENTITY PRNG_OUT" t
+            yield sprintf "scoreboard players add $ENTITY %sSpawnZ 1" t
+            yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["%sSpawn","CurrentSpawn"]}""" t
+            // TODO can I manipulate this same tick as summoned?
+            yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[0] double 10000.0 run scoreboard players get $ENTITY %sSpawnX" t t
+            yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double 250.0 run scoreboard players get $ENTITY %sSpawnX" t t
+            yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[2] double 10000.0 run scoreboard players get $ENTITY %sSpawnZ" t t
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~ ~ ~" t t
+            // now that players are there, wait for some terrain to gen
+            yield """tellraw @a ["at a location, gen some terrain"]"""
+            yield "$NTICKSLATER(20)"
+            // build skybox and put players there
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run fill ~-2 235 ~-2 ~2 254 ~2 barrier hollow" t
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~ ~ ~" t t
+            // figure out Y height of surface
+            yield sprintf "function %s:compute_height" NS
+            yield sprintf "tag @e[tag=CurrentSpawn] remove CurrentSpawn"
+            yield sprintf "execute as @e[tag=%sSpawn] store result score $ENTITY %sSpawnY run data get entity @s Pos[1] 1.0" t t
+            // give people time in skybox while terrain gens, then put them on ground and set spawns
+            yield """tellraw @a ["in skybox, compued height '",{"score":{"name":"@e[tag=scoreAS]","objective":"%sSpawnY"}},"'"]"""
+            yield "$NTICKSLATER(200)"
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~ ~ ~" t t
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run spawnpoint @a[team=%s] ~ ~ ~" t t
+            yield sprintf "kill @e[tag=%sSpawn]" t
+            // call next continuation
+            if t = "red" then
+                yield sprintf "execute if entity @a[team=blue] run function %s:do_blue_spawn" NS
+                yield sprintf "execute if entity @a[team=green] unless entity @a[team=blue] run function %s:do_green_spawn" NS
+                yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=blue] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
+                yield sprintf "execute unless entity @a[team=blue] unless entity @a[team=green] unless entity @a[team=yellow] run function %s:start3" NS
+            elif t = "blue" then
+                yield sprintf "execute if entity @a[team=green] run function %s:do_green_spawn" NS
+                yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
+                yield sprintf "execute unless entity @a[team=green] unless entity @a[team=yellow] run function %s:start3" NS
+            elif t = "green" then
+                yield sprintf "execute if entity @a[team=yellow] run function %s:do_yellow_spawn" NS
+                yield sprintf "execute unless entity @a[team=yellow] run function %s:start3" NS
+            elif t = "yellow" then
+                yield sprintf "function %s:start3" NS
+            |]
+    yield "start1", [|
+        // ensure folks have joined teams
+        yield "scoreboard players set $ENTITY numActiveTeams 0"
+        for t in TEAMS do
+            yield sprintf "execute if entity @a[team=%s] run scoreboard players add $ENTITY numActiveTeams 1" t
+        yield """execute if entity $SCORE(numActiveTeams=0) run tellraw @a ["No one has joined a team - join a team color to play!"]"""
+        yield sprintf "execute if entity $SCORE(numActiveTeams=1..) run function %s:start2" NS
+        |]
+    yield "start2", [|
+        // TODO turn off dropped-map checker
+        // TODO cancel out any pending seed choice
+        // clear player scores again (in case player joined server after card gen'd)
+        yield "scoreboard players operation $ENTITY Seed = Seed Score"  // save seed
+        yield "scoreboard players reset * Score"
+        yield "scoreboard players operation Seed Score = $ENTITY Seed"  // restore seed
+        for t in TEAMS do
+            yield sprintf "scoreboard players set @a[team=%s] Score 0" t
+        // set up lockout goal if lockout mode selected (teamCount 2/3/4 -> goal 13/9/7)
+        yield "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY lockoutGoal 25"
+        yield "execute if entity $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY lockoutGoal 13"
+        yield "execute if entity $SCORE(numActiveTeams=3) run scoreboard players set $ENTITY lockoutGoal 9"
+        yield "execute if entity $SCORE(numActiveTeams=4) run scoreboard players set $ENTITY lockoutGoal 7"
+        yield "execute if entity $SCORE(isLockout=1) run scoreboard players operation LockoutGoal Score = $ENTITY lockoutGoal"
+        // TODO disable other lobby buttons
+        // note game in progress
+        yield "scoreboard players set $ENTITY gameInProgress 1"
+        // put folks in survival mode, feed & heal, remove all xp, clear inventories
+        yield "gamemode survival @a"
+        yield "effect give @a minecraft:saturation 10 4 true"
+        yield "effect give @a minecraft:regeneration 10 4 true"
+        yield "experience set @a 0 points"
+        yield "clear @a"
+        // TODO fill inv with maps to ensure cleared (map updated)
+        // give player all the effects
+        yield "effect give @a minecraft:slowness 999 127 true"
+        yield "effect give @a minecraft:mining_fatigue 999 7 true"
+        yield "effect give @a minecraft:jump_boost 999 150 true"
+        yield "effect give @a minecraft:resistance 999 4 true"
+        yield "effect give @a minecraft:water_breathing 999 4 true"
+        yield "effect give @a minecraft:invisibility 999 4 true"
+        // TODO yield "effect give @a minecraft:levitation 999 1 true"
+        // set time to day so not tp at night
+        yield "time set 0"
+        // TODO tp all to waiting room
+        // set up spawn points
+        yield "scoreboard players set $ENTITY PRNG_MOD 998"
+        yield sprintf "execute if entity @a[team=red] run function %s:do_red_spawn" NS
+        yield sprintf "execute if entity @a[team=blue] unless entity @a[team=red] run function %s:do_blue_spawn" NS
+        yield sprintf "execute if entity @a[team=green] unless entity @a[team=red] unless entity @a[team=blue] run function %s:do_green_spawn" NS
+        yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=red] unless entity @a[team=blue] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
+        |]
+    yield "start3", [|
+        yield "effect clear @a"
+        yield """tellraw @a ["spawning done, effects cleared"]"""
+        yield "gamemode creative @a"
+        (* TODO
+        yield "scoreboard players set folksSentToWaitingRoom S 0"
+        // do seeded spawn points
+        yield U "scoreboard players operation Z Calc = Seed Score"
+        yield U (sprintf "blockdata %s {auto:1b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
+        yield U (sprintf "blockdata %s {auto:0b}" TELEPORT_PLAYERS_TO_SEEDED_SPAWN_LOW.STR)
+        // it will be a few ticks before everyone is teleported out of the lobby.  even though we just cleared inventories, there may be items lying on the lobby floor
+        // that players pick up now.  we need to clear them again after players have been teleported out, which will happen shortly due to the call above.
+        yield! nTicksLater(20)  // let the teleports to waiting room and spawn begin
+        yield U "clear @a"      // re-clear inventory
+        *)
+        |]
+    // TODO see startGameButtonPart2
     |]
 
 ///////////////////////////////////////////////////////
@@ -397,6 +538,8 @@ let makeSavingStructureBlocks() =
 ///////////////////////////////////////////////////////////////////////////////
 
 let writeInventoryChangedHandler() =
+    // https://bugs.mojang.com/browse/MC-117653
+    // the 'changed' notification does not happen while you have a container GUI open
     let advancementText = """
 {
     "criteria": {
@@ -420,7 +563,6 @@ advancement revoke @s only test:on_inventory_changed"""
 
 ///////////////////////////////////////////////////////////////////////////////
 
-let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
 // TODO init code to set up teams
 // TODO init code to reset all scores
@@ -685,11 +827,13 @@ let cardgen_functions = [|
         yield sprintf "kill @e[tag=sky]"
         |]
     |]
-let cardgen_compile() =
+let cardgen_compile() = // TODO this is really full game, naming/factoring...
     let r = [|
         for name,code in cardgen_functions do
             yield! compile(code, name)
         for name,code in checker_functions do
+            yield! compile(code, name)
+        for name,code in game_functions do
             yield! compile(code, name)
         yield "theloop",gameLoopContinuationCheck()
         yield! compile(prng, "prng")
@@ -704,6 +848,7 @@ let cardgen_compile() =
             sprintf"function %s:checker_init"NS
             sprintf"function %s:cardgen_init"NS
             sprintf"function %s:cardgen_makecard"NS
+            sprintf"function %s:game_init"NS
             |]
         |]
     printfn "%A" r
