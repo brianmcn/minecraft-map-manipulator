@@ -242,6 +242,7 @@ let game_objectives = [|
     yield "gameInProgress"
     yield "TWENTY_MIL"
     yield "SIXTY"
+    yield "ONE_THOUSAND"
     yield "minutes"
     yield "seconds"
     for t in TEAMS do
@@ -254,12 +255,46 @@ let game_functions = [|
         for o in game_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
         yield "scoreboard objectives add home trigger"
+        yield "scoreboard objectives add PlayerSeed trigger"
         yield "scoreboard players set $ENTITY TWENTY_MIL 20000000"
         yield "scoreboard players set $ENTITY SIXTY 60"
+        yield "scoreboard players set $ENTITY ONE_THOUSAND 1000"
         yield sprintf "gamerule gameLoopFunction %s:theloop" NS
         // TODO
         yield "scoreboard players set $ENTITY isLockout 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
+        |]
+    yield "choose_seed",[|
+        yield "scoreboard players set @a PlayerSeed 0"
+        yield "scoreboard players enable @a PlayerSeed"
+        yield """tellraw @a {"text":"Press 't' (chat), click below, then replace NNN with a seed number in chat"}"""
+        yield """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/trigger PlayerSeed set NNN"}}"""
+        |]
+    yield "set_seed",[| // theloop listens for changes to PlayerSeed to call this as the player
+        yield "scoreboard players operation Seed Score = @s PlayerSeed"
+        yield "scoreboard players operation Z Calc = Seed Score"
+        yield "scoreboard players set @a PlayerSeed 0"
+        yield sprintf "function %s:cardgen_makecard" NS
+        |]
+    yield "choose_random_seed",[|
+        // interject actual randomness, rather than deterministic pseudo
+        for _i = 1 to 10 do
+            yield """summon area_effect_cloud 4 4 4 {Duration:2,Tags:["aec"]}"""
+            yield "scoreboard players add @e[tag=aec] TEMP 1"
+        yield "scoreboard players operation Z Calc += @e[tag=aec,sort=random,limit=1] TEMP"
+        yield "scoreboard players operation @e[tag=aec] TEMP *= $ENTITY SIXTY"
+        yield "scoreboard players operation Z Calc += @e[tag=aec,sort=random,limit=1] TEMP"
+        // compute a seed number between 100,000 and 999,999
+        yield "scoreboard players set $ENTITY PRNG_MOD 899"
+        yield sprintf "function %s:prng" NS
+        yield "scoreboard players operation Seed Score = $ENTITY PRNG_OUT"
+        yield "scoreboard players operation Seed Score *= $ENTITY ONE_THOUSAND"
+        yield "scoreboard players set $ENTITY PRNG_MOD 999"
+        yield sprintf "function %s:prng" NS
+        yield "scoreboard players operation Seed Score += $ENTITY PRNG_OUT"
+        // re-seed the PRNG with that seed number
+        yield "scoreboard players operation Z Calc = Seed Score"
+        yield sprintf "function %s:cardgen_makecard" NS
         |]
     yield "update_time",[|
         "execute store result score $ENTITY minutes run worldborder get"
@@ -853,25 +888,22 @@ let cardgen_functions = [|
                         yield sprintf "execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" j (5*(y-1)+x) x y index
             |]
     yield "cardgen_makecard", [|
+        yield sprintf "kill @e[tag=sky]"
         yield sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1}"""
         yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
+        for i = 0 to bingoItems.Length-1 do
+            yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
         for _x = 1 to 5 do
-            yield sprintf "$NTICKSLATER(1)"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "$NTICKSLATER(1)"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "$NTICKSLATER(1)"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "$NTICKSLATER(1)"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "$NTICKSLATER(1)"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~-96 ~ ~24"
-        yield sprintf "kill @e[tag=sky]"
         |]
     |]
 let cardgen_compile() = // TODO this is really full game, naming/factoring...
@@ -885,6 +917,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile([|
             yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:update_time" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
+            yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=1..}] run function %s:set_seed" NS
             yield! gameLoopContinuationCheck()
             |],"theloop")
         yield! compile(prng, "prng")
@@ -898,8 +931,8 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             sprintf"function %s:prng_init"NS
             sprintf"function %s:checker_init"NS
             sprintf"function %s:cardgen_init"NS
-            sprintf"function %s:cardgen_makecard"NS
             sprintf"function %s:game_init"NS
+            sprintf"function %s:choose_random_seed"NS
             |]
         |]
     printfn "%A" r
