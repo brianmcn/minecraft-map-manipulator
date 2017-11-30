@@ -28,9 +28,7 @@ Things to test in snapshot
     same for 'as'
     but not for 'if/unless'
 
-    TODO "Damage:0s" is maybe no longer the nbt of map0? check it out
-
-    item ids for e.g. dyes?
+    TODO "Damage:0s" is maybe no longer the nbt of map0? check it out - is e.g. {tag:{map:3}}
 
     understand data packs, how to turn off e.g. vanilla advancements/crafting
 
@@ -85,7 +83,7 @@ blocks
 ongoing per-tick code
  x updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
  - check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
- - check for players with no more maps to give more
+ x check for players with no more maps to give more
  x check for anyone with a trigger home score (to tp back to lobby)
  - check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
  - check for 25-mins passed when game in progress
@@ -449,6 +447,7 @@ let game_functions = [|
         // TODO disable other lobby buttons
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
+        // TODO (old) timer starts running once gameInProgress, probably need another state for 'startup sequence'
         // put folks in survival mode, feed & heal, remove all xp, clear inventories
         yield "gamemode survival @a"
         yield "effect give @a minecraft:saturation 10 4 true"
@@ -515,7 +514,7 @@ let game_functions = [|
         sprintf "teleport @s %s" LOBBY
         "effect give @s minecraft:saturation 10 4 true"  // feed (and probably will heal some too)
         "effect give @s minecraft:night_vision 99999 1 true"
-        "$NTICKSLATER(1)"  // TODO game crashes without this?
+//        "$NTICKSLATER(2)"  // TODO game crashes without this?
         "scoreboard players set @a home 0"
         "scoreboard players enable @a home"    // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
     |]
@@ -785,7 +784,20 @@ let checker_functions = [|
                 let x = 4 + 24*(int s.[0] - int '0' - 1)
                 let y = 30
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
-                yield sprintf "fill %d %d %d %d %d %d %s replace clay" x y z (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                // determine if we should fill the whole square
+                yield sprintf "scoreboard players set $ENTITY TEMP 0"
+                yield sprintf "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY TEMP 1"
+                yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY TEMP 1"
+                yield sprintf "execute if entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" x y z (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                // else fill the corner
+                if t = "red" then
+                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+00) y (z+00) (x+11) y (z+11) (if t="green" then "emerald_block" else t+"_wool")
+                if t = "blue" then
+                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+12) y (z+00) (x+22) y (z+11) (if t="green" then "emerald_block" else t+"_wool")
+                if t = "green" then
+                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+00) y (z+12) (x+11) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                if t = "yellow" then
+                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+12) y (z+12) (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
                 // update win conditions (add to team score of row/col/diag)
                 yield sprintf "scoreboard players add $ENTITY %sWinRow%c 1" t s.[1]
                 yield sprintf "scoreboard players add $ENTITY %sWinCol%c 1" t s.[0]
@@ -1039,22 +1051,3 @@ let magic_mirror_funcs = [|
 let magic_mirror_compile() =
     for name,code in magic_mirror_funcs do
         writeFunctionToDisk(name,code)
-
-let choose_spawn_point_functions() = [|
-    // prng -> x 4000, -2000, x10000
-    // prng -> z 4000, -2000, x10000
-    // y 130
-    // tp AS & player there (probably need to wait, currently 100 ticks)
-    // have AS function do like
-    //     execute as AS at @s if block ~ ~ ~ air run teleport ~ ~-1 ~
-    //     execute as AS at @s if block ~ ~ ~ air run function recurse
-    // then    
-    //     execute as AS at @s run setblock ~ ~ ~ obsidian
-    //     execute as @p at AS run spawnpoint ~ ~1 ~
-    //     // don't kill AS yet
-    // build skybox, put players there
-    // wait another 400 ticks for terrain or whatnot
-    // tp players to AS ~ ~1 ~
-    |]
-
-
