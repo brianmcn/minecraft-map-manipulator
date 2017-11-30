@@ -55,6 +55,8 @@ feature ideas:
  - use achievement toasts rather than chat for got-item notifications?
  - arrow/activator-/detector-rail
  - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc
+ - call out 'sniper bingo' (score exactly 5)
+ - 20-no-bingo?
 
 architecture
 
@@ -62,15 +64,15 @@ helper functions
  x PRNG
  x make new card (clone art, setup checker command blocks)
  - finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
- - make new seeded card
+ x make new seeded card
  x make new random card
  - ensure card updated (player holding map at spawn)
  - begin a game (lots of logic here...)
  x check for bingo (5-in-a-row logic)
  - team-got-an-item (announce, add score, check for win/lockout)
  x various 'win' announcements/fireworks/scoreboard
- - worldborder timekeeper logic (compute actual seconds)
- - find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
+ x worldborder timekeeper logic (compute actual seconds)
+ x find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
  - compute lockout goal
 
 blocks
@@ -78,10 +80,10 @@ blocks
  - ?lobby? (or code that write it?)
 
 ongoing per-tick code
- - updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
+ x updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
  - check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
  - check for players with no more maps to give more
- - check for anyone with a trigger home score (to tp back to lobby)
+ x check for anyone with a trigger home score (to tp back to lobby)
  - check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
  - check for 25-mins passed when game in progress
 
