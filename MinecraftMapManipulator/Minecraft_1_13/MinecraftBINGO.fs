@@ -243,12 +243,13 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color =
     let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
     let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
     [|
-        sprintf "setblock %d %d %d air" x y z
+        sprintf "setblock %d %d %d air replace" x y z
         sprintf """setblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
     |]
 
 ///////////////////////////////////////////////////////
 
+let LOBBY = "62 25 63 0 180"
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let game_objectives = [|
     yield "isLockout"
@@ -299,11 +300,21 @@ let game_functions = [|
             toggle lockout
             toggle blind-covered
         *)
+        yield sprintf "teleport @a %s" LOBBY
         yield "effect give @a minecraft:night_vision 99999 1 true"
         yield "fill 60 24 60 70 28 70 air"
         yield "fill 60 24 60 70 24 70 stone"
         yield "fill 60 24 60 70 28 60 stone"
         yield! placeWallSignCmds 61 26 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) true "black"
+        yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) true "black"
+        yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" "team join red" true "black"
+        yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" "team join blue" true "black"
+        yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" "team join green" true "black"
+        yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" "team join yellow" true "black"
+        //
+        yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) true "black"
+        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" "scoreboard players set @e[tag=scoreAS] gameInProgress 1" true "black"
+        yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
         |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
         "scoreboard players add @s ticksSinceGotMap 1"
@@ -320,6 +331,7 @@ let game_functions = [|
         yield "scoreboard players operation Seed Score = @s PlayerSeed"
         yield "scoreboard players operation Z Calc = Seed Score"
         yield "scoreboard players set @a PlayerSeed 0"
+        yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:finish1" NS
         yield sprintf "function %s:cardgen_makecard" NS
         |]
     yield "choose_random_seed",[|
@@ -340,6 +352,7 @@ let game_functions = [|
         yield "scoreboard players operation Seed Score += $ENTITY PRNG_OUT"
         // re-seed the PRNG with that seed number
         yield "scoreboard players operation Z Calc = Seed Score"
+        yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:finish1" NS
         yield sprintf "function %s:cardgen_makecard" NS
         |]
     yield "update_time",[|
@@ -499,7 +512,7 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY hasAnyoneUpdatedMap 0"
         |]
     yield "go_home", [|
-        "teleport @s 62 25 63 0 180"
+        sprintf "teleport @s %s" LOBBY
         "effect give @s minecraft:saturation 10 4 true"  // feed (and probably will heal some too)
         "effect give @s minecraft:night_vision 99999 1 true"
         "$NTICKSLATER(1)"  // TODO game crashes without this?
@@ -507,7 +520,18 @@ let game_functions = [|
         "scoreboard players enable @a home"    // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
     |]
     yield "finish1", [|
-        yield "scoreboard players set $ENTITY gameInProgress 0"
+        "scoreboard players set $ENTITY gameInProgress 0"
+        sprintf "teleport @a %s" LOBBY
+        // TODO "gamemode survival @a"
+        "clear @a"
+        // feed & heal, as people get concerned in lobby about this
+        "effect give @a minecraft:saturation 10 4 true"
+        "effect give @a minecraft:regeneration 10 4 true"
+        // clear player scores
+        "scoreboard players set @a Score 0"
+        "scoreboard players reset Time Score"
+        "scoreboard players reset Minutes Score"
+        "scoreboard players reset Seconds Score"
         |]
     |]
 
@@ -685,8 +709,10 @@ let writeInventoryChangedHandler() =
 }"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
     let functionText = """
-say INVENTORY TODO choose right team
-execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] run function test:red_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=red] run function test:red_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=blue] run function test:blue_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=green] run function test:green_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=yellow] run function test:yellow_inventory_changed
 advancement revoke @s only test:on_inventory_changed"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
 
@@ -759,7 +785,7 @@ let checker_functions = [|
                 let x = 4 + 24*(int s.[0] - int '0' - 1)
                 let y = 30
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
-                yield sprintf "fill %d %d %d %d %d %d red_terracotta replace clay" x y z (x+22) y (z+22)
+                yield sprintf "fill %d %d %d %d %d %d %s replace clay" x y z (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
                 // update win conditions (add to team score of row/col/diag)
                 yield sprintf "scoreboard players add $ENTITY %sWinRow%c 1" t s.[1]
                 yield sprintf "scoreboard players add $ENTITY %sWinCol%c 1" t s.[0]
@@ -871,9 +897,9 @@ let makeItemChests() =
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
     "make_item_chests",[|
-        let x = 60
-        let y = 50
-        let z = 100
+        let x = 61
+        let y = 25
+        let z = 66
         yield sprintf "setblock %d %d %d chest" x y z
         yield sprintf "data merge block %d %d %d %s" x y z anyDifficultyChest
         let x = x + 2
@@ -901,9 +927,6 @@ let cardgen_functions = [|
             yield sprintf "scoreboard objectives add %s dummy" o
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
-        // TODO put this somewhere better, fix
-        yield sprintf "fill 4 30 0 131 30 128 clay"
-        yield sprintf "fill 4 31 0 131 31 128 air"
         |]
     yield "cardgen_choose1", [|
         yield sprintf "scoreboard players set $ENTITY PRNG_MOD 28"
@@ -940,6 +963,8 @@ let cardgen_functions = [|
         yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
+        yield sprintf "fill 4 30 0 131 30 128 clay"
+        yield sprintf "fill 4 31 0 131 31 128 air"
         for _x = 1 to 5 do
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
@@ -974,8 +999,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield "init",[|
             "kill @e[type=!player]"
             "clear @a"
-            "give @a minecraft:filled_map"
-            sprintf "function %s:make_item_chests" NS
+            sprintf"function %s:make_lobby"NS
             sprintf"function %s:prng_init"NS
             sprintf"function %s:checker_init"NS
             sprintf"function %s:cardgen_init"NS
