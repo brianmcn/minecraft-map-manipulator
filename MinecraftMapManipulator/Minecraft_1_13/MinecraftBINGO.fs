@@ -54,7 +54,10 @@ feature ideas:
  - 'blind' covered play
  - use achievement toasts rather than chat for got-item notifications?
  - arrow/activator-/detector-rail
- - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc
+ - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc?
+ - custom configs done as separate data packs? out-of-band changes/extensions?
+    - on-start/on-respawn is one type of simple customization that maybe could be in datapack
+    - lockout, 'blind-covered', other bingo-game mechanics updates are more baked in, hm...
  - call out 'sniper bingo' (score exactly 5)
  - 20-no-bingo?
 
@@ -235,6 +238,17 @@ let prng = [|
 
 ///////////////////////////////////////////////////////
 
+let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color =
+    if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
+    let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
+    let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
+    [|
+        sprintf "setblock %d %d %d air" x y z
+        sprintf """setblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
+    |]
+
+///////////////////////////////////////////////////////
+
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let game_objectives = [|
     yield "isLockout"
@@ -247,6 +261,7 @@ let game_objectives = [|
     yield "ONE_THOUSAND"
     yield "minutes"
     yield "seconds"
+    yield "ticksSinceGotMap"
     for t in TEAMS do
         yield sprintf "%sSpawnX" t   // a number between 1 and 999 that needs to be multipled by 10000
         yield sprintf "%sSpawnY" t   // height of surface there
@@ -265,6 +280,35 @@ let game_functions = [|
         // TODO
         yield "scoreboard players set $ENTITY isLockout 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
+        |]
+    yield "make_lobby", [|
+        (*
+        TODO
+            It's hard to design a lobby without first knowing the interface (set of activation signs) to all the features.  Get features working first.
+        CARDS
+            random card
+            seeded card
+            start game
+        TEAMS
+            join each color
+            everyone on one team
+            random into 2 teams
+            random into 3 teams
+            random into 4 teams
+        MODES
+            toggle lockout
+            toggle blind-covered
+        *)
+        yield "effect give @a minecraft:night_vision 99999 1 true"
+        yield "fill 60 24 60 70 28 70 air"
+        yield "fill 60 24 60 70 24 70 stone"
+        yield "fill 60 24 60 70 28 60 stone"
+        yield! placeWallSignCmds 61 26 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) true "black"
+        |]
+    yield "ensure_maps",[|   // called when player @s currently has no bingo cards
+        "scoreboard players add @s ticksSinceGotMap 1"
+        """execute if entity @s[scores={ticksSinceGotMap=100..}] run give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
+        "scoreboard players set @s[scores={ticksSinceGotMap=100..}] ticksSinceGotMap 0"
         |]
     yield "choose_seed",[|
         yield "scoreboard players set @a PlayerSeed 0"
@@ -455,8 +499,9 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY hasAnyoneUpdatedMap 0"
         |]
     yield "go_home", [|
-        "teleport @s 30 40 30"
-        "effect give @s saturation 10 4 true"  // feed (and probably will heal some too)
+        "teleport @s 62 25 63 0 180"
+        "effect give @s minecraft:saturation 10 4 true"  // feed (and probably will heal some too)
+        "effect give @s minecraft:night_vision 99999 1 true"
         "$NTICKSLATER(1)"  // TODO game crashes without this?
         "scoreboard players set @a home 0"
         "scoreboard players enable @a home"    // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
@@ -920,6 +965,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:update_time" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=1..}] run function %s:set_seed" NS
+            yield sprintf """execute as @a unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
             yield! gameLoopContinuationCheck()
             |],"theloop")
         yield! compile(prng, "prng")
