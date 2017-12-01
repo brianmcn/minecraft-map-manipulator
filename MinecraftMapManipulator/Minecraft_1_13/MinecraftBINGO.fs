@@ -1,5 +1,8 @@
 ﻿module MinecraftBINGO
 
+
+let CHECK_EVERY_TICK = true
+
 (*
 think about skylinerw's "else feature"
 before a 'switch', set a global flag, condition each branch on the flag, and first instruction of each called branch function unsets the flag
@@ -496,6 +499,8 @@ let game_functions = [|
         // TODO once more, re-tp anyone who maybe moved, the cheaters! (wait to kill armor_stands?)
         yield "time set 0"
         yield "effect clear @a"
+        // TODO custom game modes, for now, just always NV
+        yield "effect give @a minecraft:night_vision 99999 1 true"
         yield """tellraw @a ["Start! Go!!!"]"""
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 1.2"
         // enable triggers (for click-in-chat-to-tp-home stuff)
@@ -707,7 +712,8 @@ let writeInventoryChangedHandler() =
     }
 }"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
-    let functionText = """
+    let functionText = 
+        if CHECK_EVERY_TICK then "" else """
 execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=red] run function test:red_inventory_changed
 execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=blue] run function test:blue_inventory_changed
 execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=green] run function test:green_inventory_changed
@@ -742,6 +748,8 @@ let checker_functions = [|
     yield "checker_init", [|
         for o in checker_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
+        |]
+    yield "checker_new_card",[|
         for s in SQUARES do
             for t in TEAMS do
                 yield sprintf "scoreboard players set $ENTITY %sCanGet%s 1" t s
@@ -754,6 +762,12 @@ let checker_functions = [|
             yield sprintf "scoreboard players set $ENTITY %sScore 0" t         
             yield sprintf "scoreboard players set $ENTITY %sGotBingo 0" t         
         yield sprintf "scoreboard players set $ENTITY lockoutGoal 25"
+        |]
+    yield "check_inventory",[| // called as a player @s
+        "execute if entity @s[team=red] run function test:red_inventory_changed"
+        "execute if entity @s[team=blue] run function test:blue_inventory_changed"
+        "execute if entity @s[team=green] run function test:green_inventory_changed"
+        "execute if entity @s[team=yellow] run function test:yellow_inventory_changed"
         |]
     for t in TEAMS do
         yield sprintf "%s_inventory_changed" t, [|        // called when player @s's inventory changed and he is on team t
@@ -988,6 +1002,7 @@ let cardgen_functions = [|
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~-96 ~ ~24"
+        yield sprintf "function %s:checker_new_card" NS
         |]
     |]
 let cardgen_compile() = // TODO this is really full game, naming/factoring...
@@ -1003,6 +1018,8 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=1..}] run function %s:set_seed" NS
             yield sprintf """execute as @a unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
+            if CHECK_EVERY_TICK then
+                yield sprintf "execute if entity $SCORE(gameInProgress=1) as @a run function %s:check_inventory" NS
             yield! gameLoopContinuationCheck()
             |],"theloop")
         yield! compile(prng, "prng")
