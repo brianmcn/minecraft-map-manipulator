@@ -81,24 +81,28 @@ ongoing per-tick code
  x check for players with no more maps to give more
  x check for anyone with a trigger home score (to tp back to lobby)
  - check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
- - check for 25-mins passed when game in progress
+ x check for 25-mins passed when game in progress
 
 setup
  - gamerules
- - scoreboard objectives created
- - constants initialized
+ x scoreboard objectives created
+ x constants initialized
  - ?build lobby?
- - any permanent entities
+ x any permanent entities
 *)
 
 let NS = "test"
 let writeFunctionToDisk(name,code) =
-    //let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\data\functions\test\"""
     let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\"""+NS+"""\functions"""
     let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
     System.IO.File.WriteAllLines(FIL, code)
 
 
+let entity_init() = [|
+    yield "kill @e[tag=scoreAS]"
+    yield "summon armor_stand 4 4 4 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
+    |]
+let SCOREAS_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
 
 let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
 let continuationNum = ref 1
@@ -113,10 +117,10 @@ let gameLoopContinuationCheck() =
 #endif    
         // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
         for f in allCallbackFunctions do
-            yield sprintf "scoreboard players remove @e[tag=callbackAS,scores={%s=1..}] %s 1" f f
+            yield sprintf "scoreboard players remove @e[%s,scores={%s=1..}] %s 1" SCOREAS_TAG f f
         // then call all that need to go now
         for f in allCallbackFunctions do
-            yield sprintf "execute if entity @e[tag=callbackAS,scores={%s=1}] run function %s:%s" f NS f
+            yield sprintf "execute if entity @e[%s,scores={%s=1}] run function %s:%s" SCOREAS_TAG f NS f
     |]
 let compile(f,name) =
     let rec replaceScores(s:string) = 
@@ -125,7 +129,7 @@ let compile(f,name) =
             let j = s.IndexOf(')',i)
             let info = s.Substring(i+7,j-i-7)
             let s = s.Remove(i,j-i+1)
-            let s = s.Insert(i,sprintf "@e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0,scores={%s}]" info)  // todo
+            let s = s.Insert(i,sprintf "@e[%s,scores={%s}]" SCOREAS_TAG info)
             replaceScores(s)
         else
             s
@@ -160,8 +164,8 @@ let compile(f,name) =
                 let nn = newName()
                 allCallbackFunctions.Add(nn)
                 [|
-                    sprintf """execute if entity @e[tag=callbackAS,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" nn nn
-                    sprintf "scoreboard players set @e[tag=callbackAS] %s %d" nn (int info + 1) // +1 because we decr at start of gameloop
+                    sprintf """execute if entity @e[%s,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" SCOREAS_TAG nn nn
+                    sprintf "scoreboard players set @e[%s] %s %d" SCOREAS_TAG nn (int info + 1) // +1 because we decr at start of gameloop
                 |], nn
             else
                 [|s|], null
@@ -169,7 +173,7 @@ let compile(f,name) =
     // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
     let a = a |> Array.map replaceScores
     // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
-    let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0,limit=1]"))   // TODO scoreAS appears in other contexts too, try to find and factor out
+    let a = a |> Array.map (fun s -> s.Replace("$ENTITY",sprintf"@e[%s]"SCOREAS_TAG))
     let r = [|
         let cur = ResizeArray()
         let curName = ref name
@@ -204,11 +208,6 @@ let prng_init() = [|
     yield "scoreboard players set C Calc 12345"
     yield "scoreboard players set Two Calc 2"
     yield "scoreboard players set TwoToSixteen Calc 65536"
-    yield "kill $ENTITY"
-    yield "summon armor_stand 1 1 1 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
-    // TODO move this to right spot
-    yield "kill @e[tag=callbackAS]"
-    yield "summon armor_stand 1 1 1 {Tags:[\"callbackAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
     for cbn in allCallbackFunctions do
         yield sprintf "scoreboard objectives add %s dummy" cbn
     |]
@@ -248,7 +247,7 @@ let game_objectives = [|
     yield "isLockout"
     yield "lockoutGoal"
     yield "numActiveTeams"
-    yield "hasAnyoneUpdatedMap"
+    yield "hasAnyoneUpdated"
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
     yield "SIXTY"
@@ -310,7 +309,7 @@ let game_functions = [|
         yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" "team join yellow" true "black"
         //
         yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) true "black"
-        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" "scoreboard players set @e[tag=scoreAS] gameInProgress 2" true "black"
+        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"scoreboard players set @e[%s] gameInProgress 2"SCOREAS_TAG) true "black"
         yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
         |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
@@ -503,13 +502,12 @@ let game_functions = [|
         yield "worldborder set 20000000"          // 20 million wide is 10 million from spawn
         yield "worldborder add 10000000 10000000" // 10 million per 10 million seconds is one per second
         yield "scoreboard players set $ENTITY gameInProgress 2"
-        yield "scoreboard players set $ENTITY hasAnyoneUpdatedMap 0"
+        yield "scoreboard players set $ENTITY hasAnyoneUpdated 0"
         |]
     yield "go_home", [|
         sprintf "teleport @s %s" LOBBY
         "effect give @s minecraft:saturation 10 4 true"  // feed (and probably will heal some too)
         "effect give @s minecraft:night_vision 99999 1 true"
-//        "$NTICKSLATER(2)"  // TODO game crashes without this?
         "scoreboard players set @a home 0"
         "scoreboard players enable @a home"    // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
     |]
@@ -578,7 +576,7 @@ let map_update_functions = [|
         "teleport @s @e[limit=1,tag=return_loc]"
         //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
         "execute at @s run playsound entity.endermen.teleport ambient @a"
-        "scoreboard players set $ENTITY hasAnyoneUpdatedMap 1"
+        "scoreboard players set $ENTITY hasAnyoneUpdated 1"
         // don't kill a_e_c, as can't kill in same tick as summon, and also its Duration will expire it
         |]
     |]
@@ -696,12 +694,12 @@ let writeInventoryChangedHandler() =
 }"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
     let functionText = 
-        if CHECK_EVERY_TICK then "" else """
-execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=red] run function test:red_inventory_changed
-execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=blue] run function test:blue_inventory_changed
-execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=green] run function test:green_inventory_changed
-execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=yellow] run function test:yellow_inventory_changed
-advancement revoke @s only test:on_inventory_changed"""
+        if CHECK_EVERY_TICK then "" else sprintf """
+execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=red] run function test:red_inventory_changed
+execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=blue] run function test:blue_inventory_changed
+execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=green] run function test:green_inventory_changed
+execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=yellow] run function test:yellow_inventory_changed
+advancement revoke @s only test:on_inventory_changed""" SCOREAS_TAG SCOREAS_TAG SCOREAS_TAG SCOREAS_TAG
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -760,10 +758,7 @@ let checker_functions = [|
                 yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:check%s" t s NS s
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:%s_got_square_%s" NS t s
             yield sprintf """execute if entity $SCORE(gotItems=1) run tellraw @a [{"selector":"@s]"}," got an item! (",{"score":{"name":"@s","objective":"Score"}}," in ",{"score":{"name":"Time","objective":"Score"}},"s)"]"""
-            (* TODO
-            yield U "scoreboard players test hasAnyoneUpdatedMap S 0 0"
-            yield C """tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
-            *)
+            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0) run tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
             yield sprintf "execute if entity $SCORE(gotItems=1) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
@@ -777,7 +772,8 @@ let checker_functions = [|
                 for ot in TEAMS do
                     if ot <> t then
                         yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
-                // TODO actual logic to color the game board square appropriately
+                // TODO test actual logic to color the game board square appropriately
+                // TODO maybe improve 2-player to halves?
                 let x = 4 + 24*(int s.[0] - int '0' - 1)
                 let y = 30
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
@@ -825,17 +821,9 @@ let checker_functions = [|
             yield sprintf "execute if entity $SCORE(isLockout=1,TEMP=0) run function %s:got_a_win_common_logic" NS
             |]
     yield "got_a_win_common_logic", [|
-        (* TODO
         // put time on scoreboard
-        yield "scoreboard players operation Minutes S = Time Score"
-        yield "scoreboard players operation Minutes S /= Sixty Calc"
-        yield "scoreboard players operation Seconds S = Time Score"
-        yield "scoreboard players operation Seconds S %= Sixty Calc"
-        yield "scoreboard players set Minutes Score 0"
-        yield "scoreboard players set Seconds Score 0"
-        yield "scoreboard players operation Minutes Score -= Minutes S"
-        yield "scoreboard players operation Seconds Score -= Seconds S"
-        *)
+        yield "scoreboard players operation Minutes Score = $ENTITY minutes"
+        yield "scoreboard players operation Seconds Score = $ENTITY seconds"
         // option to return to lobby
         yield """tellraw @a ["You can keep playing, or"]"""
         yield """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
@@ -854,17 +842,9 @@ let checker_functions = [|
     |]
     for s in SQUARES do
 (*
-        yield sprintf "check%s" s, [|
-            for i=0 to flatBingoItems.Length-1 do
-                // TODO more efficient binary search?
-                yield sprintf """execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s i flatBingoItems.[i]
-                // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
-                // TODO remove this
-                yield sprintf """execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s i flatBingoItems.[i]
-        |]
-*)
         if flatBingoItems.Length > 128 then
             failwith "bad binary search"
+*)
         yield sprintf "check%s" s, [|
             for i=0 to flatBingoItems.Length-1 do
                 // TODO more efficient binary search?
@@ -1024,15 +1004,16 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile(prng_init(), "prng_init")
         yield makeItemChests()
         yield "init",[|
-            "kill @e[type=!player]"
-            "clear @a"
-            sprintf"function %s:make_lobby"NS
-            sprintf"function %s:prng_init"NS
-            sprintf"function %s:checker_init"NS
-            sprintf"function %s:cardgen_init"NS
-            sprintf"function %s:game_init"NS
-            sprintf"function %s:map_update_init"NS
-            sprintf"function %s:choose_random_seed"NS
+            yield "kill @e[type=!player]"
+            yield "clear @a"
+            yield! entity_init()
+            yield sprintf"function %s:make_lobby"NS
+            yield sprintf"function %s:prng_init"NS
+            yield sprintf"function %s:checker_init"NS
+            yield sprintf"function %s:cardgen_init"NS
+            yield sprintf"function %s:game_init"NS
+            yield sprintf"function %s:map_update_init"NS
+            yield sprintf"function %s:choose_random_seed"NS
             |]
         |]
     printfn "%A" r
