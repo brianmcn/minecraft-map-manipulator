@@ -31,15 +31,7 @@ Things to test in snapshot
     same for 'as'
     but not for 'if/unless'
 
-    TODO "Damage:0s" is maybe no longer the nbt of map0? check it out - is e.g. {tag:{map:3}}
-
     understand data packs, how to turn off e.g. vanilla advancements/crafting
-
-
-almost floating point math...
-/execute store result entity @e[type=item,limit=1] Pos[2] double 0.001 run data get entity @e[type=item,limit=1] Pos[0] 1000.0
-/data get entity @e[type=item,limit=1]
-
 
 
 cut the tutorial for good
@@ -85,7 +77,7 @@ blocks
 
 ongoing per-tick code
  x updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
- - check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
+ x check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
  x check for players with no more maps to give more
  x check for anyone with a trigger home score (to tp back to lobby)
  - check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
@@ -133,7 +125,7 @@ let compile(f,name) =
             let j = s.IndexOf(')',i)
             let info = s.Substring(i+7,j-i-7)
             let s = s.Remove(i,j-i+1)
-            let s = s.Insert(i,sprintf "@e[tag=scoreAS,scores={%s}]" info)
+            let s = s.Insert(i,sprintf "@e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0,scores={%s}]" info)  // todo
             replaceScores(s)
         else
             s
@@ -177,7 +169,7 @@ let compile(f,name) =
     // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
     let a = a |> Array.map replaceScores
     // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
-    let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS,limit=1]"))   // TODO scoreAS appears in other contexts too, try to find and factor out
+    let a = a |> Array.map (fun s -> s.Replace("$ENTITY","@e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0,limit=1]"))   // TODO scoreAS appears in other contexts too, try to find and factor out
     let r = [|
         let cur = ResizeArray()
         let curName = ref name
@@ -213,10 +205,10 @@ let prng_init() = [|
     yield "scoreboard players set Two Calc 2"
     yield "scoreboard players set TwoToSixteen Calc 65536"
     yield "kill $ENTITY"
-    yield "summon armor_stand 1 1 1 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1}"    
+    yield "summon armor_stand 1 1 1 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
     // TODO move this to right spot
     yield "kill @e[tag=callbackAS]"
-    yield "summon armor_stand 1 1 1 {Tags:[\"callbackAS\"],NoGravity:1,Marker:1}"    
+    yield "summon armor_stand 1 1 1 {Tags:[\"callbackAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
     for cbn in allCallbackFunctions do
         yield sprintf "scoreboard objectives add %s dummy" cbn
     |]
@@ -257,12 +249,13 @@ let game_objectives = [|
     yield "lockoutGoal"
     yield "numActiveTeams"
     yield "hasAnyoneUpdatedMap"
-    yield "gameInProgress"
+    yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
     yield "SIXTY"
     yield "ONE_THOUSAND"
     yield "minutes"
     yield "seconds"
+    yield "said25mins"         // did we already display the 25-minute score?
     yield "ticksSinceGotMap"   // time since a player who had no maps in inventory got given a new set of them
     for t in TEAMS do
         yield sprintf "%sSpawnX" t   // a number between 1 and 999 that needs to be multipled by 10000
@@ -306,21 +299,24 @@ let game_functions = [|
         yield "fill 60 24 60 70 28 70 air"
         yield "fill 60 24 60 70 24 70 stone"
         yield "fill 60 24 60 70 28 60 stone"
+        // TODO unbold signs while gameInProgress == 1
         yield! placeWallSignCmds 61 26 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) true "black"
         yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) true "black"
+        // TODO unbold signs while gameInProgress <> 0
+        yield! placeWallSignCmds 63 26 61 "south" "START game" "" "" "" (sprintf"function %s:start1"NS) true "black"
         yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" "team join red" true "black"
         yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" "team join blue" true "black"
         yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" "team join green" true "black"
         yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" "team join yellow" true "black"
         //
         yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) true "black"
-        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" "scoreboard players set @e[tag=scoreAS] gameInProgress 1" true "black"
+        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" "scoreboard players set @e[tag=scoreAS] gameInProgress 2" true "black"
         yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
         |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
         "scoreboard players add @s ticksSinceGotMap 1"
-        """execute if entity @s[scores={ticksSinceGotMap=100..}] run give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
-        "scoreboard players set @s[scores={ticksSinceGotMap=100..}] ticksSinceGotMap 0"
+        """execute if entity @s[scores={ticksSinceGotMap=40..}] run give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
+        "scoreboard players set @s[scores={ticksSinceGotMap=40..}] ticksSinceGotMap 0"
         |]
     yield "choose_seed",[|
         yield "scoreboard players set @a PlayerSeed 0"
@@ -332,7 +328,7 @@ let game_functions = [|
         yield "scoreboard players operation Seed Score = @s PlayerSeed"
         yield "scoreboard players operation Z Calc = Seed Score"
         yield "scoreboard players set @a PlayerSeed 0"
-        yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:finish1" NS
+        yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:finish1" NS
         yield sprintf "function %s:cardgen_makecard" NS
         |]
     yield "choose_random_seed",[|
@@ -353,30 +349,28 @@ let game_functions = [|
         yield "scoreboard players operation Seed Score += $ENTITY PRNG_OUT"
         // re-seed the PRNG with that seed number
         yield "scoreboard players operation Z Calc = Seed Score"
-        yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:finish1" NS
+        yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:finish1" NS
         yield sprintf "function %s:cardgen_makecard" NS
         |]
     yield "update_time",[|
         "execute store result score $ENTITY minutes run worldborder get"
         "scoreboard players operation $ENTITY minutes -= $ENTITY TWENTY_MIL"
         "scoreboard players operation Time Score = $ENTITY minutes"
+        // while 'minutes' objective has 'total seconds', do this
+        """execute if entity $SCORE(said25mins=0,minutes=1500) as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
+        """execute if entity $SCORE(said25mins=0,minutes=1500) run tellraw @a [{"selector":"@p"}," got ",{"score":{"name":"@p","objective":"Score"}}," in 25 mins"]"""
+        """execute if entity $SCORE(said25mins=0,minutes=1500) run scoreboard players set $ENTITY said25mins 1"""
+        // compute actual MM:SS and display
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
         """execute as $ENTITY if entity $SCORE(seconds=0..9) run title @a actionbar ["",{"score":{"name":"@s","objective":"minutes"}},":0",{"score":{"name":"@s","objective":"seconds"}}]"""
         """execute as $ENTITY if entity $SCORE(seconds=10..) run title @a actionbar ["",{"score":{"name":"@s","objective":"minutes"}},":",{"score":{"name":"@s","objective":"seconds"}}]"""
-        // TODO check Time Score = 1500 and do 25 min stuff
         |]
     yield "compute_height", [|
         yield "execute as @e[tag=CurrentSpawn] at @s run teleport @s ~ 230 ~"
         for _i = 1 to 230 do
             yield "execute as @e[tag=CurrentSpawn] at @s if block ~ ~-1 ~ minecraft:air run teleport @s ~ ~-1 ~"
-            (*
-            // TODO remove debugging
-            yield "execute as @e[tag=CurrentSpawn] store result score $ENTITY redSpawnY run data get entity @s Pos[1] 1.0"
-            yield """execute as @e[tag=CurrentSpawn] at @s if block ~ ~-1 ~ minecraft:air run tellraw @a ["saw air: ",{"score":{"name":"@e[tag=scoreAS]","objective":"redSpawnY"}}]"""
-            yield """execute as @e[tag=CurrentSpawn] at @s unless block ~ ~-1 ~ minecraft:air run tellraw @a ["saw non-air"]"""
-            *)
         yield "execute as @e[tag=CurrentSpawn] at @s run setblock ~ ~-1 ~ minecraft:obsidian"
         |]
     for t in TEAMS do
@@ -388,7 +382,6 @@ let game_functions = [|
             yield sprintf "scoreboard players operation $ENTITY %sSpawnZ = $ENTITY PRNG_OUT" t
             yield sprintf "scoreboard players add $ENTITY %sSpawnZ 1" t
             yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["%sSpawn","CurrentSpawn"]}""" t
-            // TODO can I manipulate this same tick as summoned?
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[0] double 10000.0 run scoreboard players get $ENTITY %sSpawnX" t t
             yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double 250.0 run scoreboard players get $ENTITY %sSpawnX" t t
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[2] double 10000.0 run scoreboard players get $ENTITY %sSpawnZ" t t
@@ -433,8 +426,6 @@ let game_functions = [|
         yield sprintf "execute if entity $SCORE(numActiveTeams=1..) run function %s:start2" NS
         |]
     yield "start2", [|
-        // TODO turn off dropped-map checker
-        // TODO cancel out any pending seed choice
         // clear player scores again (in case player joined server after card gen'd)
         yield "scoreboard players operation $ENTITY Seed = Seed Score"  // save seed
         yield "scoreboard players reset * Score"
@@ -450,13 +441,14 @@ let game_functions = [|
         // TODO disable other lobby buttons
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
-        // TODO (old) timer starts running once gameInProgress, probably need another state for 'startup sequence'
+        yield "scoreboard players set $ENTITY said25mins 0"
         // put folks in survival mode, feed & heal, remove all xp, clear inventories
         yield "gamemode survival @a"
         yield "effect give @a minecraft:saturation 10 4 true"
         yield "effect give @a minecraft:regeneration 10 4 true"
         yield "experience set @a 0 points"
         yield "clear @a"
+        yield """give @a minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
         // TODO fill inv with maps to ensure cleared (map updated)
         // give player all the effects
         yield "effect give @a minecraft:slowness 999 127 true"
@@ -465,7 +457,6 @@ let game_functions = [|
         yield "effect give @a minecraft:resistance 999 4 true"
         yield "effect give @a minecraft:water_breathing 999 4 true"
         yield "effect give @a minecraft:invisibility 999 4 true"
-        // TODO yield "effect give @a minecraft:levitation 999 1 true"
         // set time to day so not tp at night
         yield "time set 0"
         // TODO tp all to waiting room
@@ -496,7 +487,7 @@ let game_functions = [|
         yield """tellraw @a ["1"]"""
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"
         yield "$NTICKSLATER(20)"
-        // TODO once more, re-tp anyone who maybe moved, the cheaters! (wait to kill armor_stands?)
+        // TODO once more, re-tp anyone who maybe moved, the cheaters! (wait to kill armor_stands? is this necessary any more? seems like can't move?)
         yield "time set 0"
         yield "effect clear @a"
         // TODO custom game modes, for now, just always NV
@@ -509,10 +500,9 @@ let game_functions = [|
         // option to get back
         yield """tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
         yield """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
-        // TODO turn on dropped-map checker (gameInProgress flag?)
         yield "worldborder set 20000000"          // 20 million wide is 10 million from spawn
         yield "worldborder add 10000000 10000000" // 10 million per 10 million seconds is one per second
-        yield "scoreboard players set $ENTITY gameInProgress 1"
+        yield "scoreboard players set $ENTITY gameInProgress 2"
         yield "scoreboard players set $ENTITY hasAnyoneUpdatedMap 0"
         |]
     yield "go_home", [|
@@ -707,10 +697,10 @@ let writeInventoryChangedHandler() =
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
     let functionText = 
         if CHECK_EVERY_TICK then "" else """
-execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=red] run function test:red_inventory_changed
-execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=blue] run function test:blue_inventory_changed
-execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=green] run function test:green_inventory_changed
-execute if entity @e[tag=scoreAS,scores={gameInProgress=1}] if entity @s[team=yellow] run function test:yellow_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=red] run function test:red_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=blue] run function test:blue_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=green] run function test:green_inventory_changed
+execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] if entity @s[team=yellow] run function test:yellow_inventory_changed
 advancement revoke @s only test:on_inventory_changed"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
 
@@ -861,13 +851,25 @@ let checker_functions = [|
         yield """execute as @a at @s run playsound entity.firework.blast ambient @s ~ ~ ~"""
         yield "$NTICKSLATER(8)"
         yield """execute as @a at @s run playsound entity.firework.twinkle ambient @s ~ ~ ~"""
-
     |]
     for s in SQUARES do
+(*
         yield sprintf "check%s" s, [|
             for i=0 to flatBingoItems.Length-1 do
                 // TODO more efficient binary search?
-                yield sprintf "execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1" s i flatBingoItems.[i]
+                yield sprintf """execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s i flatBingoItems.[i]
+                // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
+                // TODO remove this
+                yield sprintf """execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s i flatBingoItems.[i]
+        |]
+*)
+        if flatBingoItems.Length > 128 then
+            failwith "bad binary search"
+        yield sprintf "check%s" s, [|
+            for i=0 to flatBingoItems.Length-1 do
+                // TODO more efficient binary search?
+                yield sprintf """execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s i flatBingoItems.[i]
+                // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
                 // TODO remove this
                 yield sprintf """execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s i flatBingoItems.[i]
         |]
@@ -978,7 +980,7 @@ let cardgen_functions = [|
             |]
     yield "cardgen_makecard", [|
         yield sprintf "kill @e[tag=sky]"
-        yield sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1}"""
+        yield sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1,Invulnerable:1,Invisible:1}"""
         yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
@@ -1009,13 +1011,13 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         for name,code in map_update_functions do
             yield! compile(code, name)
         yield! compile([|
-            yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:update_time" NS
-            yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:map_update_tick" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
-            yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=1..}] run function %s:set_seed" NS
-            yield sprintf """execute as @a unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=0) as @p[scores={PlayerSeed=1..}] run function %s:set_seed" NS
+            yield sprintf """execute unless entity $SCORE(gameInProgress=1) as @a unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
             if CHECK_EVERY_TICK then
-                yield sprintf "execute if entity $SCORE(gameInProgress=1) as @a run function %s:check_inventory" NS
+                yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
             yield! gameLoopContinuationCheck()
             |],"theloop")
         yield! compile(prng, "prng")

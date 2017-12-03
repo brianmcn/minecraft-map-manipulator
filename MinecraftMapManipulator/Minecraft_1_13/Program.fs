@@ -1,6 +1,6 @@
 ﻿
 
-let profileThis(suffix,pre,cmds,post) =
+let profileThis(suffix,outer,inner,pre,cmds,post) =
     let profilerFunc = ("prof-"+suffix,[|
         yield "gamerule maxCommandChainLength 999999"
         yield "gamerule commandBlockOutput false"
@@ -18,7 +18,7 @@ let profileThis(suffix,pre,cmds,post) =
         yield "worldborder add 1000000 1000" 
         
         yield! pre
-        for _i = 1 to 100 do
+        for _i = 1 to outer do
             yield sprintf "function %s:code-%s" "test" suffix
         yield! post
 
@@ -30,7 +30,7 @@ let profileThis(suffix,pre,cmds,post) =
         yield "kill @e[name=Timer]"
         |])
     let dummyFunc = ("code-"+suffix,[|
-        for _i = 1 to 1000 do 
+        for _i = 1 to inner do 
             yield! cmds 
         |])
     for name,code in [| profilerFunc; dummyFunc |] do
@@ -40,8 +40,16 @@ let profileThis(suffix,pre,cmds,post) =
 
 [<EntryPoint>]
 let main argv = 
-    //profileThis("p",[],["scoreboard players add @p A 1"],[])
-    //profileThis("x",[],["scoreboard players add x A 1"],[])
+    profileThis("p",100,1000,[],["scoreboard players add @p A 1"],[])
+    profileThis("x",100,1000,[],["scoreboard players add x A 1"],[])
+    profileThis("lu",100,1000,[],["execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] run scoreboard players add x A 1"],[])
+    profileThis("lud",100,1000,[],["execute if entity @e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0,scores={gameInProgress=2}] run scoreboard players add x A 1"],[])
+    profileThis("luf",100,1000,[],["execute if score FOO A <= FOO A run scoreboard players add x A 1"],[])
+
+    profileThis("ix",2,500,[],["""execute store success score @p FOO run clear @p diamond 1"""],[])
+    profileThis("ic",2,500,[],["""execute if entity @p[nbt={Inventory:[{id:"minecraft:diamond"}]}] store success score @p FOO run clear @p diamond 1"""],[])
+    profileThis("ic",2,500,[],["""execute if entity @p[nbt={Inventory:[{id:"minecraft:diamond"}]}] store success score @p FOO run clear @p diamond 1"""],[])
+
 
     //printfn "hello world"
     //MinecraftBINGO.test()
