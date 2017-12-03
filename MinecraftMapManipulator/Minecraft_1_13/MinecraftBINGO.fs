@@ -263,7 +263,7 @@ let game_objectives = [|
     yield "ONE_THOUSAND"
     yield "minutes"
     yield "seconds"
-    yield "ticksSinceGotMap"
+    yield "ticksSinceGotMap"   // time since a player who had no maps in inventory got given a new set of them
     for t in TEAMS do
         yield sprintf "%sSpawnX" t   // a number between 1 and 999 that needs to be multipled by 10000
         yield sprintf "%sSpawnY" t   // height of surface there
@@ -541,62 +541,59 @@ let game_functions = [|
 
 ///////////////////////////////////////////////////////
 
-//TODO "Damage:0s" is maybe no longer the nbt of map0? check it out
-let find_player_who_dropped_map =
-    [|
-    "scoreboard players set $ENTITY SomeoneIsMapUpdating 0"
-    "execute as @a[tag=playerThatIsMapUpdating] run scoreboard players set $ENTITY SomeoneIsMapUpdating 1"
-    // if someone already updating, kill all droppedMap entities
-    "execute if entity $SCORE(SomeoneIsMapUpdating=1) run kill @e[type=Item,nbt={Item:{id:\"minecraft:filled_map\",Damage:0s}}]"
-    // if no one updating yet, do the main work
-    "execute if entity $SCORE(SomeoneIsMapUpdating=0) run function TODO:find_player_who_dropped_map_core"
-    |]
-let find_player_who_dropped_map_core =
-    [|
-    // tag all players near dropped maps as wanting to tp
-    "execute at @e[type=Item,nbt={Item:{id:\"minecraft:filled_map\",Damage:0s}}] run scoreboard players tag @a[r=5] add playerThatWantsToUpdate"
-    //TODO verify "at @e" will loop, that is, perform the chained command for each entity
-    // choose a random one to be the tp'er
-    "scoreboard players tag @r[tag=playerThatWantsToUpdate] add playerThatIsMapUpdating"
-    // clear the 'wanting' flags
-    "scoreboard players tag @a[tag=playerThatWantsToUpdate] remove playerThatWantsToUpdate"
-    // kill all droppedMap entities
-    "kill @e[type=Item,nbt={Item:{id:\"minecraft:filled_map\",Damage:0s}}]"
-    // start the TP sequence for the chosen guy
-    "execute as @p[tag=playerThatIsMapUpdating] at @s run function player_updates_map"
-    |]
-// TODO
 let MAP_UPDATE_ROOM = "62 10 72"
-let player_updates_map =  // called as and at that player
-    [|
-    "summon area_effect_cloud ~ ~ ~ {Tags:[\"whereToTpBackTo\"],Duration:1000}"  // summon now, need to wait a tick to TP
-    "$NTICKSLATER(1)"
-    "$CONTINUEASAT(@p[tag=playerThatIsMapUpdating])"
-    "setworldspawn ~ ~ ~"
-    """tellraw @a [{"selector":"@p[tag=playerThatIsMapUpdating]"}," is updating the BINGO map"]"""
-    "entitydata @e[type=!Player,r=62] {PersistenceRequired:1}"  // preserve mobs
-    "tp @e[tag=whereToTpBackTo] @p[tag=playerThatIsMapUpdating]"  // a tick after summoning, tp marker to player, to preserve facing direction
-    sprintf "tp @s %s 180 0" MAP_UPDATE_ROOM
-    "particle portal ~ ~ ~ 3 2 3 1 99 @s"
-    "playsound entity.endermen.teleport ambient @a"
-    "$NTICKSLATER(30)" // TODO adjust timing?
-    "tp @p[tag=playerThatIsMapUpdating] @e[tag=whereToTpBackTo]"
-    "$CONTINUEASAT(@p[tag=playerThatIsMapUpdating])"
-    "entitydata @e[type=!Player,r=72] {PersistenceRequired:0}"  // don't leak mobs
-    "particle portal ~ ~ ~ 3 2 3 1 99 @s"
-    "playsound entity.endermen.teleport ambient @a"
-    sprintf "setworldspawn %s" MAP_UPDATE_ROOM
-    "scoreboard players tag @p[tag=playerThatIsMapUpdating] remove playerThatIsMapUpdating"
-    //TODO keep this feature? "scoreboard players set hasAnyoneUpdatedMap S 1"
-    "kill @e[tag=whereToTpBackTo]"
+let map_update_objectives = [|
+    yield "ticksLeftMU"        // remaining time left for a player who dropped maps to wait in map-update room for card colors to have time to redraw
+    yield sprintf "ReturnX"
+    yield sprintf "ReturnY"
+    yield sprintf "ReturnZ"
+    yield sprintf "ReturnRotX"
+    yield sprintf "ReturnRotY"
     |]
-let test() = 
-    //let r = compile(find_player_who_dropped_map,"find_player_who_dropped_map")
-    let r = compile(player_updates_map,"player_updates_map")
-    printfn "%A" r
-    printfn ""
-    printfn "callbacks: %A" (allCallbackFunctions.ToArray())
-    printfn "gameLoopContinuationCheck: %A" (gameLoopContinuationCheck())
+let map_update_functions = [| 
+    yield "map_update_init", [|
+        for o in map_update_objectives do
+            yield sprintf "scoreboard objectives add %s dummy" o
+        |]
+    yield "map_update_tick", [| // called every tick
+        // find player who dropped map
+        sprintf """execute unless entity @a[scores={ticksLeftMU=1..}] at @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}}] as @p[distance=..5] run function %s:warp_home""" NS
+        "kill @e[type=item,nbt={Item:{id:\"minecraft:filled_map\",tag:{map:0}}}]"  // TODO is this super expensive?
+        // run progress for anyone in the update room
+        sprintf "execute as @a[scores={ticksLeftMU=1}] run function %s:warp_back" NS
+        "scoreboard players remove @a[scores={ticksLeftMU=1..}] ticksLeftMU 1"
+        |]
+    yield "warp_home", [|
+        "scoreboard players set @s ticksLeftMU 30"  // TODO calibrate best value
+        "execute store result score @s ReturnX run data get entity @s Pos[0] 128.0"   // doubles
+        "execute store result score @s ReturnY run data get entity @s Pos[1] 128.0"
+        "execute store result score @s ReturnZ run data get entity @s Pos[2] 128.0"
+        "execute store result score @s ReturnRotX run data get entity @s Rotation[0] 8.0"   // floats
+        "execute store result score @s ReturnRotY run data get entity @s Rotation[1] 8.0"
+        """tellraw @a [{"selector":"@s"}," is updating the BINGO map"]"""
+        //"data merge entity @e[type=!player,distance=..160] {PersistenceRequired:1}"  // preserve mobs
+        "execute as @e[type=!player,distance=..160] run data merge entity @s {PersistenceRequired:1}"  // preserve mobs
+        // TODO ever a reason to un-persist?
+        sprintf "tp @s %s 180 0" MAP_UPDATE_ROOM
+        //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
+        "execute at @s run playsound entity.endermen.teleport ambient @a"
+        |]
+    yield "warp_back", [|
+        """summon area_effect_cloud 4 4 4 {Duration:1,Tags:["return_loc"],Rotation:[20f,20f]}""" // needs some rotation to be able to store to it later
+        "execute store result entity @e[limit=1,tag=return_loc] Pos[0] double 0.0078125 run scoreboard players get @s ReturnX"
+        "execute store result entity @e[limit=1,tag=return_loc] Pos[1] double 0.0078125 run scoreboard players get @s ReturnY"
+        "execute store result entity @e[limit=1,tag=return_loc] Pos[2] double 0.0078125 run scoreboard players get @s ReturnZ"
+        "execute store result entity @e[limit=1,tag=return_loc] Rotation[0] float 0.125 run scoreboard players get @s ReturnRotX"
+        "execute store result entity @e[limit=1,tag=return_loc] Rotation[1] float 0.125 run scoreboard players get @s ReturnRotY"
+        "teleport @s @e[limit=1,tag=return_loc]"
+        //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
+        "execute at @s run playsound entity.endermen.teleport ambient @a"
+        "scoreboard players set $ENTITY hasAnyoneUpdatedMap 1"
+        // don't kill a_e_c, as can't kill in same tick as summon, and also its Duration will expire it
+        |]
+    |]
+
+
 let ensureDirOfFile(filename) = 
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore
 let writeFunctionsToResourcePack(packName, funcs) =
@@ -619,10 +616,6 @@ let writeFunctionsToResourcePack(packName, funcs) =
         let fn = System.IO.Path.Combine(FUNCTIONSDIR, name+".mcfunction")
         ensureDirOfFile(fn)
         System.IO.File.WriteAllLines(fn, code)
-let testWrite() = 
-    //let r = compile(find_player_who_dropped_map,"find_player_who_dropped_map")
-    let r = compile(player_updates_map,"player_updates_map")
-    writeFunctionsToResourcePack("BINGO", r)
         
 ////////////////////////////////////////////////
 
@@ -1013,8 +1006,11 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield! compile(code, name)
         for name,code in game_functions do
             yield! compile(code, name)
+        for name,code in map_update_functions do
+            yield! compile(code, name)
         yield! compile([|
             yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:update_time" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=1) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=1..}] run function %s:set_seed" NS
             yield sprintf """execute as @a unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
@@ -1033,38 +1029,10 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             sprintf"function %s:checker_init"NS
             sprintf"function %s:cardgen_init"NS
             sprintf"function %s:game_init"NS
+            sprintf"function %s:map_update_init"NS
             sprintf"function %s:choose_random_seed"NS
             |]
         |]
     printfn "%A" r
     for name,code in r do
-        writeFunctionToDisk(name,code)
-
-let magic_mirror_funcs = [|
-    "magic1", [|
-        "summon minecraft:armor_stand 10 32 10 {Rotation:[20f,20f]}" // needs some rotation to be able to store to it later
-        "scoreboard objectives add X dummy"
-        "scoreboard objectives add Y dummy"
-        "scoreboard objectives add Z dummy"
-        "scoreboard objectives add RotX dummy"
-        "scoreboard objectives add RotY dummy"
-        "execute store result score @e[type=armor_stand,limit=1] X run data get entity @p Pos[0] 128.0"
-        "execute store result score @e[type=armor_stand,limit=1] Y run data get entity @p Pos[1] 128.0"
-        "execute store result score @e[type=armor_stand,limit=1] Z run data get entity @p Pos[2] 128.0"
-        "execute store result score @e[type=armor_stand,limit=1] RotX run data get entity @p Rotation[0] 8.0"
-        "execute store result score @e[type=armor_stand,limit=1] RotY run data get entity @p Rotation[1] 8.0"
-        "tp @p 10 31 10" 
-        |]
-    "magic2", [|
-        "execute as @e[type=armor_stand,limit=1] store result entity @s Pos[0] double 0.0078125 run scoreboard players get @s X"
-        "execute as @e[type=armor_stand,limit=1] store result entity @s Pos[1] double 0.0078125 run scoreboard players get @s Y"
-        "execute as @e[type=armor_stand,limit=1] store result entity @s Pos[2] double 0.0078125 run scoreboard players get @s Z"
-        "execute as @e[type=armor_stand,limit=1] store result entity @s Rotation[0] float 0.125 run scoreboard players get @s RotX"
-        "execute as @e[type=armor_stand,limit=1] store result entity @s Rotation[1] float 0.125 run scoreboard players get @s RotY"
-        "teleport @p @e[type=armor_stand,limit=1]"
-        "kill @e[type=armor_stand]"  // TODO tag it
-        |]
-    |]
-let magic_mirror_compile() =
-    for name,code in magic_mirror_funcs do
         writeFunctionToDisk(name,code)
