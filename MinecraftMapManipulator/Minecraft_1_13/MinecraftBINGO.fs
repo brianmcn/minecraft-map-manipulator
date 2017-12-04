@@ -10,6 +10,15 @@ it's a transaction, yes? safe?
 annoying that caller and callee have to coordinate, but seems simple and workable?
 
 
+think about survival waypoints idea...
+wubbi https://www.youtube.com/watch?v=WCJRTd7Otq8 has a nice one
+basic idea:
+ - have a room with lots of clickable signs (go to waypoint N)
+ - player can add own signs for names if desired
+ - spawn egg or whatnot to place new waypoint (crafting/found materials?), will have AS with particles or whatnot, will store coords in scoreboard in fixed (non-entity?) slots (WayX01, WayY01, ... WayX99...)
+ - when player stays in particles for more than 3s or whatever, brings to tp room
+ - could 'delete' waypoint by having e.g. WayYnn==-1 to mark as 'unused', and clickable sign to 'forget' it? hm, but how delete the entity there... i guess it could delete self after check if exist based on scores
+
 
 
 https://minecraft.gamepedia.com/1.13/Flattening
@@ -62,7 +71,7 @@ helper functions
  - finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
  x make new seeded card
  x make new random card
- - ensure card updated (player holding map at spawn)
+ x ensure card updated (player holding map at spawn)
  - begin a game (lots of logic here...)
  x check for bingo (5-in-a-row logic)
  - team-got-an-item (announce, add score, check for win/lockout)
@@ -252,6 +261,7 @@ let game_objectives = [|
     yield "TWENTY_MIL"
     yield "SIXTY"
     yield "ONE_THOUSAND"
+    yield "Seed"
     yield "minutes"
     yield "seconds"
     yield "said25mins"         // did we already display the 25-minute score?
@@ -303,6 +313,7 @@ let game_functions = [|
         yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) true "black"
         // TODO unbold signs while gameInProgress <> 0
         yield! placeWallSignCmds 63 26 61 "south" "START game" "" "" "" (sprintf"function %s:start1"NS) true "black"
+        // TODO sign must also set score to 0
         yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" "team join red" true "black"
         yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" "team join blue" true "black"
         yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" "team join green" true "black"
@@ -405,16 +416,16 @@ let game_functions = [|
                 yield sprintf "execute if entity @a[team=blue] run function %s:do_blue_spawn" NS
                 yield sprintf "execute if entity @a[team=green] unless entity @a[team=blue] run function %s:do_green_spawn" NS
                 yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=blue] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
-                yield sprintf "execute unless entity @a[team=blue] unless entity @a[team=green] unless entity @a[team=yellow] run function %s:start3" NS
+                yield sprintf "execute unless entity @a[team=blue] unless entity @a[team=green] unless entity @a[team=yellow] run function %s:start4" NS
             elif t = "blue" then
                 yield sprintf "execute if entity @a[team=green] run function %s:do_green_spawn" NS
                 yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
-                yield sprintf "execute unless entity @a[team=green] unless entity @a[team=yellow] run function %s:start3" NS
+                yield sprintf "execute unless entity @a[team=green] unless entity @a[team=yellow] run function %s:start4" NS
             elif t = "green" then
                 yield sprintf "execute if entity @a[team=yellow] run function %s:do_yellow_spawn" NS
-                yield sprintf "execute unless entity @a[team=yellow] run function %s:start3" NS
+                yield sprintf "execute unless entity @a[team=yellow] run function %s:start4" NS
             elif t = "yellow" then
-                yield sprintf "function %s:start3" NS
+                yield sprintf "function %s:start4" NS
             |]
     yield "start1", [|
         // ensure folks have joined teams
@@ -447,6 +458,16 @@ let game_functions = [|
         yield "effect give @a minecraft:regeneration 10 4 true"
         yield "experience set @a 0 points"
         yield "clear @a"
+        yield sprintf "execute as @r run function %s:ensure_card_updated" NS
+        |]
+    yield "ensure_card_updated", [|  // called on one player with a cleared inventory
+        yield sprintf "teleport @s %s" LOBBY
+        yield """give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 640"""
+        yield "$NTICKSLATER(20)"
+        yield "clear @a"  // Note: no longer @s since NTICKSLATER
+        yield sprintf "function %s:start3" NS
+        |]
+    yield "start3", [|
         yield """give @a minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
         // TODO fill inv with maps to ensure cleared (map updated)
         // give player all the effects
@@ -466,7 +487,7 @@ let game_functions = [|
         yield sprintf "execute if entity @a[team=green] unless entity @a[team=red] unless entity @a[team=blue] run function %s:do_green_spawn" NS
         yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=red] unless entity @a[team=blue] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
         |]
-    yield "start3", [|
+    yield "start4", [|
         yield "gamemode creative @a"
         // feed & heal again
         yield "effect give @a saturation 10 4 true"
@@ -510,7 +531,7 @@ let game_functions = [|
         "effect give @s minecraft:night_vision 99999 1 true"
         "scoreboard players set @a home 0"
         "scoreboard players enable @a home"    // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
-    |]
+        |]
     yield "finish1", [|
         "scoreboard players set $ENTITY gameInProgress 0"
         sprintf "teleport @a %s" LOBBY
