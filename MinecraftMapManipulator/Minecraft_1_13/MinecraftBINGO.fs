@@ -51,8 +51,8 @@ bugs & ideas from top of old file
 
 
 feature ideas:
- - beacon at spawn
- - randomly put people on 1/2/3/4 teams
+ x beacon at spawn
+ x randomly put people on 1/2/3/4 teams
  - 'blind' covered play
  - use achievement toasts rather than chat for got-item notifications?
  - arrow/activator-/detector-rail
@@ -322,7 +322,45 @@ let game_functions = [|
         yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) true "black"
         yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) true "black"
         yield! placeWallSignCmds 63 27 61 "south" "toggle" "LOCKOUT" "" "" (sprintf"function %s:toggle_lockout"NS) true "black"
+        //
+        yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) true "black"
+        yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) true "black"
+        yield! placeWallSignCmds 67 27 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) true "black"
+        yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) true "black"
+        //
         yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
+        |]
+    yield "assign_1_team",[|
+        yield "team join red @a"
+        yield "scoreboard players add @a Score 0"
+        yield sprintf "function %s:compute_lockout_goal" NS
+        |]
+    yield "assign_2_team",[|
+        yield "team leave @a"
+        for _i = 1 to 20 do
+            yield "team join red @r[team=]"
+            yield "team join blue @r[team=]"
+        yield "scoreboard players add @a Score 0"
+        yield sprintf "function %s:compute_lockout_goal" NS
+        |]
+    yield "assign_3_team",[|
+        yield "team leave @a"
+        for _i = 1 to 13 do
+            yield "team join red @r[team=]"
+            yield "team join blue @r[team=]"
+            yield "team join green @r[team=]"
+        yield "scoreboard players add @a Score 0"
+        yield sprintf "function %s:compute_lockout_goal" NS
+        |]
+    yield "assign_4_team",[|
+        yield "team leave @a"
+        for _i = 1 to 10 do
+            yield "team join red @r[team=]"
+            yield "team join blue @r[team=]"
+            yield "team join green @r[team=]"
+            yield "team join yellow @r[team=]"
+        yield "scoreboard players add @a Score 0"
+        yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "fake_start",[| // for testing; start sequence without the spawn points
         "scoreboard players set $ENTITY fakeStart 1"
@@ -426,12 +464,16 @@ let game_functions = [|
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             // figure out Y height of surface
             yield sprintf "function %s:compute_height" NS
-            yield sprintf "tag @e[tag=CurrentSpawn] remove CurrentSpawn"
             yield sprintf "execute as @e[tag=%sSpawn] store result score $ENTITY %sSpawnY run data get entity @s Pos[1] 1.0" t t
             // give people time in skybox while terrain gens, then put them on ground and set spawns
             yield "$NTICKSLATER(400)"
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run spawnpoint @a[team=%s] ~0.5 ~ ~0.5" t t
+            // place beacon to mark spawn
+            yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run fill ~-2 ~0 ~-2 ~2 ~3 ~2 minecraft:barrier hollow"
+            yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run fill ~-1 ~1 ~-1 ~1 ~1 ~1 minecraft:diamond_block"
+            yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run setblock ~ ~2 ~ minecraft:beacon"
+            yield sprintf "tag @e[tag=CurrentSpawn] remove CurrentSpawn"  // TODO only needed if I keep AS around longer
             yield sprintf "kill @e[tag=%sSpawn]" t
             // call next continuation
             if t = "red" then
