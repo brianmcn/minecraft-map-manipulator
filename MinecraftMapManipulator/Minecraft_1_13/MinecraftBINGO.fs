@@ -44,7 +44,7 @@ Things to test in snapshot
 
 
 cut the tutorial for good
-ignore lockout, custom modes, and item chests in initial version
+ignore custom modes, and item chests in initial version
 bug: https://www.reddit.com/r/minecraftbingo/comments/74sd7m/broken_seed_spawn_in_a_waterfall_and_die_in_a_wall/
 bugs & ideas from top of old file
 
@@ -78,7 +78,7 @@ helper functions
  x various 'win' announcements/fireworks/scoreboard
  x worldborder timekeeper logic (compute actual seconds)
  x find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
- - compute lockout goal
+ x compute lockout goal
 
 blocks
  x art assets
@@ -321,16 +321,24 @@ let game_functions = [|
         //
         yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) true "black"
         yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) true "black"
+        yield! placeWallSignCmds 63 27 61 "south" "toggle" "LOCKOUT" "" "" (sprintf"function %s:toggle_lockout"NS) true "black"
         yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
         |]
     yield "fake_start",[| // for testing; start sequence without the spawn points
         "scoreboard players set $ENTITY fakeStart 1"
         sprintf "function %s:start1" NS
         |]
+    yield "toggle_lockout",[|
+        "scoreboard players operation $ENTITY TEMP = $ENTITY isLockout"
+        "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY isLockout 0"
+        "execute unless entity $SCORE(TEMP=1) run scoreboard players set $ENTITY isLockout 1"
+        sprintf "function %s:compute_lockout_goal" NS
+        |]
     for t in TEAMS do
         yield sprintf"%s_team_join"t, [|
             sprintf "team join %s" t
             "scoreboard players add @s Score 0"
+            sprintf "function %s:compute_lockout_goal" NS
             |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
         "scoreboard players add @s ticksSinceGotMap 1"
@@ -374,6 +382,7 @@ let game_functions = [|
         yield sprintf "execute unless entity $SCORE(gameInProgress=2) run function %s:reset_player_scores" NS
         yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:finish1" NS
         yield sprintf "function %s:cardgen_makecard" NS
+        yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "update_time",[|
         "execute store result score $ENTITY minutes run worldborder get"
@@ -440,11 +449,14 @@ let game_functions = [|
             elif t = "yellow" then
                 yield sprintf "function %s:start4" NS
             |]
-    yield "start1", [|
-        // ensure folks have joined teams
+    yield "compute_active_teams", [|
         yield "scoreboard players set $ENTITY numActiveTeams 0"
         for t in TEAMS do
             yield sprintf "execute if entity @a[team=%s] run scoreboard players add $ENTITY numActiveTeams 1" t
+        |]
+    yield "start1", [|
+        // ensure folks have joined teams
+        yield sprintf "function %s:compute_active_teams" NS
         yield """execute if entity $SCORE(numActiveTeams=0) run tellraw @a ["No one has joined a team - join a team color to play!"]"""
         yield sprintf "execute if entity $SCORE(numActiveTeams=1..) run function %s:start2" NS
         |]
@@ -455,15 +467,20 @@ let game_functions = [|
         for t in TEAMS do
             yield sprintf "scoreboard players set @a[team=%s] Score 0" t
         |]
-    yield "start2", [|
-        // clear player scores again (in case player joined server after card gen'd)
-        yield sprintf "function %s:reset_player_scores" NS
+    yield "compute_lockout_goal", [|
         // set up lockout goal if lockout mode selected (teamCount 2/3/4 -> goal 13/9/7)
+        yield sprintf "function %s:compute_active_teams" NS
         yield "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY lockoutGoal 25"
         yield "execute if entity $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY lockoutGoal 13"
         yield "execute if entity $SCORE(numActiveTeams=3) run scoreboard players set $ENTITY lockoutGoal 9"
         yield "execute if entity $SCORE(numActiveTeams=4) run scoreboard players set $ENTITY lockoutGoal 7"
         yield "execute if entity $SCORE(isLockout=1) run scoreboard players operation LockoutGoal Score = $ENTITY lockoutGoal"
+        yield "execute unless entity $SCORE(isLockout=1) run scoreboard players reset LockoutGoal Score"
+        |]
+    yield "start2", [|
+        // clear player scores again (in case player joined server after card gen'd)
+        yield sprintf "function %s:reset_player_scores" NS
+        yield sprintf "function %s:compute_lockout_goal" NS
         // TODO disable other lobby buttons
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
@@ -473,6 +490,7 @@ let game_functions = [|
         yield "effect give @a minecraft:saturation 10 4 true"
         yield "effect give @a minecraft:regeneration 10 4 true"
         yield "experience set @a 0 points"
+        yield "experience set @a 0 levels"
         yield "clear @a"
         yield sprintf "execute as @r run function %s:ensure_card_updated" NS
         |]
@@ -485,7 +503,6 @@ let game_functions = [|
         |]
     yield "start3", [|
         yield """give @a minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
-        // TODO fill inv with maps to ensure cleared (map updated)
         // give player all the effects
         yield "effect give @a minecraft:slowness 999 127 true"
         yield "effect give @a minecraft:mining_fatigue 999 7 true"
@@ -527,7 +544,7 @@ let game_functions = [|
         yield """tellraw @a ["1"]"""
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"
         yield "$NTICKSLATER(20)"
-        // TODO once more, re-tp anyone who maybe moved, the cheaters! (wait to kill armor_stands? is this necessary any more? seems like can't move?)
+        // TODO once more, re-tp anyone who maybe moved, the cheaters! (wait to kill armor_stands?)
         yield sprintf "function %s:start5" NS
         |]
     yield "start5", [|
@@ -983,7 +1000,7 @@ let cardgen_functions = [|
         // ensure exactly one call
         yield sprintf "scoreboard players set $ENTITY CALL 1"
         for i = 0 to bingoItems.Length-1 do
-            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cardgen_bin%02d" i NS i  // TODO binary dispatch?
+            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cardgen_bin%02d" i NS i
     |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cardgen_bin%02d" i, [|
