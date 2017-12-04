@@ -253,6 +253,7 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color =
 let LOBBY = "62 25 63 0 180"
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let game_objectives = [|
+    yield "fakeStart"
     yield "isLockout"
     yield "lockoutGoal"
     yield "numActiveTeams"
@@ -313,16 +314,24 @@ let game_functions = [|
         yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) true "black"
         // TODO unbold signs while gameInProgress <> 0
         yield! placeWallSignCmds 63 26 61 "south" "START game" "" "" "" (sprintf"function %s:start1"NS) true "black"
-        // TODO sign must also set score to 0
-        yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" "team join red" true "black"
-        yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" "team join blue" true "black"
-        yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" "team join green" true "black"
-        yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" "team join yellow" true "black"
+        yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" (sprintf "function %s:red_team_join" NS) true "black"
+        yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" (sprintf "function %s:blue_team_join" NS) true "black"
+        yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" (sprintf "function %s:green_team_join" NS) true "black"
+        yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" (sprintf "function %s:yellow_team_join" NS) true "black"
         //
         yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) true "black"
-        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"scoreboard players set @e[%s] gameInProgress 2"SCOREAS_TAG) true "black"
+        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) true "black"
         yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
         |]
+    yield "fake_start",[| // for testing; start sequence without the spawn points
+        "scoreboard players set $ENTITY fakeStart 1"
+        sprintf "function %s:start1" NS
+        |]
+    for t in TEAMS do
+        yield sprintf"%s_team_join"t, [|
+            sprintf "team join %s" t
+            "scoreboard players add @s Score 0"
+            |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
         "scoreboard players add @s ticksSinceGotMap 1"
         """execute if entity @s[scores={ticksSinceGotMap=40..}] run give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
@@ -338,8 +347,7 @@ let game_functions = [|
         yield "scoreboard players operation Seed Score = @s PlayerSeed"
         yield "scoreboard players operation Z Calc = Seed Score"
         yield "scoreboard players set @a PlayerSeed 0"
-        yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:finish1" NS
-        yield sprintf "function %s:cardgen_makecard" NS
+        yield sprintf "function %s:new_card_coda" NS
         |]
     yield "choose_random_seed",[|
         // interject actual randomness, rather than deterministic pseudo
@@ -359,6 +367,11 @@ let game_functions = [|
         yield "scoreboard players operation Seed Score += $ENTITY PRNG_OUT"
         // re-seed the PRNG with that seed number
         yield "scoreboard players operation Z Calc = Seed Score"
+        yield sprintf "function %s:new_card_coda" NS
+        |]
+    yield "new_card_coda",[|
+        yield "scoreboard players set $ENTITY fakeStart 0"
+        yield sprintf "execute unless entity $SCORE(gameInProgress=2) run function %s:reset_player_scores" NS
         yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:finish1" NS
         yield sprintf "function %s:cardgen_makecard" NS
         |]
@@ -435,13 +448,16 @@ let game_functions = [|
         yield """execute if entity $SCORE(numActiveTeams=0) run tellraw @a ["No one has joined a team - join a team color to play!"]"""
         yield sprintf "execute if entity $SCORE(numActiveTeams=1..) run function %s:start2" NS
         |]
-    yield "start2", [|
-        // clear player scores again (in case player joined server after card gen'd)
+    yield "reset_player_scores",[|
         yield "scoreboard players operation $ENTITY Seed = Seed Score"  // save seed
         yield "scoreboard players reset * Score"
         yield "scoreboard players operation Seed Score = $ENTITY Seed"  // restore seed
         for t in TEAMS do
             yield sprintf "scoreboard players set @a[team=%s] Score 0" t
+        |]
+    yield "start2", [|
+        // clear player scores again (in case player joined server after card gen'd)
+        yield sprintf "function %s:reset_player_scores" NS
         // set up lockout goal if lockout mode selected (teamCount 2/3/4 -> goal 13/9/7)
         yield "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY lockoutGoal 25"
         yield "execute if entity $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY lockoutGoal 13"
@@ -479,6 +495,10 @@ let game_functions = [|
         yield "effect give @a minecraft:invisibility 999 4 true"
         // set time to day so not tp at night
         yield "time set 0"
+        yield sprintf "execute if entity $SCORE(fakeStart=1) run function %s:start5" NS
+        yield sprintf "execute if entity $SCORE(fakeStart=0) run function %s:do_spawn_sequence" NS
+        |]
+    yield "do_spawn_sequence", [|
         // TODO tp all to waiting room
         // set up spawn points
         yield "scoreboard players set $ENTITY PRNG_MOD 998"
@@ -488,7 +508,7 @@ let game_functions = [|
         yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=red] unless entity @a[team=blue] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
         |]
     yield "start4", [|
-        yield "gamemode creative @a"
+        yield "gamemode creative @a"  // TODO
         // feed & heal again
         yield "effect give @a saturation 10 4 true"
         yield "effect give @a regeneration 10 4 true"
@@ -508,6 +528,9 @@ let game_functions = [|
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"
         yield "$NTICKSLATER(20)"
         // TODO once more, re-tp anyone who maybe moved, the cheaters! (wait to kill armor_stands? is this necessary any more? seems like can't move?)
+        yield sprintf "function %s:start5" NS
+        |]
+    yield "start5", [|
         yield "time set 0"
         yield "effect clear @a"
         // TODO custom game modes, for now, just always NV
@@ -532,7 +555,7 @@ let game_functions = [|
         "scoreboard players set @a home 0"
         "scoreboard players enable @a home"    // re-enable for everyone, so even if die in lobby afterward and respawn out in world again, can come back
         |]
-    yield "finish1", [|
+    yield "finish1", [| // called for transition gameInProgress 2->0
         "scoreboard players set $ENTITY gameInProgress 0"
         sprintf "teleport @a %s" LOBBY
         // TODO "gamemode survival @a"
@@ -540,11 +563,14 @@ let game_functions = [|
         // feed & heal, as people get concerned in lobby about this
         "effect give @a minecraft:saturation 10 4 true"
         "effect give @a minecraft:regeneration 10 4 true"
+        // TODO consider separate 'end game' sign? end game tps back but preserves scoreboard, whereas 'new card' resets scores? right now first 'new game' is 'end game'...
+        (*
         // clear player scores
         "scoreboard players set @a Score 0"
         "scoreboard players reset Time Score"
         "scoreboard players reset Minutes Score"
         "scoreboard players reset Seconds Score"
+        *)
         |]
     |]
 
