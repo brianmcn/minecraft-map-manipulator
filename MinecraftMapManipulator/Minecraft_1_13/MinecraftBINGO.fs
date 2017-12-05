@@ -1,104 +1,6 @@
 ﻿module MinecraftBINGO
 
-
-let CHECK_EVERY_TICK = true
-
-(*
-think about skylinerw's "else feature"
-before a 'switch', set a global flag, condition each branch on the flag, and first instruction of each called branch function unsets the flag
-it's a transaction, yes? safe?
-annoying that caller and callee have to coordinate, but seems simple and workable?
-
-
-think about survival waypoints idea...
-wubbi https://www.youtube.com/watch?v=WCJRTd7Otq8 has a nice one
-basic idea:
- - have a room with lots of clickable signs (go to waypoint N)
- - player can add own signs for names if desired
- - spawn egg or whatnot to place new waypoint (crafting/found materials?), will have AS with particles or whatnot, will store coords in scoreboard in fixed (non-entity?) slots (WayX01, WayY01, ... WayX99...)
- - when player stays in particles for more than 3s or whatever, brings to tp room
- - could 'delete' waypoint by having e.g. WayYnn==-1 to mark as 'unused', and clickable sign to 'forget' it? hm, but how delete the entity there... i guess it could delete self after check if exist based on scores
-
-
-
-https://minecraft.gamepedia.com/1.13/Flattening
-https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
-
-can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
-can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
-
-
-can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
-    // first manually merge in some pose data [0f,0f,0f]
-    execute store result entity @e[type=armor_stand,limit=1] Pose.LeftArm[0] float 8.0 run data get entity @p Pos[0] 1.0
-
-
-
-Things to test in snapshot
-
-    TODO verify "at @e" will loop, that is, perform the chained command for each entity
-    same for 'as'
-    but not for 'if/unless'
-
-    understand data packs, how to turn off e.g. vanilla advancements/crafting
-
-
-cut the tutorial for good
-ignore custom modes, and item chests in initial version
-bug: https://www.reddit.com/r/minecraftbingo/comments/74sd7m/broken_seed_spawn_in_a_waterfall_and_die_in_a_wall/
-bugs & ideas from top of old file
-
-
-
-feature ideas:
- x beacon at spawn
- x randomly put people on 1/2/3/4 teams
- - 'blind' covered play
- - use achievement toasts rather than chat for got-item notifications?
- - arrow/activator-/detector-rail
- - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc?
- - custom configs done as separate data packs? out-of-band changes/extensions?
-    - on-start/on-respawn is one type of simple customization that maybe could be in datapack
-    - lockout, 'blind-covered', other bingo-game mechanics updates are more baked in, hm...
- - call out 'sniper bingo' (score exactly 5)
- - 20-no-bingo?
-
-architecture
-
-helper functions
- x PRNG
- x make new card (clone art, setup checker command blocks)
- - finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
- x make new seeded card
- x make new random card
- x ensure card updated (player holding map at spawn)
- - begin a game (lots of logic here...)
- x check for bingo (5-in-a-row logic)
- - team-got-an-item (announce, add score, check for win/lockout)
- x various 'win' announcements/fireworks/scoreboard
- x worldborder timekeeper logic (compute actual seconds)
- x find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
- x compute lockout goal
-
-blocks
- x art assets
- - ?lobby? (or code that write it?)
-
-ongoing per-tick code
- x updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
- x check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
- x check for players with no more maps to give more
- x check for anyone with a trigger home score (to tp back to lobby)
- - check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
- x check for 25-mins passed when game in progress
-
-setup
- - gamerules
- x scoreboard objectives created
- x constants initialized
- - ?build lobby?
- x any permanent entities
-*)
+let CHECK_EVERY_TICK = true  // if false, will use inventory_changed handler (subject to current gui-open bug)
 
 let NS = "test"
 let writeFunctionToDisk(name,code) =
@@ -106,12 +8,13 @@ let writeFunctionToDisk(name,code) =
     let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
     System.IO.File.WriteAllLines(FIL, code)
 
+////////////////////////////
 
 let entity_init() = [|
     yield "kill @e[tag=scoreAS]"
     yield "summon armor_stand 4 4 4 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
     |]
-let SCOREAS_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
+let ENTITY_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
 
 let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
 let continuationNum = ref 1
@@ -126,10 +29,10 @@ let gameLoopContinuationCheck() =
 #endif    
         // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
         for f in allCallbackFunctions do
-            yield sprintf "scoreboard players remove @e[%s,scores={%s=1..}] %s 1" SCOREAS_TAG f f
+            yield sprintf "scoreboard players remove @e[%s,scores={%s=1..}] %s 1" ENTITY_TAG f f
         // then call all that need to go now
         for f in allCallbackFunctions do
-            yield sprintf "execute if entity @e[%s,scores={%s=1}] run function %s:%s" SCOREAS_TAG f NS f
+            yield sprintf "execute if entity @e[%s,scores={%s=1}] run function %s:%s" ENTITY_TAG f NS f
     |]
 let compile(f,name) =
     let rec replaceScores(s:string) = 
@@ -138,7 +41,7 @@ let compile(f,name) =
             let j = s.IndexOf(')',i)
             let info = s.Substring(i+7,j-i-7)
             let s = s.Remove(i,j-i+1)
-            let s = s.Insert(i,sprintf "@e[%s,scores={%s}]" SCOREAS_TAG info)
+            let s = s.Insert(i,sprintf "@e[%s,scores={%s}]" ENTITY_TAG info)
             replaceScores(s)
         else
             s
@@ -155,6 +58,8 @@ let compile(f,name) =
             let nn = newName()
             [|sprintf "execute as %s at @s run function %s" info nn|], nn
         else
+            // TODO if there are many NTICKSLATER in one non-re-entrant block of code, then we could 'group' them so there is just one variable to check
+            // in the main game loop each tick, rather than many... that may or may not be a useful perf optimization
             let i = s.IndexOf("$NTICKSLATER(")
             if i <> -1 then
                 if i <> 0 then failwith "$NTICKSLATER must be only thing on the line"
@@ -173,8 +78,8 @@ let compile(f,name) =
                 let nn = newName()
                 allCallbackFunctions.Add(nn)
                 [|
-                    sprintf """execute if entity @e[%s,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" SCOREAS_TAG nn nn
-                    sprintf "scoreboard players set @e[%s] %s %d" SCOREAS_TAG nn (int info + 1) // +1 because we decr at start of gameloop
+                    sprintf """execute if entity @e[%s,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" ENTITY_TAG nn nn
+                    sprintf "scoreboard players set @e[%s] %s %d" ENTITY_TAG nn (int info + 1) // +1 because we decr at start of gameloop
                 |], nn
             else
                 [|s|], null
@@ -182,7 +87,7 @@ let compile(f,name) =
     // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
     let a = a |> Array.map replaceScores
     // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
-    let a = a |> Array.map (fun s -> s.Replace("$ENTITY",sprintf"@e[%s]"SCOREAS_TAG))
+    let a = a |> Array.map (fun s -> s.Replace("$ENTITY",sprintf"@e[%s]"ENTITY_TAG))
     let r = [|
         let cur = ResizeArray()
         let curName = ref name
@@ -209,6 +114,7 @@ let compile(f,name) =
 ///////////////////////////////////////////////////////
 
 let prng_init() = [|
+    // TODO move this next line somewhere better
     yield "scoreboard objectives add CALL dummy"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
     yield "scoreboard objectives add PRNG_MOD dummy"
     yield "scoreboard objectives add PRNG_OUT dummy"
@@ -268,9 +174,11 @@ let game_objectives = [|
     yield "said25mins"         // did we already display the 25-minute score?
     yield "ticksSinceGotMap"   // time since a player who had no maps in inventory got given a new set of them
     for t in TEAMS do
-        yield sprintf "%sSpawnX" t   // a number between 1 and 999 that needs to be multipled by 10000
-        yield sprintf "%sSpawnY" t   // height of surface there
-        yield sprintf "%sSpawnZ" t   // a number between 1 and 999 that needs to be multipled by 10000
+        yield sprintf "%sLeftHalf" t  // in a 2-team game, should this color fill left half
+        yield sprintf "%sRightHalf" t // in a 2-team game, should this color fill right half
+        yield sprintf "%sSpawnX" t    // a number between 1 and 999 that needs to be multipled by 10000
+        yield sprintf "%sSpawnY" t    // height of surface there
+        yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
     |]
 let game_functions = [|
     yield "game_init", [|
@@ -290,18 +198,7 @@ let game_functions = [|
         (*
         TODO
             It's hard to design a lobby without first knowing the interface (set of activation signs) to all the features.  Get features working first.
-        CARDS
-            random card
-            seeded card
-            start game
-        TEAMS
-            join each color
-            everyone on one team
-            random into 2 teams
-            random into 3 teams
-            random into 4 teams
         MODES
-            toggle lockout
             toggle blind-covered
         *)
         yield sprintf "teleport @a %s" LOBBY
@@ -434,6 +331,7 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
+        // TODO people prefer gold color
         """execute as $ENTITY if entity $SCORE(seconds=0..9) run title @a actionbar ["",{"score":{"name":"@s","objective":"minutes"}},":0",{"score":{"name":"@s","objective":"seconds"}}]"""
         """execute as $ENTITY if entity $SCORE(seconds=10..) run title @a actionbar ["",{"score":{"name":"@s","objective":"minutes"}},":",{"score":{"name":"@s","objective":"seconds"}}]"""
         |]
@@ -495,6 +393,13 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY numActiveTeams 0"
         for t in TEAMS do
             yield sprintf "execute if entity @a[team=%s] run scoreboard players add $ENTITY numActiveTeams 1" t
+            yield sprintf "scoreboard players set $ENTITY %sLeftHalf 0" t
+            yield sprintf "scoreboard players set $ENTITY %sRightHalf 0" t
+        yield "scoreboard players set $ENTITY TEMP 0"   // has 'Left' been taken yet?
+        for t in TEAMS do
+            yield sprintf "execute if entity $SCORE(numActiveTeams=2,TEMP=1) if entity @a[team=%s] run scoreboard players set $ENTITY %sRightHalf 1" t t
+            yield sprintf "execute if entity $SCORE(numActiveTeams=2,TEMP=0) if entity @a[team=%s] run scoreboard players set $ENTITY %sLeftHalf 1" t t
+            yield sprintf "execute if entity $SCORE(numActiveTeams=2,TEMP=0) if entity @a[team=%s] run scoreboard players set $ENTITY TEMP 1" t
         |]
     yield "start1", [|
         // ensure folks have joined teams
@@ -623,13 +528,6 @@ let game_functions = [|
         "effect give @a minecraft:saturation 10 4 true"
         "effect give @a minecraft:regeneration 10 4 true"
         // TODO consider separate 'end game' sign? end game tps back but preserves scoreboard, whereas 'new card' resets scores? right now first 'new game' is 'end game'...
-        (*
-        // clear player scores
-        "scoreboard players set @a Score 0"
-        "scoreboard players reset Time Score"
-        "scoreboard players reset Minutes Score"
-        "scoreboard players reset Seconds Score"
-        *)
         |]
     |]
 
@@ -687,6 +585,7 @@ let map_update_functions = [|
         |]
     |]
 
+////////////////////////////////////////////////
 
 let ensureDirOfFile(filename) = 
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore
@@ -713,39 +612,38 @@ let writeFunctionsToResourcePack(packName, funcs) =
         
 ////////////////////////////////////////////////
 
-let bingoItems =
-        [|
-            [|  "diamond"          ; "diamond_hoe"      ; "diamond_axe"         |]
-            [|  "bone"             ; "gray_dye"         ; "gray_dye"            |]
-            [|  "ender_pearl"      ; "ender_pearl"      ; "slime_ball"          |]
-            [|  "fern"             ; "vine"             ; "dead_bush"           |]
-            [|  "brick"            ; "flower_pot"       ; "flower_pot"          |]
-            [|  "glass_bottle"     ; "glass_bottle"     ; "glass_bottle"        |]
-            [|  "melon"            ; "melon"            ; "speckled_melon"      |]
-            [|  "ink_sac"          ; "book"             ; "writable_book"       |]
-            [|  "apple"            ; "golden_shovel"    ; "golden_apple"        |]
-            [|  "flint"            ; "flint"            ; "flint_and_steel"     |]
-            [|  "cocoa_beans"      ; "cookie"           ; "cookie"              |]
-            [|  "pumpkin_seeds"    ; "pumpkin_seeds"    ; "pumpkin_pie"         |]
-            [|  "rail"             ; "rail"             ; "rail"                |]
-            [|  "mushroom_stew"    ; "mushroom_stew"    ; "mushroom_stew"       |]
-            [|  "sugar"            ; "spider_eye"       ; "fermented_spider_eye"|]
-            [|  "cactus_green"     ; "cactus_green"     ; "lime_dye"            |]
-            [|  "lapis_lazuli"     ; "purple_dye"       ; "cyan_dye"            |]
-            [|  "beetroot_soup"    ; "emerald"          ; "emerald"             |]
-            [|  "furnace_minecart" ; "chest_minecart"   ; "tnt_minecart"        |]
-            [|  "gunpowder"        ; "firework_rocket"  ; "firework_rocket"     |]
-            [|  "compass"          ; "compass"          ; "map"                 |]
-            [|  "spruce_sapling"   ; "spruce_sapling"   ; "acacia_sapling"      |]
-            [|  "cauldron"         ; "cauldron"         ; "cauldron"            |]
-            [|  "name_tag"         ; "saddle"           ; "enchanted_book"      |]
-            [|  "milk_bucket"      ; "egg"              ; "cake"                |]
-            [|  "cod"              ; "cod"              ; "cod"                 |]
-            [|  "sign"             ; "item_frame"       ; "painting"            |]
-            [|  "golden_sword"     ; "clock"            ; "powered_rail"        |]
-            [|  "hopper"           ; "hopper"           ; "hopper_minecart"     |]
-            [|  "repeater"         ; "repeater"         ; "repeater"            |]
-        |]
+let bingoItems = [|
+        [|  "diamond"          ; "diamond_hoe"      ; "diamond_axe"         |]
+        [|  "bone"             ; "gray_dye"         ; "gray_dye"            |]
+        [|  "ender_pearl"      ; "ender_pearl"      ; "slime_ball"          |]
+        [|  "fern"             ; "vine"             ; "dead_bush"           |]
+        [|  "brick"            ; "flower_pot"       ; "flower_pot"          |]
+        [|  "glass_bottle"     ; "glass_bottle"     ; "glass_bottle"        |]
+        [|  "melon"            ; "melon"            ; "speckled_melon"      |]
+        [|  "ink_sac"          ; "book"             ; "writable_book"       |]
+        [|  "apple"            ; "golden_shovel"    ; "golden_apple"        |]
+        [|  "flint"            ; "flint"            ; "flint_and_steel"     |]
+        [|  "cocoa_beans"      ; "cookie"           ; "cookie"              |]
+        [|  "pumpkin_seeds"    ; "pumpkin_seeds"    ; "pumpkin_pie"         |]
+        [|  "rail"             ; "rail"             ; "rail"                |]
+        [|  "mushroom_stew"    ; "mushroom_stew"    ; "mushroom_stew"       |]
+        [|  "sugar"            ; "spider_eye"       ; "fermented_spider_eye"|]
+        [|  "cactus_green"     ; "cactus_green"     ; "lime_dye"            |]
+        [|  "lapis_lazuli"     ; "purple_dye"       ; "cyan_dye"            |]
+        [|  "beetroot_soup"    ; "emerald"          ; "emerald"             |]
+        [|  "furnace_minecart" ; "chest_minecart"   ; "tnt_minecart"        |]
+        [|  "gunpowder"        ; "firework_rocket"  ; "firework_rocket"     |]
+        [|  "compass"          ; "compass"          ; "map"                 |]
+        [|  "spruce_sapling"   ; "spruce_sapling"   ; "acacia_sapling"      |]
+        [|  "cauldron"         ; "cauldron"         ; "cauldron"            |]
+        [|  "name_tag"         ; "saddle"           ; "enchanted_book"      |]
+        [|  "milk_bucket"      ; "egg"              ; "cake"                |]
+        [|  "cod"              ; "cod"              ; "cod"                 |]
+        [|  "sign"             ; "item_frame"       ; "painting"            |]
+        [|  "golden_sword"     ; "clock"            ; "powered_rail"        |]
+        [|  "hopper"           ; "hopper"           ; "hopper_minecart"     |]
+        [|  "repeater"         ; "repeater"         ; "repeater"            |]
+    |]
 
 let flatBingoItems = 
     let orig = [|
@@ -753,7 +651,7 @@ let flatBingoItems =
             for x in a do
                 yield x
         |]
-    let trim = // remove duplicates
+    let trim = // remove duplicates, preserve order
         let r = ResizeArray()
         for x in orig do
             if not(r.Contains(x)) then
@@ -774,10 +672,8 @@ let makeSavingStructureBlocks() =
         if i%8=0 then
             x <- 3
             z <- z + 18
-    //writeFunctionsToResourcePack("testing",[|"autobingo",cmds.ToArray()|])
-    // saves to C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\generated\minecraft\structures
+    // Note: the structure blocks save to C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\generated\minecraft\structures
     writeFunctionToDisk("make_saving_structure_blocks",cmds.ToArray())
-    ()
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -799,20 +695,19 @@ let writeInventoryChangedHandler() =
     }
 }"""
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
+    // TODO need to also revoke in game startup code or something
     let functionText = 
         if CHECK_EVERY_TICK then "" else sprintf """
 execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=red] run function test:red_inventory_changed
 execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=blue] run function test:blue_inventory_changed
 execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=green] run function test:green_inventory_changed
 execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=yellow] run function test:yellow_inventory_changed
-advancement revoke @s only test:on_inventory_changed""" SCOREAS_TAG SCOREAS_TAG SCOREAS_TAG SCOREAS_TAG
+advancement revoke @s only test:on_inventory_changed""" ENTITY_TAG ENTITY_TAG ENTITY_TAG ENTITY_TAG
     System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
 
 ///////////////////////////////////////////////////////////////////////////////
 
 let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
-// TODO init code to set up teams
-// TODO init code to reset all scores
 let checker_objectives = [|
         for s in SQUARES do
             yield sprintf "square%s" s           // square11 contains the index number of the flatBingoItems[] of the item in the top-left square of this card
@@ -888,6 +783,10 @@ let checker_functions = [|
                 yield sprintf "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY TEMP 1"
                 yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY TEMP 1"
                 yield sprintf "execute if entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" x y z (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                // else if 2 active teams, fill the half
+                yield sprintf "execute if entity $SCORE(numActiveTeams=2,%sLeftHalf=1) run fill %d %d %d %d %d %d %s replace clay" t (x+00) y (z+00) (x+11) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                yield sprintf "execute if entity $SCORE(numActiveTeams=2,%sRightHalf=1) run fill %d %d %d %d %d %d %s replace clay" t (x+12) y (z+00) (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                yield sprintf "execute if entity $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY TEMP 1"
                 // else fill the corner
                 if t = "red" then
                     yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+00) y (z+00) (x+11) y (z+11) (if t="green" then "emerald_block" else t+"_wool")

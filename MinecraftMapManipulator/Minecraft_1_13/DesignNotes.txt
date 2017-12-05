@@ -1,0 +1,96 @@
+﻿===================
+GENERAL PROGRAMMING
+===================
+think about skylinerw's "else feature"
+before a 'switch', set a global flag, condition each branch on the flag, and first instruction of each called branch function unsets the flag
+it's a transaction, yes? safe?
+annoying that caller and callee have to coordinate, but seems simple and workable?
+
+https://minecraft.gamepedia.com/1.13/Flattening
+https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
+
+can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
+can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
+
+can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
+    // first manually merge in some pose data [0f,0f,0f]
+    execute store result entity @e[type=armor_stand,limit=1] Pose.LeftArm[0] float 8.0 run data get entity @p Pos[0] 1.0
+
+Things to test in snapshot
+
+    TODO verify "at @e" will loop, that is, perform the chained command for each entity
+    same for 'as'
+    but not for 'if/unless'
+
+    understand data packs, how to turn off e.g. vanilla advancements/crafting
+
+=========
+E&T ideas
+=========
+think about survival waypoints idea...
+wubbi https://www.youtube.com/watch?v=WCJRTd7Otq8 has a nice one
+basic idea:
+ - have a room with lots of clickable signs (go to waypoint N)
+ - player can add own signs for names if desired
+ - spawn egg or whatnot to place new waypoint (crafting/found materials?), will have AS with particles or whatnot, will store coords in scoreboard in fixed (non-entity?) slots (WayX01, WayY01, ... WayX99...)
+ - when player stays in particles for more than 3s or whatever, brings to tp room
+ - could 'delete' waypoint by having e.g. WayYnn==-1 to mark as 'unused', and clickable sign to 'forget' it? hm, but how delete the entity there... i guess it could delete self after check if exist based on scores
+
+==============
+MinecraftBINGO
+==============
+cut the tutorial for good
+ignore custom modes, and item chests in initial version
+bug: https://www.reddit.com/r/minecraftbingo/comments/74sd7m/broken_seed_spawn_in_a_waterfall_and_die_in_a_wall/
+bugs & ideas from top of old file
+
+
+feature ideas:
+ x beacon at spawn
+ x randomly put people on 1/2/3/4 teams
+ - 'blind' covered play
+ - use achievement toasts rather than chat for got-item notifications?
+ - arrow/activator-/detector-rail
+ - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc?
+ - custom configs done as separate data packs? out-of-band changes/extensions?
+    - on-start/on-respawn is one type of simple customization that maybe could be in datapack
+    - lockout, 'blind-covered', other bingo-game mechanics updates are more baked in, hm...
+ - call out 'sniper bingo' (score exactly 5)
+ - 20-no-bingo?
+
+architecture
+
+helper functions
+ x PRNG
+ x make new card (clone art, setup checker command blocks)
+ - finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
+ x make new seeded card
+ x make new random card
+ x ensure card updated (player holding map at spawn)
+ - begin a game (lots of logic here...)
+ x check for bingo (5-in-a-row logic)
+ - team-got-an-item (announce, add score, check for win/lockout)
+ x various 'win' announcements/fireworks/scoreboard
+ x worldborder timekeeper logic (compute actual seconds)
+ x find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
+ x compute lockout goal
+
+blocks
+ x art assets
+ - ?lobby? (or code that write it?)
+
+ongoing per-tick code
+ x updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
+ x check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
+ x check for players with no more maps to give more
+ x check for anyone with a trigger home score (to tp back to lobby)
+ - check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
+ x check for 25-mins passed when game in progress
+
+setup
+ - gamerules
+ x scoreboard objectives created
+ x constants initialized
+ - ?build lobby?
+ x any permanent entities
+
