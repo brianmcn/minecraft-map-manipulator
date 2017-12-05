@@ -552,7 +552,7 @@ let map_update_functions = [|
     yield "map_update_tick", [| // called every tick
         // find player who dropped map
         sprintf """execute unless entity @a[scores={ticksLeftMU=1..}] at @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}}] as @p[distance=..5] run function %s:warp_home""" NS
-        "kill @e[type=item,nbt={Item:{id:\"minecraft:filled_map\",tag:{map:0}}}]"  // TODO is this super expensive?
+        "kill @e[type=item,nbt={Item:{id:\"minecraft:filled_map\",tag:{map:0}}}]"  // TODO is this super expensive? line above too
         // run progress for anyone in the update room
         sprintf "execute as @a[scores={ticksLeftMU=1}] run function %s:warp_back" NS
         "scoreboard players remove @a[scores={ticksLeftMU=1..}] ticksLeftMU 1"
@@ -776,7 +776,6 @@ let checker_functions = [|
                     if ot <> t then
                         yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
                 // TODO test actual logic to color the game board square appropriately
-                // TODO maybe improve 2-player to halves?
                 let x = 4 + 24*(int s.[0] - int '0' - 1)
                 let y = 30
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
@@ -848,10 +847,46 @@ let checker_functions = [|
         yield """execute as @a at @s run playsound entity.firework.twinkle ambient @s ~ ~ ~"""
     |]
     for s in SQUARES do
-(*
         if flatBingoItems.Length > 128 then
             failwith "bad binary search"
-*)
+        let rec binary_dispatch(lo,hi) = [|
+            if lo=hi-1 then
+                yield sprintf "check%s_%d_%d" s lo hi, [|
+                    if lo < flatBingoItems.Length then
+                        yield sprintf """execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s lo flatBingoItems.[lo]
+                        // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
+                        // TODO remove this
+                        yield sprintf """execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s lo flatBingoItems.[lo]
+                    else
+                        yield sprintf """#execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s lo (sprintf "item%d" lo)
+                        // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
+                        // TODO remove this
+                        yield sprintf """#execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s lo (sprintf "item%d" lo)
+                    if hi < flatBingoItems.Length then
+                        yield sprintf """execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s hi flatBingoItems.[hi]
+                        // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
+                        // TODO remove this
+                        yield sprintf """execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s hi flatBingoItems.[hi]
+                    else
+                        yield sprintf """#execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s hi (sprintf "item%d" hi)
+                        // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
+                        // TODO remove this
+                        yield sprintf """#execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s hi (sprintf "item%d" hi)
+                |]
+            else
+                let mid = (hi-lo)/2 + lo
+                yield sprintf "check%s_%d_%d" s lo hi, [|
+                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:check%s_%d_%d""" s lo mid NS s lo mid
+                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:check%s_%d_%d""" s (mid+1) hi NS s (mid+1) hi
+                |]
+                yield! binary_dispatch(lo,mid)
+                yield! binary_dispatch(mid+1,hi)
+            |]
+        yield! binary_dispatch(1,128)
+        yield sprintf "check%s" s, [|
+            sprintf "function %s:check%s_1_128" NS s
+        |]
+(*
         yield sprintf "check%s" s, [|
             for i=0 to flatBingoItems.Length-1 do
                 // TODO more efficient binary search?
@@ -860,6 +895,7 @@ let checker_functions = [|
                 // TODO remove this
                 yield sprintf """execute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [{"selector":"@s"}," got %s"]""" s i flatBingoItems.[i]
         |]
+*)
     |]
 
 ///////////////////////////////////////////////////////////////////////////////
