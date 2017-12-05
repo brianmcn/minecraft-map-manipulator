@@ -190,7 +190,6 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY SIXTY 60"
         yield "scoreboard players set $ENTITY ONE_THOUSAND 1000"
         yield sprintf "gamerule gameLoopFunction %s:theloop" NS
-        // TODO
         yield "scoreboard players set $ENTITY isLockout 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
         |]
@@ -294,6 +293,7 @@ let game_functions = [|
         |]
     yield "choose_random_seed",[|
         // interject actual randomness, rather than deterministic pseudo
+        yield "kill @e[tag=aec]"
         for _i = 1 to 10 do
             yield """summon area_effect_cloud 4 4 4 {Duration:2,Tags:["aec"]}"""
             yield "scoreboard players add @e[tag=aec] TEMP 1"
@@ -319,6 +319,7 @@ let game_functions = [|
         yield sprintf "function %s:cardgen_makecard" NS
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
+    let COLOR = """"color":"yellow","""
     yield "update_time",[|
         "execute store result score $ENTITY minutes run worldborder get"
         "scoreboard players operation $ENTITY minutes -= $ENTITY TWENTY_MIL"
@@ -331,13 +332,13 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
-        // TODO people prefer gold color
-        """execute as $ENTITY if entity $SCORE(seconds=0..9) run title @a actionbar ["",{"score":{"name":"@s","objective":"minutes"}},":0",{"score":{"name":"@s","objective":"seconds"}}]"""
-        """execute as $ENTITY if entity $SCORE(seconds=10..) run title @a actionbar ["",{"score":{"name":"@s","objective":"minutes"}},":",{"score":{"name":"@s","objective":"seconds"}}]"""
+        sprintf """execute as $ENTITY if entity $SCORE(seconds=0..9) run title @a actionbar ["",{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":0"},{%s"score":{"name":"@s","objective":"seconds"}}]""" COLOR COLOR COLOR
+        sprintf """execute as $ENTITY if entity $SCORE(seconds=10..) run title @a actionbar ["",{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"seconds"}}]""" COLOR COLOR COLOR
         |]
+    let SKYBOX = 150 // height of skybox floor
     yield "compute_height", [|
-        yield "execute as @e[tag=CurrentSpawn] at @s run teleport @s ~ 230 ~"
-        for _i = 1 to 230 do
+        yield sprintf "execute as @e[tag=CurrentSpawn] at @s run teleport @s ~ %d ~" (SKYBOX-3)
+        for _i = 1 to (SKYBOX-3) do
             yield "execute as @e[tag=CurrentSpawn] at @s if block ~ ~-1 ~ minecraft:air run teleport @s ~ ~-1 ~"
         yield "execute as @e[tag=CurrentSpawn] at @s run setblock ~ ~-1 ~ minecraft:obsidian"
         |]
@@ -349,16 +350,16 @@ let game_functions = [|
             yield sprintf "function %s:prng" NS
             yield sprintf "scoreboard players operation $ENTITY %sSpawnZ = $ENTITY PRNG_OUT" t
             yield sprintf "scoreboard players add $ENTITY %sSpawnZ 1" t
-            yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["%sSpawn","CurrentSpawn"]}""" t
+            yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["%sSpawn","CurrentSpawn","SpawnLoc"]}""" t  // these entities killed at end of start4
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[0] double 10000.0 run scoreboard players get $ENTITY %sSpawnX" t t
-            yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double 250.0 run scoreboard players get $ENTITY %sSpawnX" t t
+            yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double %d.0 run scoreboard players get $ENTITY %sSpawnX" t (SKYBOX+10) t
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[2] double 10000.0 run scoreboard players get $ENTITY %sSpawnZ" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             // now that players are there, wait for some terrain to gen
             yield """tellraw @a ["at a location, gen some terrain"]"""
-            yield "$NTICKSLATER(20)"
+            yield "$NTICKSLATER(100)"  // TODO lower time (game crash related?)
             // build skybox and put players there
-            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run fill ~-1 235 ~-1 ~1 254 ~1 barrier hollow" t
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run fill ~-1 %d ~-1 ~1 %d ~1 barrier hollow" t SKYBOX (SKYBOX+20)
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             // figure out Y height of surface
             yield sprintf "function %s:compute_height" NS
@@ -371,8 +372,7 @@ let game_functions = [|
             yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run fill ~-2 ~0 ~-2 ~2 ~3 ~2 minecraft:barrier hollow"
             yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run fill ~-1 ~1 ~-1 ~1 ~1 ~1 minecraft:diamond_block"
             yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run setblock ~ ~2 ~ minecraft:beacon"
-            yield sprintf "tag @e[tag=CurrentSpawn] remove CurrentSpawn"  // TODO only needed if I keep AS around longer
-            yield sprintf "kill @e[tag=%sSpawn]" t
+            yield sprintf "tag @e[tag=CurrentSpawn] remove CurrentSpawn"
             // call next continuation
             if t = "red" then
                 yield sprintf "execute if entity @a[team=blue] run function %s:do_blue_spawn" NS
@@ -478,8 +478,6 @@ let game_functions = [|
         yield "effect give @a regeneration 10 4 true"
         // clear hostile mobs
         yield "difficulty peaceful"
-        yield "$NTICKSLATER(2)"
-        yield "difficulty normal"
         yield """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
         yield "$NTICKSLATER(20)"
         yield """tellraw @a ["3"]"""
@@ -491,7 +489,11 @@ let game_functions = [|
         yield """tellraw @a ["1"]"""
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"
         yield "$NTICKSLATER(20)"
-        // TODO once more, re-tp anyone who maybe moved, the cheaters! (wait to kill armor_stands?)
+        // once more, re-tp anyone who maybe moved, the cheaters!
+        for t in TEAMS do
+            yield sprintf "execute at @e[tag=%sSpawn] run teleport @a[team=%s] ~ ~ ~" t t
+        yield "kill @e[tag=SpawnLoc]"
+        yield "difficulty normal"
         yield sprintf "function %s:start5" NS
         |]
     yield "start5", [|
@@ -571,6 +573,7 @@ let map_update_functions = [|
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         |]
     yield "warp_back", [|
+        "kill @e[tag=return_loc]"
         """summon area_effect_cloud 4 4 4 {Duration:1,Tags:["return_loc"],Rotation:[20f,20f]}""" // needs some rotation to be able to store to it later
         "execute store result entity @e[limit=1,tag=return_loc] Pos[0] double 0.0078125 run scoreboard players get @s ReturnX"
         "execute store result entity @e[limit=1,tag=return_loc] Pos[1] double 0.0078125 run scoreboard players get @s ReturnY"
@@ -581,7 +584,6 @@ let map_update_functions = [|
         //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         "scoreboard players set $ENTITY hasAnyoneUpdated 1"
-        // don't kill a_e_c, as can't kill in same tick as summon, and also its Duration will expire it
         |]
     |]
 
