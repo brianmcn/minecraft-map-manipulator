@@ -1,20 +1,25 @@
 ﻿module MinecraftBINGO
 
-let CHECK_EVERY_TICK = true  // if false, will use inventory_changed handler (subject to current gui-open bug)
+let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
+let SKIP_WRITING_CHECK = true   // turn this on to save time if you're not modifying checker code
 
 let NS = "test"
+//let FOLDER = """"C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13"""
+let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
 let writeFunctionToDisk(name,code) =
-    let DIR = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\"""+NS+"""\functions"""
+    let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS+"""\functions""")
     let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
     System.IO.File.WriteAllLines(FIL, code)
 
 ////////////////////////////
 
+// TODO change 4000 back to 4
 let entity_init() = [|
+    yield "setworldspawn 4000 64 4000"
     yield "kill @e[tag=scoreAS]"
-    yield "summon armor_stand 4 4 4 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
+    yield "summon armor_stand 4000 4 4000 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
     |]
-let ENTITY_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
+let ENTITY_TAG = "tag=scoreAS,x=4000,y=4,z=4000,distance=..1.0,limit=1"
 
 let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
 let continuationNum = ref 1
@@ -105,8 +110,10 @@ let compile(f,name) =
 #if DEBUG
     let r = [|
         for name,code in r do
-            yield name, [| yield sprintf """tellraw @a ["calling '%s'"]""" name; yield! code |]
-//            yield name, [| yield sprintf """say ---calling '%s'---""" name; yield! code |]
+            if name <> "theloop" then
+                yield name, [| yield sprintf """tellraw @a ["calling '%s'"]""" name; yield! code |]
+            else
+                yield name, [| yield! code; yield sprintf """tellraw @a ["at end theloop, cont6:",{"score":{"name":"@e[%s]","objective":"cont6"}}]""" ENTITY_TAG |]
         |]
 #endif    
     r
@@ -159,6 +166,7 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color =
 let LOBBY = "62 25 63 0 180"
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let game_objectives = [|
+    yield "Score"
     yield "fakeStart"
     yield "isLockout"
     yield "lockoutGoal"
@@ -184,6 +192,10 @@ let game_functions = [|
     yield "game_init", [|
         for o in game_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
+        for t in TEAMS do
+            yield sprintf "team add %s" t
+            //yield sprintf "team option %s color %s" t t  // TODO broken in 17w49a
+        yield "scoreboard objectives setdisplay sidebar Score"
         yield "scoreboard objectives add home trigger"
         yield "scoreboard objectives add PlayerSeed trigger"
         yield "scoreboard players set $ENTITY TWENTY_MIL 20000000"
@@ -552,7 +564,7 @@ let map_update_functions = [|
     yield "map_update_tick", [| // called every tick
         // find player who dropped map
         sprintf """execute unless entity @a[scores={ticksLeftMU=1..}] at @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}}] as @p[distance=..5] run function %s:warp_home""" NS
-        "kill @e[type=item,nbt={Item:{id:\"minecraft:filled_map\",tag:{map:0}}}]"  // TODO is this super expensive? line above too
+        "kill @e[type=item,nbt={Item:{id:\"minecraft:filled_map\",tag:{map:0}}}]"  // TODO is this super expensive? line above too... could try inverting it, e.g. only find maps near players, to cull chunks searched?
         // run progress for anyone in the update room
         sprintf "execute as @a[scores={ticksLeftMU=1}] run function %s:warp_back" NS
         "scoreboard players remove @a[scores={ticksLeftMU=1..}] ticksLeftMU 1"
@@ -696,7 +708,8 @@ let writeInventoryChangedHandler() =
         "function": "test:inventory_changed"
     }
 }"""
-    System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\advancements\on_inventory_changed.json""",advancementText)
+    let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS)
+    System.IO.File.WriteAllText(System.IO.Path.Combine(DIR,"""advancements\on_inventory_changed.json"""),advancementText)
     // TODO need to also revoke in game startup code or something
     let functionText = 
         if CHECK_EVERY_TICK then "" else sprintf """
@@ -705,7 +718,7 @@ execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=blue] run f
 execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=green] run function test:green_inventory_changed
 execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=yellow] run function test:yellow_inventory_changed
 advancement revoke @s only test:on_inventory_changed""" ENTITY_TAG ENTITY_TAG ENTITY_TAG ENTITY_TAG
-    System.IO.File.WriteAllText("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\datapacks\BingoPack\data\test\functions\inventory_changed.mcfunction""",functionText)
+    System.IO.File.WriteAllText(System.IO.Path.Combine(DIR,"""functions\inventory_changed.mcfunction"""),functionText)
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1046,9 +1059,19 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile(prng, "prng")
         yield! compile(prng_init(), "prng_init")
         yield makeItemChests()
+        // TODO remove this test code
+        yield! compile([|
+            yield "kill @e[tag=warper]"
+            yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,NoGravity:1b,Tags:["warper"]}"""
+            yield sprintf "execute as @e[tag=warper] store result entity @s Pos[0] double 1.0 run scoreboard players get @p X"
+            yield sprintf "execute as @e[tag=warper] store result entity @s Pos[1] double 1.0 run scoreboard players get @p Y"
+            yield sprintf "execute as @e[tag=warper] store result entity @s Pos[2] double 1.0 run scoreboard players get @p Z"
+            yield sprintf "execute at @e[tag=warper,limit=1] run teleport @p ~0.5 ~ ~0.5"
+            |],"warpto")
         yield "init",[|
             yield "kill @e[type=!player]"
             yield "clear @a"
+            yield "effect clear @a"
             yield! entity_init()
             yield sprintf"function %s:make_lobby"NS
             yield sprintf"function %s:prng_init"NS
@@ -1057,8 +1080,13 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf"function %s:game_init"NS
             yield sprintf"function %s:map_update_init"NS
             yield sprintf"function %s:choose_random_seed"NS
+            yield """give @p minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
+            //TODO used other logic yield "execute at @p run setworldspawn ~ ~ ~"
             |]
         |]
-    printfn "%A" r
+    printfn "writing functions..."
     for name,code in r do
-        writeFunctionToDisk(name,code)
+        if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
+            () // do nothing
+        else
+            writeFunctionToDisk(name,code)
