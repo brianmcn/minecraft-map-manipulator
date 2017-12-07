@@ -1,7 +1,26 @@
 ﻿module MinecraftBINGO
 
 let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
-let SKIP_WRITING_CHECK = true   // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let USE_GAMELOOP = true         // if false, use a repeating command block instead
+
+// TOOD learn tags - eventing? add function to group?
+
+
+// TODO obsidian replaced leaf and gave me spruce sapling
+
+/////////////////////////////////////////////////////////////
+
+type Coords(x:int,y:int,z:int) = 
+    member this.X = x
+    member this.Y = y
+    member this.Z = z
+    member this.Tuple = x,y,z
+    member this.STR = sprintf "%d %d %d" x y z
+    member this.Offset(dx,dy,dz) = new Coords(x+dx, y+dy, z+dz)
+
+let MAP_UPDATE_ROOM = Coords(62,10,72)
+let WAITING_ROOM = Coords(71,10,72)
 
 let NS = "test"
 //let FOLDER = """"C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13"""
@@ -13,13 +32,19 @@ let writeFunctionToDisk(name,code) =
 
 ////////////////////////////
 
-// TODO change 4000 back to 4
+let FIL = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\minecraft\tags\functions\tick.json""")
+System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
+if USE_GAMELOOP then
+    System.IO.File.WriteAllText(FIL,sprintf"""{"values": ["%s:theloop"]}"""NS)
+else
+    System.IO.File.WriteAllText(FIL,"")
+
 let entity_init() = [|
-    yield "setworldspawn 4000 64 4000"
+    yield "setworldspawn 64 64 64"
     yield "kill @e[tag=scoreAS]"
-    yield "summon armor_stand 4000 4 4000 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
+    yield "summon armor_stand 4 4 4 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
     |]
-let ENTITY_TAG = "tag=scoreAS,x=4000,y=4,z=4000,distance=..1.0,limit=1"
+let ENTITY_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
 
 let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
 let continuationNum = ref 1
@@ -121,8 +146,6 @@ let compile(f,name) =
 ///////////////////////////////////////////////////////
 
 let prng_init() = [|
-    // TODO move this next line somewhere better
-    yield "scoreboard objectives add CALL dummy"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
     yield "scoreboard objectives add PRNG_MOD dummy"
     yield "scoreboard objectives add PRNG_OUT dummy"
     yield "scoreboard objectives add Calc dummy"
@@ -155,7 +178,7 @@ let prng = [|
 let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color =
     if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
     let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
-    let c1 = if isBold then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
+    let c1 = if isBold && (cmd<>null) then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
     [|
         sprintf "setblock %d %d %d air replace" x y z
         sprintf """setblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
@@ -166,6 +189,10 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color =
 let LOBBY = "62 25 63 0 180"
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let game_objectives = [|
+    // GLOBALS
+    yield "CALL"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
+    yield "TEMP"  // a temporary variable anyone can use locally
+    // bingo main game logic
     yield "Score"
     yield "fakeStart"
     yield "isLockout"
@@ -194,16 +221,20 @@ let game_functions = [|
             yield sprintf "scoreboard objectives add %s dummy" o
         for t in TEAMS do
             yield sprintf "team add %s" t
-            //yield sprintf "team option %s color %s" t t  // TODO broken in 17w49a
+            yield sprintf "team option %s color %s" t t
         yield "scoreboard objectives setdisplay sidebar Score"
         yield "scoreboard objectives add home trigger"
         yield "scoreboard objectives add PlayerSeed trigger"
+        yield "scoreboard objectives add Deaths deathCount"  // for use by on_respawn
         yield "scoreboard players set $ENTITY TWENTY_MIL 20000000"
         yield "scoreboard players set $ENTITY SIXTY 60"
         yield "scoreboard players set $ENTITY ONE_THOUSAND 1000"
-        yield sprintf "gamerule gameLoopFunction %s:theloop" NS
         yield "scoreboard players set $ENTITY isLockout 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
+        // loop
+        yield "setblock 68 25 64 air"
+        if not USE_GAMELOOP then
+            yield sprintf """setblock 68 25 64 repeating_command_block{auto:1b,TrackOutput:0b,Command:"function %s:theloop"}""" NS
         |]
     yield "make_lobby", [|
         (*
@@ -217,6 +248,7 @@ let game_functions = [|
         yield "fill 60 24 60 70 28 70 air"
         yield "fill 60 24 60 70 24 70 stone"
         yield "fill 60 24 60 70 28 60 stone"
+        yield "setblock 64 25 60 sea_lantern"
         // TODO unbold signs while gameInProgress == 1
         yield! placeWallSignCmds 61 26 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) true "black"
         yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) true "black"
@@ -237,6 +269,14 @@ let game_functions = [|
         yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) true "black"
         //
         yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
+        // make map-update-room
+        yield sprintf "fill %s %s sea_lantern hollow" (MAP_UPDATE_ROOM.Offset(-3,-2,-3).STR) (MAP_UPDATE_ROOM.Offset(3,3,3).STR)
+        yield sprintf "fill %s %s barrier hollow" (MAP_UPDATE_ROOM.Offset(-1,-1,-1).STR) (MAP_UPDATE_ROOM.Offset(1,2,1).STR)
+        yield! placeWallSignCmds MAP_UPDATE_ROOM.X (MAP_UPDATE_ROOM.Y+1) (MAP_UPDATE_ROOM.Z-2) "south" "HOLD YOUR MAP" "(it will only" "update if you" "hold it)" null true "black"
+        // make waiting room
+        yield sprintf "fill %s %s sea_lantern hollow" (WAITING_ROOM.Offset(-3,-2,-3).STR) (WAITING_ROOM.Offset(3,3,3).STR)
+        yield sprintf "fill %s %s barrier hollow" (WAITING_ROOM.Offset(-1,-1,-1).STR) (WAITING_ROOM.Offset(1,2,1).STR)
+        yield! placeWallSignCmds WAITING_ROOM.X (WAITING_ROOM.Y+1) (WAITING_ROOM.Z-2) "south" "PLEASE WAIT" "(spawns are" "being" "generated)" null true "black"
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -368,8 +408,7 @@ let game_functions = [|
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[2] double 10000.0 run scoreboard players get $ENTITY %sSpawnZ" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             // now that players are there, wait for some terrain to gen
-            yield """tellraw @a ["at a location, gen some terrain"]"""
-            yield "$NTICKSLATER(100)"  // TODO lower time (game crash related?)
+            yield "$NTICKSLATER(20)"
             // build skybox and put players there
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run fill ~-1 %d ~-1 ~1 %d ~1 barrier hollow" t SKYBOX (SKYBOX+20)
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
@@ -377,6 +416,7 @@ let game_functions = [|
             yield sprintf "function %s:compute_height" NS
             yield sprintf "execute as @e[tag=%sSpawn] store result score $ENTITY %sSpawnY run data get entity @s Pos[1] 1.0" t t
             // give people time in skybox while terrain gens, then put them on ground and set spawns
+            yield sprintf """tellraw @a ["Giving %s team a birds-eye view as terrain generates..."]""" t
             yield "$NTICKSLATER(400)"
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run spawnpoint @a[team=%s] ~0.5 ~ ~0.5" t t
@@ -475,7 +515,8 @@ let game_functions = [|
         yield sprintf "execute if entity $SCORE(fakeStart=0) run function %s:do_spawn_sequence" NS
         |]
     yield "do_spawn_sequence", [|
-        // TODO tp all to waiting room
+        // tp all to waiting room
+        yield sprintf "tp @a %s 0 180" WAITING_ROOM.STR
         // set up spawn points
         yield "scoreboard players set $ENTITY PRNG_MOD 998"
         yield sprintf "execute if entity @a[team=red] run function %s:do_red_spawn" NS
@@ -484,12 +525,13 @@ let game_functions = [|
         yield sprintf "execute if entity @a[team=yellow] unless entity @a[team=red] unless entity @a[team=blue] unless entity @a[team=green] run function %s:do_yellow_spawn" NS
         |]
     yield "start4", [|
-        yield "gamemode creative @a"  // TODO
+        yield "gamemode survival @a"
         // feed & heal again
         yield "effect give @a saturation 10 4 true"
         yield "effect give @a regeneration 10 4 true"
-        // clear hostile mobs
+        // clear hostile mobs & weather
         yield "difficulty peaceful"
+        yield "weather clear 99999"
         yield """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
         yield "$NTICKSLATER(20)"
         yield """tellraw @a ["3"]"""
@@ -536,7 +578,7 @@ let game_functions = [|
     yield "finish1", [| // called for transition gameInProgress 2->0
         "scoreboard players set $ENTITY gameInProgress 0"
         sprintf "teleport @a %s" LOBBY
-        // TODO "gamemode survival @a"
+        "gamemode survival @a"
         "clear @a"
         // feed & heal, as people get concerned in lobby about this
         "effect give @a minecraft:saturation 10 4 true"
@@ -547,7 +589,6 @@ let game_functions = [|
 
 ///////////////////////////////////////////////////////
 
-let MAP_UPDATE_ROOM = "62 10 72"
 let map_update_objectives = [|
     yield "ticksLeftMU"        // remaining time left for a player who dropped maps to wait in map-update room for card colors to have time to redraw
     yield sprintf "ReturnX"
@@ -570,6 +611,11 @@ let map_update_functions = [|
         "scoreboard players remove @a[scores={ticksLeftMU=1..}] ticksLeftMU 1"
         |]
     yield "warp_home", [|
+        // players may have just died this tick
+        "execute store result score @s TEMP run data get entity @s Health 100.0"
+        sprintf "execute if entity @s[scores={TEMP=1..}] run function %s:warp_home_body" NS
+        |]
+    yield "warp_home_body", [|
         "scoreboard players set @s ticksLeftMU 30"  // TODO calibrate best value
         "execute store result score @s ReturnX run data get entity @s Pos[0] 128.0"   // doubles
         "execute store result score @s ReturnY run data get entity @s Pos[1] 128.0"
@@ -580,7 +626,7 @@ let map_update_functions = [|
         //"data merge entity @e[type=!player,distance=..160] {PersistenceRequired:1}"  // preserve mobs
         "execute as @e[type=!player,distance=..160] run data merge entity @s {PersistenceRequired:1}"  // preserve mobs
         // TODO ever a reason to un-persist?
-        sprintf "tp @s %s 180 0" MAP_UPDATE_ROOM
+        sprintf "tp @s %s 180 180" MAP_UPDATE_ROOM.STR
         //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         |]
@@ -739,7 +785,6 @@ let checker_objectives = [|
             yield sprintf "%sScore" t            // how many total items the team has
             yield sprintf "%sGotBingo" t         // 1 if they already got a bingo (don't repeatedly announce)
         yield "lockoutGoal"                      // how many needed to win lockout (if this is a lockout game)
-        yield "TEMP"
     |]
 let checker_functions = [|
     yield "checker_init", [|
@@ -780,7 +825,6 @@ let checker_functions = [|
             |]
         for s in SQUARES do
             yield sprintf "%s_got_square_%s" t s, [|       // called when player @s got square s and he is on team t
-                yield sprintf "say got square %s" s
                 yield sprintf "scoreboard players set $ENTITY gotItems 1"
                 yield sprintf "scoreboard players add $ENTITY %sScore 1" t
                 yield sprintf "scoreboard players operation @a[team=%s] Score = $ENTITY %sScore" t t
@@ -1047,11 +1091,24 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         for name,code in map_update_functions do
             yield! compile(code, name)
         yield! compile([|
+            // players may dead
+            "execute store result score @s TEMP run data get entity @s Health 100.0"
+            "execute if entity @s[scores={TEMP=1..}] run effect give @s minecraft:night_vision 99999 1 true"
+            "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
+            |],"on_respawn")
+        // TODO putting this in a separate function is a work around for https://bugs.mojang.com/browse/MC-121934
+        yield! compile([|
+            // players may dead
+            "execute store result score @s TEMP run data get entity @s Health 100.0"
+            sprintf """execute if entity @s[scores={TEMP=1..}] unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
+            |],"have_no_map")
+        yield! compile([|
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @p[scores={PlayerSeed=1..}] run function %s:set_seed" NS
-            yield sprintf """execute unless entity $SCORE(gameInProgress=1) as @a unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
+            yield sprintf """execute unless entity $SCORE(gameInProgress=1) as @a run function %s:have_no_map""" NS
+            yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
             if CHECK_EVERY_TICK then
                 yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
             yield! gameLoopContinuationCheck()
@@ -1081,7 +1138,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf"function %s:map_update_init"NS
             yield sprintf"function %s:choose_random_seed"NS
             yield """give @p minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
-            //TODO used other logic yield "execute at @p run setworldspawn ~ ~ ~"
             |]
         |]
     printfn "writing functions..."
