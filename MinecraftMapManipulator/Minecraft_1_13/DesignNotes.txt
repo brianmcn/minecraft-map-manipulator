@@ -104,3 +104,9 @@ setup
  - ?build lobby?
  x any permanent entities
 
+discarded ideas:
+	end gateway with perm age as way to beacon without beacon
+		execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ setblock ~ ~ ~ end_gateway 0 {Age:100}
+		(repeat) execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ blockdata ~ ~ ~ {Age:100}
+	the @e is too expensive to run every tick just for a slightly better visual
+

@@ -1,7 +1,7 @@
 ﻿module MinecraftBINGO
 
 let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 // TOOD learn tags - eventing? add function to group?
@@ -12,22 +12,11 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO could do item groups e.g. for fish like before (salmon + cod + pufferfish + clownfish) (if so, measure perf)
 
-// TODO obsidian replaced leaf and gave me spruce sapling
-
-// TODO goth has way to abuse obsidian - use bedrock?
-
-// TODO if re-use same seed, obsidian spawns atop old beacon - good or bad?
+// TODO if re-use same seed, bedrock spawns atop old beacon - good or bad?
 
 // TODO after tp to lobby, clicking 'set seed' and setting to same seed gave different spawn, maybe didn't properly re-seed?  unsure
 
 // TODO note - can shear pumpkin to get seeds without picking it up!
-
-// end gateway with perm age as way to beacon without beacon
-(*
-execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ setblock ~ ~ ~ end_gateway 0 {Age:100}
-Then this is constantly repeating
-execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ blockdata ~ ~ ~ {Age:100}
-*)
 
 // tall lobby for building? open ceiling?
 
@@ -411,15 +400,17 @@ let game_functions = [|
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     let COLOR = """"color":"yellow","""
+    yield "at25mins",[|
+        """execute at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
+        """tellraw @a [{"selector":"@s"}," got ",{"score":{"name":"@s","objective":"Score"}}," in 25 mins"]"""
+        """scoreboard players set $ENTITY said25mins 1"""
+        |]
     yield "update_time",[|
         "execute store result score $ENTITY minutes run worldborder get"
         "scoreboard players operation $ENTITY minutes -= $ENTITY TWENTY_MIL"
         "scoreboard players operation Time Score = $ENTITY minutes"
         // while 'minutes' objective has 'total seconds', do this
-        """execute if entity $SCORE(said25mins=0,minutes=1500) as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
-        // TODO in 2p, only chooses 1p to announce to everyone, need an 'as'
-        """execute if entity $SCORE(said25mins=0,minutes=1500) run tellraw @a [{"selector":"@p"}," got ",{"score":{"name":"@p","objective":"Score"}}," in 25 mins"]"""
-        """execute if entity $SCORE(said25mins=0,minutes=1500) run scoreboard players set $ENTITY said25mins 1"""
+        sprintf """execute if entity $SCORE(said25mins=0,minutes=1500) as @a run function %s:at25mins""" NS
         // compute actual MM:SS and display
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
@@ -432,7 +423,7 @@ let game_functions = [|
         yield sprintf "execute as @e[tag=CurrentSpawn] at @s run teleport @s ~ %d ~" (SKYBOX-3)
         for _i = 1 to (SKYBOX-3) do
             yield "execute as @e[tag=CurrentSpawn] at @s if block ~ ~-1 ~ minecraft:air run teleport @s ~ ~-1 ~"
-        yield "execute as @e[tag=CurrentSpawn] at @s run setblock ~ ~-1 ~ minecraft:obsidian"
+        yield "execute as @e[tag=CurrentSpawn] at @s run setblock ~ ~-1 ~ minecraft:bedrock"
         |]
     for t in TEAMS do
         yield sprintf "do_%s_spawn" t, [|
@@ -1158,15 +1149,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile(prng, "prng")
         yield! compile(prng_init(), "prng_init")
         yield makeItemChests()
-        // TODO remove this test code
-        yield! compile([|
-            yield "kill @e[tag=warper]"
-            yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,NoGravity:1b,Tags:["warper"]}"""
-            yield sprintf "execute as @e[tag=warper] store result entity @s Pos[0] double 1.0 run scoreboard players get @p X"
-            yield sprintf "execute as @e[tag=warper] store result entity @s Pos[1] double 1.0 run scoreboard players get @p Y"
-            yield sprintf "execute as @e[tag=warper] store result entity @s Pos[2] double 1.0 run scoreboard players get @p Z"
-            yield sprintf "execute at @e[tag=warper,limit=1] run teleport @p ~0.5 ~ ~0.5"
-            |],"warpto")
         yield "init",[|
             yield "kill @e[type=!player]"
             yield "clear @a"
