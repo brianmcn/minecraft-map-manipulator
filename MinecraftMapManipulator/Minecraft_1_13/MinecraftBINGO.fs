@@ -1,7 +1,7 @@
 ﻿module MinecraftBINGO
 
 let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 // TOOD learn tags - eventing? add function to group?
@@ -17,6 +17,8 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // TODO after tp to lobby, clicking 'set seed' and setting to same seed gave different spawn, maybe didn't properly re-seed?  unsure
 
 // TODO note - can shear pumpkin to get seeds without picking it up!
+
+// TODO should multiplayer signs only appear when multiple players?
 
 // tall lobby for building? open ceiling?
 
@@ -195,9 +197,9 @@ let prng = [|
 
 ///////////////////////////////////////////////////////
 
-let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color =
+let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold =
     if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
-    let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
+    let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") (if isBold then "black" else "gray")
     let c1 = if isBold && (cmd<>null) then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
     [|
         sprintf "setblock %d %d %d air replace" x y z
@@ -256,6 +258,33 @@ let game_functions = [|
         if not USE_GAMELOOP then
             yield sprintf """setblock 68 25 64 repeating_command_block{auto:1b,TrackOutput:0b,Command:"function %s:theloop"}""" NS
         |]
+    for gip in [0;1;2] do // gameInProgress
+        yield sprintf"place_signs%d"gip, [|
+            let seedSignsEnabled = gip<>1
+            let otherSignsEnabled = gip=0
+            // sanity check
+            yield sprintf """execute unless entity $SCORE(gameInProgress=%d) run tellraw @a ["ERROR: place_signs%d was called but gameInProgress is ",{"score":{"name":"@e[%s]","objective":"gameInProgress"}}]""" gip gip ENTITY_TAG
+            // unbold signs while gameInProgress == 1
+            yield! placeWallSignCmds 61 26 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) seedSignsEnabled
+            yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) seedSignsEnabled
+            // unbold signs while gameInProgress <> 0
+            yield! placeWallSignCmds 63 26 61 "south" "START game" "" "" "" (sprintf"function %s:start1"NS) otherSignsEnabled
+            yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" (sprintf "function %s:red_team_join" NS) otherSignsEnabled
+            yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" (sprintf "function %s:blue_team_join" NS) otherSignsEnabled
+            yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" (sprintf "function %s:green_team_join" NS) otherSignsEnabled
+            yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" (sprintf "function %s:yellow_team_join" NS) otherSignsEnabled
+            //
+            yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) otherSignsEnabled
+            yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled
+            yield! placeWallSignCmds 63 27 61 "south" "toggle" "LOCKOUT" "" "" (sprintf"function %s:toggle_lockout"NS) otherSignsEnabled
+            //
+            yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled
+            yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled
+            yield! placeWallSignCmds 67 27 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) otherSignsEnabled
+            yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) otherSignsEnabled
+            //
+            yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
+            |]
     yield "make_lobby", [|
         (*
         TODO
@@ -269,34 +298,15 @@ let game_functions = [|
         yield "fill 60 24 60 70 24 70 stone"
         yield "fill 60 24 60 70 28 60 stone"
         yield "setblock 64 25 60 sea_lantern"
-        // TODO unbold signs while gameInProgress == 1
-        yield! placeWallSignCmds 61 26 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) true "black"
-        yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) true "black"
-        // TODO unbold signs while gameInProgress <> 0
-        yield! placeWallSignCmds 63 26 61 "south" "START game" "" "" "" (sprintf"function %s:start1"NS) true "black"
-        yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" (sprintf "function %s:red_team_join" NS) true "black"
-        yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" (sprintf "function %s:blue_team_join" NS) true "black"
-        yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" (sprintf "function %s:green_team_join" NS) true "black"
-        yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" (sprintf "function %s:yellow_team_join" NS) true "black"
-        //
-        yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) true "black"
-        yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) true "black"
-        yield! placeWallSignCmds 63 27 61 "south" "toggle" "LOCKOUT" "" "" (sprintf"function %s:toggle_lockout"NS) true "black"
-        //
-        yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) true "black"
-        yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) true "black"
-        yield! placeWallSignCmds 67 27 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) true "black"
-        yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) true "black"
-        //
-        yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
+        yield sprintf "function %s:place_signs0" NS
         // make map-update-room
         yield sprintf "fill %s %s sea_lantern hollow" (MAP_UPDATE_ROOM.Offset(-3,-2,-3).STR) (MAP_UPDATE_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (MAP_UPDATE_ROOM.Offset(-1,-1,-1).STR) (MAP_UPDATE_ROOM.Offset(1,2,1).STR)
-        yield! placeWallSignCmds MAP_UPDATE_ROOM.X (MAP_UPDATE_ROOM.Y+1) (MAP_UPDATE_ROOM.Z-2) "south" "HOLD YOUR MAP" "(it will only" "update if you" "hold it)" null true "black"
+        yield! placeWallSignCmds MAP_UPDATE_ROOM.X (MAP_UPDATE_ROOM.Y+1) (MAP_UPDATE_ROOM.Z-2) "south" "HOLD YOUR MAP" "(it will only" "update if you" "hold it)" null true
         // make waiting room
         yield sprintf "fill %s %s sea_lantern hollow" (WAITING_ROOM.Offset(-3,-2,-3).STR) (WAITING_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (WAITING_ROOM.Offset(-1,-1,-1).STR) (WAITING_ROOM.Offset(1,2,1).STR)
-        yield! placeWallSignCmds WAITING_ROOM.X (WAITING_ROOM.Y+1) (WAITING_ROOM.Z-2) "south" "PLEASE WAIT" "(spawns are" "being" "generated)" null true "black"
+        yield! placeWallSignCmds WAITING_ROOM.X (WAITING_ROOM.Y+1) (WAITING_ROOM.Z-2) "south" "PLEASE WAIT" "(spawns are" "being" "generated)" null true
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -503,9 +513,9 @@ let game_functions = [|
         // clear player scores again (in case player joined server after card gen'd)
         yield sprintf "function %s:reset_player_scores" NS
         yield sprintf "function %s:compute_lockout_goal" NS
-        // TODO disable other lobby buttons
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
+        yield sprintf "function %s:place_signs1" NS
         yield "scoreboard players set $ENTITY said25mins 0"
         // put folks in survival mode, feed & heal, remove all xp, clear inventories
         yield "gamemode survival @a"
@@ -590,6 +600,7 @@ let game_functions = [|
         yield "worldborder set 20000000"          // 20 million wide is 10 million from spawn
         yield "worldborder add 10000000 10000000" // 10 million per 10 million seconds is one per second
         yield "scoreboard players set $ENTITY gameInProgress 2"
+        yield sprintf "function %s:place_signs2" NS
         yield "scoreboard players set $ENTITY hasAnyoneUpdated 0"
         |]
     yield "go_home", [|
@@ -601,6 +612,7 @@ let game_functions = [|
         |]
     yield "finish1", [| // called for transition gameInProgress 2->0
         "scoreboard players set $ENTITY gameInProgress 0"
+        sprintf "function %s:place_signs0" NS
         sprintf "teleport @a %s" LOBBY
         "gamemode survival @a"
         "clear @a"
