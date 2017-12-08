@@ -50,13 +50,21 @@ feature ideas:
  x randomly put people on 1/2/3/4 teams
  - 'blind' covered play
  - use achievement toasts rather than chat for got-item notifications?
- - arrow/activator-/detector-rail
  - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc?
  - custom configs done as separate data packs? out-of-band changes/extensions?
     - on-start/on-respawn is one type of simple customization that maybe could be in datapack
     - lockout, 'blind-covered', other bingo-game mechanics updates are more baked in, hm...
  - call out 'sniper bingo' (score exactly 5)
- - 20-no-bingo?
+ - 20-no-bingo? mkg points out you can 'lose' after e.g. 45 mins, only downside... could play "20-no-bingo-else-blackout" on the subreddit maybe
+ - 'visually specify a plan', e.g. in lobby before start, mark items on card (for bingo, alt, 20-no-bingo, ...)?
+      - what is gui to interact? how would it appear on the card? make any sense for multiplayer? ...
+new items:
+ - arrow as bone alternative
+ - detector rail and activator rails as rail alternative
+ - water bottle as alt bottle? (id:minecraft:potion,tag:{Potion:minecraft:water})
+ - salmon as harder cod? (old bingo fish was 82%, cod is 50%, salmon is 21%, that is probably too hard)
+ - redstone torch as easier repeater?
+ - water/lava bucket? (would interact with tool-like gameplay a little, but not bad) is very easy... cauldron alternatives?
 
 architecture
 
@@ -84,7 +92,7 @@ ongoing per-tick code
  x check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
  x check for players with no more maps to give more
  x check for anyone with a trigger home score (to tp back to lobby)
- - check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
+ x check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
  x check for 25-mins passed when game in progress
 
 setup

@@ -1,17 +1,44 @@
 ﻿module MinecraftBINGO
 
 let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 // TOOD learn tags - eventing? add function to group?
+// TODO yes, this is how customizing should work, e.g. the "night vision + depth strider" is a data pack, and bingo has an event group for #custom:on_start and #custom:on_respawn and child packs add to that
+// TODO optional announcing item could be an on_got_item001 hooks, or just a flag
+// TODO 'blind' play would need like an on_new_card and on_got_square11 hooks
+// TODO 128 item groups? #item001 = diamond? #set_structure001 = structure block for the art? show-all-items chest may be problematic.  may impact perf.  unsure how to do 'max value' for cardgen & checks...
 
+// TODO could do item groups e.g. for fish like before (salmon + cod + pufferfish + clownfish) (if so, measure perf)
 
 // TODO obsidian replaced leaf and gave me spruce sapling
+
+// TODO goth has way to abuse obsidian - use bedrock?
 
 // TODO if re-use same seed, obsidian spawns atop old beacon - good or bad?
 
 // TODO after tp to lobby, clicking 'set seed' and setting to same seed gave different spawn, maybe didn't properly re-seed?  unsure
+
+// TODO note - can shear pumpkin to get seeds without picking it up!
+
+// end gateway with perm age as way to beacon without beacon
+(*
+execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ setblock ~ ~ ~ end_gateway 0 {Age:100}
+Then this is constantly repeating
+execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ blockdata ~ ~ ~ {Age:100}
+*)
+
+// curse of vanishing on DS boots
+
+// tall lobby for building? open ceiling?
+
+(*
+To stop recipe toasts:
+    /recipe give @p *
+To stop advancement toasts:
+    /advancement grant @a everything
+*)
 
 /////////////////////////////////////////////////////////////
 
@@ -382,6 +409,7 @@ let game_functions = [|
         "scoreboard players operation Time Score = $ENTITY minutes"
         // while 'minutes' objective has 'total seconds', do this
         """execute if entity $SCORE(said25mins=0,minutes=1500) as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
+        // TODO in 2p, only chooses 1p to announce to everyone, need an 'as'
         """execute if entity $SCORE(said25mins=0,minutes=1500) run tellraw @a [{"selector":"@p"}," got ",{"score":{"name":"@p","objective":"Score"}}," in 25 mins"]"""
         """execute if entity $SCORE(said25mins=0,minutes=1500) run scoreboard players set $ENTITY said25mins 1"""
         // compute actual MM:SS and display
@@ -909,7 +937,7 @@ let checker_functions = [|
         yield """execute as @a at @s run playsound entity.firework.twinkle ambient @s ~ ~ ~"""
     |]
     for s in SQUARES do
-        if flatBingoItems.Length > 128 then
+        if flatBingoItems.Length >= 128 then
             failwith "bad binary search"
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
@@ -944,9 +972,9 @@ let checker_functions = [|
                 yield! binary_dispatch(lo,mid)
                 yield! binary_dispatch(mid+1,hi)
             |]
-        yield! binary_dispatch(1,128)
+        yield! binary_dispatch(0,127)
         yield sprintf "check%s" s, [|
-            sprintf "function %s:check%s_1_128" NS s
+            sprintf "function %s:check%s_0_127" NS s
         |]
 (*
         yield sprintf "check%s" s, [|
@@ -1035,7 +1063,7 @@ let cardgen_functions = [|
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
         |]
     yield "cardgen_choose1", [|
-        yield sprintf "scoreboard players set $ENTITY PRNG_MOD 28"
+        yield sprintf "scoreboard players set $ENTITY PRNG_MOD %d" bingoItems.Length 
         yield sprintf "function %s:prng" NS
         yield sprintf "scoreboard players operation $ENTITY CARDGENTEMP = $ENTITY PRNG_OUT"
         // ensure exactly one call
