@@ -16,11 +16,11 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO after tp to lobby, clicking 'set seed' and setting to same seed gave different spawn, maybe didn't properly re-seed?  unsure
 
-// TODO note - can shear pumpkin to get seeds without picking it up!
-
-// TODO should multiplayer signs only appear when multiple players?
-
 // TODO test non-playing players who just want to hang out in lobby
+
+// TODO 'utility sign' hidden option?
+// TODO replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo...
+// TODO next seed (seed+1) is a good utility sign for gothfaerie
 
 // tall lobby for building? open ceiling?
 
@@ -539,7 +539,8 @@ let game_functions = [|
         yield sprintf "function %s:start3" NS
         |]
     yield "start3", [|
-        yield """give @a minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
+        // give maps in offhand for start of game
+        yield """replaceitem entity @a weapon.offhand minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
         // give player all the effects
         yield "effect give @a minecraft:slowness 999 127 true"
         yield "effect give @a minecraft:mining_fatigue 999 7 true"
