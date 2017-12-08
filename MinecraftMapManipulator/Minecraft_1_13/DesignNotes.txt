@@ -59,11 +59,10 @@ feature ideas:
  - 'visually specify a plan', e.g. in lobby before start, mark items on card (for bingo, alt, 20-no-bingo, ...)?
       - what is gui to interact? how would it appear on the card? make any sense for multiplayer? ...
 new items:
- - arrow as bone alternative
- - detector rail and activator rails as rail alternative
- - water bottle as alt bottle? (id:minecraft:potion,tag:{Potion:minecraft:water})
+ x arrow as bone alternative
+ x detector rail and activator rails as rail alternative
  - salmon as harder cod? (old bingo fish was 82%, cod is 50%, salmon is 21%, that is probably too hard)
- - redstone torch as easier repeater?
+ x redstone torch as easier repeater?
  - water/lava bucket? (would interact with tool-like gameplay a little, but not bad) is very easy... cauldron alternatives?
 
 architecture
@@ -105,8 +104,11 @@ setup
  x any permanent entities
 
 discarded ideas:
-	end gateway with perm age as way to beacon without beacon
+ 
+ - new item: water bottle as alt bottle? no, has NBT (id:minecraft:potion,tag:{Potion:minecraft:water})
+ 
+ - end gateway with perm age as way to beacon without beacon
 		execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ setblock ~ ~ ~ end_gateway 0 {Age:100}
 		(repeat) execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ blockdata ~ ~ ~ {Age:100}
-	the @e is too expensive to run every tick just for a slightly better visual
+   the @e is too expensive to run every tick just for a slightly better visual
 

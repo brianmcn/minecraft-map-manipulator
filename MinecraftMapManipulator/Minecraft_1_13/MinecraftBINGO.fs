@@ -698,7 +698,7 @@ let writeFunctionsToResourcePack(packName, funcs) =
 
 let bingoItems = [|
         [|  "diamond"          ; "diamond_hoe"      ; "diamond_axe"         |]
-        [|  "bone"             ; "gray_dye"         ; "gray_dye"            |]
+        [|  "bone"             ; "arrow"            ; "gray_dye"            |]
         [|  "ender_pearl"      ; "ender_pearl"      ; "slime_ball"          |]
         [|  "fern"             ; "vine"             ; "dead_bush"           |]
         [|  "brick"            ; "flower_pot"       ; "flower_pot"          |]
@@ -709,7 +709,7 @@ let bingoItems = [|
         [|  "flint"            ; "flint"            ; "flint_and_steel"     |]
         [|  "cocoa_beans"      ; "cookie"           ; "cookie"              |]
         [|  "pumpkin_seeds"    ; "pumpkin_seeds"    ; "pumpkin_pie"         |]
-        [|  "rail"             ; "rail"             ; "rail"                |]
+        [|  "rail"             ; "activator_rail"   ; "detector_rail"       |]
         [|  "mushroom_stew"    ; "mushroom_stew"    ; "mushroom_stew"       |]
         [|  "sugar"            ; "spider_eye"       ; "fermented_spider_eye"|]
         [|  "cactus_green"     ; "cactus_green"     ; "lime_dye"            |]
@@ -719,14 +719,14 @@ let bingoItems = [|
         [|  "gunpowder"        ; "firework_rocket"  ; "firework_rocket"     |]
         [|  "compass"          ; "compass"          ; "map"                 |]
         [|  "spruce_sapling"   ; "spruce_sapling"   ; "acacia_sapling"      |]
-        [|  "cauldron"         ; "cauldron"         ; "cauldron"            |]
+        [|  "cauldron"         ; "lava_bucket"      ; "lava_bucket"         |]
         [|  "name_tag"         ; "saddle"           ; "enchanted_book"      |]
         [|  "milk_bucket"      ; "egg"              ; "cake"                |]
         [|  "cod"              ; "cod"              ; "cod"                 |]
         [|  "sign"             ; "item_frame"       ; "painting"            |]
         [|  "golden_sword"     ; "clock"            ; "powered_rail"        |]
         [|  "hopper"           ; "hopper"           ; "hopper_minecart"     |]
-        [|  "repeater"         ; "repeater"         ; "repeater"            |]
+        [|  "redstone_torch"   ; "repeater"         ; "repeater"            |]
     |]
 
 let flatBingoItems = 
@@ -898,6 +898,9 @@ let checker_functions = [|
             yield sprintf """execute if entity $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a [{"selector":"@a[team=%s]"}," got BINGO!"]""" t t
             yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run function %s:got_a_win_common_logic" t NS
             yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run scoreboard players set $ENTITY %sGotBingo 1" t t
+            // check for twenty-no-bingo
+            yield sprintf """execute if entity $SCORE(%sScore=20,%sGotBingo=0) run tellraw @a [{"selector":"@a[team=%s]"}," got TWENTY-NO-BINGO!"]""" t t t
+            yield sprintf "execute if entity $SCORE(%sScore=20,%sGotBingo=0) run function %s:got_a_win_common_logic" t t NS
             // check for blackout
             yield sprintf """execute if entity $SCORE(%sScore=25) run tellraw @a [{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t t
             yield sprintf "execute if entity $SCORE(%sScore=25) run function %s:got_a_win_common_logic" t NS
