@@ -1,7 +1,7 @@
 ﻿module MinecraftBINGO
 
 let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 // TOOD learn tags - eventing? add function to group?
@@ -53,9 +53,13 @@ let WAITING_ROOM = Coords(71,10,72)
 let NS = "test"
 //let FOLDER = """"C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13"""
 let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
+let allDirsEnsured = new System.Collections.Generic.HashSet<_>()
 let writeFunctionToDisk(name,code) =
     let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS+"""\functions""")
     let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
+    let dir = System.IO.Path.GetDirectoryName(FIL)
+    if allDirsEnsured.Add(dir) then
+        System.IO.Directory.CreateDirectory(dir) |> ignore
     System.IO.File.WriteAllLines(FIL, code)
 
 ////////////////////////////
@@ -74,9 +78,9 @@ let entity_init() = [|
     |]
 let ENTITY_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
 
-let allCallbackFunctions = ResizeArray()  // TODO for now, the name is both .mcfunction name and scoreboard objective name
+let allCallbackShortNames = ResizeArray()
 let continuationNum = ref 1
-let newName() = 
+let newName() =    // names are like 'cont6'... this is used as scoreboard objective name, and then function full name will be cont/cont6
     let r = sprintf "cont%d" !continuationNum
     incr continuationNum
     r
@@ -86,11 +90,11 @@ let gameLoopContinuationCheck() =
 //        yield "say ---calling gameLoop---"
 #endif    
         // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
-        for f in allCallbackFunctions do
+        for f in allCallbackShortNames do
             yield sprintf "scoreboard players remove @e[%s,scores={%s=1..}] %s 1" ENTITY_TAG f f
         // then call all that need to go now
-        for f in allCallbackFunctions do
-            yield sprintf "execute if entity @e[%s,scores={%s=1}] run function %s:%s" ENTITY_TAG f NS f
+        for f in allCallbackShortNames do
+            yield sprintf "execute if entity @e[%s,scores={%s=1}] run function %s:cont/%s" ENTITY_TAG f NS f
     |]
 let compile(f,name) =
     let rec replaceScores(s:string) = 
@@ -104,43 +108,31 @@ let compile(f,name) =
         else
             s
     let replaceContinue(s:string) = 
-        let i = s.IndexOf("$CONTINUEASAT(")
+        // TODO if there are many NTICKSLATER in one non-re-entrant block of code, then we could 'group' them so there is just one variable to check
+        // in the main game loop each tick, rather than many... that may or may not be a useful perf optimization
+        let i = s.IndexOf("$NTICKSLATER(")
         if i <> -1 then
-            if i <> 0 then failwith "$CONTINUEASAT must be only thing on the line"
+            if i <> 0 then failwith "$NTICKSLATER must be only thing on the line"
             let j = s.IndexOf(')',i)
-            if j <> s.Length-1 then failwith "$CONTINUEASAT must be only thing on the line"
-            let info = s.Substring(i+14,j-i-14)
-            // $CONTINUEASAT(entity) will
+            if j <> s.Length-1 then failwith "$NTICKSLATER must be only thing on the line"
+            let info = s.Substring(i+13,j-i-13)
+            // $NTICKSLATER(n) will
             //  - create a new named .mcfunction for the continuation
-            //  - execute as entity at @s run function the new function
+            //  - create a new scoreboard objective for it
+            //  - set the value of e.g. @e[tag=callbackAS] in the new objective to 'n'
+            //     - but first check the existing score was 0; this system can't register the same callback function more than once at a time, that would be an error (no re-entrancy)
+            //  - add a hook in the gameloop that, foreach callback function in the global registry, will check the score, and
+            //     - if the score is ..0, do nothing (unscheduled)
+            //     - if the score is 1, call the corresponding callback function (time to continue now)
+            //     - else subtract 1 from the score (get 1 tick closer to calling it)
             let nn = newName()
-            [|sprintf "execute as %s at @s run function %s" info nn|], nn
+            allCallbackShortNames.Add(nn)
+            [|
+                sprintf """execute if entity @e[%s,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" ENTITY_TAG nn nn
+                sprintf "scoreboard players set @e[%s] %s %d" ENTITY_TAG nn (int info + 1) // +1 because we decr at start of gameloop
+            |], "cont/"+nn
         else
-            // TODO if there are many NTICKSLATER in one non-re-entrant block of code, then we could 'group' them so there is just one variable to check
-            // in the main game loop each tick, rather than many... that may or may not be a useful perf optimization
-            let i = s.IndexOf("$NTICKSLATER(")
-            if i <> -1 then
-                if i <> 0 then failwith "$NTICKSLATER must be only thing on the line"
-                let j = s.IndexOf(')',i)
-                if j <> s.Length-1 then failwith "$NTICKSLATER must be only thing on the line"
-                let info = s.Substring(i+13,j-i-13)
-                // $NTICKSLATER(n) will
-                //  - create a new named .mcfunction for the continuation
-                //  - create a new scoreboard objective for it
-                //  - set the value of e.g. @e[tag=callbackAS] in the new objective to 'n'
-                //     - but first check the existing score was 0; this system can't register the same callback function more than once at a time, that would be an error (no re-entrancy)
-                //  - add a hook in the gameloop that, foreach callback function in the global registry, will check the score, and
-                //     - if the score is ..0, do nothing (unscheduled)
-                //     - if the score is 1, call the corresponding callback function (time to continue now)
-                //     - else subtract 1 from the score (get 1 tick closer to calling it)
-                let nn = newName()
-                allCallbackFunctions.Add(nn)
-                [|
-                    sprintf """execute if entity @e[%s,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" ENTITY_TAG nn nn
-                    sprintf "scoreboard players set @e[%s] %s %d" ENTITY_TAG nn (int info + 1) // +1 because we decr at start of gameloop
-                |], nn
-            else
-                [|s|], null
+            [|s|], null
     let a = f |> Seq.toArray 
     // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
     let a = a |> Array.map replaceScores
@@ -181,7 +173,7 @@ let prng_init() = [|
     yield "scoreboard players set C Calc 12345"
     yield "scoreboard players set Two Calc 2"
     yield "scoreboard players set TwoToSixteen Calc 65536"
-    for cbn in allCallbackFunctions do
+    for cbn in allCallbackShortNames do
         yield sprintf "scoreboard objectives add %s dummy" cbn
     |]
 let prng = [|
@@ -848,15 +840,15 @@ let checker_functions = [|
             yield sprintf "scoreboard players set $ENTITY gotItems 0"
             for s in SQUARES do
                 yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
-                yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:check%s" t s NS s
-                yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:%s_got_square_%s" NS t s
+                yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:inv/check%s" t s NS s
+                yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
             yield sprintf """execute if entity $SCORE(gotItems=1) run tellraw @a [{"selector":"@s]"}," got an item! (",{"score":{"name":"@s","objective":"Score"}}," in ",{"score":{"name":"Time","objective":"Score"}},"s)"]"""
             yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0) run tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
             yield sprintf "execute if entity $SCORE(gotItems=1) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
-            yield sprintf "%s_got_square_%s" t s, [|       // called when player @s got square s and he is on team t
+            yield sprintf "got/%s_got_square_%s" t s, [|       // called when player @s got square s and he is on team t
                 yield sprintf "scoreboard players set $ENTITY gotItems 1"
                 yield sprintf "scoreboard players add $ENTITY %sScore 1" t
                 yield sprintf "scoreboard players operation @a[team=%s] Score = $ENTITY %sScore" t t
@@ -940,7 +932,7 @@ let checker_functions = [|
             failwith "bad binary search"
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
-                yield sprintf "check%s_%d_%d" s lo hi, [|
+                yield sprintf "inv/check%s_%d_%d" s lo hi, [|
                     if lo < flatBingoItems.Length then
                         yield sprintf """execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s lo flatBingoItems.[lo]
                         // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
@@ -964,19 +956,19 @@ let checker_functions = [|
                 |]
             else
                 let mid = (hi-lo)/2 + lo
-                yield sprintf "check%s_%d_%d" s lo hi, [|
-                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:check%s_%d_%d""" s lo mid NS s lo mid
-                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:check%s_%d_%d""" s (mid+1) hi NS s (mid+1) hi
+                yield sprintf "inv/check%s_%d_%d" s lo hi, [|
+                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:inv/check%s_%d_%d""" s lo mid NS s lo mid
+                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:inv/check%s_%d_%d""" s (mid+1) hi NS s (mid+1) hi
                 |]
                 yield! binary_dispatch(lo,mid)
                 yield! binary_dispatch(mid+1,hi)
             |]
         yield! binary_dispatch(0,127)
-        yield sprintf "check%s" s, [|
-            sprintf "function %s:check%s_0_127" NS s
+        yield sprintf "inv/check%s" s, [|
+            sprintf "function %s:inv/check%s_0_127" NS s
         |]
 (*
-        yield sprintf "check%s" s, [|
+        yield sprintf "inv/check%s" s, [|
             for i=0 to flatBingoItems.Length-1 do
                 // TODO more efficient binary search?
                 yield sprintf """execute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" s i flatBingoItems.[i]
@@ -1068,16 +1060,16 @@ let cardgen_functions = [|
         // ensure exactly one call
         yield sprintf "scoreboard players set $ENTITY CALL 1"
         for i = 0 to bingoItems.Length-1 do
-            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cardgen_bin%02d" i NS i
+            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cg/cardgen_bin%02d" i NS i
     |]
     for i = 0 to bingoItems.Length-1 do
-        yield sprintf "cardgen_bin%02d" i, [|
+        yield sprintf "cg/cardgen_bin%02d" i, [|
             sprintf "scoreboard players set $ENTITY CALL 0" // every exclusive-callable func needs this as first line of code
             sprintf "execute if entity $SCORE(bin%02d=1) run function %s:cardgen_choose1" i NS
-            sprintf "execute unless entity $SCORE(bin%02d=1) run function %s:cardgen_binbody%02d" i NS i
+            sprintf "execute unless entity $SCORE(bin%02d=1) run function %s:cg/cardgen_binbody%02d" i NS i
             |]
     for i = 0 to bingoItems.Length-1 do
-        yield sprintf "cardgen_binbody%02d" i, [|
+        yield sprintf "cg/cardgen_binbody%02d" i, [|
             yield sprintf "scoreboard players add $ENTITY squaresPlaced 1"
             yield sprintf "scoreboard players set $ENTITY bin%02d 1" i
             yield sprintf "scoreboard players set $ENTITY PRNG_MOD 3"

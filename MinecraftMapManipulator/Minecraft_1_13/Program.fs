@@ -1,7 +1,7 @@
 ﻿
 
 let profileThis(suffix,outer,inner,pre,cmds,post) =
-    let profilerFunc = ("prof-"+suffix,[|
+    let profilerFunc = ("prof/prof-"+suffix,[|
         yield "gamerule maxCommandChainLength 999999"
         yield "gamerule commandBlockOutput false"
         yield "gamerule sendCommandFeedback false"
@@ -19,7 +19,7 @@ let profileThis(suffix,outer,inner,pre,cmds,post) =
         
         yield! pre
         for _i = 1 to outer do
-            yield sprintf "function %s:code-%s" "test" suffix
+            yield sprintf "function %s:prof/code-%s" "test" suffix
         yield! post
 
         //yield "tellraw @p [\"done!\"]" 
@@ -29,7 +29,7 @@ let profileThis(suffix,outer,inner,pre,cmds,post) =
         //yield """tellraw @p ["took ",{"score":{"name":"Time","objective":"A"}}," milliseconds"]"""
         yield "kill @e[name=Timer]"
         |])
-    let dummyFunc = ("code-"+suffix,[|
+    let dummyFunc = ("prof/code-"+suffix,[|
         for _i = 1 to inner do 
             yield! cmds 
         |])
