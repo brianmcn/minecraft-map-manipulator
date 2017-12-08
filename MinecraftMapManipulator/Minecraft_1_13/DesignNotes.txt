@@ -86,6 +86,8 @@ helper functions
 blocks
  x art assets
  - ?lobby? (or code that write it?)
+ - 'branding' on the map (bingo by lorgon, bDim)
+ - history/books/donations/etc
 
 ongoing per-tick code
  x updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)

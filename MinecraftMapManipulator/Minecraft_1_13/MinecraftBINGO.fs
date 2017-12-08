@@ -29,8 +29,6 @@ Then this is constantly repeating
 execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ blockdata ~ ~ ~ {Age:100}
 *)
 
-// curse of vanishing on DS boots
-
 // tall lobby for building? open ceiling?
 
 (*
@@ -40,6 +38,16 @@ To stop advancement toasts:
     /advancement grant @a everything
 *)
 
+/////////////////////////////////////////////////////////////
+
+(*
+testers:
+Ekiph
+brtw
+Zampone
+gothfaerie
+WarNev3rChanges
+*)
 /////////////////////////////////////////////////////////////
 
 type Coords(x:int,y:int,z:int) = 
@@ -587,7 +595,7 @@ let game_functions = [|
         yield "effect clear @a"
         // TODO custom game modes, for now, just always NV+DS
         yield "effect give @a minecraft:night_vision 99999 1 true"
-        yield "replaceitem entity @a armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s}]} 1"
+        yield "replaceitem entity @a armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:71s}]} 1"
         yield """tellraw @a ["Start! Go!!!"]"""
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 1.2"
         // enable triggers (for click-in-chat-to-tp-home stuff)
@@ -1127,7 +1135,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             // players may dead
             "execute store result score @s TEMP run data get entity @s Health 100.0"
             "execute if entity @s[scores={TEMP=1..}] run effect give @s minecraft:night_vision 99999 1 true"
-            "execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s}]} 1"
+            "execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:71s}]} 1"
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
             |],"on_respawn")
         // TODO putting this in a separate function is a work around for https://bugs.mojang.com/browse/MC-121934
