@@ -4,6 +4,27 @@ let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler 
 let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
+// TODO can I abuse eventing and enable/disable for continuations? (add/remove collection?)
+// not yet: https://bugs.mojang.com/browse/MC-123032
+// if that gets fixed, then we have the ability to create 'groups of functions', and add/remove known sets of functions to/from the group, and call all functions in the group
+// that could be used e.g. for continuations, so only the 'active' continuations get run every tick, rather than checking all of them, which may be better if /datapack enable/disable is a fast operation (measure)
+// what is behavior if #base:group calls child1:run which disables child1/child2?
+// could it be used as a queue? not efficiently, since only operation is 'call all', so getting the front is still O(N); just eventing (subscribe/unsubscribe/get-invoked-on_whatever)
+// could it be used as a CPS machine? maybe... each guy would disable himself and enable the continuationIP, so rather than having the trampoline have to if(IP=1)call1 elif(IP=2)call2... it could just #call:ip
+// that is, we have a type of dynamic function dispatch; I can call #foo:bar, and change where that dispatches to at runtime (among a finite subset known at design-time), ok... what can we do with that?
+// yes, this is pokable-command-blocks-without-a-one-tick-delay -- function indirection
+// i mean, i guess I could have square11-dispatches-to-diamond do that way, but it requires 25x70=1750 datapacks, but then that's set at cardgen time...
+// and i can even do that while MC-123032 exists, since i just need one.  at cardgen, call each square asking it to disable itself, then as gen card, enable the corresponding 25 packs
+// and then the inventory check is just #bingo:check_square11 which will dispatch to like check_diamond or whatever...
+// still not arrays, but the indirection allows what was a binary search to become an o(1), at the cost of a more expensive 'set' at game start time
+// yeah, more generally, you can at design time create #array1..#arrayn, which can store fun1..funm, and then with MxN datapacks you can initialize the array in a design-time 1..n walk and then O(1) run the functions whenever
+// the key is that bingo's "25" is not an array, since all I ever do is run 25 things in a row, it's just 'do a set of instructions (that happens to be 25 long)
+// whereas the item-to-clear in each square is an array, i want to, at runtime, dispatch to different stuff based on a runtime index value.  right now O(logN) with binary search, and can be O(1) with datapack, because can store "function pointer"
+// each bingo square is its own named 'event', whose event-subscription-dispatch can be updated at cardgen time
+// but note that the event-subscription-update is linear (or logN), since I need to say if(x=1)enable datapack1, if(x=2)enable datapack2, ... whereas today it's O(1) to store an integer
+// so I flip the current "O(1) set and O(logN) call" to "O(logN) set and O(1) call"   (store an int and dispatch based on it --> enable the corresponding data pack and then fire its event)
+// BUT... I am also the person that argues O(logN)==O(1) in practice.  So this datapack abuse should be used only as last resort, I expect.
+
 // TOOD learn tags - eventing? add function to group?
 // TODO yes, this is how customizing should work, e.g. the "night vision + depth strider" is a data pack, and bingo has an event group for #custom:on_start and #custom:on_respawn and child packs add to that
 // TODO optional announcing item could be an on_got_item001 hooks, or just a flag
@@ -12,17 +33,24 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO could do item groups e.g. for fish like before (salmon + cod + pufferfish + clownfish) (if so, measure perf)
 
-// TODO if re-use same seed, bedrock spawns atop old beacon - good or bad?
+// TODO if re-use same seed, bedrock spawns atop old beacon - good or bad?  detect and give feedback?
 
 // TODO after tp to lobby, clicking 'set seed' and setting to same seed gave different spawn, maybe didn't properly re-seed?  unsure
+
+// TODO toggle whether item names are announced when gotten
 
 // TODO test non-playing players who just want to hang out in lobby
 
 // TODO 'utility sign' hidden option?
 // TODO replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo...
 // TODO next seed (seed+1) is a good utility sign for gothfaerie
+// TODO zam idea: Have just one sign that gives the player a book with (clickable) config options in.
+
+// TODO consider recipe book for complex crafting?
 
 // tall lobby for building? open ceiling?
+
+// TODO evaluate new items, other new features
 
 (*
 To stop recipe toasts:
@@ -311,6 +339,13 @@ let game_functions = [|
         yield sprintf "fill %s %s sea_lantern hollow" (WAITING_ROOM.Offset(-3,-2,-3).STR) (WAITING_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (WAITING_ROOM.Offset(-1,-1,-1).STR) (WAITING_ROOM.Offset(1,2,1).STR)
         yield! placeWallSignCmds WAITING_ROOM.X (WAITING_ROOM.Y+1) (WAITING_ROOM.Z-2) "south" "PLEASE WAIT" "(spawns are" "being" "generated)" null true false
+        // put logo on card bottom
+        yield sprintf "fill 0 30 120 127 30 127 black_wool"
+        yield """summon area_effect_cloud 0 30 120 {Duration:2,Tags:["logoaec"]}""" // TODO factor 30 height
+        for i = 1 to 4 do
+            let x = 32*(i-1)
+            yield sprintf """execute at @e[tag=logoaec] offset ~%d ~ ~ run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:32,sizeY:1,sizeZ:7,mode:"LOAD",name:"test:logo%d"}""" x i
+            yield sprintf """execute at @e[tag=logoaec] offset ~%d ~ ~1 run setblock ~ ~ ~ minecraft:redstone_block""" x
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -625,7 +660,6 @@ let game_functions = [|
         // feed & heal, as people get concerned in lobby about this
         "effect give @a minecraft:saturation 10 4 true"
         "effect give @a minecraft:regeneration 10 4 true"
-        // TODO consider separate 'end game' sign? end game tps back but preserves scoreboard, whereas 'new card' resets scores? right now first 'new game' is 'end game'...
         |]
     |]
 
@@ -874,8 +908,8 @@ let checker_functions = [|
                 for ot in TEAMS do
                     if ot <> t then
                         yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
-                // TODO test actual logic to color the game board square appropriately
-                let x = 4 + 24*(int s.[0] - int '0' - 1)
+                // TODO test actual logic to color the game board square appropriately (e.g. lockout)
+                let x = 2 + 24*(int s.[0] - int '0' - 1)
                 let y = 30
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
                 // determine if we should fill the whole square
@@ -1011,6 +1045,7 @@ let makeItemChests() =
             anyDifficultyItems.Add( bingoItems.[i].[0] )
         else
             otherItems.Add( bingoItems.[i] )
+    // TODO consider different presentation, since anyDifficulty is almost becoming empty, and 'difficulty' is subjective... e.g. just show all the 'bins'
     let anyDifficultyChest = 
         let sb = new System.Text.StringBuilder("""{CustomName:"Items at any difficulty",Items:[""")
         for i = 0 to anyDifficultyItems.Count-1 do
@@ -1105,12 +1140,25 @@ let cardgen_functions = [|
             |]
     yield "cardgen_makecard", [|
         yield sprintf "kill @e[tag=sky]"
-        yield sprintf """summon armor_stand 7 30 3 {Tags:["sky"],NoGravity:1,Invulnerable:1,Invisible:1}"""
+        yield sprintf """summon armor_stand 5 30 3 {Tags:["sky"],NoGravity:1,Invulnerable:1,Invisible:1}"""
         yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
-        yield sprintf "fill 4 30 0 131 30 128 clay"
-        yield sprintf "fill 4 31 0 131 31 128 air"
+        yield sprintf "fill 0 30 -1 127 30 118 clay"
+        yield sprintf "fill 0 31 -1 127 31 118 air"
+        // horizontal gridlines
+        yield sprintf "fill 1 30 23 121 30 23 stone"
+        yield sprintf "fill 1 30 47 121 30 47 stone"
+        yield sprintf "fill 1 30 71 121 30 71 stone"
+        yield sprintf "fill 1 30 95 121 30 95 stone"
+        yield sprintf "fill 0 30 119 127 30 119 stone"
+        // vertical gridlines
+        yield sprintf "fill 1 30 0 1 30 118 stone"
+        yield sprintf "fill 25 30 0 25 30 118 stone"
+        yield sprintf "fill 49 30 0 49 30 118 stone"
+        yield sprintf "fill 73 30 0 73 30 118 stone"
+        yield sprintf "fill 97 30 0 97 30 118 stone"
+        yield sprintf "fill 121 30 0 127 30 118 stone"
         for _x = 1 to 5 do
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
@@ -1167,12 +1215,12 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield "clear @a"
             yield "effect clear @a"
             yield! entity_init()
-            yield sprintf"function %s:make_lobby"NS
             yield sprintf"function %s:prng_init"NS
             yield sprintf"function %s:checker_init"NS
             yield sprintf"function %s:cardgen_init"NS
             yield sprintf"function %s:game_init"NS
             yield sprintf"function %s:map_update_init"NS
+            yield sprintf"function %s:make_lobby"NS
             yield sprintf"function %s:choose_random_seed"NS
             yield """give @p minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
             |]

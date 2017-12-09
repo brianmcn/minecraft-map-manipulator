@@ -48,7 +48,7 @@ bugs & ideas from top of old file
 feature ideas:
  x beacon at spawn
  x randomly put people on 1/2/3/4 teams
- - 'blind' covered play
+ - 'blind' covered play (on_newcard, on_got_squareNM, what else? need UI to turn on & off (data pack enabling?) and maybe UI to uncover card at end?)
  - use achievement toasts rather than chat for got-item notifications?
  - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc?
  - custom configs done as separate data packs? out-of-band changes/extensions?
@@ -61,20 +61,19 @@ feature ideas:
 new items:
  x arrow as bone alternative
  x detector rail and activator rails as rail alternative
- - salmon as harder cod? (old bingo fish was 82%, cod is 50%, salmon is 21%, that is probably too hard)
  x redstone torch as easier repeater?
- - water/lava bucket? (would interact with tool-like gameplay a little, but not bad) is very easy... cauldron alternatives?
+ x water/lava bucket? (would interact with tool-like gameplay a little, but not bad) is very easy... cauldron alternatives? lava yes, water no
 
 architecture
 
 helper functions
  x PRNG
  x make new card (clone art, setup checker command blocks)
- - finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
+ x finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
  x make new seeded card
  x make new random card
  x ensure card updated (player holding map at spawn)
- - begin a game (lots of logic here...)
+ x begin a game (lots of logic here...)
  x check for bingo (5-in-a-row logic)
  - team-got-an-item (announce, add score, check for win/lockout)
  x various 'win' announcements/fireworks/scoreboard
@@ -106,6 +105,7 @@ setup
 discarded ideas:
  
  - new item: water bottle as alt bottle? no, has NBT (id:minecraft:potion,tag:{Potion:minecraft:water})
+ - new item: salmon as harder cod? (old bingo fish was 82%, cod is 50%, salmon is 21%, that is probably too hard)
  
  - end gateway with perm age as way to beacon without beacon
 		execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ setblock ~ ~ ~ end_gateway 0 {Age:100}
