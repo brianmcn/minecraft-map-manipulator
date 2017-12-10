@@ -35,10 +35,6 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO if re-use same seed, bedrock spawns atop old beacon - good or bad?  detect and give feedback?
 
-// TODO after tp to lobby, clicking 'set seed' and setting to same seed gave different spawn, maybe didn't properly re-seed?  unsure
-
-// TODO toggle whether item names are announced when gotten (or, alternatively, show when 1 team, but hide when 2+ teams? then don't need option UI... but still "specific-player got an item" is better than "team got"...)
-
 // TODO suggested to fill map update room head with water IFF player's head is in water at moment of teleport :P
 
 // TODO test non-playing players who just want to hang out in lobby
@@ -98,6 +94,7 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // other
 // update reminder each game? "handHolding"
 // "leadingWS" (and CustomName of scoreAS)
+// announceItem/fireworkItem
 
 
 // TODO can add leading whitespace to chat to not cover map? configurable size (N selectors of entity named " "?) - how to word wrap?
@@ -295,6 +292,8 @@ let game_objectives = [|
     yield "hasAnyoneUpdated"
     yield "handHolding"        // 1 if we need to explain how to update the card, how to click the chat, etc; 0 if not
     yield "leadingWS"          // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
+    yield "announceItem"       // 2 if announce item name, 1 if just say 'got an item', 0 if no text generated
+    yield "fireworkItem"       // 1 if play sound when get item, 0 if silent
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
     yield "SIXTY"
@@ -329,6 +328,8 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY isLockout 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
         yield "scoreboard players set $ENTITY handHolding 1"
+        yield "scoreboard players set $ENTITY announceItem 2"
+        yield "scoreboard players set $ENTITY fireworkItem 1"
         yield "scoreboard players set $ENTITY leadingWS 0"
         // loop
         yield "setblock 68 25 64 air"
@@ -956,8 +957,8 @@ let checker_functions = [|
                 yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
                 yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:inv/check%s" t s NS s
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
-            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0) run tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
-            yield sprintf "execute if entity $SCORE(gotItems=1) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,announceItem=1..) run tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
+            yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
@@ -1050,10 +1051,8 @@ let checker_functions = [|
         let check_and_display(prefix, n, name) = [|
             yield sprintf """%sexecute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" prefix s n name
             // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
-            // TODO condition this
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            //yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [%s,{"selector":"@s"}," in ",{"score":{"name":"@e[%s]","objective":"minutes"}},":",{"score":{"name":"@e[%s]","objective":"preseconds"}},{"score":{"name":"@e[%s]","objective":"seconds"}}]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            //yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [%s,"got the %s"]""" prefix s n LEADING_WHITESPACE name
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2) run tellraw @a [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1) run tellraw @a [%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
             |]
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
