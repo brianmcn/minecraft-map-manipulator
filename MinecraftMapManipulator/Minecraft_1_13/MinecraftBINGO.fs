@@ -97,6 +97,7 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // other
 // update reminder each game? "handHolding"
+// "leadingWS" (and CustomName of scoreAS)
 
 
 // TODO can add leading whitespace to chat to not cover map? configurable size (N selectors of entity named " "?) - how to word wrap?
@@ -1180,6 +1181,9 @@ let cardgen_functions = [|
                 for x = 1 to 5 do
                     for y = 1 to 5 do
                         yield sprintf "execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" j (5*(y-1)+x) x y index
+                        let chest = if y < 4 then "59 25 63" else "59 25 62"
+                        let slot = if y < 4 then (y-1)*9+x-1 else (y-4)*9+x-1
+                        yield sprintf """execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run replaceitem block %s container.%d %s""" j (5*(y-1)+x) chest slot bingoItems.[i].[j]
             |]
     yield "cardgen_makecard", [|
         yield sprintf "kill @e[tag=sky]"
@@ -1187,6 +1191,7 @@ let cardgen_functions = [|
         yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
+        // TODO this constant art/gridlines should be in game_init, not here
         yield sprintf "fill 0 %d -1 127 %d 118 clay" ART_HEIGHT ART_HEIGHT
         yield sprintf "fill 0 %d -1 127 %d 118 air" (ART_HEIGHT+1) (ART_HEIGHT+1)
         // horizontal gridlines
@@ -1202,6 +1207,11 @@ let cardgen_functions = [|
         yield sprintf "fill 073 %d 0 073 %d 118 stone" ART_HEIGHT ART_HEIGHT
         yield sprintf "fill 097 %d 0 097 %d 118 stone" ART_HEIGHT ART_HEIGHT
         yield sprintf "fill 121 %d 0 127 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        // chest of items on this card
+        yield "setblock 59 25 62 air"
+        yield "setblock 59 25 63 air"
+        yield "setblock 59 25 62 chest[facing=east,type=left]"
+        yield "setblock 59 25 63 chest[facing=east,type=right]"
         for _x = 1 to 5 do
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
@@ -1231,6 +1241,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "execute store result score @s TEMP run data get entity @s Health 100.0"
             "execute if entity @s[scores={TEMP=1..}] run effect give @s minecraft:night_vision 99999 1 true"
             "execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:71s}]} 1"
+            """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
             |],"on_respawn")
         // TODO putting this in a separate function is a work around for https://bugs.mojang.com/browse/MC-121934
