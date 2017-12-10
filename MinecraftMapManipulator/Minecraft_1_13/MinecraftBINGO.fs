@@ -1,6 +1,5 @@
 ﻿module MinecraftBINGO
 
-let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
 let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
@@ -52,8 +51,6 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO 150 150 150 room
 
-// TODO tagging new players, bringing them to lobby (see playerHasBeenSeen)
-
 // TODO new icon, code to rename world in level.dat
 
 // TODO history book, donation link, thank testers
@@ -84,28 +81,13 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // OOB example elytra
 
 // got item side effects
-// fireworks sound 
-// chat at all
-// chat says name of item
-// chat says individual who got item (would anyone want entire team? i doubt it, always individual)
+// announceItem012/fireworkItem01
 // OOB reveal square in blind game
 // OOB different sounds depending on square got
 
 // other
 // update reminder each game? "handHolding"
 // "leadingWS" (and CustomName of scoreAS)
-// announceItem/fireworkItem
-
-
-// TODO can add leading whitespace to chat to not cover map? configurable size (N selectors of entity named " "?) - how to word wrap?
-
-
-(*
-To stop recipe toasts:
-    /recipe give @p *
-To stop advancement toasts:
-    /advancement grant @a everything
-*)
 
 /////////////////////////////////////////////////////////////
 
@@ -398,6 +380,22 @@ let game_functions = [|
         yield sprintf "fill %s %s sea_lantern hollow" (WAITING_ROOM.Offset(-3,-2,-3).STR) (WAITING_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (WAITING_ROOM.Offset(-1,-1,-1).STR) (WAITING_ROOM.Offset(1,2,1).STR)
         yield! placeWallSignCmds WAITING_ROOM.X (WAITING_ROOM.Y+1) (WAITING_ROOM.Z-2) "south" "PLEASE WAIT" "(spawns are" "being" "generated)" null true false
+        // make bingo art area
+        yield sprintf "fill 0 %d -1 127 %d 118 clay" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 0 %d -1 127 %d 118 air" (ART_HEIGHT+1) (ART_HEIGHT+1)
+        // horizontal gridlines
+        yield sprintf "fill 1 %d 023 121 %d 023 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 1 %d 047 121 %d 047 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 1 %d 071 121 %d 071 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 1 %d 095 121 %d 095 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 0 %d 119 127 %d 119 stone" ART_HEIGHT ART_HEIGHT
+        // vertical gridlines
+        yield sprintf "fill 001 %d 0 001 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 025 %d 0 025 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 049 %d 0 049 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 073 %d 0 073 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 097 %d 0 097 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 121 %d 0 127 %d 118 stone" ART_HEIGHT ART_HEIGHT
         // put logo on card bottom
         yield sprintf "fill 0 %d 120 127 %d 127 black_wool" ART_HEIGHT ART_HEIGHT
         yield sprintf """summon area_effect_cloud 0 %d 120 {Duration:2,Tags:["logoaec"]}""" ART_HEIGHT
@@ -858,53 +856,6 @@ let flatBingoItems =
         r
     trim.ToArray()
 
-let makeSavingStructureBlocks() =
-    let cmds = ResizeArray()
-    let mutable i = 0
-    let mutable x,z = 3,3
-    while i < flatBingoItems.Length do
-        let name = flatBingoItems.[i]
-        cmds.Add(sprintf "setblock %d 2 %d minecraft:structure_block" x z)
-        cmds.Add(sprintf """data merge block %d 2 %d {metadata:"",mirror:"NONE",ignoreEntities:1b,mode:"SAVE",rotation:"NONE",posX:0,posY:-2,posZ:0,sizeX:17,sizeY:2,sizeZ:17,integrity:1.0f,showair:1b,powered:0b,seed:0L,author:"Lorgon111",name:"%s",id:"minecraft:structure_block",showboundingbox:1b}""" x z name)
-        x <- x + 18
-        i <- i + 1
-        if i%8=0 then
-            x <- 3
-            z <- z + 18
-    // Note: the structure blocks save to C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13\generated\minecraft\structures
-    writeFunctionToDisk("make_saving_structure_blocks",cmds.ToArray())
-
-///////////////////////////////////////////////////////////////////////////////
-
-let writeInventoryChangedHandler() =
-    // https://bugs.mojang.com/browse/MC-117653
-    // the 'changed' notification does not happen while you have a container GUI open
-    let advancementText = """
-{
-    "criteria": {
-        "ic": {
-            "trigger": "minecraft:inventory_changed"
-        }
-    },
-    "requirements": [
-        ["ic"]
-    ],
-    "rewards": {
-        "function": "test:inventory_changed"
-    }
-}"""
-    let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS)
-    System.IO.File.WriteAllText(System.IO.Path.Combine(DIR,"""advancements\on_inventory_changed.json"""),advancementText)
-    // TODO need to also revoke in game startup code or something
-    let functionText = 
-        if CHECK_EVERY_TICK then "" else sprintf """
-execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=red] run function test:red_inventory_changed
-execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=blue] run function test:blue_inventory_changed
-execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=green] run function test:green_inventory_changed
-execute if entity @e[%s,scores={gameInProgress=2}] if entity @s[team=yellow] run function test:yellow_inventory_changed
-advancement revoke @s only test:on_inventory_changed""" ENTITY_TAG ENTITY_TAG ENTITY_TAG ENTITY_TAG
-    System.IO.File.WriteAllText(System.IO.Path.Combine(DIR,"""functions\inventory_changed.mcfunction"""),functionText)
-
 ///////////////////////////////////////////////////////////////////////////////
 
 let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
@@ -1190,22 +1141,6 @@ let cardgen_functions = [|
         yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
-        // TODO this constant art/gridlines should be in game_init, not here
-        yield sprintf "fill 0 %d -1 127 %d 118 clay" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 0 %d -1 127 %d 118 air" (ART_HEIGHT+1) (ART_HEIGHT+1)
-        // horizontal gridlines
-        yield sprintf "fill 1 %d 023 121 %d 023 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 1 %d 047 121 %d 047 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 1 %d 071 121 %d 071 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 1 %d 095 121 %d 095 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 0 %d 119 127 %d 119 stone" ART_HEIGHT ART_HEIGHT
-        // vertical gridlines
-        yield sprintf "fill 001 %d 0 001 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 025 %d 0 025 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 049 %d 0 049 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 073 %d 0 073 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 097 %d 0 097 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 121 %d 0 127 %d 118 stone" ART_HEIGHT ART_HEIGHT
         // chest of items on this card
         yield "setblock 59 25 62 air"
         yield "setblock 59 25 63 air"
@@ -1250,14 +1185,21 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             sprintf """execute if entity @s[scores={TEMP=1..}] unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
             |],"have_no_map")
         yield! compile([|
+            "tag @s add playerHasBeenSeen"
+            sprintf "teleport @s %s" LOBBY
+            "effect give @s minecraft:night_vision 99999 1 true"
+            "recipe give @s *"
+            "advancement grant @s everything"
+            |],"first_time_player")
+        yield! compile([|
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
+            yield sprintf "execute as @a[tag=!playerHasBeenSeen] run function %s:first_time_player" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=0..}] run function %s:set_seed" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
-            if CHECK_EVERY_TICK then
-                yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
             yield! gameLoopContinuationCheck()
             |],"theloop")
         yield! compile(prng, "prng")
