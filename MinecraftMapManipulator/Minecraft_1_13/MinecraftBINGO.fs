@@ -1,10 +1,8 @@
 ﻿module MinecraftBINGO
 
 let CHECK_EVERY_TICK = true     // if false, will use inventory_changed handler (subject to current gui-open bug)
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
-
-let LEADING_WHITESPACE = "                              " // TODO testing
 
 // TODO can I abuse eventing and enable/disable for continuations? (add/remove collection?)
 // not yet: https://bugs.mojang.com/browse/MC-123032
@@ -81,8 +79,6 @@ let LEADING_WHITESPACE = "                              " // TODO testing
 // TODO maybe disable lockout each game unless set, then can be multiplayer button? hmmm... and sign can change to show current state
 
 // TODO rather than beacon at spawn, mysterious divining rod like text on action bar that points back to spawn? can be computed with coords... would be easy if we get ^ ^ ^   https://en.wikipedia.org/wiki/Arrows_%28Unicode_block%29
-
-// TODO remove 'Time' on scoreboard, just have actionbar show running time?
 
 // starting options (maybe both start & respawn same?)
 // NV
@@ -161,9 +157,10 @@ else
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
     yield "kill @e[tag=scoreAS]"
-    yield "summon armor_stand 4 4 4 {Tags:[\"scoreAS\"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"    
+    yield """summon armor_stand 4 4 4 {CustomName:"                          ",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     |]
 let ENTITY_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
+let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={leadingWS=1}]"}""" ENTITY_TAG
 
 let allCallbackShortNames = ResizeArray()
 let continuationNum = ref 1
@@ -296,6 +293,7 @@ let game_objectives = [|
     yield "numActiveTeams"
     yield "hasAnyoneUpdated"
     yield "handHolding"        // 1 if we need to explain how to update the card, how to click the chat, etc; 0 if not
+    yield "leadingWS"          // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
     yield "SIXTY"
@@ -330,6 +328,7 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY isLockout 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
         yield "scoreboard players set $ENTITY handHolding 1"
+        yield "scoreboard players set $ENTITY leadingWS 0"
         // loop
         yield "setblock 68 25 64 air"
         if not USE_GAMELOOP then
@@ -503,13 +502,13 @@ let game_functions = [|
     let COLOR = """"color":"yellow","""
     yield "at25mins",[|
         """execute at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
-        sprintf """tellraw @a ["%s",{"selector":"@s"}," got ",{"score":{"name":"@s","objective":"Score"}}," in 25 mins"]""" LEADING_WHITESPACE 
+        sprintf """tellraw @a [%s,{"selector":"@s"}," got ",{"score":{"name":"@s","objective":"Score"}}," in 25 mins"]""" LEADING_WHITESPACE 
         """scoreboard players set $ENTITY said25mins 1"""
         |]
     yield "update_time",[|
         "execute store result score $ENTITY minutes run worldborder get"
         "scoreboard players operation $ENTITY minutes -= $ENTITY TWENTY_MIL"
-        "scoreboard players operation Time Score = $ENTITY minutes"
+        "scoreboard players operation Time Score = $ENTITY minutes"  // the reason to keep this is that chat text from getting items covers the actionbar, so want a way its visible
         // while 'minutes' objective has 'total seconds', do this
         sprintf """execute if entity $SCORE(said25mins=0,minutes=1500) as @a run function %s:at25mins""" NS
         // compute actual MM:SS and display
@@ -518,7 +517,7 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
         "scoreboard players reset $ENTITY preseconds"
         "execute if entity $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
-        sprintf """execute as $ENTITY run title @a actionbar ["",{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}]""" COLOR COLOR COLOR COLOR
+        sprintf """execute as $ENTITY run title @a actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
         |]
     let SKYBOX = 150 // height of skybox floor
     yield "compute_height", [|
@@ -666,15 +665,15 @@ let game_functions = [|
         // clear hostile mobs & weather
         yield "difficulty peaceful"
         yield "weather clear 99999"
-        yield """tellraw @a ["Game will begin shortly... countdown commencing..."]"""
+        yield sprintf """tellraw @a [%s,"Game will begin shortly..."]""" LEADING_WHITESPACE
         yield "$NTICKSLATER(20)"
-        yield """tellraw @a ["3"]"""
+        yield sprintf """tellraw @a [%s,"3"]""" LEADING_WHITESPACE
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"
         yield "$NTICKSLATER(20)"
-        yield """tellraw @a ["2"]"""
+        yield sprintf """tellraw @a [%s,"2"]""" LEADING_WHITESPACE
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"
         yield "$NTICKSLATER(20)"
-        yield """tellraw @a ["1"]"""
+        yield sprintf """tellraw @a [%s,"1"]""" LEADING_WHITESPACE
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"
         yield "$NTICKSLATER(20)"
         // once more, re-tp anyone who maybe moved, the cheaters!
@@ -690,14 +689,15 @@ let game_functions = [|
         // TODO custom game modes, for now, just always NV+DS
         yield "effect give @a minecraft:night_vision 99999 1 true"
         yield "replaceitem entity @a armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:71s}]} 1"
-        yield """tellraw @a ["Start! Go!!!"]"""
+        yield sprintf """tellraw @a [%s,"Start! Go!!!"]""" LEADING_WHITESPACE
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 1.2"
         // enable triggers (for click-in-chat-to-tp-home stuff)
         yield "scoreboard players set @a home 0"
         yield "scoreboard players enable @a home"
         // option to get back
-        yield """tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
-        yield """tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield """execute if entity $SCORE(handHolding=1) run tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
+        yield """execute if entity $SCORE(handHolding=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield sprintf """execute if entity $SCORE(handHolding=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         yield "worldborder set 20000000"          // 20 million wide is 10 million from spawn
         yield "worldborder add 10000000 10000000" // 10 million per 10 million seconds is one per second
         yield "scoreboard players set $ENTITY gameInProgress 2"
@@ -1007,19 +1007,19 @@ let checker_functions = [|
                 yield sprintf "execute if entity $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
             yield sprintf "execute if entity $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
             yield sprintf "execute if entity $SCORE(%sWinBackslash=5) run scoreboard players set $ENTITY TEMP 1" t
-            yield sprintf """execute if entity $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a ["%s",{"selector":"@a[team=%s]"}," got BINGO!"]""" t LEADING_WHITESPACE t
+            yield sprintf """execute if entity $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got BINGO!"]""" t LEADING_WHITESPACE t
             yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run function %s:got_a_win_common_logic" t NS
             yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run scoreboard players set $ENTITY %sGotBingo 1" t t
             // check for twenty-no-bingo
-            yield sprintf """execute if entity $SCORE(%sScore=20,%sGotBingo=0) run tellraw @a ["%s",{"selector":"@a[team=%s]"}," got TWENTY-NO-BINGO!"]""" t t LEADING_WHITESPACE t
+            yield sprintf """execute if entity $SCORE(%sScore=20,%sGotBingo=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got TWENTY-NO-BINGO!"]""" t t LEADING_WHITESPACE t
             yield sprintf "execute if entity $SCORE(%sScore=20,%sGotBingo=0) run function %s:got_a_win_common_logic" t t NS
             // check for blackout
-            yield sprintf """execute if entity $SCORE(%sScore=25) run tellraw @a ["%s",{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t LEADING_WHITESPACE t
+            yield sprintf """execute if entity $SCORE(%sScore=25) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t LEADING_WHITESPACE t
             yield sprintf "execute if entity $SCORE(%sScore=25) run function %s:got_a_win_common_logic" t NS
             // check for lockout
             yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY lockoutGoal"
             yield sprintf "scoreboard players operation $ENTITY TEMP -= $ENTITY %sScore" t
-            yield sprintf """execute if entity $SCORE(isLockout=1,TEMP=0) run tellraw @a ["%s",{"selector":"@a[team=%s]"}," got the lockout goal!"]""" LEADING_WHITESPACE t
+            yield sprintf """execute if entity $SCORE(isLockout=1,TEMP=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got the lockout goal!"]""" LEADING_WHITESPACE t
             yield sprintf "execute if entity $SCORE(isLockout=1,TEMP=0) run function %s:got_a_win_common_logic" NS
             |]
     yield "got_a_win_common_logic", [|
@@ -1029,7 +1029,7 @@ let checker_functions = [|
         // option to return to lobby
         yield """execute if entity $SCORE(handHolding=1) run tellraw @a ["You can keep playing, or"]"""
         yield """execute if entity $SCORE(handHolding=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
-        yield sprintf """execute if entity $SCORE(handHolding=0) run tellraw @a ["%s",{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
+        yield sprintf """execute if entity $SCORE(handHolding=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         // fireworks
         yield """execute as @a at @s run summon fireworks_rocket ~3 ~0 ~0 {LifeTime:20}"""
         yield "$NTICKSLATER(8)"    // TODO note that this could be a re-entrant callback, e.g. you get bingo, and two ticks later you get the lockout goal, and so there are two schedulings of the same callback active
@@ -1050,8 +1050,9 @@ let checker_functions = [|
             yield sprintf """%sexecute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" prefix s n name
             // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
             // TODO condition this
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a ["%s",{"selector":"@s"}," in ",{"score":{"name":"@e[%s]","objective":"minutes"}},":",{"score":{"name":"@e[%s]","objective":"preseconds"}},{"score":{"name":"@e[%s]","objective":"seconds"}}]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a ["%s","got the %s"]""" prefix s n LEADING_WHITESPACE name
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            //yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [%s,{"selector":"@s"}," in ",{"score":{"name":"@e[%s]","objective":"minutes"}},":",{"score":{"name":"@e[%s]","objective":"preseconds"}},{"score":{"name":"@e[%s]","objective":"seconds"}}]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            //yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run tellraw @a [%s,"got the %s"]""" prefix s n LEADING_WHITESPACE name
             |]
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
