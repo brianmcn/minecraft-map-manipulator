@@ -1432,6 +1432,9 @@ open Advancements
 do   
     let user = "Admin1"
 
+    let tmp3LevelDat = sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\testing\level.dat""" user
+    Utilities.renamer(tmp3LevelDat,"\u00A7l\u00A76Minecraft\u00A7dBINGO \u00A79v4.0 \u00A7aby \u00A7eLorgon111\u00A7r ")
+
 
 #if BINGO
 
