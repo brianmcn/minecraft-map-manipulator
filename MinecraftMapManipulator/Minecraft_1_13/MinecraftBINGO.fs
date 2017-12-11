@@ -1,6 +1,6 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 // TODO can I abuse eventing and enable/disable for continuations? (add/remove collection?)
@@ -71,7 +71,7 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO maybe disable lockout each game unless set, then can be multiplayer button? hmmm... and sign can change to show current state
 
-// TODO rather than beacon at spawn, mysterious divining rod like text on action bar that points back to spawn? can be computed with coords... would be easy if we get ^ ^ ^   https://en.wikipedia.org/wiki/Arrows_%28Unicode_block%29
+// TODO do I still need beacon at spawn? is there a clever way to do end portal without expensive @e?
 
 // TODO 'tweet your score on seed' possible using the named-entity trick for putting together strings? ugh, yes strings, but not urls probably
 
@@ -152,17 +152,28 @@ let toLeastMost(uuid:System.Guid) =
     //printfn "%d    %d" least most
     least,most
 
+#if UUID
 let ENTITY_UUID = "1-1-1-0-1"
 let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
 let least,most = toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
+#else
+let SIGN_ENTITY_TAG = "tag=signguy,x=0,y=4,z=0,distance=..1.0,limit=1"
+#endif
 
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
-    yield """summon armor_stand 4 4 4 {CustomName:"                          ",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
+    yield """summon armor_stand 84 4 4 {CustomName:"                          ",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
+#if UUID
     yield sprintf """summon armor_stand 64 4 64 {CustomName:%s,UUIDMost:%dl,UUIDLeast:%dl,Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" ENTITY_UUID most least
+#else
+    yield """summon armor_stand 0 4 0 {CustomName:"signguy",Tags:["signguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
+    for x = -6 to 6 do
+        for z = -6 to 6 do
+            yield sprintf "setblock %d 4 %d minecraft:sign" x z
+#endif
     |]
-let ENTITY_TAG = "tag=scoreAS,x=4,y=4,z=4,distance=..1.0,limit=1"
+let ENTITY_TAG = "tag=scoreAS,x=84,y=4,z=4,distance=..1.0,limit=1"
 let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={leadingWS=1}]"}""" ENTITY_TAG
 
 let allCallbackShortNames = ResizeArray()
@@ -309,6 +320,8 @@ let game_objectives = [|
     yield "spawnDir"           // a player's spawnDir holds a value 1-8 that specifies which of 8 directions most closely points back to seed's spawn point
     yield "xspawn"             // a player's xSpawn is the x coordinate of his spawn point for this seed
     yield "zspawn"             // a player's zSpawn is the z coordinate of his spawn point for this seed
+    yield "x"                 // temp variable on player
+    yield "z"                 // temp variable on player
     yield "dx"                 // temp variable on player
     yield "dz"                 // temp variable on player
     yield "bestsumsq"          // temp variable on player
@@ -1260,7 +1273,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile([|
             "tag @s add playerHasBeenSeen"
             sprintf "teleport @s %s" LOBBY
-            "effect give @s minecraft:night_vision 99999 1 true"
+            "effect give @s minecraft:night_vision 99999 1 true"  // TODO not working?
             "recipe give @s *"
             "advancement grant @s everything"
             |],"first_time_player")
@@ -1273,66 +1286,125 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
                     5
                so that we can display an arrow on the actionbar that points at spawn.
             *)
-            // TODO compute more efficiently?
+#if UUID
+            // TODO clean up this code, it seems sufficiently efficient for now
+            let N90 = "5"    // how many away orthogonally
+            let N45 = "3.54" // how many away diagonally (ortho * sin45)
             let common = [|
-                sprintf "execute store result score @s dx run data get entity %s Pos[0] 1.0" ENTITY_UUID 
-                sprintf "execute store result score @s dz run data get entity %s Pos[2] 1.0" ENTITY_UUID 
-                sprintf "teleport %s @s" ENTITY_UUID
-                sprintf "execute as %s at @s run teleport @s ~ ~ ~ 0 ~" ENTITY_UUID 
+                sprintf "execute store result score @s dx run data get entity @s Pos[0] 1.0" 
+                sprintf "execute store result score @s dz run data get entity @s Pos[2] 1.0"
+                sprintf "teleport @s @p[tag=dirGuy]"
+                sprintf "teleport @s ~ ~ ~ 0 ~"       // null out y rotation
                 "scoreboard players operation @s dx -= @s xspawn"
                 "scoreboard players operation @s dz -= @s zspawn"
                 "scoreboard players operation @s dx *= @s dx"
                 "scoreboard players operation @s dz *= @s dz"
                 "scoreboard players operation @s dx += @s dz"
                 |]
-            let N90 = "5"    // how many away orthogonally
-            let N45 = "3.54" // how many away diagonally (ortho * sin45)
-            yield sprintf "teleport %s @s" ENTITY_UUID
-            yield sprintf "execute as %s at @s run teleport @s ~ ~ ~ 0 ~" ENTITY_UUID 
+            yield sprintf "scoreboard players operation @s xspawn = @p[tag=dirGuy] xspawn"
+            yield sprintf "scoreboard players operation @s zspawn = @p[tag=dirGuy] zspawn"
+            yield sprintf "teleport @s @p[tag=dirGuy]"
+            yield sprintf "teleport @s ~ ~ ~ 0 ~"
             // 1
-            yield sprintf "execute as %s run teleport @s ^ ^ ^%s" ENTITY_UUID N90
+            yield sprintf "teleport @s ^ ^ ^%s" N90
             yield! common
             yield "scoreboard players set @s spawnDir 1"
             yield "scoreboard players operation @s bestsumsq = @s dx"
             // 2
-            yield sprintf "execute as %s run teleport @s ^-%s ^ ^%s" ENTITY_UUID N45 N45
+            yield sprintf "teleport @s ^-%s ^ ^%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 2"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 3
-            yield sprintf "execute as %s run teleport @s ^-%s ^ ^" ENTITY_UUID N90
+            yield sprintf "teleport @s ^-%s ^ ^" N90
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 3"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 4
-            yield sprintf "execute as %s run teleport @s ^-%s ^ ^-%s" ENTITY_UUID N45 N45
+            yield sprintf "teleport @s ^-%s ^ ^-%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 4"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 5
-            yield sprintf "execute as %s run teleport @s ^ ^ ^-%s" ENTITY_UUID N90
+            yield sprintf "teleport @s ^ ^ ^-%s" N90
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 5"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 6
-            yield sprintf "execute as %s run teleport @s ^%s ^ ^-%s" ENTITY_UUID N45 N45
+            yield sprintf "teleport @s ^%s ^ ^-%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 6"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 7
-            yield sprintf "execute as %s run teleport @s ^%s ^ ^" ENTITY_UUID N90
+            yield sprintf "teleport @s ^%s ^ ^" N90
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 7"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 8
-            yield sprintf "execute as %s run teleport @s ^%s ^ ^%s" ENTITY_UUID N45 N45
+            yield sprintf "teleport @s ^%s ^ ^%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 8"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
+            // done
+            yield "scoreboard players operation @p[tag=dirGuy] spawnDir = @s spawnDir"
+#else
+            // the sign trick - can place all the signs at spawn up-front, no need to set blocks, just read the block entity data
+            let N90 = "5"    // how many away orthogonally
+            let N45 = "3.54" // how many away diagonally (ortho * sin45)
+            let common(offset) = [|
+                sprintf "execute store result score @s dx run execute as @e[%s] at @s run data get block %s x 1.0" SIGN_ENTITY_TAG offset 
+                sprintf "execute store result score @s dz run execute as @e[%s] at @s run data get block %s z 1.0" SIGN_ENTITY_TAG offset
+                "scoreboard players operation @s dx += @s x"
+                "scoreboard players operation @s dz += @s z"
+                "scoreboard players operation @s dx -= @s xspawn"
+                "scoreboard players operation @s dz -= @s zspawn"
+                "scoreboard players operation @s dx *= @s dx"
+                "scoreboard players operation @s dz *= @s dz"
+                "scoreboard players operation @s dx += @s dz"
+                |]
+            yield sprintf "teleport @e[%s] @s" SIGN_ENTITY_TAG                                 // grab player's "facing" direction
+            yield sprintf "teleport @e[tag=signguy] 0.0 4.0 0.0"                               // go back home  // TODO @e
+            yield sprintf "execute as @e[%s] at @s run teleport @s ~ ~ ~ 0 ~" SIGN_ENTITY_TAG  // remove any up-down looking, just keep xz
+            yield sprintf "execute store result score @s x run data get entity @s Pos[0] 1.0"  // get player x
+            yield sprintf "execute store result score @s z run data get entity @s Pos[2] 1.0"  // get player z
+            // 1
+            yield! common(sprintf "^ ^ ^%s" N90)
+            yield "scoreboard players set @s spawnDir 1"
+            yield "scoreboard players operation @s bestsumsq = @s dx"
+            let OFFSETS = [|
+                null
+                null
+                sprintf "^-%s ^ ^%s" N45 N45
+                sprintf "^-%s ^ ^" N90
+                sprintf "^-%s ^ ^-%s" N45 N45
+                sprintf "^ ^ ^-%s" N90
+                sprintf "^%s ^ ^-%s" N45 N45
+                sprintf "^%s ^ ^" N90
+                sprintf "^%s ^ ^%s" N45 N45
+                |]
+            for i = 2 to 8 do
+                // i
+                yield! common(OFFSETS.[i])
+                yield sprintf "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir %d" i
+                yield sprintf "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
+#endif
+            |],"find_dir_to_spawn_body")
+        yield! compile([|
+            "tag @s add dirGuy"
+#if UUID
+            sprintf "execute as %s run function %s:find_dir_to_spawn_body" ENTITY_UUID NS
+#else
+            // TODO
+#endif
+            "tag @s remove dirGuy"
             |],"find_dir_to_spawn")
         yield! compile([|
+            // TODO             
+            //for _i = 1 to 50 do   // sign starts lagging after 25, uuid after 35
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a at @s run function %s:find_dir_to_spawn" NS
+#if UUID
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run teleport %s 64 4 64" ENTITY_UUID // TODO factor 64 4 64
+#endif
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
