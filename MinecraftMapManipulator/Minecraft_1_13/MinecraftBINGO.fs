@@ -75,6 +75,10 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO 'tweet your score on seed' possible using the named-entity trick for putting together strings? ugh, yes strings, but not urls probably
 
+// TODO multiplayer where teams spawn nearby (pvp etc)
+
+// TODO investigate 'off' RNG in source code
+
 // starting options (maybe both start & respawn same?)
 // NV
 // DS
@@ -110,6 +114,7 @@ type Coords(x:int,y:int,z:int) =
     member this.Z = z
     member this.Tuple = x,y,z
     member this.STR = sprintf "%d %d %d" x y z
+    member this.TPSTR = sprintf "%d %d.0 %d" x y z   // TODO seems like not specifying a decimal adds 0.5 to each value when tp'ing; we typically want y to be floor-flush and xz to be centered, hence this hack
     member this.Offset(dx,dy,dz) = new Coords(x+dx, y+dy, z+dz)
 
 let MAP_UPDATE_ROOM = Coords(62,10,72)
@@ -666,7 +671,7 @@ let game_functions = [|
         |]
     yield "do_spawn_sequence", [|
         // tp all to waiting room
-        yield sprintf "tp @a %s 0 180" WAITING_ROOM.STR
+        yield sprintf "tp @a %s 0 180" WAITING_ROOM.TPSTR
         // set up spawn points
         yield "scoreboard players set $ENTITY PRNG_MOD 998"
         yield sprintf "execute if entity @a[team=red] run function %s:do_red_spawn" NS
@@ -776,11 +781,11 @@ let map_update_functions = [|
         "execute store result score @s ReturnZ run data get entity @s Pos[2] 128.0"
         "execute store result score @s ReturnRotX run data get entity @s Rotation[0] 8.0"   // floats
         "execute store result score @s ReturnRotY run data get entity @s Rotation[1] 8.0"
-        """tellraw @a [{"selector":"@s"}," is updating the BINGO map"]"""
+        sprintf """tellraw @a [%s,{"selector":"@s"}," is updating the BINGO map"]""" LEADING_WHITESPACE
         //"data merge entity @e[type=!player,distance=..160] {PersistenceRequired:1}"  // preserve mobs
         "execute as @e[type=!player,distance=..160] run data merge entity @s {PersistenceRequired:1}"  // preserve mobs
         // TODO ever a reason to un-persist?
-        sprintf "tp @s %s 180 180" MAP_UPDATE_ROOM.STR
+        sprintf "tp @s %s 180 180" MAP_UPDATE_ROOM.TPSTR
         //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         |]
