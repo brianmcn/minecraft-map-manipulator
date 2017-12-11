@@ -73,6 +73,8 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO rather than beacon at spawn, mysterious divining rod like text on action bar that points back to spawn? can be computed with coords... would be easy if we get ^ ^ ^   https://en.wikipedia.org/wiki/Arrows_%28Unicode_block%29
 
+// TODO 'tweet your score on seed' possible using the named-entity trick for putting together strings? ugh, yes strings, but not urls probably
+
 // starting options (maybe both start & respawn same?)
 // NV
 // DS
@@ -82,6 +84,7 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // got item side effects
 // announceItem012/fireworkItem01
+// announceOnlyTeam  // TODO test this
 // OOB reveal square in blind game
 // OOB different sounds depending on square got
 
@@ -267,6 +270,7 @@ let game_objectives = [|
     yield "TEMP"  // a temporary variable anyone can use locally
     // bingo main game logic
     yield "Score"
+    yield "teamNum"            // on players, 1=red, 2=blue, 3=green, 4=yellow; useful for finding all teammates
     yield "fakeStart"
     yield "isLockout"
     yield "lockoutGoal"
@@ -274,6 +278,7 @@ let game_objectives = [|
     yield "hasAnyoneUpdated"
     yield "handHolding"        // 1 if we need to explain how to update the card, how to click the chat, etc; 0 if not
     yield "leadingWS"          // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
+    yield "announceOnlyTeam"   // 1 if announce/firework only to your teammates, 0 if to everyone
     yield "announceItem"       // 2 if announce item name, 1 if just say 'got an item', 0 if no text generated
     yield "fireworkItem"       // 1 if play sound when get item, 0 if silent
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
@@ -311,6 +316,7 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY gameInProgress 0"
         yield "scoreboard players set $ENTITY handHolding 1"
         yield "scoreboard players set $ENTITY announceItem 2"
+        yield "scoreboard players set $ENTITY announceOnlyTeam 0"
         yield "scoreboard players set $ENTITY fireworkItem 1"
         yield "scoreboard players set $ENTITY leadingWS 0"
         // loop
@@ -404,6 +410,7 @@ let game_functions = [|
     yield "assign_1_team",[|
         yield "team join red @a"
         yield "scoreboard players add @a Score 0"
+        yield "scoreboard players set @a[team=red] teamNum 1"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "assign_2_team",[|
@@ -412,6 +419,8 @@ let game_functions = [|
             yield "team join red @r[team=]"
             yield "team join blue @r[team=]"
         yield "scoreboard players add @a Score 0"
+        yield "scoreboard players set @a[team=red] teamNum 1"
+        yield "scoreboard players set @a[team=blue] teamNum 2"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "assign_3_team",[|
@@ -421,6 +430,9 @@ let game_functions = [|
             yield "team join blue @r[team=]"
             yield "team join green @r[team=]"
         yield "scoreboard players add @a Score 0"
+        yield "scoreboard players set @a[team=red] teamNum 1"
+        yield "scoreboard players set @a[team=blue] teamNum 2"
+        yield "scoreboard players set @a[team=green] teamNum 3"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "assign_4_team",[|
@@ -431,6 +443,10 @@ let game_functions = [|
             yield "team join green @r[team=]"
             yield "team join yellow @r[team=]"
         yield "scoreboard players add @a Score 0"
+        yield "scoreboard players set @a[team=red] teamNum 1"
+        yield "scoreboard players set @a[team=blue] teamNum 2"
+        yield "scoreboard players set @a[team=green] teamNum 3"
+        yield "scoreboard players set @a[team=yellow] teamNum 4"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "fake_start",[| // for testing; start sequence without the spawn points
@@ -447,6 +463,10 @@ let game_functions = [|
         yield sprintf"%s_team_join"t, [|
             sprintf "team join %s" t
             "scoreboard players add @s Score 0"
+            "scoreboard players set @a[team=red] teamNum 1"
+            "scoreboard players set @a[team=blue] teamNum 2"
+            "scoreboard players set @a[team=green] teamNum 3"
+            "scoreboard players set @a[team=yellow] teamNum 4"
             sprintf "function %s:compute_lockout_goal" NS
             |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
@@ -905,8 +925,10 @@ let checker_functions = [|
                 yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
                 yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:inv/check%s" t s NS s
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
-            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,announceItem=1..) run tellraw @a ["To update the BINGO map, drop one copy on the ground"]"""
-            yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,announceItem=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
+            yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
+            yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
@@ -999,8 +1021,11 @@ let checker_functions = [|
         let check_and_display(prefix, n, name) = [|
             yield sprintf """%sexecute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" prefix s n name
             // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2) run tellraw @a [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1) run tellraw @a [%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0) run tellraw @a [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=0) run tellraw @a [%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s [%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
             |]
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
