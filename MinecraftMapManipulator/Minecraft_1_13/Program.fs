@@ -47,11 +47,13 @@ let main argv =
     profileThis("lud",100,1000,[],["execute if entity @e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0,scores={gameInProgress=2}] run scoreboard players add x A 1"],[])
     profileThis("luf",100,1000,[],["execute if score FOO A <= FOO A run scoreboard players add x A 1"],[])
 
+    profileThis("tag",100,1000,[],["execute if entity @e[tag=scoreAS] run scoreboard players add x A 1"],[])
+    profileThis("tagtype",100,1000,[],["execute if entity @e[type=armor_stand,tag=scoreAS] run scoreboard players add x A 1"],[])
+
     profileThis("ix",2,500,[],["""execute store success score @p FOO run clear @p diamond 1"""],[])
     profileThis("ic",2,500,[],["""execute if entity @p[nbt={Inventory:[{id:"minecraft:diamond"}]}] store success score @p FOO run clear @p diamond 1"""],[])
     profileThis("ig",2,500,[],["""execute store success score @p FOO run clear @p #test:item001 1"""],[])
     *)
-
     MinecraftBINGO.cardgen_compile()
     ignore argv
     0
