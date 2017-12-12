@@ -58,6 +58,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <Compile Include="Raycast.fs" />
     <Compile Include="MinecraftBINGO.fs" />
     <Compile Include="Program.fs" />
     <Content Include="DesignNotes.txt" />

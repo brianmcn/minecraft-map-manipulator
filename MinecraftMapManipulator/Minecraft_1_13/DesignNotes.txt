@@ -84,7 +84,7 @@ helper functions
 blocks
  x art assets
  - ?lobby? (or code that write it?)
- - 'branding' on the map (bingo by lorgon, bDim)
+ - 'branding' on the map (bingo by lorgon, bDia)
  - history/books/donations/etc
 
 ongoing per-tick code

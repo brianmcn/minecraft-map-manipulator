@@ -79,6 +79,10 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO investigate 'off' RNG in source code
 
+// TODO command block customization, 4or people on server without access to 4iles
+
+// TODO sea lantern under art o4 sugar - check all under-art
+
 // starting options (maybe both start & respawn same?)
 // NV
 // DS
@@ -93,8 +97,18 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // OOB different sounds depending on square got
 
 // other
-// update reminder each game? "handHolding"
+// "handHolding" (update reminder each game, press 't' chat to click, ...)
 // "leadingWS" (and CustomName of scoreAS)
+
+
+// TODO doDaylightCycle
+
+// TODO f9b, 6p, 2 teams, tick lag
+
+// TODO Maybe put the card's seed on the right margin, so a screenshot of the card without the rest of the UI includes the seed number for that card?﻿ 
+// TODO display config options on card sidebar?
+
+// TODO consider https://www.reddit.com/r/minecraftbingo/comments/7j1afe/some_ideas_for_40/
 
 /////////////////////////////////////////////////////////////
 
@@ -162,6 +176,7 @@ let SIGN_ENTITY_TAG = "tag=signguy,x=0,y=4,z=0,distance=..1.0,limit=1"
 
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
+// TODO 3 more spaces worked to clear mark map on FS 1080p, but then my timer overlaps and needs more spaces
     yield """summon armor_stand 84 4 4 {CustomName:"                          ",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
 #if UUID
@@ -1001,7 +1016,6 @@ let checker_functions = [|
                 for ot in TEAMS do
                     if ot <> t then
                         yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
-                // TODO test actual logic to color the game board square appropriately (e.g. lockout)
                 let x = 2 + 24*(int s.[0] - int '0' - 1)
                 let y = ART_HEIGHT
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
@@ -1273,7 +1287,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile([|
             "tag @s add playerHasBeenSeen"
             sprintf "teleport @s %s" LOBBY
-            "effect give @s minecraft:night_vision 99999 1 true"  // TODO not working?
+            "effect give @s minecraft:night_vision 99999 1 true"
             "recipe give @s *"
             "advancement grant @s everything"
             |],"first_time_player")
@@ -1401,6 +1415,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile([|
             // TODO             
             //for _i = 1 to 50 do   // sign starts lagging after 25, uuid after 35
+            // TODO I should probably make a toggle option for this, in case it lags
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a at @s run function %s:find_dir_to_spawn" NS
 #if UUID
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run teleport %s 64 4 64" ENTITY_UUID // TODO factor 64 4 64
