@@ -3,7 +3,7 @@
 let STEP = 1.0 / 1024.0
 let MAX_STEPS = 65536
 let STEP_ARRAY = [| 65536; 32768; 16384; 8192; 4096; 2048; 1024; 512; 256; 128; 64; 32; 16; 8; 4; 2; 1 |]
-let MAX_DIST = float MAX_STEPS * STEP
+let MAX_DIST = float MAX_STEPS * STEP * 2.0
 
 let NS = "raycast"
 
@@ -67,6 +67,8 @@ let compute_steps = [|
     |]
 
 let rc_objectives = [|
+    "flipx"    // whether looking in negative x direction
+    "flipz"    // whether looking in negative x direction
     "xuntil"   // current x steps until next cross
     "zuntil"   // current z steps until next cross
     "xspc"     // x steps per cross
@@ -94,11 +96,20 @@ let raycast = [|
         |]
     "raycast", [| 
         // called as AS or whatever at the player
+        // figure out flip values
+        "execute store result score @s temp run data get entity @s Rotation[0] 1.0"
+        //sprintf """tellraw @a ["rot[0]: ",{"score":{"name":"@s","objective":"temp"}}]"""
+        "scoreboard players set @s flipx 0"
+        "scoreboard players set @s[scores={temp=1..}] flipx 1"
+        "scoreboard players set @s flipz 1"
+        "scoreboard players set @s[scores={temp=-90..90}] flipz 0"
+        // init until/spc
         """execute unless entity @e[tag=tempAS] run summon armor_stand ~ ~ ~ {NoGravity:1b,Invulnerable:1b,Small:1b,Tags:["tempAS"]}"""  
         "teleport @e[tag=tempAS] @s"
         sprintf "execute as @e[tag=tempAS] at @s run function %s:find_x_init_and_spc" NS
         "teleport @e[tag=tempAS] @s"
         sprintf "execute as @e[tag=tempAS] at @s run function %s:find_z_init_and_spc" NS
+        // run the loop
         "scoreboard players set @s curstep 0"
         sprintf "scoreboard players set @s maxstep %d" MAX_STEPS 
         sprintf "execute at @s run function %s:loop" NS
@@ -119,14 +130,15 @@ let raycast = [|
         "scoreboard players operation @s curstep += @s xuntil"
         "scoreboard players operation @s zuntil -= @s xuntil"
         "scoreboard players operation @s xuntil = @s xspc"
-        // TODO only works in positive direction
-        "execute at @s run teleport @s ~1 ~ ~"
+        "execute if entity @s[scores={flipx=0}] at @s run teleport @s ~1 ~ ~"
+        "execute if entity @s[scores={flipx=1}] at @s run teleport @s ~-1 ~ ~"
         |]
     "step_z",[|
         "scoreboard players operation @s curstep += @s zuntil"
         "scoreboard players operation @s xuntil -= @s zuntil"
         "scoreboard players operation @s zuntil = @s zspc"
-        "execute at @s run teleport @s ~ ~ ~1"
+        "execute if entity @s[scores={flipz=0}] at @s run teleport @s ~ ~ ~1"
+        "execute if entity @s[scores={flipz=1}] at @s run teleport @s ~ ~ ~-1"
         |]
     "step",[| // TODO remove, for debugging
         "execute as @e[tag=AS] at @s run function raycast:loop"

@@ -177,6 +177,7 @@ let SIGN_ENTITY_TAG = "tag=signguy,x=0,y=4,z=0,distance=..1.0,limit=1"
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
 // TODO 3 more spaces worked to clear mark map on FS 1080p, but then my timer overlaps and needs more spaces
+// TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
     yield """summon armor_stand 84 4 4 {CustomName:"                          ",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
 #if UUID
