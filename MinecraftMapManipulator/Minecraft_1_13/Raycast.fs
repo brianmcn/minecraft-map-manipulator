@@ -97,26 +97,26 @@ let raycast = [|
     "find_x_init_and_spc", [|
         // called on tempAS starting at origin
         sprintf "execute as @s at @s run function %s:steps_to_next_x" NS
-        "scoreboard players operation @e[tag=AS] xuntil = @s steps"
+        "scoreboard players operation @e[tag=markAS] xuntil = @s steps"
         sprintf "execute as @s at @s run function %s:steps_to_next_x" NS
-        "scoreboard players operation @e[tag=AS] xspc = @s steps"
+        "scoreboard players operation @e[tag=markAS] xspc = @s steps"
         |]
     "find_y_init_and_spc", [|
         // called on tempAS starting at origin
         sprintf "execute as @s at @s run function %s:steps_to_next_y" NS
-        "scoreboard players operation @e[tag=AS] yuntil = @s steps"
+        "scoreboard players operation @e[tag=markAS] yuntil = @s steps"
         sprintf "execute as @s at @s run function %s:steps_to_next_y" NS
-        "scoreboard players operation @e[tag=AS] yspc = @s steps"
+        "scoreboard players operation @e[tag=markAS] yspc = @s steps"
         |]
     "find_z_init_and_spc", [|
         // called on tempAS starting at origin
         sprintf "execute as @s at @s run function %s:steps_to_next_z" NS
-        "scoreboard players operation @e[tag=AS] zuntil = @s steps"
+        "scoreboard players operation @e[tag=markAS] zuntil = @s steps"
         sprintf "execute as @s at @s run function %s:steps_to_next_z" NS
-        "scoreboard players operation @e[tag=AS] zspc = @s steps"
+        "scoreboard players operation @e[tag=markAS] zspc = @s steps"
         |]
     "raycast", [| 
-        // called as AS or whatever at the player
+        // called as markAS or whatever at the player
         // figure out flip values
         "execute store result score @s temp run data get entity @s Rotation[0] 1.0"
         "scoreboard players set @s flipx 0"
@@ -127,7 +127,6 @@ let raycast = [|
         "scoreboard players set @s flipy 0"
         "scoreboard players set @s[scores={temp=1..}] flipy 1"
         // init until/spc
-        """execute unless entity @e[tag=tempAS] run summon armor_stand ~ ~ ~ {NoGravity:1b,Invulnerable:1b,Small:1b,Tags:["tempAS"]}"""  
         "teleport @e[tag=tempAS] @s"
         sprintf "execute as @e[tag=tempAS] at @s run function %s:find_x_init_and_spc" NS
         "teleport @e[tag=tempAS] @s"
@@ -138,6 +137,16 @@ let raycast = [|
         "scoreboard players set @s curstep 0"
         sprintf "scoreboard players set @s maxstep %d" MAX_STEPS 
         sprintf "execute at @s run function %s:loop" NS
+        // markAS is currently inside the first collision box, and 'which' has the direction of the last step
+        "teleport @e[tag=collidemagma] @s"
+        // step back 1
+        "execute if entity @s[scores={which=0,flipx=0}] at @s run teleport @s ~-1 ~ ~"
+        "execute if entity @s[scores={which=0,flipx=1}] at @s run teleport @s ~1 ~ ~"
+        "execute if entity @s[scores={which=1,flipy=0}] at @s run teleport @s ~ ~-1 ~"
+        "execute if entity @s[scores={which=1,flipy=1}] at @s run teleport @s ~ ~1 ~"
+        "execute if entity @s[scores={which=2,flipz=0}] at @s run teleport @s ~ ~ ~-1"
+        "execute if entity @s[scores={which=2,flipz=1}] at @s run teleport @s ~ ~ ~1"
+        "teleport @e[tag=raymagma] @s"
         |]
     "loop",[|
         sprintf "execute if score @s curstep < @s maxstep if block ~ ~ ~ air run function %s:loop_try_x" NS
@@ -151,7 +160,7 @@ let raycast = [|
         sprintf "execute if entity @s[scores={which=1}] run function %s:step_y" NS
         sprintf "execute if entity @s[scores={which=2}] run function %s:step_z" NS
         sprintf "execute at @s run function %s:loop" NS
-        "execute as @e[tag=AS] at @s align xyz run teleport @s ~0.5 ~ ~0.5" // snap to grid at end
+        "execute as @e[tag=markAS] at @s align xyz run teleport @s ~0.5 ~ ~0.5" // snap to grid at end
         |]
     "step_x",[|
         "scoreboard players operation @s curstep += @s xuntil"
@@ -178,11 +187,10 @@ let raycast = [|
         "execute if entity @s[scores={flipz=1}] at @s run teleport @s ~ ~ ~-1"
         |]
     "run", [| 
-        // Note: if just summoned, can't tp, so fails first time, dunno any workaround
-        """execute unless entity @e[tag=AS] run summon armor_stand ~ ~ ~ {Glowing:1b,NoGravity:1b,Invulnerable:1b,Tags:["AS"]}"""
-        "teleport @e[tag=AS] @p"
-        // TODO start at eye level
-        sprintf "execute as @e[tag=AS] run function %s:raycast" NS
+        "teleport @e[tag=markAS] @p"
+        // start at eye level (move feet of markAS to player eye level)
+        "teleport @e[tag=markAS] ~ ~1.62 ~"
+        sprintf "execute as @e[tag=markAS] at @s run function %s:raycast" NS
         |]
     |]
 
@@ -196,8 +204,23 @@ let main() =
         |]
     let allFuncs = [|
         yield "init",[|
+            yield "data merge entity @e[tag=raymagma,limit=1] {Health:0}"  // kill invincible guy
+            yield "data merge entity @e[tag=collidemagma,limit=1] {Health:0}"  // kill invincible guy
+            yield "kill @e[type=!player]"
+            yield """summon armor_stand ~ ~ ~ {Invisible:0b,Glowing:1b,NoGravity:1b,Invulnerable:1b,Small:0b,Tags:["markAS"],CustomName:markAS}"""
+            //yield """summon armor_stand ~ ~ ~ {Invisible:1b,Glowing:0b,NoGravity:1b,Invulnerable:1b,Small:1b,Tags:["tempAS"],CustomName:tempAS}"""  
+            yield """summon magma_cube ~ ~ ~ {Team:RayTeam,Size:0,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,Tags:["raymagma","magma"],CustomName:raymagma}"""
+            // AbsorptionAmount:3.5e38f makes it invincible even to void, so we can teleport it below y=0; must kill by setting Health=0
+            yield """summon magma_cube ~ ~ ~ {Team:CollideTeam,Size:0,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,Tags:["tempAS","collidemagma","magma"],CustomName:collidemagma,AbsorptionAmount:3.5e38f}"""
+            yield "effect give @e[tag=magma] invisibility 999999 1 true"
             for o in allObjectives do
                 yield sprintf "scoreboard objectives add %s dummy" o
+            yield "team add RayTeam"
+            yield "team option RayTeam collisionRule never"  // magma_cube should not collide with player
+            yield "team option RayTeam color green"  // may change to red on the fly
+            yield "team add CollideTeam"  // shows non-air collision box
+            yield "team option CollideTeam collisionRule never"  // magma_cube should not collide with player
+            yield "team option CollideTeam color blue"
             |]
         yield! compute_steps 
         yield! raycast 
