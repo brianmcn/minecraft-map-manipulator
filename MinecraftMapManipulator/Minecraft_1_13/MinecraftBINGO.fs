@@ -89,6 +89,8 @@ brtw
 Zampone
 gothfaerie
 WarNev3rChanges
+BananaClanana
+BlkR0se  // todo spelling?
 *)
 /////////////////////////////////////////////////////////////
 
@@ -98,7 +100,7 @@ type Coords(x:int,y:int,z:int) =
     member this.Z = z
     member this.Tuple = x,y,z
     member this.STR = sprintf "%d %d %d" x y z
-    member this.TPSTR = sprintf "%d %d.0 %d" x y z   // TODO seems like not specifying a decimal adds 0.5 to each value when tp'ing; we typically want y to be floor-flush and xz to be centered, hence this hack
+    member this.TPSTR = sprintf "%d %d.0 %d" x y z   // not specifying a decimal adds 0.5 to each value; when tp'ing, we typically want y to be floor-flush and xz to be centered, hence this
     member this.Offset(dx,dy,dz) = new Coords(x+dx, y+dy, z+dz)
 
 let MAP_UPDATE_ROOM = Coords(62,10,72)
@@ -279,8 +281,9 @@ let prng = [|
 
 ///////////////////////////////////////////////////////
 
-let LOBBY = "62 25 63 0 180"
+let LOBBY = "62 25.0 63 0 180"
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
+let TICKS_TO_UPDATE_MAP = 30
 let game_objectives = [|
     // GLOBALS
     yield "CALL"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
@@ -298,14 +301,15 @@ let game_objectives = [|
     yield "announceOnlyTeam"   // 1 if announce/firework only to your teammates, 0 if to everyone
     yield "announceItem"       // 2 if announce item name, 1 if just say 'got an item', 0 if no text generated
     yield "fireworkItem"       // 1 if play sound when get item, 0 if silent
+    yield "arrowToSpawn"       // 1 if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?), 0 if not
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
     yield "SIXTY"
     yield "ONE_THOUSAND"
     yield "TEN_THOUSAND"
     yield "spawnDir"           // a player's spawnDir holds a value 1-8 that specifies which of 8 directions most closely points back to seed's spawn point
-    yield "xspawn"             // a player's xSpawn is the x coordinate of his spawn point for this seed
-    yield "zspawn"             // a player's zSpawn is the z coordinate of his spawn point for this seed
+    yield "xspawn"             // a player's xspawn is the x coordinate of his spawn point for this seed
+    yield "zspawn"             // a player's zspawn is the z coordinate of his spawn point for this seed
     yield "x"                 // temp variable on player
     yield "z"                 // temp variable on player
     yield "dx"                 // temp variable on player
@@ -342,10 +346,11 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY isLockout 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
         yield "scoreboard players set $ENTITY handHolding 1"
+        yield "scoreboard players set $ENTITY leadingWS 0"
         yield "scoreboard players set $ENTITY announceItem 2"
         yield "scoreboard players set $ENTITY announceOnlyTeam 0"
         yield "scoreboard players set $ENTITY fireworkItem 1"
-        yield "scoreboard players set $ENTITY leadingWS 0"
+        yield "scoreboard players set $ENTITY arrowToSpawn 1"
         // loop
         yield "setblock 68 25 64 air"
         if not USE_GAMELOOP then
@@ -552,24 +557,24 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
         "scoreboard players set $ENTITY preseconds -1"                                                 // briefly store an atypical value to copy
         "execute if entity $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
-        // TODO conditionalize on if 'arrow' is enabled
-        //sprintf """execute as $ENTITY run title @a actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf "execute as @a run function %s:update_time_per_player" NS
+        sprintf "execute if entity @e[%s,scores={arrowToSpawn=1}] as @a run function %s:update_time_per_player" ENTITY_TAG NS
         sprintf "scoreboard players reset @e[%s,scores={preseconds=-1}] preseconds" ENTITY_TAG         // restore typical value
+        sprintf """execute as $ENTITY run execute if entity $SCORE(arrowToSpawn=0) run title @a actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
         |]
     yield "update_time_per_player",[|
+        sprintf "function %s:find_dir_to_spawn" NS
         "scoreboard players operation @s minutes = $ENTITY minutes"
         "scoreboard players operation @s preseconds = $ENTITY preseconds"
         "scoreboard players reset @s[scores={preseconds=-1}] preseconds"
         "scoreboard players operation @s seconds = $ENTITY seconds"
-        sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2191"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2197"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2192"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2198"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2193"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2199"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2190"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}," \u2196"]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2191"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2197"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2192"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2198"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2193"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2199"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2190"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2196"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
         |]
     let SKYBOX = 150 // height of skybox floor
     yield "compute_height", [|
@@ -685,7 +690,7 @@ let game_functions = [|
     yield "ensure_card_updated", [|  // called on one player with a cleared inventory
         yield sprintf "teleport @s %s" LOBBY
         yield """give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 640"""
-        yield "$NTICKSLATER(20)"
+        yield sprintf "$NTICKSLATER(%d)" TICKS_TO_UPDATE_MAP
         yield "clear @a"  // Note: no longer @s since NTICKSLATER
         yield sprintf "function %s:start3" NS
         |]
@@ -810,16 +815,15 @@ let map_update_functions = [|
         sprintf "execute if entity @s[scores={TEMP=1..}] run function %s:warp_home_body" NS
         |]
     yield "warp_home_body", [|
-        "scoreboard players set @s ticksLeftMU 30"  // TODO calibrate best value
+        sprintf "scoreboard players set @s ticksLeftMU %d" TICKS_TO_UPDATE_MAP
         "execute store result score @s ReturnX run data get entity @s Pos[0] 128.0"   // doubles
         "execute store result score @s ReturnY run data get entity @s Pos[1] 128.0"
         "execute store result score @s ReturnZ run data get entity @s Pos[2] 128.0"
         "execute store result score @s ReturnRotX run data get entity @s Rotation[0] 8.0"   // floats
         "execute store result score @s ReturnRotY run data get entity @s Rotation[1] 8.0"
         sprintf """tellraw @a [%s,{"selector":"@s"}," is updating the BINGO map"]""" LEADING_WHITESPACE
-        //"data merge entity @e[type=!player,distance=..160] {PersistenceRequired:1}"  // preserve mobs
-        "execute as @e[type=!player,distance=..160] run data merge entity @s {PersistenceRequired:1}"  // preserve mobs
-        // TODO ever a reason to un-persist?
+        // note: only persist entities not already persisted, this way e.g. we don't later un-persist the zombie who picked up your sword
+        """execute as @e[type=!player,distance=..160,nbt={PersistenceRequired:0b}] run data merge entity @s {PersistenceRequired:1b,Tags:["persisted"]}"""  // preserve mobs
         sprintf "tp @s %s 180 180" MAP_UPDATE_ROOM.TPSTR
         //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
         "execute at @s run playsound entity.endermen.teleport ambient @a"
@@ -833,6 +837,7 @@ let map_update_functions = [|
         "execute store result entity @e[limit=1,tag=return_loc] Rotation[0] float 0.125 run scoreboard players get @s ReturnRotX"
         "execute store result entity @e[limit=1,tag=return_loc] Rotation[1] float 0.125 run scoreboard players get @s ReturnRotY"
         "teleport @s @e[limit=1,tag=return_loc]"
+        "execute as @e[type=!player,tag=persisted] run data merge entity @s {PersistenceRequired:0b}"  // un-preserve mobs (note: cannot use distance=, since just teleported, so must search world)
         //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         "scoreboard players set $ENTITY hasAnyoneUpdated 1"
@@ -1098,52 +1103,42 @@ let checker_functions = [|
 
 let makeItemChests() =
     // prepare item display chests
-    let anyDifficultyItems = ResizeArray()
-    let otherItems = ResizeArray()
-    for i = 0 to bingoItems.Length-1 do
-        if bingoItems.[i].[0] = bingoItems.[i].[1] && bingoItems.[i].[0] = bingoItems.[i].[2] then
-            anyDifficultyItems.Add( bingoItems.[i].[0] )
-        else
-            otherItems.Add( bingoItems.[i] )
-    // TODO consider different presentation, since anyDifficulty is almost becoming empty, and 'difficulty' is subjective... e.g. just show all the 'bins'
-    let anyDifficultyChest = 
-        let sb = new System.Text.StringBuilder("""{CustomName:"Items at any difficulty",Items:[""")
-        for i = 0 to anyDifficultyItems.Count-1 do
-            let item = anyDifficultyItems.[i]
-            sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" i item 1 ) |> ignore
-        let s = sb.ToString()
-        s.Substring(0, s.Length-1) + "]}"
     let otherChest1 =
-        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
         for i = 0 to 8 do
             for j = 0 to 2 do
-                let item = otherItems.[i].[j]
+                let item = bingoItems.[i].[j]
                 sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" (i+(9*j)) item 1 ) |> ignore
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
     let otherChest2 =
-        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
+        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
         for i = 9 to 17 do
             for j = 0 to 2 do
-                let item = otherItems.[i].[j]
+                let item = bingoItems.[i].[j]
                 sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" (i-9+(9*j)) item 1 ) |> ignore
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
     let otherChest3 =
-        let sb = new System.Text.StringBuilder("""{CustomName:"Easy/Medium/Hard in row 1/2/3",Items:[""")
-        for i = 18 to otherItems.Count-1 do
+        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
+        for i = 18 to 26 do
             for j = 0 to 2 do
-                let item = otherItems.[i].[j]
+                let item = bingoItems.[i].[j]
                 sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" (i-18+(9*j)) item 1 ) |> ignore
+        let s = sb.ToString()
+        s.Substring(0, s.Length-1) + "]}"
+    let otherChest4 =
+        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
+        for i = 27 to bingoItems.Length-1 do
+            for j = 0 to 2 do
+                let item = bingoItems.[i].[j]
+                sb.Append(sprintf """{Slot:%db,id:"%s",Count:%db},""" (i-27+(9*j)) item 1 ) |> ignore
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
     "make_item_chests",[|
         let x = 61
         let y = 25
         let z = 66
-        yield sprintf "setblock %d %d %d chest" x y z
-        yield sprintf "data merge block %d %d %d %s" x y z anyDifficultyChest
-        let x = x + 2
         yield sprintf "setblock %d %d %d chest" x y z
         yield sprintf "data merge block %d %d %d %s" x y z otherChest1
         let x = x + 2
@@ -1152,6 +1147,9 @@ let makeItemChests() =
         let x = x + 2
         yield sprintf "setblock %d %d %d chest" x y z
         yield sprintf "data merge block %d %d %d %s" x y z otherChest3
+        let x = x + 2
+        yield sprintf "setblock %d %d %d chest" x y z
+        yield sprintf "data merge block %d %d %d %s" x y z otherChest4
     |]
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1273,7 +1271,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "recipe give @s *"
             "advancement grant @s everything"
             |],"first_time_player")
-        yield! compile([|  // called as & at each player
+        yield! compile([|
             (* Compute which direction spawn is relative to the player's XZ
                     1
                   8   2
@@ -1283,6 +1281,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
                so that we can display an arrow on the actionbar that points at spawn.
             *)
 #if UUID
+            // called as uuid entity
             // TODO clean up this code, it seems sufficiently efficient for now
             let N90 = "5"    // how many away orthogonally
             let N45 = "3.54" // how many away diagonally (ortho * sin45)
@@ -1290,7 +1289,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
                 sprintf "execute store result score @s dx run data get entity @s Pos[0] 1.0" 
                 sprintf "execute store result score @s dz run data get entity @s Pos[2] 1.0"
                 sprintf "teleport @s @p[tag=dirGuy]"
-                sprintf "teleport @s ~ ~ ~ 0 ~"       // null out y rotation
+                sprintf "execute at @s align xz run teleport @s ~ ~ ~ 0 ~"       // null out y rotation
                 "scoreboard players operation @s dx -= @s xspawn"
                 "scoreboard players operation @s dz -= @s zspawn"
                 "scoreboard players operation @s dx *= @s dx"
@@ -1300,50 +1299,51 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "scoreboard players operation @s xspawn = @p[tag=dirGuy] xspawn"
             yield sprintf "scoreboard players operation @s zspawn = @p[tag=dirGuy] zspawn"
             yield sprintf "teleport @s @p[tag=dirGuy]"
-            yield sprintf "teleport @s ~ ~ ~ 0 ~"
+            yield sprintf "execute at @s align xz run teleport @s ~ ~ ~ 0 ~"       // null out y rotation
             // 1
-            yield sprintf "teleport @s ^ ^ ^%s" N90
+            yield sprintf "execute at @s run teleport @s ^ ^ ^%s" N90
             yield! common
             yield "scoreboard players set @s spawnDir 1"
             yield "scoreboard players operation @s bestsumsq = @s dx"
             // 2
-            yield sprintf "teleport @s ^-%s ^ ^%s" N45 N45
+            yield sprintf "execute at @s run teleport @s ^-%s ^ ^%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 2"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 3
-            yield sprintf "teleport @s ^-%s ^ ^" N90
+            yield sprintf "execute at @s run teleport @s ^-%s ^ ^" N90
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 3"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 4
-            yield sprintf "teleport @s ^-%s ^ ^-%s" N45 N45
+            yield sprintf "execute at @s run teleport @s ^-%s ^ ^-%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 4"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 5
-            yield sprintf "teleport @s ^ ^ ^-%s" N90
+            yield sprintf "execute at @s run teleport @s ^ ^ ^-%s" N90
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 5"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 6
-            yield sprintf "teleport @s ^%s ^ ^-%s" N45 N45
+            yield sprintf "execute at @s run teleport @s ^%s ^ ^-%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 6"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 7
-            yield sprintf "teleport @s ^%s ^ ^" N90
+            yield sprintf "execute at @s run teleport @s ^%s ^ ^" N90
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 7"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // 8
-            yield sprintf "teleport @s ^%s ^ ^%s" N45 N45
+            yield sprintf "execute at @s run teleport @s ^%s ^ ^%s" N45 N45
             yield! common
             yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 8"
             yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
             // done
             yield "scoreboard players operation @p[tag=dirGuy] spawnDir = @s spawnDir"
 #else
+            // called as & at each player
             // the sign trick - can place all the signs at spawn up-front, no need to set blocks, just read the block entity data
             let N90 = "5"    // how many away orthogonally
             let N45 = "3.54" // how many away diagonally (ortho * sin45)
@@ -1395,10 +1395,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "tag @s remove dirGuy"
             |],"find_dir_to_spawn")
         yield! compile([|
-            // TODO             
-            //for _i = 1 to 50 do   // sign starts lagging after 25, uuid after 35
-            // TODO I should probably make a toggle option for this, in case it lags
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a at @s run function %s:find_dir_to_spawn" NS
 #if UUID
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run teleport %s 64 4 64" ENTITY_UUID // TODO factor 64 4 64
 #endif
