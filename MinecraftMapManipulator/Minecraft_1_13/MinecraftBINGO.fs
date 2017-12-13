@@ -73,12 +73,10 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // "leadingWS" (and CustomName of scoreAS)
 
 
-// TODO doDaylightCycle
-
 // TODO f9b, 6p, 2 teams, tick lag
 
 // TODO Maybe put the card's seed on the right margin, so a screenshot of the card without the rest of the UI includes the seed number for that card?﻿ 
-// TODO display config options on card sidebar?
+// TODO display config options on card sidebar? or swap sidebar and logo (logo on side, extra on bottom?)
 
 // TODO consider https://www.reddit.com/r/minecraftbingo/comments/7j1afe/some_ideas_for_40/
 
@@ -415,19 +413,6 @@ let game_functions = [|
         yield sprintf "fill %s %s sea_lantern hollow" (WAITING_ROOM.Offset(-3,-2,-3).STR) (WAITING_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (WAITING_ROOM.Offset(-1,-1,-1).STR) (WAITING_ROOM.Offset(1,2,1).STR)
         yield! placeWallSignCmds WAITING_ROOM.X (WAITING_ROOM.Y+1) (WAITING_ROOM.Z-2) "south" "PLEASE WAIT" "(spawns are" "being" "generated)" null true false
-        // horizontal gridlines
-        yield sprintf "fill 1 %d 023 121 %d 023 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 1 %d 047 121 %d 047 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 1 %d 071 121 %d 071 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 1 %d 095 121 %d 095 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 0 %d 119 127 %d 119 stone" ART_HEIGHT ART_HEIGHT
-        // vertical gridlines
-        yield sprintf "fill 001 %d 0 001 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 025 %d 0 025 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 049 %d 0 049 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 073 %d 0 073 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 097 %d 0 097 %d 118 stone" ART_HEIGHT ART_HEIGHT
-        yield sprintf "fill 121 %d 0 127 %d 118 stone" ART_HEIGHT ART_HEIGHT
         // put logo on card bottom
         yield sprintf "fill 0 %d 120 127 %d 127 black_wool" ART_HEIGHT ART_HEIGHT
         yield sprintf """summon area_effect_cloud 0 %d 120 {Duration:2,Tags:["logoaec"]}""" ART_HEIGHT
@@ -1225,6 +1210,19 @@ let cardgen_functions = [|
         // refresh bingo art area
         yield sprintf "fill 0 %d -1 127 %d 118 clay" ART_HEIGHT ART_HEIGHT
         yield sprintf "fill 0 %d -1 127 %d 118 air" (ART_HEIGHT+1) (ART_HEIGHT+1)
+        // horizontal gridlines
+        yield sprintf "fill 1 %d 023 121 %d 023 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 1 %d 047 121 %d 047 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 1 %d 071 121 %d 071 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 1 %d 095 121 %d 095 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 0 %d 119 127 %d 119 stone" ART_HEIGHT ART_HEIGHT
+        // vertical gridlines
+        yield sprintf "fill 001 %d 0 001 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 025 %d 0 025 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 049 %d 0 049 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 073 %d 0 073 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 097 %d 0 097 %d 118 stone" ART_HEIGHT ART_HEIGHT
+        yield sprintf "fill 121 %d 0 127 %d 118 stone" ART_HEIGHT ART_HEIGHT
         // chest of items on this card
         yield "setblock 59 25 62 air"
         yield "setblock 59 25 63 air"
@@ -1423,6 +1421,14 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             |]
         yield "init",[|
             yield "execute as @e[type=!player] run say ERROR: I should have been killed in preinit"
+            yield "gamerule doDaylightCycle true"
+            yield "gamerule doWeatherCycle false"
+            yield "gamerule sendCommandFeedback false"
+            yield "gamerule commandBlockOutput false"
+            yield "gamerule logAdminCommands false"
+            yield "gamerule announceAdvancements false"
+            yield "gamerule disableElytraMovementCheck true"
+            yield "gamerule maxCommandChainLength 999999"
             yield "clear @a"
             yield "effect clear @a"
             yield! entity_init()
