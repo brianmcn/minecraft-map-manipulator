@@ -112,3 +112,7 @@ discarded ideas:
 		(repeat) execute @e[name=Floaty,tag=Zam_Beam] ~ ~ ~ blockdata ~ ~ ~ {Age:100}
    the @e is too expensive to run every tick just for a slightly better visual
 
+ - suggested to fill map update room head with water IFF player's head is in water at moment of teleport :P  
+        there are other exploits (e.g. in multiplayer, if skeleton shoots at you, drop map and arrow sails by), don't try to fix them all
+
+

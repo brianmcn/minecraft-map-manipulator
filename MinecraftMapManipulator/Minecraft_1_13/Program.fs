@@ -56,7 +56,7 @@ let main argv =
     profileThis("ic",2,500,[],["""execute if entity @p[nbt={Inventory:[{id:"minecraft:diamond"}]}] store success score @p FOO run clear @p diamond 1"""],[])
     profileThis("ig",2,500,[],["""execute store success score @p FOO run clear @p #test:item001 1"""],[])
     *)
-    //MinecraftBINGO.cardgen_compile()
-    Raycast.main()
+    MinecraftBINGO.cardgen_compile()
+    //Raycast.main()
     ignore argv
     0

@@ -3,26 +3,8 @@
 let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
-// TODO can I abuse eventing and enable/disable for continuations? (add/remove collection?)
-// not yet: https://bugs.mojang.com/browse/MC-123032
-// if that gets fixed, then we have the ability to create 'groups of functions', and add/remove known sets of functions to/from the group, and call all functions in the group
-// that could be used e.g. for continuations, so only the 'active' continuations get run every tick, rather than checking all of them, which may be better if /datapack enable/disable is a fast operation (measure)
-// what is behavior if #base:group calls child1:run which disables child1/child2?
-// could it be used as a queue? not efficiently, since only operation is 'call all', so getting the front is still O(N); just eventing (subscribe/unsubscribe/get-invoked-on_whatever)
-// could it be used as a CPS machine? maybe... each guy would disable himself and enable the continuationIP, so rather than having the trampoline have to if(IP=1)call1 elif(IP=2)call2... it could just #call:ip
-// that is, we have a type of dynamic function dispatch; I can call #foo:bar, and change where that dispatches to at runtime (among a finite subset known at design-time), ok... what can we do with that?
-// yes, this is pokable-command-blocks-without-a-one-tick-delay -- function indirection
-// i mean, i guess I could have square11-dispatches-to-diamond do that way, but it requires 25x70=1750 datapacks, but then that's set at cardgen time...
-// and i can even do that while MC-123032 exists, since i just need one.  at cardgen, call each square asking it to disable itself, then as gen card, enable the corresponding 25 packs
-// and then the inventory check is just #bingo:check_square11 which will dispatch to like check_diamond or whatever...
-// still not arrays, but the indirection allows what was a binary search to become an o(1), at the cost of a more expensive 'set' at game start time
-// yeah, more generally, you can at design time create #array1..#arrayn, which can store fun1..funm, and then with MxN datapacks you can initialize the array in a design-time 1..n walk and then O(1) run the functions whenever
-// the key is that bingo's "25" is not an array, since all I ever do is run 25 things in a row, it's just 'do a set of instructions (that happens to be 25 long)
-// whereas the item-to-clear in each square is an array, i want to, at runtime, dispatch to different stuff based on a runtime index value.  right now O(logN) with binary search, and can be O(1) with datapack, because can store "function pointer"
-// each bingo square is its own named 'event', whose event-subscription-dispatch can be updated at cardgen time
-// but note that the event-subscription-update is linear (or logN), since I need to say if(x=1)enable datapack1, if(x=2)enable datapack2, ... whereas today it's O(1) to store an integer
-// so I flip the current "O(1) set and O(logN) call" to "O(logN) set and O(1) call"   (store an int and dispatch based on it --> enable the corresponding data pack and then fire its event)
-// BUT... I am also the person that argues O(logN)==O(1) in practice.  So this datapack abuse should be used only as last resort, I expect.
+// Note: what is behavior if #base:group calls child1:run which disables child1/child2?
+// answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable child2" then (1) child2 still runs this tick and (2) there is a noticeable latency at disable-time, suggesting enable/disable are "heavy"
 
 // TOOD learn tags - eventing? add function to group?
 // TODO yes, this is how customizing should work, e.g. the "night vision + depth strider" is a data pack, and bingo has an event group for #custom:on_start and #custom:on_respawn and child packs add to that
@@ -30,16 +12,12 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // TODO 'blind' play would need like an on_new_card and on_got_square11 hooks
 // TODO 128 item groups? #item001 = diamond? #set_structure001 = structure block for the art? show-all-items chest may be problematic.  may impact perf.  unsure how to do 'max value' for cardgen & checks...
 
-// TODO could do item groups e.g. for fish like before (salmon + cod + pufferfish + clownfish) (if so, measure perf)
-
 // TODO if re-use same seed, bedrock spawns atop old beacon - good or bad?  detect and give feedback?
-
-// TODO suggested to fill map update room head with water IFF player's head is in water at moment of teleport :P
 
 // TODO test non-playing players who just want to hang out in lobby
 
 // TODO 'utility sign' hidden option?
-// TODO replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo... - can do now via "seed 0" to replay easily
+// Note: replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo... - can do now via "seed 0" to replay easily
 // TODO next seed (seed+1) is a good utility sign for gothfaerie
 // TODO zam idea: Have just one sign that gives the player a book with (clickable) config options in.
 
@@ -48,10 +26,6 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
 // TODO evaluate new items, other new features
-
-// TODO 150 150 150 room
-
-// TODO new icon, code to rename world in level.dat
 
 // TODO history book, donation link, thank testers
 
@@ -67,27 +41,25 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 //   - OR just clickable text in chat, and something displays options, and you can click to toggle
 // /give @p sign{BlockEntityTag:{Text1:"[\"foo\",{\"score\":{\"name\":\"@p\",\"objective\":\"Score\"}}]",Text2:"[{\"score\":{\"name\":\"@p\",\"objective\":\"Score\"}}]",Text3:"[{\"selector\":\"@p\"}]",Text4:"[]",id:"minecraft:sign"}} 1
 
-// TODO first time loading up map signs? (see HasTheMapEverBeenLoadedBefore)
+// TODO first time loading up map signs? (see HasTheMapEverBeenLoadedBefore) enable command blocks, disable spawn protection?
 
 // TODO maybe disable lockout each game unless set, then can be multiplayer button? hmmm... and sign can change to show current state
 
 // TODO do I still need beacon at spawn? is there a clever way to do end portal without expensive @e?
 
-// TODO 'tweet your score on seed' possible using the named-entity trick for putting together strings? ugh, yes strings, but not urls probably
-
 // TODO multiplayer where teams spawn nearby (pvp etc)
 
 // TODO investigate 'off' RNG in source code
 
-// TODO command block customization, 4or people on server without access to 4iles
+// TODO command block customization, for people on server without access to files
 
-// TODO sea lantern under art o4 sugar - check all under-art
+// TODO sea lantern under art o4 sugar - check all under-art (in art world, could clone top layer to bottom, and make_saving_structure_blocks for that world, and copy over detector rail)
 
 // starting options (maybe both start & respawn same?)
 // NV
 // DS
 // boats
-// team chest
+// team chest - TODO where to place in lobby
 // OOB example elytra
 
 // got item side effects
@@ -463,6 +435,10 @@ let game_functions = [|
             let x = 32*(i-1)
             yield sprintf """execute at @e[tag=logoaec] offset ~%d ~ ~ run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:32,sizeY:1,sizeZ:7,mode:"LOAD",name:"test:logo%d"}""" x i
             yield sprintf """execute at @e[tag=logoaec] offset ~%d ~ ~1 run setblock ~ ~ ~ minecraft:redstone_block""" x
+        // make the 150 150 150 room
+        yield sprintf "fill 148 149 148 152 149 152 minecraft:light_gray_stained_glass"
+        yield sprintf "setblock 150 151 147 stone"
+        yield! placeWallSignCmds 150 151 148 "south" "teleport" "back to" "LOBBY" "" (sprintf "teleport @s %s" LOBBY) true false
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -589,10 +565,12 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
-        "scoreboard players set $ENTITY preseconds -1"
+        "scoreboard players set $ENTITY preseconds -1"                                                 // briefly store an atypical value to copy
         "execute if entity $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
+        // TODO conditionalize on if 'arrow' is enabled
         //sprintf """execute as $ENTITY run title @a actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
         sprintf "execute as @a run function %s:update_time_per_player" NS
+        sprintf "scoreboard players reset @e[%s,scores={preseconds=-1}] preseconds" ENTITY_TAG         // restore typical value
         |]
     yield "update_time_per_player",[|
         "scoreboard players operation @s minutes = $ENTITY minutes"
@@ -1095,13 +1073,18 @@ let checker_functions = [|
         if flatBingoItems.Length >= 128 then
             failwith "bad binary search"
         let check_and_display(prefix, n, name) = [|
+            // Note - profiling suggests this guard does not help before 'clear': if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
             yield sprintf """%sexecute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" prefix s n name
-            // Note - profiling suggests this guard does not help: if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0) run tellraw @a [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=0) run tellraw @a [%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG name
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,leadingWS=1) run tellraw @a %s""" prefix s n itemdatum_time_playername
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,leadingWS=0) run tellraw @a %s""" prefix s n time_playername_gotthe_datum
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=0) run tellraw @a %s""" prefix s n time_playername_gotanitem
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s [%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" prefix s n LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s [%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" prefix s n LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,leadingWS=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n itemdatum_time_playername
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,leadingWS=0) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotthe_datum
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotanitem
             |]
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
