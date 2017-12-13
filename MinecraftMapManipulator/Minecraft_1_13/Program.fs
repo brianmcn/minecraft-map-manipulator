@@ -58,5 +58,6 @@ let main argv =
     *)
     //MinecraftBINGO.cardgen_compile()
     Raycast.main()
+    Raycast.simulate()
     ignore argv
     0
