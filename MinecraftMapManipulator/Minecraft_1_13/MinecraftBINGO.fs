@@ -20,9 +20,8 @@ undecided: how to toggle it, how to display its current state
 
 // TODO try to remove F3 reasons:
 //  x put Y coord on actionbar
-//  - put XH on actionbar in extreme hills
+//  x put XH on actionbar in extreme hills
 //  - fall out of skybox to spawn point (? lag physics?)
-
 
 // Note: what is behavior if #base:group calls child1:run which disables child1/child2?
 // answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable child2" then (1) child2 still runs this tick and (2) there is a noticeable latency at disable-time, suggesting enable/disable are "heavy"
@@ -152,6 +151,34 @@ else
 
 ////////////////////////////
 
+let writeExtremeHillsDetection() =
+    let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS+"""\advancements""")
+    let FIL = System.IO.Path.Combine(DIR,"xh.json")
+    let dir = System.IO.Path.GetDirectoryName(FIL)
+    if allDirsEnsured.Add(dir) then
+        System.IO.Directory.CreateDirectory(dir) |> ignore
+    System.IO.File.WriteAllText(FIL, sprintf """{
+    "criteria": {
+        "visit_xh": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:extreme_hills"}},
+        "visit_sxh": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:smaller_extreme_hills"}},
+        "visit_xht": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:extreme_hills_with_trees"}},
+        "visit_mxh": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:mutated_extreme_hills"}},
+        "visit_mxht": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:mutated_extreme_hills_with_trees"}}
+    },
+    "requirements": [
+        ["visit_xh", "visit_sxh", "visit_xht", "visit_mxh", "visit_mxht"]
+    ],
+    "rewards": {
+        "function": "%s:on_xh_grant"
+    }
+}""" NS)
+    writeFunctionToDisk("on_xh_grant",[|
+        "scoreboard players set @s inXH 21"  // location advancements are granted once per second (every 20 ticks), so a value just high enough to ensure it says above 0 if you stay in XH
+        sprintf "advancement revoke @s only %s:xh" NS
+        |])
+
+////////////////////////////
+
 let toLeastMost(uuid:System.Guid) =
     let bytes = uuid.ToByteArray()
     let i,j,k,a = bytes.[0..3], bytes.[4..5], bytes.[6..7], bytes.[8..15]
@@ -170,9 +197,9 @@ let SIGN_ENTITY_TAG = "tag=signguy,x=0,y=4,z=0,distance=..1.0,limit=1"
 
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
-// TODO 3 more spaces worked to clear mark map on FS 1080p, but then my timer overlaps and needs more spaces
 // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
     yield """summon armor_stand 84 4 4 {CustomName:"                          ",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
+    yield """summon armor_stand 4 4 84 {CustomName:"XH",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
 #if UUID
     yield sprintf """summon armor_stand 64 4 64 {CustomName:%s,UUIDMost:%dl,UUIDLeast:%dl,Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" ENTITY_UUID most least
@@ -184,7 +211,9 @@ let entity_init() = [|
 #endif
     |]
 let ENTITY_TAG = "tag=scoreAS,x=84,y=4,z=4,distance=..1.0,limit=1"
+let XH_TAG = "tag=XHguy,x=4,y=4,z=84,distance=..1.0,limit=1"
 let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={leadingWS=1}]"}""" ENTITY_TAG
+let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
 
 let allCallbackShortNames = ResizeArray()
 let continuationNum = ref 1
@@ -324,6 +353,7 @@ let game_objectives = [|
     yield "announceItem"       // 2 if announce item name, 1 if just say 'got an item', 0 if no text generated
     yield "fireworkItem"       // 1 if play sound when get item, 0 if silent
     yield "arrowToSpawn"       // 1 if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?), 0 if not
+    yield "inXH"               // on a player, has a value greater than 0 if recently in extreme hills (or variant)
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
     yield "SIXTY"
@@ -373,6 +403,7 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY announceOnlyTeam 0"
         yield "scoreboard players set $ENTITY fireworkItem 1"
         yield "scoreboard players set $ENTITY arrowToSpawn 1"
+        yield sprintf "team join green @e[%s]" XH_TAG
         // loop
         yield "setblock 68 25 64 air"
         if not USE_GAMELOOP then
@@ -584,24 +615,31 @@ let game_functions = [|
         sprintf "scoreboard players reset @e[%s,scores={preseconds=-1}] preseconds" ENTITY_TAG         // restore typical value
         |]
     yield "update_time_per_player",[|
+        // pretty timer
         "scoreboard players operation @s minutes = $ENTITY minutes"
         "scoreboard players operation @s preseconds = $ENTITY preseconds"
         "scoreboard players reset @s[scores={preseconds=-1}] preseconds"
         "scoreboard players operation @s seconds = $ENTITY seconds"
+        // extreme hills detection
+        "scoreboard players remove @s[scores={inXH=1..}] inXH 1"
+        sprintf "scoreboard players set @e[%s] inXH 0" XH_TAG 
+        sprintf "execute if entity @s[scores={inXH=1..}] run scoreboard players set @e[%s] inXH 1" XH_TAG 
+        // y coordinate
         "execute store result score @s TEMP run data get entity @s Pos[1] 1.0"
-        sprintf """execute if entity @e[%s,scores={arrowToSpawn=0}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}]""" ENTITY_TAG COLOR COLOR COLOR COLOR YCOLOR YCOLOR
+        // display
+        sprintf """execute if entity @e[%s,scores={arrowToSpawn=0}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" ENTITY_TAG COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
         sprintf """execute if entity @e[%s,scores={arrowToSpawn=1}] run function %s:update_time_per_player_with_arrow""" ENTITY_TAG NS
         |]
     yield "update_time_per_player_with_arrow",[|
         sprintf "function %s:find_dir_to_spawn" NS
-        sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2191"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2197"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2192"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2198"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2193"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2199"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2190"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2196"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2191"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2197"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2192"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2198"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2193"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2199"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2190"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2196"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
         |]
     let SKYBOX = 150 // height of skybox floor
     yield "compute_height", [|
@@ -1466,6 +1504,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             |]
         |]
     printfn "writing functions..."
+    writeExtremeHillsDetection()
     for name,code in r do
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing
