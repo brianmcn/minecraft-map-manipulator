@@ -324,3 +324,4 @@ let main() =
     for name,code in allFuncs do
         writeFunctionToDisk(name,code)
 
+// TODO write quick & dirty version with just ^ ^ ^0.1

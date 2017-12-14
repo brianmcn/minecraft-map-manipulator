@@ -1,7 +1,28 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
+
+(*
+
+blind play: min req's
+
+#on_new_card      - if blind is enabled, covers the board
+#on_got_squareNM  - if blind is enabled, uncovers the square, perhaps also plays own sound based on know config options? (fireworkItem, announceOnlyTeam, ...)
+#on_finish        - uncovers rest of card, which also means back to 'default' state if user disables the mode (mode only configurable (ideally) in gameInProgress=0)
+
+option: rather than just reveal item got, could reveal it _and_ another? game evolves dynamically as you learn more about what is needed?
+    also could start with N revealed?   in general, getting a revealed item does not increase number of choices, whereas getting unrevealed item is twice as much progress to revealing whole card and creates more known choices
+
+undecided: how to toggle it, how to display its current state
+
+*)
+
+// TODO try to remove F3 reasons:
+//  x put Y coord on actionbar
+//  - put XH on actionbar in extreme hills
+//  - fall out of skybox to spawn point (? lag physics?)
+
 
 // Note: what is behavior if #base:group calls child1:run which disables child1/child2?
 // answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable child2" then (1) child2 still runs this tick and (2) there is a noticeable latency at disable-time, suggesting enable/disable are "heavy"
@@ -20,6 +41,7 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // Note: replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo... - can do now via "seed 0" to replay easily
 // TODO next seed (seed+1) is a good utility sign for gothfaerie
 // TODO zam idea: Have just one sign that gives the player a book with (clickable) config options in.
+// TODO or replace bingo map art with config options displayed however I like...
 
 // TODO consider recipe book for complex crafting?
 
@@ -540,6 +562,7 @@ let game_functions = [|
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     let COLOR = """"color":"yellow","""
+    let YCOLOR = """"color":"aqua","""
     yield "at25mins",[|
         """execute at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
         sprintf """tellraw @a [%s,{"selector":"@s"}," got ",{"score":{"name":"@s","objective":"Score"}}," in 25 mins"]""" LEADING_WHITESPACE 
@@ -557,24 +580,28 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
         "scoreboard players set $ENTITY preseconds -1"                                                 // briefly store an atypical value to copy
         "execute if entity $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
-        sprintf "execute if entity @e[%s,scores={arrowToSpawn=1}] as @a run function %s:update_time_per_player" ENTITY_TAG NS
+        sprintf "execute as @a run function %s:update_time_per_player" NS
         sprintf "scoreboard players reset @e[%s,scores={preseconds=-1}] preseconds" ENTITY_TAG         // restore typical value
-        sprintf """execute as $ENTITY run execute if entity $SCORE(arrowToSpawn=0) run title @a actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR
         |]
     yield "update_time_per_player",[|
-        sprintf "function %s:find_dir_to_spawn" NS
         "scoreboard players operation @s minutes = $ENTITY minutes"
         "scoreboard players operation @s preseconds = $ENTITY preseconds"
         "scoreboard players reset @s[scores={preseconds=-1}] preseconds"
         "scoreboard players operation @s seconds = $ENTITY seconds"
-        sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2191"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2197"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2192"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2198"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2193"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2199"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2190"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
-        sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [%s,%s,{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" \u2196"}]""" LEADING_WHITESPACE LEADING_WHITESPACE COLOR COLOR COLOR COLOR COLOR
+        "execute store result score @s TEMP run data get entity @s Pos[1] 1.0"
+        sprintf """execute if entity @e[%s,scores={arrowToSpawn=0}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}]""" ENTITY_TAG COLOR COLOR COLOR COLOR YCOLOR YCOLOR
+        sprintf """execute if entity @e[%s,scores={arrowToSpawn=1}] run function %s:update_time_per_player_with_arrow""" ENTITY_TAG NS
+        |]
+    yield "update_time_per_player_with_arrow",[|
+        sprintf "function %s:find_dir_to_spawn" NS
+        sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2191"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2197"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2192"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2198"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2193"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2199"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2190"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
+        sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}},{%s"text":" \u2196"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR COLOR
         |]
     let SKYBOX = 150 // height of skybox floor
     yield "compute_height", [|
