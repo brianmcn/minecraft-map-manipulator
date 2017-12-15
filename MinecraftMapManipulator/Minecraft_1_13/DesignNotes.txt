@@ -1,4 +1,7 @@
-﻿=======================
+﻿/scoreboard players set @e[tag=scoreAS] arrowToSpawn 0
+
+
+=======================
 command tutorial series
 =======================
 possibly complete different order, start with data get, execute if, say, summon, ...
@@ -17,6 +20,7 @@ it's a transaction, yes? safe?
 annoying that caller and callee have to coordinate, but seems simple and workable?
 
 https://minecraft.gamepedia.com/1.13/Flattening
+https://gist.github.com/Dinnerbone/943fbcd763c19be188ed6b72a12d7e65
 https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
 
 can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
@@ -45,6 +49,16 @@ basic idea:
  - spawn egg or whatnot to place new waypoint (crafting/found materials?), will have AS with particles or whatnot, will store coords in scoreboard in fixed (non-entity?) slots (WayX01, WayY01, ... WayX99...)
  - when player stays in particles for more than 3s or whatever, brings to tp room
  - could 'delete' waypoint by having e.g. WayYnn==-1 to mark as 'unused', and clickable sign to 'forget' it? hm, but how delete the entity there... i guess it could delete self after check if exist based on scores
+
+Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
+Like previous season, but with choice rather than linear (craft a knowledge book to 'choose')
+possible things to need to learn (from previous) include: Furnace, Bed, Anvil, I. Armor, Bow, D. Armor, Bucket, Shield, D. Pick
+others: enchant table, brewing stand (nether chest item to get recipe?), iron pick, all hoes, stone tools, 
+
+Figure out custom terrain to use
+
+QFE? meed master list of all items, then curate for obtainable; rest should be straighforward?
+also the qfe could be an existing teleporter once i unlock first teleporter; first visit to QFE room could actually start the qfe game?
 
 ==============
 MinecraftBINGO

@@ -1,7 +1,13 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
+
+// TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
+
+// TODO - BEWARE But X and Y rotation are also swapped in /tp, which is fixed for next snapshot
+
+// TODO remove slimeball?  what else could go there alt enderpearl?  or, I could non-vanilla it and when time goes to day2night, move it back to day1 night?  or move time past 21 hours, to get more regional difficulty, for bigger slimes (but also harder mobs)?
 
 (*
 
@@ -18,10 +24,7 @@ undecided: how to toggle it, how to display its current state
 
 *)
 
-// TODO try to remove F3 reasons:
-//  x put Y coord on actionbar
-//  x put XH on actionbar in extreme hills
-//  - fall out of skybox to spawn point (? lag physics?)
+// TODO turn off collisions with teammates?
 
 // Note: what is behavior if #base:group calls child1:run which disables child1/child2?
 // answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable child2" then (1) child2 still runs this tick and (2) there is a noticeable latency at disable-time, suggesting enable/disable are "heavy"
@@ -92,7 +95,8 @@ undecided: how to toggle it, how to display its current state
 // other
 // "handHolding" (update reminder each game, press 't' chat to click, ...)
 // "leadingWS" (and CustomName of scoreAS)
-
+// "arrowToSpawn" display arrow on actionbar
+// "showXH" display extreme hills on actionbar
 
 // TODO f9b, 6p, 2 teams, tick lag
 
@@ -100,6 +104,8 @@ undecided: how to toggle it, how to display its current state
 // TODO display config options on card sidebar? or swap sidebar and logo (logo on side, extra on bottom?)
 
 // TODO consider https://www.reddit.com/r/minecraftbingo/comments/7j1afe/some_ideas_for_40/
+
+// TODO gamemode where goal is 13 items, each time you get an item, you're "locked out" of rotationally-symmetric item (center is always avail to you), seems interesting
 
 /////////////////////////////////////////////////////////////
 
@@ -347,12 +353,14 @@ let game_objectives = [|
     yield "lockoutGoal"
     yield "numActiveTeams"
     yield "hasAnyoneUpdated"
+    // TODO someone wants option to turn off actionbar entirely
     yield "handHolding"        // 1 if we need to explain how to update the card, how to click the chat, etc; 0 if not
     yield "leadingWS"          // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
     yield "announceOnlyTeam"   // 1 if announce/firework only to your teammates, 0 if to everyone
     yield "announceItem"       // 2 if announce item name, 1 if just say 'got an item', 0 if no text generated
     yield "fireworkItem"       // 1 if play sound when get item, 0 if silent
     yield "arrowToSpawn"       // 1 if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?), 0 if not
+    yield "showXH"             // 1 if add 'XH' on player actionbar when in extreme hills, 0 if not
     yield "inXH"               // on a player, has a value greater than 0 if recently in extreme hills (or variant)
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
@@ -362,8 +370,8 @@ let game_objectives = [|
     yield "spawnDir"           // a player's spawnDir holds a value 1-8 that specifies which of 8 directions most closely points back to seed's spawn point
     yield "xspawn"             // a player's xspawn is the x coordinate of his spawn point for this seed
     yield "zspawn"             // a player's zspawn is the z coordinate of his spawn point for this seed
-    yield "x"                 // temp variable on player
-    yield "z"                 // temp variable on player
+    yield "x"                  // temp variable on player
+    yield "z"                  // temp variable on player
     yield "dx"                 // temp variable on player
     yield "dz"                 // temp variable on player
     yield "bestsumsq"          // temp variable on player
@@ -403,6 +411,7 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY announceOnlyTeam 0"
         yield "scoreboard players set $ENTITY fireworkItem 1"
         yield "scoreboard players set $ENTITY arrowToSpawn 1"
+        yield "scoreboard players set $ENTITY showXH 1"
         yield sprintf "team join green @e[%s]" XH_TAG
         // loop
         yield "setblock 68 25 64 air"
@@ -623,7 +632,7 @@ let game_functions = [|
         // extreme hills detection
         "scoreboard players remove @s[scores={inXH=1..}] inXH 1"
         sprintf "scoreboard players set @e[%s] inXH 0" XH_TAG 
-        sprintf "execute if entity @s[scores={inXH=1..}] run scoreboard players set @e[%s] inXH 1" XH_TAG 
+        sprintf "execute if entity @e[%s,scores={showXH=1}] if entity @s[scores={inXH=1..}] run scoreboard players set @e[%s] inXH 1" ENTITY_TAG XH_TAG 
         // y coordinate
         "execute store result score @s TEMP run data get entity @s Pos[1] 1.0"
         // display
@@ -676,7 +685,13 @@ let game_functions = [|
             yield sprintf "execute as @e[tag=%sSpawn] store result score $ENTITY %sSpawnY run data get entity @s Pos[1] 1.0" t t
             // give people time in skybox while terrain gens, then put them on ground and set spawns
             yield sprintf """tellraw @a ["Giving %s team a birds-eye view as terrain generates..."]""" t
-            yield "$NTICKSLATER(400)"
+            yield "$NTICKSLATER(360)"
+            yield sprintf """tellraw @a ["About to drop %s team out of sky-box..."]""" t
+            yield "$NTICKSLATER(40)"
+            // un-build skybox
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run fill ~-1 %d ~-1 ~1 %d ~1 air hollow" t SKYBOX (SKYBOX+20)
+            // give people time to fall, preserving orientation
+            yield "$NTICKSLATER(100)"
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run spawnpoint @a[team=%s] ~0.5 ~ ~0.5" t t
             // place beacon to mark spawn
@@ -720,7 +735,14 @@ let game_functions = [|
         |]
     yield "reset_player_scores",[|
         yield "scoreboard players operation $ENTITY Seed = Seed Score"  // save seed
-        yield "scoreboard players reset * Score"  // TODO fails due to bug https://bugs.mojang.com/browse/MC-122993
+        //yield "scoreboard players reset * Score"  // TODO fails due to bug https://bugs.mojang.com/browse/MC-122993
+        // workaround
+        yield "execute as @a run scoreboard players reset @s Score"
+        yield "scoreboard players reset Minutes Score"
+        yield "scoreboard players reset Seconds Score"
+        yield "scoreboard players reset LockoutGoal Score"
+        yield "scoreboard players reset Time Score"
+        // re-initialize
         yield "scoreboard players operation Seed Score = $ENTITY Seed"  // restore seed
         for t in TEAMS do
             yield sprintf "scoreboard players set @a[team=%s] Score 0" t
@@ -1078,6 +1100,9 @@ let checker_functions = [|
                     yield sprintf "scoreboard players add $ENTITY %sWinBackslash 1" t
                 if (int s.[0] - int '0') = 6 - (int s.[1] - int '0') then
                     yield sprintf "scoreboard players add $ENTITY %sWinSlash 1" t
+                // TODO hacking new game mode
+                //if t <> "green" then
+                //    yield sprintf "function %s:got/green_got_square_%s" NS (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
                 |]
         yield sprintf "%s_check_for_win" t, [|
             // check for bingo
