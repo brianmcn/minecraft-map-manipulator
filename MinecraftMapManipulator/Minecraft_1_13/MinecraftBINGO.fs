@@ -97,15 +97,14 @@ undecided: how to toggle it, how to display its current state
 // "leadingWS" (and CustomName of scoreAS)
 // "arrowToSpawn" display arrow on actionbar
 // "showXH" display extreme hills on actionbar
+// twoForOneMode
 
-// TODO f9b, 6p, 2 teams, tick lag
+// TODO f9b, 6p, 2 teams, tick lag (seeing fps lag in long game in jungle in singleplayer too)
 
 // TODO Maybe put the card's seed on the right margin, so a screenshot of the card without the rest of the UI includes the seed number for that card?﻿ 
 // TODO display config options on card sidebar? or swap sidebar and logo (logo on side, extra on bottom?)
 
 // TODO consider https://www.reddit.com/r/minecraftbingo/comments/7j1afe/some_ideas_for_40/
-
-// TODO gamemode where goal is 13 items, each time you get an item, you're "locked out" of rotationally-symmetric item (center is always avail to you), seems interesting
 
 /////////////////////////////////////////////////////////////
 
@@ -351,6 +350,7 @@ let game_objectives = [|
     yield "fakeStart"
     yield "isLockout"
     yield "lockoutGoal"
+    yield "twoForOneMode"
     yield "numActiveTeams"
     yield "hasAnyoneUpdated"
     // TODO someone wants option to turn off actionbar entirely
@@ -404,6 +404,7 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY ONE_THOUSAND 1000"
         yield "scoreboard players set $ENTITY TEN_THOUSAND 10000"
         yield "scoreboard players set $ENTITY isLockout 0"
+        yield "scoreboard players set $ENTITY twoForOneMode 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
         yield "scoreboard players set $ENTITY handHolding 1"
         yield "scoreboard players set $ENTITY leadingWS 0"
@@ -1057,6 +1058,8 @@ let checker_functions = [|
                 yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
                 yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:inv/check%s" t s NS s
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
+                if s <> "33" then
+                    yield sprintf "execute if entity $SCORE(gotAnItem=1,twoForOneMode=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
             yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,announceItem=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
             yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
@@ -1100,9 +1103,6 @@ let checker_functions = [|
                     yield sprintf "scoreboard players add $ENTITY %sWinBackslash 1" t
                 if (int s.[0] - int '0') = 6 - (int s.[1] - int '0') then
                     yield sprintf "scoreboard players add $ENTITY %sWinSlash 1" t
-                // TODO hacking new game mode
-                //if t <> "green" then
-                //    yield sprintf "function %s:got/green_got_square_%s" NS (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
                 |]
         yield sprintf "%s_check_for_win" t, [|
             // check for bingo
