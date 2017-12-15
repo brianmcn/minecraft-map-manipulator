@@ -19,6 +19,11 @@ before a 'switch', set a global flag, condition each branch on the flag, and fir
 it's a transaction, yes? safe?
 annoying that caller and callee have to coordinate, but seems simple and workable?
 
+Note: what is behavior if #base:group calls child1:run which disables child1/child2?
+answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable child2" then 
+	(1) child2 still runs this tick and 
+	(2) there is a noticeable latency at disable-time, suggesting enable/disable are "heavy"
+
 https://minecraft.gamepedia.com/1.13/Flattening
 https://gist.github.com/Dinnerbone/943fbcd763c19be188ed6b72a12d7e65
 https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/

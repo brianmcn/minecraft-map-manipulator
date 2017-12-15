@@ -7,7 +7,9 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO - BEWARE But X and Y rotation are also swapped in /tp, which is fixed for next snapshot
 
-// TODO remove slimeball?  what else could go there alt enderpearl?  or, I could non-vanilla it and when time goes to day2night, move it back to day1 night?  or move time past 21 hours, to get more regional difficulty, for bigger slimes (but also harder mobs)?
+// TODO remove slimeball?  what else could go there alt enderpearl?  rabbit hide?  I think yes, but sleep on it.
+
+// TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/
 
 (*
 
@@ -26,16 +28,11 @@ undecided: how to toggle it, how to display its current state
 
 // TODO turn off collisions with teammates?
 
-// Note: what is behavior if #base:group calls child1:run which disables child1/child2?
-// answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable child2" then (1) child2 still runs this tick and (2) there is a noticeable latency at disable-time, suggesting enable/disable are "heavy"
-
 // TOOD learn tags - eventing? add function to group?
 // TODO yes, this is how customizing should work, e.g. the "night vision + depth strider" is a data pack, and bingo has an event group for #custom:on_start and #custom:on_respawn and child packs add to that
 // TODO optional announcing item could be an on_got_item001 hooks, or just a flag
 // TODO 'blind' play would need like an on_new_card and on_got_square11 hooks
 // TODO 128 item groups? #item001 = diamond? #set_structure001 = structure block for the art? show-all-items chest may be problematic.  may impact perf.  unsure how to do 'max value' for cardgen & checks...
-
-// TODO if re-use same seed, bedrock spawns atop old beacon - good or bad?  detect and give feedback?
 
 // TODO test non-playing players who just want to hang out in lobby
 
@@ -68,8 +65,6 @@ undecided: how to toggle it, how to display its current state
 // TODO first time loading up map signs? (see HasTheMapEverBeenLoadedBefore) enable command blocks, disable spawn protection?
 
 // TODO maybe disable lockout each game unless set, then can be multiplayer button? hmmm... and sign can change to show current state
-
-// TODO do I still need beacon at spawn? is there a clever way to do end portal without expensive @e?
 
 // TODO multiplayer where teams spawn nearby (pvp etc)
 
@@ -105,6 +100,11 @@ undecided: how to toggle it, how to display its current state
 // TODO display config options on card sidebar? or swap sidebar and logo (logo on side, extra on bottom?)
 
 // TODO consider https://www.reddit.com/r/minecraftbingo/comments/7j1afe/some_ideas_for_40/
+
+// TODO 'temp' depth strider boots, that go away after 30s at start/respawn? mitigate water spawns without making game easier? (also, curse of binding & vanishing)
+// ... or, just always start folks with a boat?
+
+// TODO non-default option to enable another 'arrow' that points to your prior death location?
 
 /////////////////////////////////////////////////////////////
 
@@ -303,6 +303,20 @@ let compile(f,name) =
                 yield name, [| yield! code; yield sprintf """tellraw @a ["at end theloop, cont6:",{"score":{"name":"@e[%s]","objective":"cont6"}}]""" ENTITY_TAG |]
         |]
 #endif    
+    // try to catch common errors in post-processing
+    let okChars = [|'a'..'z'|] |> Array.append [|'_';'-'|] |> Array.append [|'0'..'9'|] |> Array.append [|'/'|]
+    for name,code in r do
+        for c in name do
+            if not(okChars |> Array.contains c) then
+                failwithf "bad function name (char '%c'): %s" c name
+        for cmd in code do
+            let soa = "scoreboard objectives add "
+            if cmd.StartsWith(soa) then
+                let i = soa.Length 
+                let j = cmd.IndexOf(" ",i)
+                let objName = cmd.Substring(i,j-i)
+                if objName.Length > 16 then
+                    failwithf "bad objective name (too long): '%s'" objName
     r
 
 ///////////////////////////////////////////////////////
@@ -1020,8 +1034,8 @@ let checker_objectives = [|
             for i = 1 to 5 do
                 yield sprintf "%sWinRow%d" t i   // how many items in the row the team has
                 yield sprintf "%sWinCol%d" t i   // how many items in the col the team has
-            yield sprintf "%sWinSlash" t         // how many items in the bottom left to top right diagonal the team has
-            yield sprintf "%sWinBackslash" t     // how many items in the top left to bottom right diagonal the team has
+            yield sprintf "%sWinSlash" t         // how many items in the bottom left to top right diagonal the team has (Slash)
+            yield sprintf "%sWinBkSlh" t         // how many items in the top left to bottom right diagonal the team has ('BackSlash' is too long for objective name)
             yield sprintf "%sScore" t            // how many total items the team has
             yield sprintf "%sGotBingo" t         // 1 if they already got a bingo (don't repeatedly announce)
         yield "lockoutGoal"                      // how many needed to win lockout (if this is a lockout game)
@@ -1040,7 +1054,7 @@ let checker_functions = [|
                 yield sprintf "scoreboard players set $ENTITY %sWinRow%d 0" t i
                 yield sprintf "scoreboard players set $ENTITY %sWinCol%d 0" t i
             yield sprintf "scoreboard players set $ENTITY %sWinSlash 0" t      
-            yield sprintf "scoreboard players set $ENTITY %sWinBackslash 0" t  
+            yield sprintf "scoreboard players set $ENTITY %sWinBkSlh 0" t  
             yield sprintf "scoreboard players set $ENTITY %sScore 0" t         
             yield sprintf "scoreboard players set $ENTITY %sGotBingo 0" t         
         yield sprintf "scoreboard players set $ENTITY lockoutGoal 25"
@@ -1100,7 +1114,7 @@ let checker_functions = [|
                 yield sprintf "scoreboard players add $ENTITY %sWinRow%c 1" t s.[1]
                 yield sprintf "scoreboard players add $ENTITY %sWinCol%c 1" t s.[0]
                 if s.[0] = s.[1] then
-                    yield sprintf "scoreboard players add $ENTITY %sWinBackslash 1" t
+                    yield sprintf "scoreboard players add $ENTITY %sWinBkSlh 1" t
                 if (int s.[0] - int '0') = 6 - (int s.[1] - int '0') then
                     yield sprintf "scoreboard players add $ENTITY %sWinSlash 1" t
                 |]
@@ -1112,7 +1126,7 @@ let checker_functions = [|
             for i = 1 to 5 do
                 yield sprintf "execute if entity $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
             yield sprintf "execute if entity $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
-            yield sprintf "execute if entity $SCORE(%sWinBackslash=5) run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf "execute if entity $SCORE(%sWinBkSlh=5) run scoreboard players set $ENTITY TEMP 1" t
             yield sprintf """execute if entity $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got BINGO!"]""" t LEADING_WHITESPACE t
             yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run function %s:got_a_win_common_logic" t NS
             yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run scoreboard players set $ENTITY %sGotBingo 1" t t
