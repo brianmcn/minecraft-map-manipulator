@@ -34,7 +34,7 @@ let profileThis(suffix,outer,inner,pre,cmds,post) =
             yield! cmds 
         |])
     for name,code in [| profilerFunc; dummyFunc |] do
-        MinecraftBINGO.writeFunctionToDisk(name,code)
+        MinecraftBINGO.writeFunctionToDisk(MinecraftBINGO.PACK_NAME, MinecraftBINGO.NS, name,code)
 
 
 
@@ -57,6 +57,7 @@ let main argv =
     profileThis("ig",2,500,[],["""execute store success score @p FOO run clear @p #test:item001 1"""],[])
     *)
     MinecraftBINGO.cardgen_compile()
+    MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     ignore argv
     0

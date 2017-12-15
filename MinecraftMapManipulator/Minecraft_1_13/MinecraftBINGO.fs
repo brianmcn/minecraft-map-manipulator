@@ -11,21 +11,6 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/
 
-(*
-
-blind play: min req's
-
-#on_new_card      - if blind is enabled, covers the board
-#on_got_squareNM  - if blind is enabled, uncovers the square, perhaps also plays own sound based on know config options? (fireworkItem, announceOnlyTeam, ...)
-#on_finish        - uncovers rest of card, which also means back to 'default' state if user disables the mode (mode only configurable (ideally) in gameInProgress=0)
-
-option: rather than just reveal item got, could reveal it _and_ another? game evolves dynamically as you learn more about what is needed?
-    also could start with N revealed?   in general, getting a revealed item does not increase number of choices, whereas getting unrevealed item is twice as much progress to revealing whole card and creates more known choices
-
-undecided: how to toggle it, how to display its current state
-
-*)
-
 // TODO turn off collisions with teammates?
 
 // TOOD learn tags - eventing? add function to group?
@@ -134,11 +119,13 @@ let WAITING_ROOM = Coords(71,10,72)
 let ART_HEIGHT = 40 // TODO
 
 let NS = "test"
+let PACK_NAME = "BingoPack"
+
 //let FOLDER = """"C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13"""
 let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
 let allDirsEnsured = new System.Collections.Generic.HashSet<_>()
-let writeFunctionToDisk(name,code) =
-    let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS+"""\functions""")
+let writeFunctionToDisk(packName,packNS,name,code) =
+    let DIR = System.IO.Path.Combine(FOLDER, sprintf """datapacks\%s\data\%s\functions""" packName packNS)
     let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
     let dir = System.IO.Path.GetDirectoryName(FIL)
     if allDirsEnsured.Add(dir) then
@@ -146,13 +133,20 @@ let writeFunctionToDisk(name,code) =
     System.IO.File.WriteAllLines(FIL, code)
 
 ////////////////////////////
-
+// hook into events from base pack
 let FIL = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\minecraft\tags\functions\tick.json""")
 System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
 if USE_GAMELOOP then
     System.IO.File.WriteAllText(FIL,sprintf"""{"values": ["%s:theloop"]}"""NS)
 else
     System.IO.File.WriteAllText(FIL,"")
+
+////////////////////////////
+// publish own events for child packs
+for eventName in ["on_new_card"] do
+    let FIL = System.IO.Path.Combine(FOLDER,sprintf """datapacks\%s\data\%s\tags\functions\%s.json""" PACK_NAME NS eventName)
+    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
+    System.IO.File.WriteAllText(FIL,"""{"values": []}""")
 
 ////////////////////////////
 
@@ -177,7 +171,7 @@ let writeExtremeHillsDetection() =
         "function": "%s:on_xh_grant"
     }
 }""" NS)
-    writeFunctionToDisk("on_xh_grant",[|
+    writeFunctionToDisk(PACK_NAME, NS, "on_xh_grant",[|
         "scoreboard players set @s inXH 21"  // location advancements are granted once per second (every 20 ticks), so a value just high enough to ensure it says above 0 if you stay in XH
         sprintf "advancement revoke @s only %s:xh" NS
         |])
@@ -615,6 +609,7 @@ let game_functions = [|
         yield sprintf "execute if entity $SCORE(gameInProgress=0) run function %s:place_signs0" NS
         yield sprintf "function %s:cardgen_makecard" NS
         yield sprintf "function %s:compute_lockout_goal" NS
+        yield sprintf "function #%s:on_new_card" NS
         |]
     let COLOR = """"color":"yellow","""
     let YCOLOR = """"color":"aqua","""
@@ -950,26 +945,18 @@ let map_update_functions = [|
 
 let ensureDirOfFile(filename) = 
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore
-let writeFunctionsToResourcePack(packName, funcs) =
-    let ROOT = """C:\Users\Admin1\AppData\Roaming\.minecraft\resourcepacks"""
+let writeDatapackMeta(packName,description) =
+    let ROOT = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing\datapacks\"""
     let FOLDER = packName
-    let meta = 
-            """
-            {
+    let meta = sprintf """{
                "pack": {
-                  "pack_format": 3,
-                  "description": "BINGO Data Pack"
+                  "pack_format": 4,
+                  "description": "%s"
                }
-            }
-            """
+            }""" description
     let mcmetaFilename = System.IO.Path.Combine(ROOT, FOLDER, "pack.mcmeta")
     ensureDirOfFile(mcmetaFilename)
     System.IO.File.WriteAllText(mcmetaFilename, meta)
-    let FUNCTIONSDIR = System.IO.Path.Combine(ROOT, FOLDER, """data\BINGO\functions""")
-    for name,code in funcs do
-        let fn = System.IO.Path.Combine(FUNCTIONSDIR, name+".mcfunction")
-        ensureDirOfFile(fn)
-        System.IO.File.WriteAllLines(fn, code)
         
 ////////////////////////////////////////////////
 
@@ -1543,9 +1530,10 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             |]
         |]
     printfn "writing functions..."
+    writeDatapackMeta(PACK_NAME, "MinecraftBINGO base pack")
     writeExtremeHillsDetection()
     for name,code in r do
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing
         else
-            writeFunctionToDisk(name,code)
+            writeFunctionToDisk(PACK_NAME, NS, name,code)

@@ -7,7 +7,9 @@ command tutorial series
 possibly complete different order, start with data get, execute if, say, summon, ...
 could do stuff like OnGround:0b/1b, sheep Sheared:0b,Color:0b ... Pos[x,y,z], ...
 /execute if entity @e[type=sheep,nbt={Color:8b}] run say hi
-eventually quick-and-dirty version of look-teleporter
+small program ideas:
+ - eventually quick-and-dirty version of look-teleporter
+ - arrow to death point
 
 ===================
 GENERAL PROGRAMMING
