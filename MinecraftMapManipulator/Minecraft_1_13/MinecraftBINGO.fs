@@ -121,6 +121,10 @@ let ART_HEIGHT = 40 // TODO
 let NS = "test"
 let PACK_NAME = "BingoPack"
 
+let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
+let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
+
+
 //let FOLDER = """"C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13"""
 let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
 let allDirsEnsured = new System.Collections.Generic.HashSet<_>()
@@ -143,10 +147,15 @@ else
 
 ////////////////////////////
 // publish own events for child packs
-for eventName in ["on_new_card"] do
+let publishEvent(eventName) =
     let FIL = System.IO.Path.Combine(FOLDER,sprintf """datapacks\%s\data\%s\tags\functions\%s.json""" PACK_NAME NS eventName)
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
     System.IO.File.WriteAllText(FIL,"""{"values": []}""")
+for eventName in ["on_new_card"; "on_finish"] do
+    publishEvent(eventName)
+for t in TEAMS do
+    for s in SQUARES do
+        publishEvent(sprintf "on_%s_got_square_%s" t s)
 
 ////////////////////////////
 
@@ -346,7 +355,6 @@ let prng = [|
 ///////////////////////////////////////////////////////
 
 let LOBBY = "62 25.0 63 0 180"
-let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 let TICKS_TO_UPDATE_MAP = 30
 let game_objectives = [|
     // GLOBALS
@@ -677,7 +685,7 @@ let game_functions = [|
             yield sprintf "scoreboard players add $ENTITY %sSpawnZ 1" t
             yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["%sSpawn","CurrentSpawn","SpawnLoc"]}""" t  // these entities killed at end of start4
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[0] double 10000.0 run scoreboard players get $ENTITY %sSpawnX" t t
-            yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double %d.0 run scoreboard players get $ENTITY %sSpawnX" t (SKYBOX+10) t
+            yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double %d.0 run scoreboard players get $ENTITY %sSpawnX" t (SKYBOX+10) t  // TODO falling from box+10 causes barrier particles when hit floor, can I use lower value and avoid them?
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[2] double 10000.0 run scoreboard players get $ENTITY %sSpawnZ" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             // store xspawn/zspawn on players
@@ -880,6 +888,7 @@ let game_functions = [|
         // feed & heal, as people get concerned in lobby about this
         "effect give @a minecraft:saturation 10 4 true"
         "effect give @a minecraft:regeneration 10 4 true"
+        sprintf "function #%s:on_finish" NS
         |]
     |]
 
@@ -1009,7 +1018,6 @@ let flatBingoItems =
 
 ///////////////////////////////////////////////////////////////////////////////
 
-let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
 let checker_objectives = [|
         for s in SQUARES do
             yield sprintf "square%s" s           // square11 contains the index number of the flatBingoItems[] of the item in the top-left square of this card
@@ -1104,6 +1112,7 @@ let checker_functions = [|
                     yield sprintf "scoreboard players add $ENTITY %sWinBkSlh 1" t
                 if (int s.[0] - int '0') = 6 - (int s.[1] - int '0') then
                     yield sprintf "scoreboard players add $ENTITY %sWinSlash 1" t
+                yield sprintf "function #%s:on_%s_got_square_%s" NS t s
                 |]
         yield sprintf "%s_check_for_win" t, [|
             // check for bingo
