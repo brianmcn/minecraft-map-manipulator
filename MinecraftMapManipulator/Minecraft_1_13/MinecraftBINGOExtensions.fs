@@ -2,6 +2,9 @@
 
 let BINGO_NS = MinecraftBINGO.NS
 
+//////////////////////////////
+// utilities
+
 let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
 
 let writtenBookNBTString(author, title, pages:string[]) =
@@ -19,6 +22,27 @@ let writtenBookNBTString(author, title, pages:string[]) =
 
 let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
     sprintf "give @s minecraft:written_book%s 1" (writtenBookNBTString(author, title, pages))
+
+//////////////////////////////
+
+(* 
+TODO how will a player enable/disable datapacks?
+seems the only thing a player can do is interact with signs
+so probably a datapack author needs hand out a command that an OP'd player can run to get a sign to toggle the pack
+the sign, when clicked, would have to...
+ - enable its pack (if it's not enabled)
+ - see if the current state of the whole pack is ON or OFF
+ - if ON, set scoreboard to OFF, run any cleanup commands, then disable pack
+ - if OFF, set scoreboard to ON, and then run any startup/init for the pack
+
+so the sign has 2 commands
+ - datapack enable file/pack-name
+ - function packns:toggle_pack
+and its text should say toggle (so it can be fixed text; data merge Text1 does not update client)
+
+a common sign in the lobby (part of base bingo) should broadcast #on_give_config_books or something when players want your config options
+
+*)
 
 //////////////////////////////
 
@@ -64,47 +88,85 @@ module Blind =
     ///////////////////////////////
 
     let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 10
+    let toggleableOptions = [|
+        "thing5", "Some option"
+        "thing6", "Another option"
+        "thing7", "Great option"
+        |]
+    let toggleables = toggleableOptions |> Array.map fst
     let all_objectives = [|
-        "thing1val"
-        "thing2val"
+        yield "blindPackInited"   // has the pack ever been initialized
+        yield "blindPackEnabled"  // is the pack currently enabled
+        for t in toggleables do
+            yield "val"+t
         |]
     let all_funcs = [|
-        yield "init",[|    // TODO who will run "init"? I guess the datapack enabler, ... ugh
+        yield "get_sign_for_lobby", [|
+            sprintf 
+                """give @s sign{BlockEntityTag:{Text1:"[%s]",Text2:"[%s]",Text3:"[%s]",Text4:""}} 1"""
+                (escape(sprintf """{"text":"toggle","clickEvent":{"action":"run_command","value":"tellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}"""))
+                (escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"datapack enable \"file/%s\""}}""" PACK_NAME))
+                (escape(sprintf """{"text":"","clickEvent":{"action":"run_command","value":"function %s:toggle_pack"}}""" PACK_NS))
+            |]
+        yield "toggle_pack", [|
+            // deal with first-time initialization
+            sprintf "execute unless entity $SCORE(blindPackInited=1) run function %s:init" PACK_NS    // TODO during development, will need to manually run init or unset this flag
+            sprintf "scoreboard players set $ENTITY blindPackInited 1"
+            // cache value
+            sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY blindPackEnabled"
+            // turn on
+            sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY blindPackEnabled 1"
+            sprintf "execute if entity $SCORE(TEMP=0) run function %s:startup" PACK_NS 
+            sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["enabled covered gameplay from %s"]""" PACK_NAME
+            // turn off
+            sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY blindPackEnabled 0"
+            sprintf "execute if entity $SCORE(TEMP=1) run function %s:teardown" PACK_NS 
+            sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["disabled covered gameplay from %s"]""" PACK_NAME
+            |]
+        yield "startup",[|
+            // TODO anything?
+            |]
+        yield "teardown",[|
+            // clear any blocks in the world
+            // TODO uncover 
+            // clear any entities in the world
+            // TODO any?
+            sprintf """datapack disable "file/%s" """ PACK_NAME
+            |]
+        yield "init",[|
             for o in all_objectives do
                 yield sprintf "scoreboard objectives add %s dummy" o
-            yield "scoreboard objectives add doThing1 trigger"
-            yield "scoreboard objectives add toggleThing2 trigger"
+            for t in toggleables do
+                yield sprintf "scoreboard objectives add trig%s trigger" t
+            // set any default values
+            yield "scoreboard players set $ENTITY blindPackEnabled 0"
             |]
         yield "tick",[|
-            sprintf "execute as @a[scores={doThing1=1}] run function %s:do_thing1" PACK_NS
-            sprintf "execute as @a[scores={toggleThing2=1}] run function %s:toggle_thing2" PACK_NS
-            // TODO only run cfg checks when gameInProgress=0
-            """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
+            sprintf "execute if entity $SCORE(gameInProgress=0) run function %s:config_loop" PACK_NS 
             |]
-        yield "toggle_thing2",[|
-            "scoreboard players operation $ENTITY TEMP = $ENTITY thing2val"
-            // turn off
-            "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=ON] thing2val 0"
-            "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=OFF] thing2val 1"
-            "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY thing2val 0"
-            "execute if entity $SCORE(TEMP=1) run say turning off thing2"
-            // turn on
-            "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=ON] thing2val 1"
-            "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=OFF] thing2val 0"
-            "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY thing2val 1"
-            "execute if entity $SCORE(TEMP=0) run say turning on thing2"
-            // boilerplate
-            "scoreboard players set @s toggleThing2 0"
-            "scoreboard players enable @s toggleThing2"
-            sprintf "function %s:clear_and_give_book" PACK_NS
+        yield "config_loop",[|
+            for t in toggleables do
+                yield sprintf "execute as @a[scores={trig%s=1}] run function %s:toggle_%s" t PACK_NS t
+            yield """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
             |]
-        yield "do_thing1",[|
-            "scoreboard players add $ENTITY thing1val 1"
-            "scoreboard players set @s doThing1 0"
-            "scoreboard players enable @s doThing1"
-            sprintf "function %s:clear_and_give_book" PACK_NS
-            "say doing thing 1"
-            |]
+        for t,name in toggleableOptions do
+            yield sprintf "toggle_%s" t, [|
+                sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY val%s" t
+                // turn off
+                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=ON] val%s 0" t
+                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=OFF] val%s 1" t
+                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY val%s 0" t
+                sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" name
+                // turn on
+                sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=ON] val%s 1" t
+                sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=OFF] val%s 0" t
+                sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY val%s 1" t
+                sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" name
+                // boilerplate
+                sprintf "scoreboard players set @s trig%s 0" t
+                sprintf "scoreboard players enable @s trig%s" t
+                sprintf "function %s:clear_and_give_book" PACK_NS
+                |]
         yield "on_new_card",[|
             sprintf """tellraw @a ["%s:on_new_card was called"]""" PACK_NS 
             sprintf "function %s:cover" PACK_NS
@@ -142,19 +204,20 @@ module Blind =
             |]
         yield "clear_and_give_book",[|
             // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-            "clear @a minecraft:written_book{ConfigBook:1}"  // TODO kill any book items that were dropped on the floor, so no stale copies anywhere?
+            "clear @a minecraft:written_book{ConfigBook:1}"
             sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","The title",[|
-                "["
-                    + sprintf """{"score":{"name":"@e[%s]","objective":"thing1val"}},{"text":" click me","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger doThing1 set 1"}}""" MinecraftBINGO.ENTITY_TAG
-                    + sprintf """,{"text":"\n\ntoggle thing2...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger toggleThing2 set 1"}},{"selector":"@e[tag=bookText,scores={thing2val=1}]"}"""
+                """[{"text":"Some descriptive header"}"""
+                    + String.concat "" [| for t,name in toggleableOptions do 
+                            yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger trig%s set 1"}},{"selector":"@e[tag=bookText,scores={val%s=1}]"}""" name t t
+                        |]
                     + "]"
                 |]))
             |]
         yield "uncover",[|
-            sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT
-            "scoreboard players enable @a doThing1"
-            "scoreboard players enable @a toggleThing2"
-            sprintf "function %s:clear_and_give_book" PACK_NS
+            yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT
+            for t in toggleables do
+                yield sprintf "scoreboard players enable @s trig%s" t
+            yield sprintf "function %s:clear_and_give_book" PACK_NS
             |]
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do

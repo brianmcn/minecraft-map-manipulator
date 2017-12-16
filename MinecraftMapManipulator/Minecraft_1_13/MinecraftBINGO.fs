@@ -599,7 +599,7 @@ let game_functions = [|
         yield sprintf "function %s:new_card_coda" NS
         |]
     yield "choose_random_seed",[|
-        // interject actual randomness, rather than deterministic pseudo  // TODO can summon a single entity and "data get" read its uuidleast to get some truly random bits
+        // interject actual randomness, rather than deterministic pseudo  // TODO can summon a single entity and "data get" read its uuidleast to get some truly random bits? test if that actually works, with scale factor 1/2^32 can get most signif bits, not least
         yield "kill @e[tag=aec]"
         for _i = 1 to 10 do
             yield """summon area_effect_cloud 4 4 4 {Duration:2,Tags:["aec"]}"""
