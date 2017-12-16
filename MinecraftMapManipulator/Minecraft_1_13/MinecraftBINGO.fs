@@ -1342,6 +1342,7 @@ let cardgen_functions = [|
         yield "setblock 59 25 63 air"
         yield "setblock 59 25 62 chest[facing=east,type=left]"
         yield "setblock 59 25 63 chest[facing=east,type=right]"
+        // pick items and place structure art
         for _x = 1 to 5 do
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
@@ -1353,6 +1354,11 @@ let cardgen_functions = [|
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~-96 ~ ~24"
+        // to avoid any daylight peeking through and make a 'pretty' under-side, do stuff
+        yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0" ART_HEIGHT ART_HEIGHT (ART_HEIGHT-1)
+        yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0 masked" (ART_HEIGHT+1) (ART_HEIGHT+1) (ART_HEIGHT-1)
+        yield sprintf "fill 0 %d 0 127 %d 118 minecraft:green_wool replace minecraft:oak_leaves" (ART_HEIGHT-1) (ART_HEIGHT-1)
+        // initialize checker values for this card's items
         yield sprintf "function %s:checker_new_card" NS
         |]
     |]

@@ -45,6 +45,9 @@ Things to test in snapshot
 
     understand data packs, how to turn off e.g. vanilla advancements/crafting
 
+	cool trick to see if you're in the top-half of an oak_slab block (note that dx,dy,dz selectors test against entity hitbox, not your exact coords)
+	/execute at @s if block ~ ~ ~ minecraft:oak_slab[type=bottom] align y offset ~ ~0.75 ~ run say @s[distance=..0.25]
+
 =========
 E&T ideas
 =========

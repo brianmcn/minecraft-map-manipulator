@@ -196,16 +196,6 @@ module Blind =
             """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:ON,Team:green}"""
             """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:OFF,Team:red}"""
             |]
-        // TODO cover and uncover lag a lot due to lighting updates; change bingo art to non-transparent, with full bottom-y thickness? 
-        // leaves are only non-opaque block, there is no replacement for them, so... hm, put green wool under? hm...
-        // something like clone bottom layer, clone top layer non-air, replace leaves with green wool, profit?
-        // TODO problem is my leaves are decayable:true in the structures, need to fix them all
-        (*
-clone 0 40 0 127 40 118 0 39 0
-fill 0 39 0 127 39 118 minecraft:green_wool replace minecraft:oak_leaves
-clone 0 41 0 127 41 118 0 39 0 masked
-fill 0 39 0 127 39 118 minecraft:green_wool replace minecraft:oak_leaves
-        *)
         yield "cover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 white_wool" COVER_HEIGHT COVER_HEIGHT
             // horizontal gridlines
