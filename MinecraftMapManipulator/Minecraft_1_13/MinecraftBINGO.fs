@@ -8,6 +8,15 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // TODO - BEWARE But X and Y rotation are also swapped in /tp, which is fixed for next snapshot
 
 // TODO remove slimeball?  what else could go there alt enderpearl?  rabbit hide?  I think yes, but sleep on it.
+// Next day: it's nice to give people options.  Trade-off between people who will be frustrated by competitive or 'truly random' cards with this very hard item, 
+// versus those who enjoy the item or those who will happily skip to another card if this card isn't to their liking.  It is also maybe a shame that there are so
+// few unique probabilities; if enderpearl were 5/6 and slimeball were 1/6 in the bin, for example... hm, I could make each bin have 6 items and futz with probabilities more...
+// and then have e.g. 3 enderpearl, 2 rabbit hide, 1 slimeball; double-chests still enable the bin-visualization... ench book and maybe cake could be less, lime could be 50%...
+
+// TODO hungry-peaceful-bingo: You could simulate a hungry peaceful mode by having a dozen repeating command blocks which do e.g. "tp @e[type=skeleton] ~ ~-250 ~" to constantly teleport each type 
+// of hostile mob into the void.  I guess enderpearl, slimeball, spider eye, and fermented spider eye are the only items you can't get in peaceful now?
+
+// TODO triple-play mode? get a row, column and a diagonal to win? interesting strategy to plan/optimize?
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/
 
@@ -89,7 +98,7 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // TODO 'temp' depth strider boots, that go away after 30s at start/respawn? mitigate water spawns without making game easier? (also, curse of binding & vanishing)
 // ... or, just always start folks with a boat?
 
-// TODO non-default option to enable another 'arrow' that points to your prior death location?
+// TODO non-default option to enable another 'arrow' that points to your prior death location
 
 /////////////////////////////////////////////////////////////
 
@@ -151,7 +160,7 @@ let publishEvent(eventName) =
     let FIL = System.IO.Path.Combine(FOLDER,sprintf """datapacks\%s\data\%s\tags\functions\%s.json""" PACK_NAME NS eventName)
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
     System.IO.File.WriteAllText(FIL,"""{"values": []}""")
-for eventName in ["on_new_card"; "on_finish"] do
+for eventName in ["on_new_card"; "on_start_game"; "on_finish"] do
     publishEvent(eventName)
 for t in TEAMS do
     for s in SQUARES do
@@ -590,7 +599,7 @@ let game_functions = [|
         yield sprintf "function %s:new_card_coda" NS
         |]
     yield "choose_random_seed",[|
-        // interject actual randomness, rather than deterministic pseudo
+        // interject actual randomness, rather than deterministic pseudo  // TODO can summon a single entity and "data get" read its uuidleast to get some truly random bits
         yield "kill @e[tag=aec]"
         for _i = 1 to 10 do
             yield """summon area_effect_cloud 4 4 4 {Duration:2,Tags:["aec"]}"""
@@ -781,6 +790,7 @@ let game_functions = [|
         yield sprintf "function %s:compute_lockout_goal" NS
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
+        yield sprintf "function #%s:on_start_game" NS
         yield sprintf "function %s:place_signs1" NS
         yield "scoreboard players set $ENTITY said25mins 0"
         // put folks in survival mode, feed & heal, remove all xp, clear inventories

@@ -55,7 +55,7 @@ module Blind =
         System.IO.File.WriteAllText(FIL, sprintf """{"values": ["%s:%s"]}""" PACK_NS event)
 
     let hookEvents() =
-        for event in ["on_new_card"; "on_finish"] do
+        for event in ["on_new_card"; "on_start_game"; "on_finish"] do
             hook(event)
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do
@@ -66,15 +66,36 @@ module Blind =
     let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 10
     let all_objectives = [|
         "thing1val"
+        "thing2val"
         |]
     let all_funcs = [|
-        yield "init",[|
+        yield "init",[|    // TODO who will run "init"? I guess the datapack enabler, ... ugh
             for o in all_objectives do
                 yield sprintf "scoreboard objectives add %s dummy" o
-            yield "scoreboard objectives add doThing1 trigger"   // TODO who will run this? I guess the datapack enabler, ... ugh
+            yield "scoreboard objectives add doThing1 trigger"
+            yield "scoreboard objectives add toggleThing2 trigger"
             |]
         yield "tick",[|
             sprintf "execute as @a[scores={doThing1=1}] run function %s:do_thing1" PACK_NS
+            sprintf "execute as @a[scores={toggleThing2=1}] run function %s:toggle_thing2" PACK_NS
+            // TODO only run cfg checks when gameInProgress=0
+            |]
+        yield "toggle_thing2",[|
+            "scoreboard players operation $ENTITY TEMP = $ENTITY thing2val"
+            // turn off
+            "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=ON] thing2val 0"
+            "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=OFF] thing2val 1"
+            "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY thing2val 0"
+            "execute if entity $SCORE(TEMP=1) run say turning off thing2"
+            // turn on
+            "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=ON] thing2val 1"
+            "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=OFF] thing2val 0"
+            "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY thing2val 1"
+            "execute if entity $SCORE(TEMP=0) run say turning on thing2"
+            // boilerplate
+            "scoreboard players set @s toggleThing2 0"
+            "scoreboard players enable @s toggleThing2"
+            sprintf "function %s:clear_and_give_book" PACK_NS
             |]
         yield "do_thing1",[|
             "scoreboard players add $ENTITY thing1val 1"
@@ -87,8 +108,20 @@ module Blind =
             sprintf """tellraw @a ["%s:on_new_card was called"]""" PACK_NS 
             sprintf "function %s:cover" PACK_NS
             |]
+        yield "on_start_game",[|
+            sprintf "function %s:kill_book_text_entities" PACK_NS
+            |]
         yield "on_finish",[|
             sprintf """tellraw @a ["%s:on_finish was called"]""" PACK_NS 
+            sprintf "function %s:summon_book_text_entities" PACK_NS
+            // TODO would also need to summon them in pack-enable and kill in pack-disable
+            |]
+        yield "kill_book_text_entities",[|
+            "kill @e[tag=bookText]"
+            |]
+        yield "summon_book_text_entities",[|
+            """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:ON,Team:green}"""
+            """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:OFF,Team:red}"""
             |]
         yield "cover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 white_wool" COVER_HEIGHT COVER_HEIGHT
@@ -107,14 +140,18 @@ module Blind =
             yield sprintf "fill 121 %d 0 127 %d 118 stone" COVER_HEIGHT COVER_HEIGHT
             |]
         yield "clear_and_give_book",[|
-            "clear @a minecraft:written_book{ConfigBook:1}"
+            "clear @a minecraft:written_book{ConfigBook:1}"  // TODO kill any book items that were dropped on the floor, so no stale copies anywhere?
             sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","The title",[|
-                sprintf """[{"score":{"name":"@e[%s]","objective":"thing1val"}},{"text":" click me","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger doThing1 set 1"}}]""" MinecraftBINGO.ENTITY_TAG
+                "["
+                    + sprintf """{"score":{"name":"@e[%s]","objective":"thing1val"}},{"text":" click me","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger doThing1 set 1"}}""" MinecraftBINGO.ENTITY_TAG
+                    + sprintf """,{"text":"\n\ntoggle thing2...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger toggleThing2 set 1"}},{"selector":"@e[tag=bookText,scores={thing2val=1}]"}"""
+                    + "]"
                 |]))
             |]
         yield "uncover",[|
             sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT
             "scoreboard players enable @a doThing1"
+            "scoreboard players enable @a toggleThing2"
             sprintf "function %s:clear_and_give_book" PACK_NS
             |]
         for t in MinecraftBINGO.TEAMS do
