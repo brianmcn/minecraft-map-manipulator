@@ -18,7 +18,7 @@ let writtenBookNBTString(author, title, pages:string[]) =
     sb.ToString()
 
 let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
-    sprintf "give @p minecraft:written_book%s 1" (writtenBookNBTString(author, title, pages))
+    sprintf "give @s minecraft:written_book%s 1" (writtenBookNBTString(author, title, pages))
 
 //////////////////////////////
 
@@ -79,6 +79,7 @@ module Blind =
             sprintf "execute as @a[scores={doThing1=1}] run function %s:do_thing1" PACK_NS
             sprintf "execute as @a[scores={toggleThing2=1}] run function %s:toggle_thing2" PACK_NS
             // TODO only run cfg checks when gameInProgress=0
+            """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
             |]
         yield "toggle_thing2",[|
             "scoreboard players operation $ENTITY TEMP = $ENTITY thing2val"
@@ -140,6 +141,7 @@ module Blind =
             yield sprintf "fill 121 %d 0 127 %d 118 stone" COVER_HEIGHT COVER_HEIGHT
             |]
         yield "clear_and_give_book",[|
+            // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
             "clear @a minecraft:written_book{ConfigBook:1}"  // TODO kill any book items that were dropped on the floor, so no stale copies anywhere?
             sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","The title",[|
                 "["
