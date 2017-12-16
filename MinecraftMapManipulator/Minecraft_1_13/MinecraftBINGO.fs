@@ -160,7 +160,7 @@ let publishEvent(eventName) =
     let FIL = System.IO.Path.Combine(FOLDER,sprintf """datapacks\%s\data\%s\tags\functions\%s.json""" PACK_NAME NS eventName)
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
     System.IO.File.WriteAllText(FIL,"""{"values": []}""")
-for eventName in ["on_new_card"; "on_start_game"; "on_finish"] do
+for eventName in ["on_new_card"; "on_start_game"; "on_finish"; "on_get_configuration_books"] do
     publishEvent(eventName)
 for t in TEAMS do
     for s in SQUARES do
@@ -476,6 +476,8 @@ let game_functions = [|
             yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled false
             // you kinda only want this for multiplayer, but if lockout, and others leave, you'd be stuck permanently in lockout mode unless this button appears to allow you to turn it off
             yield! placeWallSignCmds 63 27 61 "south" "toggle" "LOCKOUT" "" "" (sprintf"function %s:toggle_lockout"NS) otherSignsEnabled false 
+            // TODO move lockout into extended config book
+            yield! placeWallSignCmds 63 28 61 "south" "get" "configuration" "books" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
             //
             yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
@@ -563,6 +565,10 @@ let game_functions = [|
     yield "fake_start",[| // for testing; start sequence without the spawn points
         "scoreboard players set $ENTITY fakeStart 1"
         sprintf "function %s:start1" NS
+        |]
+    yield "get_configuration_books",[|
+        // TODO add base bingo config book
+        sprintf "function #%s:on_get_configuration_books" NS
         |]
     yield "toggle_lockout",[|
         "scoreboard players operation $ENTITY TEMP = $ENTITY isLockout"

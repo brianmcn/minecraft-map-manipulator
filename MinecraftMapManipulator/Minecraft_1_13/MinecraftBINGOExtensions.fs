@@ -29,7 +29,7 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
 TODO how will a player enable/disable datapacks?
 seems the only thing a player can do is interact with signs
 so probably a datapack author needs hand out a command that an OP'd player can run to get a sign to toggle the pack
-the sign, when clicked, would have to...
+the sign, when clicked, would have to... ONLY if gameInProgress=0...
  - enable its pack (if it's not enabled)
  - see if the current state of the whole pack is ON or OFF
  - if ON, set scoreboard to OFF, run any cleanup commands, then disable pack
@@ -79,7 +79,7 @@ module Blind =
         System.IO.File.WriteAllText(FIL, sprintf """{"values": ["%s:%s"]}""" PACK_NS event)
 
     let hookEvents() =
-        for event in ["on_new_card"; "on_start_game"; "on_finish"] do
+        for event in ["on_new_card"; "on_start_game"; "on_finish"; "on_get_configuration_books"] do
             hook(event)
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do
@@ -87,7 +87,7 @@ module Blind =
 
     ///////////////////////////////
 
-    let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 10
+    let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 4
     let toggleableOptions = [|
         "thing5", "Some option"
         "thing6", "Another option"
@@ -102,11 +102,14 @@ module Blind =
         |]
     let all_funcs = [|
         yield "get_sign_for_lobby", [|
-            sprintf 
-                """give @s sign{BlockEntityTag:{Text1:"[%s]",Text2:"[%s]",Text3:"[%s]",Text4:""}} 1"""
-                (escape(sprintf """{"text":"toggle","clickEvent":{"action":"run_command","value":"tellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}"""))
-                (escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"datapack enable \"file/%s\""}}""" PACK_NAME))
-                (escape(sprintf """{"text":"","clickEvent":{"action":"run_command","value":"function %s:toggle_pack"}}""" PACK_NS))
+            let prefix0 = sprintf "execute if entity @e[%s,scores={gameInProgress=0}] run " MinecraftBINGO.ENTITY_TAG 
+            let prefix1 = sprintf "execute unless entity @e[%s,scores={gameInProgress=0}] run " MinecraftBINGO.ENTITY_TAG 
+            yield sprintf 
+                """give @s sign{BlockEntityTag:{Text1:"[%s]",Text2:"[%s]",Text3:"[%s]",Text4:"[%s]"}} 1"""
+                (escape(sprintf     """{"text":"toggle","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}""" prefix0))
+                (escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"%sdatapack enable \"file/%s\""}}""" prefix0 PACK_NAME))
+                (escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%sfunction %s:toggle_pack"}}""" prefix0 PACK_NS))
+                (escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"}}""" prefix1))
             |]
         yield "toggle_pack", [|
             // deal with first-time initialization
@@ -124,14 +127,22 @@ module Blind =
             sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["disabled covered gameplay from %s"]""" PACK_NAME
             |]
         yield "startup",[|
-            // TODO anything?
+            sprintf "function %s:cover" PACK_NS
+            sprintf "function %s:summon_book_text_entities" PACK_NS
             |]
         yield "teardown",[|
             // clear any blocks in the world
-            // TODO uncover 
+            sprintf "function %s:uncover" PACK_NS
+            // clear any inventory in the world
+            "clear @a minecraft:written_book{ConfigBook:1}"
             // clear any entities in the world
-            // TODO any?
+            sprintf "function %s:kill_book_text_entities" PACK_NS
             sprintf """datapack disable "file/%s" """ PACK_NAME
+            |]
+        yield "on_get_configuration_books",[|
+            for t in toggleables do
+                yield sprintf "scoreboard players enable @s trig%s" t
+            yield sprintf "function %s:clear_and_give_book" PACK_NS
             |]
         yield "init",[|
             for o in all_objectives do
@@ -177,7 +188,6 @@ module Blind =
         yield "on_finish",[|
             sprintf """tellraw @a ["%s:on_finish was called"]""" PACK_NS 
             sprintf "function %s:summon_book_text_entities" PACK_NS
-            // TODO would also need to summon them in pack-enable and kill in pack-disable
             |]
         yield "kill_book_text_entities",[|
             "kill @e[tag=bookText]"
@@ -186,6 +196,16 @@ module Blind =
             """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:ON,Team:green}"""
             """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:OFF,Team:red}"""
             |]
+        // TODO cover and uncover lag a lot due to lighting updates; change bingo art to non-transparent, with full bottom-y thickness? 
+        // leaves are only non-opaque block, there is no replacement for them, so... hm, put green wool under? hm...
+        // something like clone bottom layer, clone top layer non-air, replace leaves with green wool, profit?
+        // TODO problem is my leaves are decayable:true in the structures, need to fix them all
+        (*
+clone 0 40 0 127 40 118 0 39 0
+fill 0 39 0 127 39 118 minecraft:green_wool replace minecraft:oak_leaves
+clone 0 41 0 127 41 118 0 39 0 masked
+fill 0 39 0 127 39 118 minecraft:green_wool replace minecraft:oak_leaves
+        *)
         yield "cover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 white_wool" COVER_HEIGHT COVER_HEIGHT
             // horizontal gridlines
@@ -215,9 +235,6 @@ module Blind =
             |]
         yield "uncover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT
-            for t in toggleables do
-                yield sprintf "scoreboard players enable @s trig%s" t
-            yield sprintf "function %s:clear_and_give_book" PACK_NS
             |]
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do
