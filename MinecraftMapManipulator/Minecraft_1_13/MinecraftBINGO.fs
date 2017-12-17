@@ -954,9 +954,10 @@ let game_functions = [|
     yield "start5", [|
         yield "time set 0"
         yield "effect clear @a"
-        // TODO custom game modes, for now, just always NV+DS
-        yield "effect give @a minecraft:night_vision 99999 1 true"
-        yield "replaceitem entity @a armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:71s}]} 1"
+        // custom game modes
+        yield "execute if entity $SCORE(optnvval=1) run effect give @a minecraft:night_vision 99999 1 true"
+        yield "execute if entity $SCORE(optdsval=1) run replaceitem entity @a armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
+        yield "execute if entity $SCORE(optboatval=1) run give @a minecraft:oak_boat 1"
         yield sprintf """tellraw @a [%s,"Start! Go!!!"]""" LEADING_WHITESPACE
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 1.2"
         // enable triggers (for click-in-chat-to-tp-home stuff)
@@ -1461,8 +1462,10 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile([|
             // players may dead
             "execute store result score @s TEMP run data get entity @s Health 100.0"
-            "execute if entity @s[scores={TEMP=1..}] run effect give @s minecraft:night_vision 99999 1 true"
-            "execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:71s}]} 1"
+            // custom respawn equipment
+            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optnvval=1) run effect give @s minecraft:night_vision 99999 1 true"
+            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optdsval=1) run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
+            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optboatval=1) run give @a minecraft:oak_boat 1"
             """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
             |],"on_respawn")

@@ -173,7 +173,7 @@ module Blind =
         yield "on_finish",[|
             //sprintf """tellraw @a ["%s:on_finish was called"]""" PACK_NS 
             |]
-        // TODO oh irony, you can see the card in my beautiful open ceiling
+        // TODO oh irony, you can see the card in my beautiful open ceiling.  also the chest of items-on-this-card
         yield "cover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 white_wool" COVER_HEIGHT COVER_HEIGHT
             // horizontal gridlines
