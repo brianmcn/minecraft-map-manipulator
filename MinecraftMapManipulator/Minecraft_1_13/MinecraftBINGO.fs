@@ -1,6 +1,6 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 
@@ -162,6 +162,11 @@ type Coords(x:int,y:int,z:int) =
 let MAP_UPDATE_ROOM = Coords(62,10,72)
 let WAITING_ROOM = Coords(71,10,72)
 let ART_HEIGHT = 40 // TODO
+let ART_HEIGHT_DAYLIGHT_BLOCKER = ART_HEIGHT-1
+let ART_HEIGHT_UNDER = ART_HEIGHT-2
+
+let CHEST_THIS_CARD_1 = Coords(59,25,62)
+let CHEST_THIS_CARD_2 = Coords(59,25,63)
 
 let NS = "test"
 let PACK_NAME = "BingoPack"
@@ -535,6 +540,8 @@ let game_functions = [|
         yield sprintf "fill %s %s sea_lantern hollow" (WAITING_ROOM.Offset(-3,-2,-3).STR) (WAITING_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (WAITING_ROOM.Offset(-1,-1,-1).STR) (WAITING_ROOM.Offset(1,2,1).STR)
         yield! placeWallSignCmds WAITING_ROOM.X (WAITING_ROOM.Y+1) (WAITING_ROOM.Z-2) "south" "PLEASE WAIT" "(spawns are" "being" "generated)" null true false
+        // make daylight blocker under the bingo art to prevent art changes from causing lighting updates below it
+        yield sprintf "fill 0 %d 0 127 %d 119 stone" ART_HEIGHT_DAYLIGHT_BLOCKER ART_HEIGHT_DAYLIGHT_BLOCKER
         // put logo on card bottom
         yield sprintf "fill 0 %d 120 127 %d 127 black_wool" ART_HEIGHT ART_HEIGHT
         yield sprintf """summon area_effect_cloud 0 %d 120 {Duration:2,Tags:["logoaec"]}""" ART_HEIGHT
@@ -1398,7 +1405,7 @@ let cardgen_functions = [|
                 for x = 1 to 5 do
                     for y = 1 to 5 do
                         yield sprintf "execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" j (5*(y-1)+x) x y index
-                        let chest = if y < 4 then "59 25 63" else "59 25 62"
+                        let chest = if y < 4 then CHEST_THIS_CARD_2.STR else CHEST_THIS_CARD_1.STR
                         let slot = if y < 4 then (y-1)*9+x-1 else (y-4)*9+x-1
                         yield sprintf """execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run replaceitem block %s container.%d %s""" j (5*(y-1)+x) chest slot bingoItems.[i].[j]
             |]
@@ -1425,10 +1432,10 @@ let cardgen_functions = [|
         yield sprintf "fill 097 %d 0 097 %d 118 stone" ART_HEIGHT ART_HEIGHT
         yield sprintf "fill 121 %d 0 127 %d 118 stone" ART_HEIGHT ART_HEIGHT
         // chest of items on this card
-        yield "setblock 59 25 62 air"
-        yield "setblock 59 25 63 air"
-        yield "setblock 59 25 62 chest[facing=east,type=left]"
-        yield "setblock 59 25 63 chest[facing=east,type=right]"
+        yield sprintf "setblock %s air" CHEST_THIS_CARD_1.STR
+        yield sprintf "setblock %s air" CHEST_THIS_CARD_2.STR
+        yield sprintf "setblock %s chest[facing=east,type=left]" CHEST_THIS_CARD_1.STR
+        yield sprintf "setblock %s chest[facing=east,type=right]" CHEST_THIS_CARD_2.STR
         // pick items and place structure art
         for _x = 1 to 5 do
             yield sprintf "function %s:cardgen_choose1" NS
@@ -1441,10 +1448,9 @@ let cardgen_functions = [|
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
             yield sprintf "function %s:cardgen_choose1" NS
             yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~-96 ~ ~24"
-        // to avoid any daylight peeking through and make a 'pretty' under-side, do stuff
-        yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0" ART_HEIGHT ART_HEIGHT (ART_HEIGHT-1)
-        yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0 masked" (ART_HEIGHT+1) (ART_HEIGHT+1) (ART_HEIGHT-1)
-        yield sprintf "fill 0 %d 0 127 %d 118 minecraft:green_wool replace minecraft:oak_leaves" (ART_HEIGHT-1) (ART_HEIGHT-1)
+        // make a 'pretty' under-side for lobby ceiling
+        yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0" ART_HEIGHT ART_HEIGHT ART_HEIGHT_UNDER
+        yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0 masked" (ART_HEIGHT+1) (ART_HEIGHT+1) ART_HEIGHT_UNDER
         // initialize checker values for this card's items
         yield sprintf "function %s:checker_new_card" NS
         |]

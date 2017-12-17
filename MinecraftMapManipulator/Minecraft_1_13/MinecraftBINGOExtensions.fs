@@ -66,7 +66,8 @@ module Blind =
 
     ///////////////////////////////
 
-    let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 4
+    let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 2
+    let COVER_HEIGHT_UNDER = MinecraftBINGO.ART_HEIGHT_UNDER - 1
     let toggleableOptions = [|
         "thing5", "Some option"
         "thing6", "Another option"
@@ -173,8 +174,8 @@ module Blind =
         yield "on_finish",[|
             //sprintf """tellraw @a ["%s:on_finish was called"]""" PACK_NS 
             |]
-        // TODO oh irony, you can see the card in my beautiful open ceiling.  also the chest of items-on-this-card
         yield "cover",[|
+            // cover on top so map doesn't show
             yield sprintf "fill 0 %d -1 127 %d 118 white_wool" COVER_HEIGHT COVER_HEIGHT
             // horizontal gridlines
             yield sprintf "fill 1 %d 023 121 %d 023 stone" COVER_HEIGHT COVER_HEIGHT
@@ -189,9 +190,19 @@ module Blind =
             yield sprintf "fill 073 %d 0 073 %d 118 stone" COVER_HEIGHT COVER_HEIGHT
             yield sprintf "fill 097 %d 0 097 %d 118 stone" COVER_HEIGHT COVER_HEIGHT
             yield sprintf "fill 121 %d 0 127 %d 118 stone" COVER_HEIGHT COVER_HEIGHT
+            // cover on bottom so can't see items on ceiling
+            yield sprintf "fill 0 %d -1 127 %d 118 white_wool" COVER_HEIGHT_UNDER COVER_HEIGHT_UNDER
+            // cover the chest of items, to help prevent peeking
+            yield sprintf "setblock %s stone" (MinecraftBINGO.CHEST_THIS_CARD_1.Offset(0,1,0).STR)
+            yield sprintf "setblock %s stone" (MinecraftBINGO.CHEST_THIS_CARD_2.Offset(0,1,0).STR)
             |]
+        // TODO, at end of game, you come back to lobby, but game is still running, and you want to uncover-all to see what you missed, how? no sign to click, no book to get... HMMMM
         yield "uncover",[|
+            // uncover top, bottom, and chest
             yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT
+            yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT_UNDER COVER_HEIGHT_UNDER
+            yield sprintf "setblock %s air" (MinecraftBINGO.CHEST_THIS_CARD_1.Offset(0,1,0).STR)
+            yield sprintf "setblock %s air" (MinecraftBINGO.CHEST_THIS_CARD_2.Offset(0,1,0).STR)
             |]
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do
