@@ -1,6 +1,6 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 
@@ -93,27 +93,9 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT
 
 // TODO sea lantern under art o4 sugar - check all under-art (in art world, could clone top layer to bottom, and make_saving_structure_blocks for that world, and copy over detector rail)
 
-// starting options (maybe both start & respawn same?)
-// NV
-// DS
-// boats
-// team chest - TODO where to place in lobby
-// OOB example elytra
-
-// got item side effects
-// announceItem012/fireworkItem01
-// announceOnlyTeam  // TODO test this
-// OOB reveal square in blind game
-// OOB different sounds depending on square got
-
-// other
-// "handHolding" (update reminder each game, press 't' chat to click, ...)
-// "leadingWS" (and CustomName of scoreAS)
-// "arrowToSpawn" display arrow on actionbar
-// "showXH" display extreme hills on actionbar
-// twoForOneMode
 
 let startingItemsEffects = [|
+    //TODO // hook these up
     "optnv", "Night Vision", 1
     "optds", "Depth Strider boots", 0
     "optboat", "Starting boat", 1
@@ -121,10 +103,10 @@ let startingItemsEffects = [|
     // TODO, OOB elytra
     |]
 let otherNiceties = [|
-    "opthh", "Novice mode - longer explanatory messages and help", 1
-    "optlw", "Leading whitespace", 0
-    "optsa", "Arrow points to spawn", 1
-    "optxh", "Show when extreme hills", 1
+    "opthh", "Novice mode - longer explanatory messages and help", 1    // 1 if we need to explain how to update the card, how to click the chat, etc; 0 if not
+    "optlw", "Leading whitespace", 0                                    // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
+    "optsa", "Arrow points to spawn", 1                                 // 1 if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?), 0 if not
+    "optxh", "Show when extreme hills", 1                               // 1 if add 'XH' on player actionbar when in extreme hills, 0 if not
     |]
 let optionalGameModes = [|
     "optlo", "Lockout mode", 0
@@ -132,8 +114,12 @@ let optionalGameModes = [|
     |]
 let toggleableOptions = [|
     yield! startingItemsEffects
-    // got an item effects
     // TODO
+    // got item side effects
+    // announceItem012/fireworkItem01
+    // announceOnlyTeam  // TODO test this
+    // OOB reveal square in blind game
+    // OOB different sounds depending on square got
     yield! otherNiceties
     yield! optionalGameModes 
     |]
@@ -279,7 +265,7 @@ let entity_init() = [|
     |]
 let ENTITY_TAG = "tag=scoreAS,x=84,y=4,z=4,distance=..1.0,limit=1"
 let XH_TAG = "tag=XHguy,x=4,y=4,z=84,distance=..1.0,limit=1"
-let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={leadingWS=1}]"}""" ENTITY_TAG
+let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" ENTITY_TAG
 let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
 
 let allCallbackShortNames = ResizeArray()
@@ -423,19 +409,13 @@ let game_objectives = [|
     yield "Score"
     yield "teamNum"            // on players, 1=red, 2=blue, 3=green, 4=yellow; useful for finding all teammates
     yield "fakeStart"
-    yield "isLockout"
     yield "lockoutGoal"
-    yield "twoForOneMode"
     yield "numActiveTeams"
     yield "hasAnyoneUpdated"
     // TODO someone wants option to turn off actionbar entirely
-    yield "handHolding"        // 1 if we need to explain how to update the card, how to click the chat, etc; 0 if not
-    yield "leadingWS"          // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
     yield "announceOnlyTeam"   // 1 if announce/firework only to your teammates, 0 if to everyone
     yield "announceItem"       // 2 if announce item name, 1 if just say 'got an item', 0 if no text generated
     yield "fireworkItem"       // 1 if play sound when get item, 0 if silent
-    yield "arrowToSpawn"       // 1 if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?), 0 if not
-    yield "showXH"             // 1 if add 'XH' on player actionbar when in extreme hills, 0 if not
     yield "inXH"               // on a player, has a value greater than 0 if recently in extreme hills (or variant)
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
@@ -482,16 +462,10 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY SIXTY 60"
         yield "scoreboard players set $ENTITY ONE_THOUSAND 1000"
         yield "scoreboard players set $ENTITY TEN_THOUSAND 10000"
-        yield "scoreboard players set $ENTITY isLockout 0"
-        yield "scoreboard players set $ENTITY twoForOneMode 0"
         yield "scoreboard players set $ENTITY gameInProgress 0"
-        yield "scoreboard players set $ENTITY handHolding 1"
-        yield "scoreboard players set $ENTITY leadingWS 0"
         yield "scoreboard players set $ENTITY announceItem 2"
         yield "scoreboard players set $ENTITY announceOnlyTeam 0"
         yield "scoreboard players set $ENTITY fireworkItem 1"
-        yield "scoreboard players set $ENTITY arrowToSpawn 1"
-        yield "scoreboard players set $ENTITY showXH 1"
         yield sprintf "team join green @e[%s]" XH_TAG
         // loop
         if not USE_GAMELOOP then
@@ -530,10 +504,7 @@ let game_functions = [|
             //
             yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) otherSignsEnabled false
             yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled false
-            // you kinda only want this for multiplayer, but if lockout, and others leave, you'd be stuck permanently in lockout mode unless this button appears to allow you to turn it off
-            yield! placeWallSignCmds 63 27 61 "south" "toggle" "LOCKOUT" "" "" (sprintf"function %s:toggle_lockout"NS) otherSignsEnabled false 
-            // TODO move lockout into extended config book
-            yield! placeWallSignCmds 63 28 61 "south" "get" "configuration" "books" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
+            yield! placeWallSignCmds 63 27 61 "south" "get" "configuration" "books" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
             //
             yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
@@ -637,17 +608,20 @@ let game_functions = [|
         |]
     for opt,desc,_def in toggleableOptions do
         yield sprintf "toggle_%s" opt, [|
-            sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt
+            yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt
             // turn off
-            sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt
-            sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" desc
+            yield sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt
+            yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" desc
             // turn on
-            sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt
-            sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" desc
+            yield sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt
+            yield sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" desc
             // boilerplate
-            sprintf "scoreboard players set @s %strig 0" opt
-            sprintf "scoreboard players enable @s %strig" opt
-            sprintf "function %s:clear_and_give_book" NS
+            yield sprintf "scoreboard players set @s %strig 0" opt
+            yield sprintf "scoreboard players enable @s %strig" opt
+            // special cases
+            if opt="optlo" then
+                yield sprintf "function %s:compute_lockout_goal" NS
+            yield sprintf "function %s:on_get_configuration_books" NS
             |]
     yield "on_get_configuration_books",[|
         for opt,_desc,_def in toggleableOptions do
@@ -656,12 +630,9 @@ let game_functions = [|
             yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookText,name=ON] %sval 0" opt opt
             yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookText,name=OFF] %sval 0" opt opt
             yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookText,name=OFF] %sval 1" opt opt
-        yield sprintf "function %s:clear_and_give_book" NS
-        |]
-    yield "clear_and_give_book",[|
         // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-        "clear @a minecraft:written_book{ConfigBook:1}"
-        sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","Standard options",[|
+        yield "clear @a minecraft:written_book{ConfigBook:1}"
+        yield sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","Standard options",[|
             """[{"text":"Starting items and effects"}"""
                 + String.concat "" [| for opt,desc,_def in startingItemsEffects do 
                         yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
@@ -679,7 +650,6 @@ let game_functions = [|
                 + "]"
             |], "ConfigBook:1"))
         |]
-
     yield "fake_start",[| // for testing; start sequence without the spawn points
         "scoreboard players set $ENTITY fakeStart 1"
         sprintf "function %s:start1" NS
@@ -689,12 +659,6 @@ let game_functions = [|
         sprintf "function %s:on_get_configuration_books" NS
         // call subscribers to the event
         sprintf "function #%s:on_get_configuration_books" NS
-        |]
-    yield "toggle_lockout",[|
-        "scoreboard players operation $ENTITY TEMP = $ENTITY isLockout"
-        "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY isLockout 0"
-        "execute unless entity $SCORE(TEMP=1) run scoreboard players set $ENTITY isLockout 1"
-        sprintf "function %s:compute_lockout_goal" NS
         |]
     for t in TEAMS do
         yield sprintf"%s_team_join"t, [|
@@ -785,12 +749,12 @@ let game_functions = [|
         // extreme hills detection
         "scoreboard players remove @s[scores={inXH=1..}] inXH 1"
         sprintf "scoreboard players set @e[%s] inXH 0" XH_TAG 
-        sprintf "execute if entity @e[%s,scores={showXH=1}] if entity @s[scores={inXH=1..}] run scoreboard players set @e[%s] inXH 1" ENTITY_TAG XH_TAG 
+        sprintf "execute if entity @e[%s,scores={optxhval=1}] if entity @s[scores={inXH=1..}] run scoreboard players set @e[%s] inXH 1" ENTITY_TAG XH_TAG 
         // y coordinate
         "execute store result score @s TEMP run data get entity @s Pos[1] 1.0"
         // display
-        sprintf """execute if entity @e[%s,scores={arrowToSpawn=0}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" ENTITY_TAG COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
-        sprintf """execute if entity @e[%s,scores={arrowToSpawn=1}] run function %s:update_time_per_player_with_arrow""" ENTITY_TAG NS
+        sprintf """execute if entity @e[%s,scores={optsaval=0}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" ENTITY_TAG COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
+        sprintf """execute if entity @e[%s,scores={optsaval=1}] run function %s:update_time_per_player_with_arrow""" ENTITY_TAG NS
         |]
     yield "update_time_per_player_with_arrow",[|
         sprintf "function %s:find_dir_to_spawn" NS
@@ -907,8 +871,8 @@ let game_functions = [|
         yield "execute if entity $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY lockoutGoal 13"
         yield "execute if entity $SCORE(numActiveTeams=3) run scoreboard players set $ENTITY lockoutGoal 9"
         yield "execute if entity $SCORE(numActiveTeams=4) run scoreboard players set $ENTITY lockoutGoal 7"
-        yield "execute if entity $SCORE(isLockout=1) run scoreboard players operation LockoutGoal Score = $ENTITY lockoutGoal"
-        yield "execute unless entity $SCORE(isLockout=1) run scoreboard players reset LockoutGoal Score"
+        yield "execute if entity $SCORE(optloval=1) run scoreboard players operation LockoutGoal Score = $ENTITY lockoutGoal"
+        yield "execute unless entity $SCORE(optloval=1) run scoreboard players reset LockoutGoal Score"
         |]
     yield "start2", [|
         // clear player scores again (in case player joined server after card gen'd)
@@ -999,15 +963,15 @@ let game_functions = [|
         yield "scoreboard players set @a home 0"
         yield "scoreboard players enable @a home"
         // option to get back
-        yield """execute if entity $SCORE(handHolding=1) run tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
-        yield """execute if entity $SCORE(handHolding=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
-        yield sprintf """execute if entity $SCORE(handHolding=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
+        yield """execute if entity $SCORE(opthhval=1) run tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
+        yield """execute if entity $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield sprintf """execute if entity $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         yield "worldborder set 20000000"          // 20 million wide is 10 million from spawn
         yield "worldborder add 10000000 10000000" // 10 million per 10 million seconds is one per second
         yield "scoreboard players set $ENTITY gameInProgress 2"
         yield sprintf "function %s:place_signs2" NS
         yield "scoreboard players set $ENTITY hasAnyoneUpdated 0"
-        yield "execute if entity $SCORE(handHolding=0) run scoreboard players set $ENTITY hasAnyoneUpdated 1"
+        yield "execute if entity $SCORE(opthhval=0) run scoreboard players set $ENTITY hasAnyoneUpdated 1"
         |]
     yield "go_home", [|
         sprintf "teleport @s %s" LOBBY
@@ -1206,7 +1170,7 @@ let checker_functions = [|
                 yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:inv/check%s" t s NS s
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
                 if s <> "33" then
-                    yield sprintf "execute if entity $SCORE(gotAnItem=1,twoForOneMode=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
+                    yield sprintf "execute if entity $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
             yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,announceItem=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
             yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
@@ -1221,14 +1185,14 @@ let checker_functions = [|
                 yield sprintf "scoreboard players set $ENTITY %sCanGet%s 0" t s
                 for ot in TEAMS do
                     if ot <> t then
-                        yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
+                        yield sprintf "execute if entity $SCORE(optloval=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
                 let x = 2 + 24*(int s.[0] - int '0' - 1)
                 let y = ART_HEIGHT
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
                 // determine if we should fill the whole square
                 yield sprintf "scoreboard players set $ENTITY TEMP 0"
                 yield sprintf "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY TEMP 1"
-                yield sprintf "execute if entity $SCORE(isLockout=1) run scoreboard players set $ENTITY TEMP 1"
+                yield sprintf "execute if entity $SCORE(optloval=1) run scoreboard players set $ENTITY TEMP 1"
                 yield sprintf "execute if entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" x y z (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
                 // else if 2 active teams, fill the half
                 yield sprintf "execute if entity $SCORE(numActiveTeams=2,%sLeftHalf=1) run fill %d %d %d %d %d %d %s replace clay" t (x+00) y (z+00) (x+11) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
@@ -1273,17 +1237,17 @@ let checker_functions = [|
             // check for lockout
             yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY lockoutGoal"
             yield sprintf "scoreboard players operation $ENTITY TEMP -= $ENTITY %sScore" t
-            yield sprintf """execute if entity $SCORE(isLockout=1,TEMP=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got the lockout goal!"]""" LEADING_WHITESPACE t
-            yield sprintf "execute if entity $SCORE(isLockout=1,TEMP=0) run function %s:got_a_win_common_logic" NS
+            yield sprintf """execute if entity $SCORE(optloval=1,TEMP=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got the lockout goal!"]""" LEADING_WHITESPACE t
+            yield sprintf "execute if entity $SCORE(optloval=1,TEMP=0) run function %s:got_a_win_common_logic" NS
             |]
     yield "got_a_win_common_logic", [|
         // put time on scoreboard
         yield "scoreboard players operation Minutes Score = $ENTITY minutes"
         yield "scoreboard players operation Seconds Score = $ENTITY seconds"
         // option to return to lobby
-        yield """execute if entity $SCORE(handHolding=1) run tellraw @a ["You can keep playing, or"]"""
-        yield """execute if entity $SCORE(handHolding=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
-        yield sprintf """execute if entity $SCORE(handHolding=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
+        yield """execute if entity $SCORE(opthhval=1) run tellraw @a ["You can keep playing, or"]"""
+        yield """execute if entity $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield sprintf """execute if entity $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         // fireworks
         yield """execute as @a at @s run summon fireworks_rocket ~3 ~0 ~0 {LifeTime:20}"""
         yield "$NTICKSLATER(8)"    // TODO note that this could be a re-entrant callback, e.g. you get bingo, and two ticks later you get the lockout goal, and so there are two schedulings of the same callback active
@@ -1306,12 +1270,12 @@ let checker_functions = [|
             let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
             let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
             let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG name
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,leadingWS=1) run tellraw @a %s""" prefix s n itemdatum_time_playername
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,leadingWS=0) run tellraw @a %s""" prefix s n time_playername_gotthe_datum
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,optlwval=1) run tellraw @a %s""" prefix s n itemdatum_time_playername
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,optlwval=0) run tellraw @a %s""" prefix s n time_playername_gotthe_datum
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=0) run tellraw @a %s""" prefix s n time_playername_gotanitem
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,leadingWS=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n itemdatum_time_playername
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,leadingWS=0) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotthe_datum
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,optlwval=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n itemdatum_time_playername
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,optlwval=0) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotthe_datum
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotanitem
             |]
         let rec binary_dispatch(lo,hi) = [|

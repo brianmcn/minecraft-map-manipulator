@@ -123,7 +123,15 @@ module Blind =
                 yield sprintf "execute if entity $SCORE(val%s=0) run scoreboard players set @e[tag=bookText,name=ON] val%s 0" t t
                 yield sprintf "execute if entity $SCORE(val%s=1) run scoreboard players set @e[tag=bookText,name=OFF] val%s 0" t t
                 yield sprintf "execute if entity $SCORE(val%s=0) run scoreboard players set @e[tag=bookText,name=OFF] val%s 1" t t
-            yield sprintf "function %s:clear_and_give_book" PACK_NS
+            // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
+            yield "clear @a minecraft:written_book{BlindConfigBook:1}"
+            yield sprintf "%s" (MinecraftBINGO.makeCommandGivePlayerWrittenBook("Lorgon111","Blind options",[|
+                """[{"text":"Some descriptive header"}"""
+                    + String.concat "" [| for t,name in toggleableOptions do 
+                            yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger trig%s set 1"}},{"selector":"@e[tag=bookText,scores={val%s=1}]"}""" name t t
+                        |]
+                    + "]"
+                |], "BlindConfigBook:1"))
             |]
         yield "init",[|
             for o in all_objectives do
@@ -154,16 +162,16 @@ module Blind =
                 // boilerplate
                 sprintf "scoreboard players set @s trig%s 0" t
                 sprintf "scoreboard players enable @s trig%s" t
-                sprintf "function %s:clear_and_give_book" PACK_NS
+                sprintf "function %s:on_get_configuration_books" PACK_NS
                 |]
         yield "on_new_card",[|
-            sprintf """tellraw @a ["%s:on_new_card was called"]""" PACK_NS 
+            //sprintf """tellraw @a ["%s:on_new_card was called"]""" PACK_NS 
             sprintf "function %s:cover" PACK_NS
             |]
         yield "on_start_game",[|
             |]
         yield "on_finish",[|
-            sprintf """tellraw @a ["%s:on_finish was called"]""" PACK_NS 
+            //sprintf """tellraw @a ["%s:on_finish was called"]""" PACK_NS 
             |]
         // TODO oh irony, you can see the card in my beautiful open ceiling
         yield "cover",[|
@@ -182,17 +190,6 @@ module Blind =
             yield sprintf "fill 097 %d 0 097 %d 118 stone" COVER_HEIGHT COVER_HEIGHT
             yield sprintf "fill 121 %d 0 127 %d 118 stone" COVER_HEIGHT COVER_HEIGHT
             |]
-        yield "clear_and_give_book",[|
-            // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-            "clear @a minecraft:written_book{BlindConfigBook:1}"
-            sprintf "%s" (MinecraftBINGO.makeCommandGivePlayerWrittenBook("Lorgon111","Blind options",[|
-                """[{"text":"Some descriptive header"}"""
-                    + String.concat "" [| for t,name in toggleableOptions do 
-                            yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger trig%s set 1"}},{"selector":"@e[tag=bookText,scores={val%s=1}]"}""" name t t
-                        |]
-                    + "]"
-                |], "BlindConfigBook:1"))
-            |]
         yield "uncover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT
             |]
@@ -202,7 +199,7 @@ module Blind =
                 let y = COVER_HEIGHT
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
                 yield sprintf "on_%s_got_square_%s" t s, [|
-                    sprintf """tellraw @a ["%s:on_%s_got_square_%s was called"]""" PACK_NS t s
+                    //sprintf """tellraw @a ["%s:on_%s_got_square_%s was called"]""" PACK_NS t s
                     sprintf "fill %d %d %d %d %d %d air" x y z (x+22) y (z+22)
                     |]
         |]
