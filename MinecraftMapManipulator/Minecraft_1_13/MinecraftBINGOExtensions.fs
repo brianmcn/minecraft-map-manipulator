@@ -66,6 +66,9 @@ module Blind =
 
     ///////////////////////////////
 
+    // TODO mode where an extra square is revealed after a first-time-square-got in blind game
+    // TODO different sounds depending on square got, different arts per square, pixel art, etc
+
     let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 2
     let COVER_HEIGHT_UNDER = MinecraftBINGO.ART_HEIGHT_UNDER - 1
     let toggleableOptions = [|
@@ -86,10 +89,10 @@ module Blind =
             let prefix1 = sprintf "execute unless entity @e[%s,scores={gameInProgress=0}] run " MinecraftBINGO.ENTITY_TAG 
             yield sprintf 
                 """give @s sign{BlockEntityTag:{Text1:"[%s]",Text2:"[%s]",Text3:"[%s]",Text4:"[%s]"}} 1"""
-                (MinecraftBINGO.escape(sprintf     """{"text":"toggle","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}""" prefix0))
-                (MinecraftBINGO.escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"%sdatapack enable \"file/%s\""}}""" prefix0 PACK_NAME))
-                (MinecraftBINGO.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%sfunction %s:toggle_pack"}}""" prefix0 PACK_NS))
-                (MinecraftBINGO.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"}}""" prefix1))
+                (Utilities.escape(sprintf     """{"text":"toggle","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}""" prefix0))
+                (Utilities.escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"%sdatapack enable \"file/%s\""}}""" prefix0 PACK_NAME))
+                (Utilities.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%sfunction %s:toggle_pack"}}""" prefix0 PACK_NS))
+                (Utilities.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"}}""" prefix1))
             |]
         yield "toggle_pack", [|
             // deal with first-time initialization
@@ -125,8 +128,9 @@ module Blind =
                 yield sprintf "execute if entity $SCORE(val%s=1) run scoreboard players set @e[tag=bookText,name=OFF] val%s 0" t t
                 yield sprintf "execute if entity $SCORE(val%s=0) run scoreboard players set @e[tag=bookText,name=OFF] val%s 1" t t
             // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
+            // TODO they could store it in a chest or item frame or something in the lobby...
             yield "clear @a minecraft:written_book{BlindConfigBook:1}"
-            yield sprintf "%s" (MinecraftBINGO.makeCommandGivePlayerWrittenBook("Lorgon111","Blind options",[|
+            yield sprintf "%s" (Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Blind options",[|
                 """[{"text":"Some descriptive header"}"""
                     + String.concat "" [| for t,name in toggleableOptions do 
                             yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger trig%s set 1"}},{"selector":"@e[tag=bookText,scores={val%s=1}]"}""" name t t

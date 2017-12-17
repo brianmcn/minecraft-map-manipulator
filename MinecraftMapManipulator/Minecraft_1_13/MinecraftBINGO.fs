@@ -3,31 +3,6 @@
 let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
-
-//////////////////////////////
-// utilities TODO start moving to separate file
-
-let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
-
-let writtenBookNBTString(author, title, pages:string[], extraItemNBT) =
-    let sb = System.Text.StringBuilder()
-    sb.Append(sprintf "{%sresolved:0b,generation:0,author:\"%s\",title:\"%s\",pages:[" (if extraItemNBT<> null then extraItemNBT+"," else "") author title ) |> ignore
-    for i = 0 to pages.Length-2 do
-        sb.Append("\"") |> ignore
-        sb.Append(escape pages.[i]) |> ignore
-        sb.Append("\",") |> ignore
-    sb.Append("\"") |> ignore
-    sb.Append(escape pages.[pages.Length-1]) |> ignore
-    sb.Append("\"") |> ignore
-    sb.Append("]}") |> ignore
-    sb.ToString()
-
-let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT) =
-    sprintf "give @s minecraft:written_book%s 1" (writtenBookNBTString(author, title, pages, extraItemNBT))
-
-
-
-
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
 // TODO - BEWARE But X and Y rotation are also swapped in /tp, which is fixed for next snapshot
@@ -45,8 +20,6 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/
 
-// TODO turn off collisions with teammates?
-
 // TOOD learn tags - eventing? add function to group?
 // TODO yes, this is how customizing should work, e.g. the "night vision + depth strider" is a data pack, and bingo has an event group for #custom:on_start and #custom:on_respawn and child packs add to that
 // TODO optional announcing item could be an on_got_item001 hooks, or just a flag
@@ -58,8 +31,6 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT
 // TODO 'utility sign' hidden option?
 // Note: replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo... - can do now via "seed 0" to replay easily
 // TODO next seed (seed+1) is a good utility sign for gothfaerie
-// TODO zam idea: Have just one sign that gives the player a book with (clickable) config options in.
-// TODO or replace bingo map art with config options displayed however I like...
 
 // TODO consider recipe book for complex crafting?
 
@@ -83,19 +54,13 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT
 
 // TODO first time loading up map signs? (see HasTheMapEverBeenLoadedBefore) enable command blocks, disable spawn protection?
 
-// TODO maybe disable lockout each game unless set, then can be multiplayer button? hmmm... and sign can change to show current state
-
 // TODO multiplayer where teams spawn nearby (pvp etc)
 
 // TODO investigate 'off' RNG in source code
 
 // TODO command block customization, for people on server without access to files
 
-// TODO sea lantern under art o4 sugar - check all under-art (in art world, could clone top layer to bottom, and make_saving_structure_blocks for that world, and copy over detector rail)
-
-
 let startingItemsEffects = [|
-    //TODO // hook these up
     "optnv", "Night Vision", 1
     "optds", "Depth Strider boots", 0
     "optboat", "Starting boat", 1
@@ -118,8 +83,6 @@ let toggleableOptions = [|
     // got item side effects
     // announceItem012/fireworkItem01
     // announceOnlyTeam  // TODO test this
-    // OOB reveal square in blind game
-    // OOB different sounds depending on square got
     yield! otherNiceties
     yield! optionalGameModes 
     |]
@@ -130,9 +93,6 @@ let toggleableOptions = [|
 // TODO display config options on card sidebar? or swap sidebar and logo (logo on side, extra on bottom?)
 
 // TODO consider https://www.reddit.com/r/minecraftbingo/comments/7j1afe/some_ideas_for_40/
-
-// TODO 'temp' depth strider boots, that go away after 30s at start/respawn? mitigate water spawns without making game easier? (also, curse of binding & vanishing)
-// ... or, just always start folks with a boat?
 
 // TODO non-default option to enable another 'arrow' that points to your prior death location
 
@@ -177,14 +137,7 @@ let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 
 //let FOLDER = """"C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13"""
 let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
-let allDirsEnsured = new System.Collections.Generic.HashSet<_>()
-let writeFunctionToDisk(packName,packNS,name,code) =
-    let DIR = System.IO.Path.Combine(FOLDER, sprintf """datapacks\%s\data\%s\functions""" packName packNS)
-    let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
-    let dir = System.IO.Path.GetDirectoryName(FIL)
-    if allDirsEnsured.Add(dir) then
-        System.IO.Directory.CreateDirectory(dir) |> ignore
-    System.IO.File.WriteAllLines(FIL, code)
+let writeFunctionToDisk(packName,packNS,name,code) = Utilities.writeFunctionToDisk(FOLDER,packName,packNS,name,code)
 
 ////////////////////////////
 // hook into events from base pack
@@ -213,7 +166,7 @@ let writeExtremeHillsDetection() =
     let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS+"""\advancements""")
     let FIL = System.IO.Path.Combine(DIR,"xh.json")
     let dir = System.IO.Path.GetDirectoryName(FIL)
-    if allDirsEnsured.Add(dir) then
+    if Utilities.allDirsEnsured.Add(dir) then
         System.IO.Directory.CreateDirectory(dir) |> ignore
     System.IO.File.WriteAllText(FIL, sprintf """{
     "criteria": {
@@ -246,6 +199,7 @@ let toLeastMost(uuid:System.Guid) =
     least,most
 
 #if UUID
+// TODO if https://bugs.mojang.com/browse/MC-122118 gets fixed, might be able to use player, rather than uuid'd entity
 let ENTITY_UUID = "1-1-1-0-1"
 let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
 let least,most = toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
@@ -358,6 +312,7 @@ let compile(f,name) =
 #endif    
     // try to catch common errors in post-processing
     let okChars = [|'a'..'z'|] |> Array.append [|'_';'-'|] |> Array.append [|'0'..'9'|] |> Array.append [|'/'|]
+    // TODO add more validation, e.g. find all "function foo:bar" and ensure such a function exists, e.g. to check for spelling errors
     for name,code in r do
         for c in name do
             if not(okChars |> Array.contains c) then
@@ -509,7 +464,7 @@ let game_functions = [|
             //
             yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) otherSignsEnabled false
             yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled false
-            yield! placeWallSignCmds 63 27 61 "south" "get" "configuration" "books" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
+            yield! placeWallSignCmds 63 27 61 "south" "get" "CONFIGURATION" "books" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
             //
             yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
@@ -522,8 +477,6 @@ let game_functions = [|
         (*
         TODO
             It's hard to design a lobby without first knowing the interface (set of activation signs) to all the features.  Get features working first.
-        MODES
-            toggle blind-covered
         *)
         yield sprintf "teleport @a %s" LOBBY
         yield "effect give @a minecraft:night_vision 99999 1 true"
@@ -596,6 +549,16 @@ let game_functions = [|
         yield "scoreboard players set @a[team=yellow] teamNum 4"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
+    for t in TEAMS do
+        yield sprintf"%s_team_join"t, [|
+            sprintf "team join %s" t
+            "scoreboard players add @s Score 0"
+            "scoreboard players set @a[team=red] teamNum 1"
+            "scoreboard players set @a[team=blue] teamNum 2"
+            "scoreboard players set @a[team=green] teamNum 3"
+            "scoreboard players set @a[team=yellow] teamNum 4"
+            sprintf "function %s:compute_lockout_goal" NS
+            |]
     // Note: the book_text_entities are shared by child packs as well
     yield "kill_book_text_entities",[|
         "kill @e[tag=bookText]"
@@ -639,7 +602,7 @@ let game_functions = [|
             yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookText,name=OFF] %sval 1" opt opt
         // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
         yield "clear @a minecraft:written_book{ConfigBook:1}"
-        yield sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","Standard options",[|
+        yield sprintf "%s" (Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Standard options",[|
             """[{"text":"Starting items and effects"}"""
                 + String.concat "" [| for opt,desc,_def in startingItemsEffects do 
                         yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
@@ -657,26 +620,16 @@ let game_functions = [|
                 + "]"
             |], "ConfigBook:1"))
         |]
-    yield "fake_start",[| // for testing; start sequence without the spawn points
-        "scoreboard players set $ENTITY fakeStart 1"
-        sprintf "function %s:start1" NS
-        |]
     yield "get_configuration_books",[|
         // call ourselves
         sprintf "function %s:on_get_configuration_books" NS
         // call subscribers to the event
         sprintf "function #%s:on_get_configuration_books" NS
         |]
-    for t in TEAMS do
-        yield sprintf"%s_team_join"t, [|
-            sprintf "team join %s" t
-            "scoreboard players add @s Score 0"
-            "scoreboard players set @a[team=red] teamNum 1"
-            "scoreboard players set @a[team=blue] teamNum 2"
-            "scoreboard players set @a[team=green] teamNum 3"
-            "scoreboard players set @a[team=yellow] teamNum 4"
-            sprintf "function %s:compute_lockout_goal" NS
-            |]
+    yield "fake_start",[| // for testing; start sequence without the spawn points
+        "scoreboard players set $ENTITY fakeStart 1"
+        sprintf "function %s:start1" NS
+        |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
         "scoreboard players add @s ticksSinceGotMap 1"
         """execute if entity @s[scores={ticksSinceGotMap=40..}] run give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
@@ -1040,8 +993,8 @@ let map_update_functions = [|
         sprintf """tellraw @a [%s,{"selector":"@s"}," is updating the BINGO map"]""" LEADING_WHITESPACE
         // note: only persist entities not already persisted, this way e.g. we don't later un-persist the zombie who picked up your sword
         """execute as @e[type=!player,distance=..160,nbt={PersistenceRequired:0b}] run data merge entity @s {PersistenceRequired:1b,Tags:["persisted"]}"""  // preserve mobs
+        "execute at @s run particle minecraft:portal ~ ~ ~ 0.1 0.1 0.1 1 29 normal"
         sprintf "tp @s %s 180 180" MAP_UPDATE_ROOM.TPSTR
-        //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         |]
     yield "warp_back", [|
@@ -1053,8 +1006,7 @@ let map_update_functions = [|
         "execute store result entity @e[limit=1,tag=return_loc] Rotation[0] float 0.125 run scoreboard players get @s ReturnRotX"
         "execute store result entity @e[limit=1,tag=return_loc] Rotation[1] float 0.125 run scoreboard players get @s ReturnRotY"
         "teleport @s @e[limit=1,tag=return_loc]"
-        "execute as @e[type=!player,tag=persisted] run data merge entity @s {PersistenceRequired:0b}"  // un-preserve mobs (note: cannot use distance=, since just teleported, so must search world)
-        //TODO "execute at @s run particle portal ~ ~ ~ 3 2 3 1 99 @s"
+        """execute as @e[type=!player,tag=persisted] run data merge entity @s {PersistenceRequired:0b,Tags:["none"]}"""  // un-preserve mobs (note: cannot use distance=, since just teleported, so must search world)
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         "scoreboard players set $ENTITY hasAnyoneUpdated 1"
         |]
@@ -1062,8 +1014,6 @@ let map_update_functions = [|
 
 ////////////////////////////////////////////////
 
-let ensureDirOfFile(filename) = 
-    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore
 let writeDatapackMeta(packName,description) =
     let ROOT = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing\datapacks\"""
     let FOLDER = packName
@@ -1074,7 +1024,7 @@ let writeDatapackMeta(packName,description) =
                }
             }""" description
     let mcmetaFilename = System.IO.Path.Combine(ROOT, FOLDER, "pack.mcmeta")
-    ensureDirOfFile(mcmetaFilename)
+    Utilities.ensureDirOfFile(mcmetaFilename)
     System.IO.File.WriteAllText(mcmetaFilename, meta)
         
 ////////////////////////////////////////////////
@@ -1165,10 +1115,10 @@ let checker_functions = [|
         yield sprintf "scoreboard players set $ENTITY lockoutGoal 25"
         |]
     yield "check_inventory",[| // called as a player @s
-        "execute if entity @s[team=red] run function test:red_inventory_changed"
-        "execute if entity @s[team=blue] run function test:blue_inventory_changed"
-        "execute if entity @s[team=green] run function test:green_inventory_changed"
-        "execute if entity @s[team=yellow] run function test:yellow_inventory_changed"
+        sprintf "execute if entity @s[team=red] run function %s:red_inventory_changed" NS
+        sprintf "execute if entity @s[team=blue] run function %s:blue_inventory_changed" NS
+        sprintf "execute if entity @s[team=green] run function %s:green_inventory_changed" NS
+        sprintf "execute if entity @s[team=yellow] run function %s:yellow_inventory_changed" NS
         |]
     for t in TEAMS do
         yield sprintf "%s_inventory_changed" t, [|        // called when player @s's inventory changed and he is on team t
@@ -1281,7 +1231,7 @@ let checker_functions = [|
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,optlwval=1) run tellraw @a %s""" prefix s n itemdatum_time_playername
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,optlwval=0) run tellraw @a %s""" prefix s n time_playername_gotthe_datum
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=0) run tellraw @a %s""" prefix s n time_playername_gotanitem
-            yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
+            // Note that $ENTITY teamNum was set to @s teamNum in the root of the search
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,optlwval=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n itemdatum_time_playername
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,optlwval=0) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotthe_datum
             yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotanitem
@@ -1305,6 +1255,7 @@ let checker_functions = [|
             |]
         yield! binary_dispatch(0,127)
         yield sprintf "inv/check%s" s, [|
+            "scoreboard players operation $ENTITY teamNum = @s teamNum"
             sprintf "function %s:inv/check%s_0_127" NS s
         |]
     |]
@@ -1487,6 +1438,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "effect give @s minecraft:night_vision 99999 1 true"
             "recipe give @s *"
             "advancement grant @s everything"
+            sprintf "advancement revoke @s only %s:xh" NS
             |],"first_time_player")
         yield! compile([|
             (* Compute which direction spawn is relative to the player's XZ
