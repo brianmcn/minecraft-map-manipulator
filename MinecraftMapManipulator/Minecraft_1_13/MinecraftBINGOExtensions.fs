@@ -3,27 +3,6 @@
 let BINGO_NS = MinecraftBINGO.NS
 
 //////////////////////////////
-// utilities
-
-let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
-
-let writtenBookNBTString(author, title, pages:string[]) =
-    let sb = System.Text.StringBuilder()
-    sb.Append(sprintf "{ConfigBook:1,resolved:0b,generation:0,author:\"%s\",title:\"%s\",pages:[" author title) |> ignore
-    for i = 0 to pages.Length-2 do
-        sb.Append("\"") |> ignore
-        sb.Append(escape pages.[i]) |> ignore
-        sb.Append("\",") |> ignore
-    sb.Append("\"") |> ignore
-    sb.Append(escape pages.[pages.Length-1]) |> ignore
-    sb.Append("\"") |> ignore
-    sb.Append("]}") |> ignore
-    sb.ToString()
-
-let makeCommandGivePlayerWrittenBook(author, title, pages:string[]) =
-    sprintf "give @s minecraft:written_book%s 1" (writtenBookNBTString(author, title, pages))
-
-//////////////////////////////
 
 (* 
 TODO how will a player enable/disable datapacks?
@@ -106,10 +85,10 @@ module Blind =
             let prefix1 = sprintf "execute unless entity @e[%s,scores={gameInProgress=0}] run " MinecraftBINGO.ENTITY_TAG 
             yield sprintf 
                 """give @s sign{BlockEntityTag:{Text1:"[%s]",Text2:"[%s]",Text3:"[%s]",Text4:"[%s]"}} 1"""
-                (escape(sprintf     """{"text":"toggle","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}""" prefix0))
-                (escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"%sdatapack enable \"file/%s\""}}""" prefix0 PACK_NAME))
-                (escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%sfunction %s:toggle_pack"}}""" prefix0 PACK_NS))
-                (escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"}}""" prefix1))
+                (MinecraftBINGO.escape(sprintf     """{"text":"toggle","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}""" prefix0))
+                (MinecraftBINGO.escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"%sdatapack enable \"file/%s\""}}""" prefix0 PACK_NAME))
+                (MinecraftBINGO.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%sfunction %s:toggle_pack"}}""" prefix0 PACK_NS))
+                (MinecraftBINGO.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"}}""" prefix1))
             |]
         yield "toggle_pack", [|
             // deal with first-time initialization
@@ -128,20 +107,22 @@ module Blind =
             |]
         yield "startup",[|
             sprintf "function %s:cover" PACK_NS
-            sprintf "function %s:summon_book_text_entities" PACK_NS
             |]
         yield "teardown",[|
             // clear any blocks in the world
             sprintf "function %s:uncover" PACK_NS
             // clear any inventory in the world
-            "clear @a minecraft:written_book{ConfigBook:1}"
+            "clear @a minecraft:written_book{BlindConfigBook:1}"
             // clear any entities in the world
-            sprintf "function %s:kill_book_text_entities" PACK_NS
             sprintf """datapack disable "file/%s" """ PACK_NAME
             |]
         yield "on_get_configuration_books",[|
             for t in toggleables do
                 yield sprintf "scoreboard players enable @s trig%s" t
+                yield sprintf "execute if entity $SCORE(val%s=1) run scoreboard players set @e[tag=bookText,name=ON] val%s 1" t t
+                yield sprintf "execute if entity $SCORE(val%s=0) run scoreboard players set @e[tag=bookText,name=ON] val%s 0" t t
+                yield sprintf "execute if entity $SCORE(val%s=1) run scoreboard players set @e[tag=bookText,name=OFF] val%s 0" t t
+                yield sprintf "execute if entity $SCORE(val%s=0) run scoreboard players set @e[tag=bookText,name=OFF] val%s 1" t t
             yield sprintf "function %s:clear_and_give_book" PACK_NS
             |]
         yield "init",[|
@@ -158,19 +139,16 @@ module Blind =
         yield "config_loop",[|
             for t in toggleables do
                 yield sprintf "execute as @a[scores={trig%s=1}] run function %s:toggle_%s" t PACK_NS t
-            yield """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
+            yield """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{BlindConfigBook:1}}}]"""
             |]
+        // TODO set defaults
         for t,name in toggleableOptions do
             yield sprintf "toggle_%s" t, [|
                 sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY val%s" t
                 // turn off
-                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=ON] val%s 0" t
-                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set @e[tag=bookText,name=OFF] val%s 1" t
                 sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY val%s 0" t
                 sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" name
                 // turn on
-                sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=ON] val%s 1" t
-                sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set @e[tag=bookText,name=OFF] val%s 0" t
                 sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY val%s 1" t
                 sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" name
                 // boilerplate
@@ -183,19 +161,11 @@ module Blind =
             sprintf "function %s:cover" PACK_NS
             |]
         yield "on_start_game",[|
-            sprintf "function %s:kill_book_text_entities" PACK_NS
             |]
         yield "on_finish",[|
             sprintf """tellraw @a ["%s:on_finish was called"]""" PACK_NS 
-            sprintf "function %s:summon_book_text_entities" PACK_NS
             |]
-        yield "kill_book_text_entities",[|
-            "kill @e[tag=bookText]"
-            |]
-        yield "summon_book_text_entities",[|
-            """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:ON,Team:green}"""
-            """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:OFF,Team:red}"""
-            |]
+        // TODO oh irony, you can see the card in my beautiful open ceiling
         yield "cover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 white_wool" COVER_HEIGHT COVER_HEIGHT
             // horizontal gridlines
@@ -214,14 +184,14 @@ module Blind =
             |]
         yield "clear_and_give_book",[|
             // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-            "clear @a minecraft:written_book{ConfigBook:1}"
-            sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","The title",[|
+            "clear @a minecraft:written_book{BlindConfigBook:1}"
+            sprintf "%s" (MinecraftBINGO.makeCommandGivePlayerWrittenBook("Lorgon111","Blind options",[|
                 """[{"text":"Some descriptive header"}"""
                     + String.concat "" [| for t,name in toggleableOptions do 
                             yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger trig%s set 1"}},{"selector":"@e[tag=bookText,scores={val%s=1}]"}""" name t t
                         |]
                     + "]"
-                |]))
+                |], "BlindConfigBook:1"))
             |]
         yield "uncover",[|
             yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT

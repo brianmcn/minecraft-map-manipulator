@@ -3,6 +3,31 @@
 let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
+
+//////////////////////////////
+// utilities TODO start moving to separate file
+
+let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
+
+let writtenBookNBTString(author, title, pages:string[], extraItemNBT) =
+    let sb = System.Text.StringBuilder()
+    sb.Append(sprintf "{%sresolved:0b,generation:0,author:\"%s\",title:\"%s\",pages:[" (if extraItemNBT<> null then extraItemNBT+"," else "") author title ) |> ignore
+    for i = 0 to pages.Length-2 do
+        sb.Append("\"") |> ignore
+        sb.Append(escape pages.[i]) |> ignore
+        sb.Append("\",") |> ignore
+    sb.Append("\"") |> ignore
+    sb.Append(escape pages.[pages.Length-1]) |> ignore
+    sb.Append("\"") |> ignore
+    sb.Append("]}") |> ignore
+    sb.ToString()
+
+let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT) =
+    sprintf "give @s minecraft:written_book%s 1" (writtenBookNBTString(author, title, pages, extraItemNBT))
+
+
+
+
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
 // TODO - BEWARE But X and Y rotation are also swapped in /tp, which is fixed for next snapshot
@@ -87,6 +112,31 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 // "arrowToSpawn" display arrow on actionbar
 // "showXH" display extreme hills on actionbar
 // twoForOneMode
+
+let startingItemsEffects = [|
+    "optnv", "Night Vision", 1
+    "optds", "Depth Strider boots", 0
+    "optboat", "Starting boat", 1
+    // TODO team chest
+    // TODO, OOB elytra
+    |]
+let otherNiceties = [|
+    "opthh", "Novice mode - longer explanatory messages and help", 1
+    "optlw", "Leading whitespace", 0
+    "optsa", "Arrow points to spawn", 1
+    "optxh", "Show when extreme hills", 1
+    |]
+let optionalGameModes = [|
+    "optlo", "Lockout mode", 0
+    "opttfo","Two-for-one mode", 0
+    |]
+let toggleableOptions = [|
+    yield! startingItemsEffects
+    // got an item effects
+    // TODO
+    yield! otherNiceties
+    yield! optionalGameModes 
+    |]
 
 // TODO f9b, 6p, 2 teams, tick lag (seeing fps lag in long game in jungle in singleplayer too)
 
@@ -412,11 +462,15 @@ let game_objectives = [|
         yield sprintf "%sSpawnX" t    // a number between 1 and 999 that needs to be multipled by 10000
         yield sprintf "%sSpawnY" t    // height of surface there
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
+    for opt,_desc,_def in toggleableOptions do
+        yield sprintf "%sval" opt
     |]
 let game_functions = [|
     yield "game_init", [|
         for o in game_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
+        for opt,_desc,_def in toggleableOptions do
+            yield sprintf "scoreboard objectives add %strig trigger" opt
         for t in TEAMS do
             yield sprintf "team add %s" t
             yield sprintf "team option %s color %s" t t
@@ -440,9 +494,11 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY showXH 1"
         yield sprintf "team join green @e[%s]" XH_TAG
         // loop
-        yield "setblock 68 25 64 air"
         if not USE_GAMELOOP then
+            yield "setblock 68 25 64 air"
             yield sprintf """setblock 68 25 64 repeating_command_block{auto:1b,TrackOutput:0b,Command:"function %s:theloop"}""" NS
+        yield sprintf "function %s:set_options_to_defaults" NS
+        yield sprintf "function %s:summon_book_text_entities" NS
         |]
     let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold onlyPlaceIfMultiplayer =
         if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
@@ -562,12 +618,76 @@ let game_functions = [|
         yield "scoreboard players set @a[team=yellow] teamNum 4"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
+    // Note: the book_text_entities are shared by child packs as well
+    yield "kill_book_text_entities",[|
+        "kill @e[tag=bookText]"
+        |]
+    yield "summon_book_text_entities",[|
+        """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:ON,Team:green}"""
+        """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:OFF,Team:red}"""
+        |]
+    yield "set_options_to_defaults", [|
+        for opt,_desc,def in toggleableOptions do
+            yield sprintf "scoreboard players set $ENTITY %sval %d" opt def
+        |]
+    yield "config_loop",[|
+        for opt,_desc,_def in toggleableOptions do
+            yield sprintf "execute as @a[scores={%strig=1}] run function %s:toggle_%s" opt NS opt
+        yield """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
+        |]
+    for opt,desc,_def in toggleableOptions do
+        yield sprintf "toggle_%s" opt, [|
+            sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt
+            // turn off
+            sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt
+            sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" desc
+            // turn on
+            sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt
+            sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" desc
+            // boilerplate
+            sprintf "scoreboard players set @s %strig 0" opt
+            sprintf "scoreboard players enable @s %strig" opt
+            sprintf "function %s:clear_and_give_book" NS
+            |]
+    yield "on_get_configuration_books",[|
+        for opt,_desc,_def in toggleableOptions do
+            yield sprintf "scoreboard players enable @s %strig" opt
+            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookText,name=ON] %sval 1" opt opt
+            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookText,name=ON] %sval 0" opt opt
+            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookText,name=OFF] %sval 0" opt opt
+            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookText,name=OFF] %sval 1" opt opt
+        yield sprintf "function %s:clear_and_give_book" NS
+        |]
+    yield "clear_and_give_book",[|
+        // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
+        "clear @a minecraft:written_book{ConfigBook:1}"
+        sprintf "%s" (makeCommandGivePlayerWrittenBook("Lorgon111","Standard options",[|
+            """[{"text":"Starting items and effects"}"""
+                + String.concat "" [| for opt,desc,_def in startingItemsEffects do 
+                        yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
+                    |]
+                + "]"
+            """[{"text":"Optional game modes"}"""
+                + String.concat "" [| for opt,desc,_def in optionalGameModes do 
+                        yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
+                    |]
+                + "]"
+            """[{"text":"Other options"}"""
+                + String.concat "" [| for opt,desc,_def in otherNiceties do 
+                        yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
+                    |]
+                + "]"
+            |], "ConfigBook:1"))
+        |]
+
     yield "fake_start",[| // for testing; start sequence without the spawn points
         "scoreboard players set $ENTITY fakeStart 1"
         sprintf "function %s:start1" NS
         |]
     yield "get_configuration_books",[|
-        // TODO add base bingo config book
+        // call ourselves
+        sprintf "function %s:on_get_configuration_books" NS
+        // call subscribers to the event
         sprintf "function #%s:on_get_configuration_books" NS
         |]
     yield "toggle_lockout",[|
@@ -796,6 +916,7 @@ let game_functions = [|
         yield sprintf "function %s:compute_lockout_goal" NS
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
+        yield sprintf "function %s:kill_book_text_entities" NS
         yield sprintf "function #%s:on_start_game" NS
         yield sprintf "function %s:place_signs1" NS
         yield "scoreboard players set $ENTITY said25mins 0"
@@ -904,6 +1025,7 @@ let game_functions = [|
         // feed & heal, as people get concerned in lobby about this
         "effect give @a minecraft:saturation 10 4 true"
         "effect give @a minecraft:regeneration 10 4 true"
+        sprintf "function %s:summon_book_text_entities" NS
         sprintf "function #%s:on_finish" NS
         |]
     |]
@@ -1528,6 +1650,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
             yield! gameLoopContinuationCheck()
             |],"theloop")
         yield! compile(prng, "prng")
