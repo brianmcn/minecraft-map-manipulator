@@ -317,6 +317,30 @@ let main() =
             |]
         yield! compute_steps 
         yield! raycast 
+        // quick & dirty version
+        yield "simple_raycast",[|
+            "teleport @e[tag=markAS] @p"
+            // start at eye level (move feet of markAS to player eye level)
+            "teleport @e[tag=markAS] ~ ~1.62 ~"
+            sprintf "execute as @e[tag=markAS] at @s run function %s:go_forward" NS
+            // mark the collision block
+            "teleport @e[tag=collidemagma] @e[tag=markAS,limit=1]"
+            "execute as @e[tag=collidemagma] at @s align xyz run teleport @s ~0.5 ~ ~0.5 0 0"
+            // step back 1
+            sprintf "execute as @e[tag=markAS] at @s run function %s:go_back" NS
+            // mark the previous air block
+            "teleport @e[tag=raymagma] @e[tag=markAS,limit=1]"
+            "execute as @e[tag=raymagma] at @s align xyz run teleport @s ~0.5 ~ ~0.5 0 0"
+            "execute as @e[tag=markAS] at @s align xyz run teleport @s ~0.5 ~ ~0.5"
+            |]
+        yield "go_forward",[|
+            "teleport @s ^ ^ ^0.2"
+            sprintf "execute as @s at @s if block ~ ~ ~ air run function %s:go_forward" NS
+            |]
+        yield "go_back",[|
+            "teleport @s ^ ^ ^-0.02"
+            sprintf "execute as @s at @s unless block ~ ~ ~ air run function %s:go_back" NS
+            |]
         |]
     // TODO feature to nudge final AS down a block if in ceiling and room below
     // TODO feature to color red if not room for player to tp there
@@ -324,4 +348,3 @@ let main() =
     for name,code in allFuncs do
         writeFunctionToDisk(name,code)
 
-// TODO write quick & dirty version with just ^ ^ ^0.1

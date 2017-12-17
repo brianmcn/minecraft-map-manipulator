@@ -1,15 +1,30 @@
-﻿/scoreboard players set @e[tag=scoreAS] arrowToSpawn 0
-
-
-=======================
+﻿=======================
 command tutorial series
 =======================
+https://www.reddit.com/r/Lorgon111/comments/4k9ysb/learning_command_blocks_tutorial_series_playlist/
+
 possibly complete different order, start with data get, execute if, say, summon, ...
 could do stuff like OnGround:0b/1b, sheep Sheared:0b,Color:0b ... Pos[x,y,z], ...
 /execute if entity @e[type=sheep,nbt={Color:8b}] run say hi
 small program ideas:
  - eventually quick-and-dirty version of look-teleporter
  - arrow to death point
+
+
+ general topic-area list
+  - setup (see prev series)
+  - coordinates (F3 debug screen, xyz, facing rotations, ~~~, ^^^, /setblock, /teleport)
+  - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)
+  - selectors
+  - scoreboard (ent-value pairs, sidebar display, selector test)
+  - /execute (sender&location; if, unless, as, at, offset, align, store-result)
+  - functions (datapack mechanics, subroutine call control flow behavior and sender-location behavior)
+  - repeating command block
+  - minecraft:tick loop, time delays
+  - JSON text, /tellraw, clickable signs
+  - advancements (e.g. test biome)
+  - blocks, blockstates & nbt []{}, and /data get block, data merge block, replaceitem
+
 
 ===================
 GENERAL PROGRAMMING
@@ -34,7 +49,7 @@ can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are sti
 can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
 
 can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
-    // first manually merge in some pose data [0f,0f,0f]
+    // first manually merge in some pose data [0.1f,0.1f,0.1f]
     execute store result entity @e[type=armor_stand,limit=1] Pose.LeftArm[0] float 8.0 run data get entity @p Pos[0] 1.0
 
 Things to test in snapshot
