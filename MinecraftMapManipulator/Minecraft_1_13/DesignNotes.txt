@@ -12,18 +12,24 @@ small program ideas:
 
 
  general topic-area list
+  - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
   - setup (see prev series)
   - coordinates (F3 debug screen, xyz, facing rotations, ~~~, ^^^, /setblock, /teleport)
   - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)
+       aside: should I always have a long-lived entity tagged temp, for various debugging etc?
   - selectors
-  - scoreboard (ent-value pairs, sidebar display, selector test)
+  - scoreboard (ent-value pairs, sidebar display, selector test) 
+       aside: global variable philosophy, fake players in one objective (bad), versus a single score entity in many objectives (good: scales for sidebar display, usable in selectors, )
   - /execute (sender&location; if, unless, as, at, offset, align, store-result)
   - functions (datapack mechanics, subroutine call control flow behavior and sender-location behavior)
   - repeating command block
   - minecraft:tick loop, time delays
   - JSON text, /tellraw, clickable signs
   - advancements (e.g. test biome)
-  - blocks, blockstates & nbt []{}, and /data get block, data merge block, replaceitem
+  - blocks, blockstates & nbt []{}, and /data get block, data merge block, /replaceitem rather than /data for "inventories"
+  - performance?
+  - debugging (a useful helper might be "print_the_at" which summons an entity (or tp's an existing entity ~ ~ ~) and data gets its Pos to show you what the current "at" is)
+  - "Minecraft stuff" (useful pokable entity data, physics, ...?)
 
 
 ===================

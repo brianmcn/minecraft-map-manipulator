@@ -40,22 +40,19 @@ let profileThis(suffix,outer,inner,pre,cmds,post) =
 
 [<EntryPoint>]
 let main argv = 
-    (*
-    profileThis("p",100,1000,[],["scoreboard players add @p A 1"],[])
-    profileThis("x",100,1000,[],["scoreboard players add x A 1"],[])
-    profileThis("lu",100,1000,[],["execute if entity @e[tag=scoreAS,scores={gameInProgress=2}] run scoreboard players add x A 1"],[])
-    profileThis("lud",100,1000,[],["execute if entity @e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0,scores={gameInProgress=2}] run scoreboard players add x A 1"],[])
-    profileThis("luf",100,1000,[],["execute if score FOO A <= FOO A run scoreboard players add x A 1"],[])
-
-    profileThis("tag",100,1000,[],["execute if entity @e[tag=scoreAS] run scoreboard players add x A 1"],[])
-    profileThis("tagdist",100,1000,[],["execute if entity @e[tag=scoreAS,x=1,y=1,z=1,distance=..1.0] run scoreboard players add x A 1"],[])
-    profileThis("tagtype",100,1000,[],["execute if entity @e[type=armor_stand,tag=scoreAS] run scoreboard players add x A 1"],[])
-    profileThis("uuid",100,1000,[],["execute if entity 1-1-1-0-1 run scoreboard players add x A 1"],[])
+    profileThis("p",      500,1000,[],["scoreboard players add @p A 1"],[])                                              //  1100
+    profileThis("x",      500,1000,[],["scoreboard players add x A 1"],[])                                               //   800
+    profileThis("s",      500,1000,[],["scoreboard players add @s A 1"],[])                                              //   900
+    profileThis("u",      500,1000,[],["scoreboard players add 1-1-1-0-1 A 1"],[])                                       //   800
+    profileThis("tag",    500,1000,[],["scoreboard players add @e[tag=scoreAS] A 1"],[])                                 // 19000
+    profileThis("tagdist",500,1000,[],[sprintf"scoreboard players add @e[%s] A 1"MinecraftBINGO.ENTITY_TAG],[])          //  1600
+    profileThis("tagtype",500,1000,[],["scoreboard players add @e[type=armor_stand,tag=scoreAS] A 1"],[])                // 19000 
+    profileThis("tagtypelimit",500,1000,[],["scoreboard players add @e[type=armor_stand,tag=scoreAS,limit=1] A 1"],[])   // 19000 
 
     profileThis("ix",2,500,[],["""execute store success score @p FOO run clear @p diamond 1"""],[])
     profileThis("ic",2,500,[],["""execute if entity @p[nbt={Inventory:[{id:"minecraft:diamond"}]}] store success score @p FOO run clear @p diamond 1"""],[])
     profileThis("ig",2,500,[],["""execute store success score @p FOO run clear @p #test:item001 1"""],[])
-    *)
+
     MinecraftBINGO.cardgen_compile()
     MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
