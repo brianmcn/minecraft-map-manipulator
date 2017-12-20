@@ -1,4 +1,15 @@
-﻿=======================
+﻿Ideas for individual videos or small projects:
+ - quick stack to nearby chests (a la terraria)?  I guess it would involve huge tables, but, eh, why not? :)
+    - also could QS to shulker boxes in own inventory
+ - arrow to death point (on actionbar, goes away after you get within 5 blocks?)
+ - look-teleporter (or grappling hook that moves over time)
+ - 'aim-bot', e.g. turn player to face a specific target entity (or entity closest to his cursor)
+ - drawing circles (e.g. using ^5 ^ ^ and rotating)
+ - does anything change with mandelbrot? yes, no longer need cps (can just call forward, recurse forever? may be useful to test perf... surely final stack-unwind will lag? depth will add memory pressure?)
+ - portal gun (or even not gun part, just spawn egg for orange/blue portal, can stay 'alive' even when you travel far away)
+ - world pre-generator
+ - shoot arrow replaces air with torch temporarily where it lands? (remote lighting)
+=======================
 command tutorial series
 =======================
 https://www.reddit.com/r/Lorgon111/comments/4k9ysb/learning_command_blocks_tutorial_series_playlist/
@@ -9,6 +20,10 @@ could do stuff like OnGround:0b/1b, sheep Sheared:0b,Color:0b ... Pos[x,y,z], ..
 small program ideas:
  - eventually quick-and-dirty version of look-teleporter
  - arrow to death point
+ - can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
+		/data merge entity @e[type=armor_stand,limit=1] {ShowArms:1b,Pose:{LeftArm:[0.0f,0.0f,0.0f]}}
+		execute store result entity @e[type=armor_stand,limit=1] Pose.LeftArm[0] float 8.0 run data get entity @p Pos[0] 1.0
+
 
 
  general topic-area list
@@ -19,7 +34,8 @@ small program ideas:
        aside: should I always have a long-lived entity tagged temp, for various debugging etc?
   - selectors
   - scoreboard (ent-value pairs, sidebar display, selector test) 
-       aside: global variable philosophy, fake players in one objective (bad), versus a single score entity in many objectives (good: scales for sidebar display, usable in selectors, )
+       aside: global variable philosophy, fake players in one objective (trade-offs, maybe faster lookup), 
+	          versus a single score entity in many objectives (good: scales for sidebar display, usable in selectors, maybe a little slower lookup if not uuid)
   - /execute (sender&location; if, unless, as, at, offset, align, store-result)
   - functions (datapack mechanics, subroutine call control flow behavior and sender-location behavior)
   - repeating command block
@@ -54,9 +70,10 @@ https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_s
 can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
 can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
 
-can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
-    // first manually merge in some pose data [0.1f,0.1f,0.1f]
-    execute store result entity @e[type=armor_stand,limit=1] Pose.LeftArm[0] float 8.0 run data get entity @p Pos[0] 1.0
+'the carets' give us easy sin/cos/tan, but we still don't have easy arcsin/arccos/arctan... MCPE's 'facing' gives that
+
+should I always have a long-lived entity tagged temp & uuid'd, for various debugging etc? D-E-B-0-6?
+
 
 Things to test in snapshot
 
@@ -68,6 +85,22 @@ Things to test in snapshot
 
 	cool trick to see if you're in the top-half of an oak_slab block (note that dx,dy,dz selectors test against entity hitbox, not your exact coords)
 	/execute at @s if block ~ ~ ~ minecraft:oak_slab[type=bottom] align y offset ~ ~0.75 ~ run say @s[distance=..0.25]
+
+# make a snowball turn into fallingsand block
+# client only gets original summon info, so use 'barrier' so block is invisible to client, else they see falling sand fall from their face
+execute at @e[type=snowball,tag=] run summon falling_block ~ ~ ~ {BlockState:{Name:"minecraft:barrier"},Time:1,Tags:["newfb"],Motion:[0.1,0.1,0.1]}
+execute store result entity @e[tag=newfb,limit=1] Pos[0] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Pos[0] 1000.0
+execute store result entity @e[tag=newfb,limit=1] Pos[1] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Pos[1] 1000.0
+execute store result entity @e[tag=newfb,limit=1] Pos[2] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Pos[2] 1000.0
+execute store result entity @e[tag=newfb,limit=1] Motion[0] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Motion[0] 1000.0
+execute store result entity @e[tag=newfb,limit=1] Motion[1] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Motion[1] 1000.0
+execute store result entity @e[tag=newfb,limit=1] Motion[2] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Motion[2] 1000.0
+# change to block we want to end up with
+data merge entity @e[tag=newfb,limit=1] {BlockState:{Name:"minecraft:gravel"}}
+tag @e[type=snowball,tag=] add processed
+tag @e[tag=newfb] remove newfb
+# falling_block seems to have different physics than snowball at landing; since block is invisible while thrown anyway, makes more sense just to find last air block snowball exists in and just replace it probably
+
 
 =========
 E&T ideas
@@ -86,9 +119,31 @@ Like previous season, but with choice rather than linear (craft a knowledge book
 possible things to need to learn (from previous) include: Furnace, Bed, Anvil, I. Armor, Bow, D. Armor, Bucket, Shield, D. Pick
 others: enchant table, brewing stand (nether chest item to get recipe?), iron pick, all hoes, stone tools, 
 
+todo recipe for throwable light, like torch + snowball + slimeball?
+
+from old swirl notes:
+	tech tree: no early pickaxe? f&s rather than sword/axe? no torch recipe? villagers sell 3 choice of recipe? late bow/shield? early tnt? what foods? armor logic?
+	recipes: iron nuggets on tip stone pick -> weak iron pick, can mine gold; iron/gold ore smelt furance -> nuggets; iron/gold nuggets in recipe for chain mail
+
+	terrain changes: depthbasesize up (to like 13) and sea level up (to like 100) gives more underground (also bring ore distributions up higher), but
+	 - connectedness of caves/mineshafts below ground is still a big issue... maybe i carve out more air? idea to compute skeleton, and then have 'ends' search spherically for a 
+	   different airspace CC within like 10 blocks or something, and if found, connect with an air tunnel? also need a way to open up more tunnels to surface...
+	 - or maybe can get more with other settings, e.g. increase lower limit scale to 850? 3000? even upper height limit 3000? ...
+		 - lower limit down to 70 makes amplified-like crazy overhangy tall bits; upper limit down to 170, similar, not as many caves? both down to 212, not much land above sea level
+	 - or maybe can overlay cave air from a separate world with even larger cave-height, which creates more holes to surface and adds more caves?
+		 - yeah, depthbase 20, sea level 150, turn off mineshafts/lakes/dungeons/ravines, just grab cave air, overlay, seems plausible
+	(could replace large pockets of dirt/gravel/ore with glass/air, as another possible way to 'connect' caves?)
+	render's idea for advancements as 'tome of knowledge', e.g. tab for 'yellow wool', names that area, shows how many emeralds or other side objectives there are, etc.
+	render's sprint mechanic - if player not near any hostile mobs (could mark all hostiles as spawn in? and check 1Hz? dist>16?) for some time (10s?) then give sprint back?
+	render's consumable idea - craft tulip into food, then e.g. can give non-renewable food 'in world' rather than in a chest; also e.g. shrubs drop sticks, starve of wood, have craft table in environment
+	using glass/panes tactically is fun
+
+
+
+
 Figure out custom terrain to use
 
-QFE? meed master list of all items, then curate for obtainable; rest should be straighforward?
+QFE? need master list of all items, then curate for obtainable; rest should be straighforward?
 also the qfe could be an existing teleporter once i unlock first teleporter; first visit to QFE room could actually start the qfe game?
 
 ==============

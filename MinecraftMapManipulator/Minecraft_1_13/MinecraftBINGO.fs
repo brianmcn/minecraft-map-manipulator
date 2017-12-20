@@ -60,6 +60,14 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO command block customization, for people on server without access to files
 
+// TODO speed uhc stuff, like auto-smelting, etc?
+
+// invisibility could be a fun option for an OOB game mode
+
+// TODO refactor utility modules into a separate datapack? prng, arrow to X, warp-home/back, ...?
+
+// TODO what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and point), they can steal back?
+
 let startingItemsEffects = [|
     "optnv", "Night Vision", 1
     "optds", "Depth Strider boots", 0
@@ -72,6 +80,7 @@ let otherNiceties = [|
     "optlw", "Leading whitespace", 0                                    // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
     "optsa", "Arrow points to spawn", 1                                 // 1 if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?), 0 if not
     "optxh", "Show when extreme hills", 1                               // 1 if add 'XH' on player actionbar when in extreme hills, 0 if not
+    // TODO the text overflow the page and covers the back arrow
     |]
 let optionalGameModes = [|
     "optlo", "Lockout mode", 0
@@ -222,7 +231,7 @@ let entity_init() = [|
             yield sprintf "setblock %d 4 %d minecraft:sign" x z
 #endif
     |]
-let ENTITY_TAG = "tag=scoreAS,x=84,y=4,z=4,distance=..1.0,limit=1"
+let ENTITY_TAG = "tag=scoreAS,x=84,y=4,z=4,distance=..1.0,limit=1"   // consider UUIDing it? no, because UUIDs do not accept selectors
 let XH_TAG = "tag=XHguy,x=4,y=4,z=84,distance=..1.0,limit=1"
 let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" ENTITY_TAG
 let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
@@ -506,6 +515,9 @@ let game_functions = [|
         yield sprintf "fill 148 149 148 152 149 152 minecraft:light_gray_stained_glass"
         yield sprintf "setblock 150 151 147 stone"
         yield! placeWallSignCmds 150 151 148 "south" "teleport" "back to" "LOBBY" "" (sprintf "teleport @s %s" LOBBY) true false
+        // TODO need to put glass area above art at world-spawn, with a sign to go to lobby, to deal with this scenario: new player joins server, then dies in the lobby (or other scenarios), which spawns them above the art.
+        // glass and sign won't affect map
+        // also do that thingy that make people spawn at exact world spawn coords and not random nearby
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -985,6 +997,7 @@ let map_update_functions = [|
         |]
     yield "warp_home_body", [|
         sprintf "scoreboard players set @s ticksLeftMU %d" TICKS_TO_UPDATE_MAP
+        // TODO tp into walls and suffocate when next to them due to https://bugs.mojang.com/browse/MC-123388
         "execute store result score @s ReturnX run data get entity @s Pos[0] 128.0"   // doubles
         "execute store result score @s ReturnY run data get entity @s Pos[1] 128.0"
         "execute store result score @s ReturnZ run data get entity @s Pos[2] 128.0"
@@ -1131,6 +1144,7 @@ let checker_functions = [|
                     yield sprintf "execute if entity $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
             yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,announceItem=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
+            // announceOnlyTeam fails due to 'the bug'
             yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
@@ -1574,6 +1588,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=0..}] run function %s:set_seed" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
+            // TODO deaths in lobby give boats
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
             yield! gameLoopContinuationCheck()

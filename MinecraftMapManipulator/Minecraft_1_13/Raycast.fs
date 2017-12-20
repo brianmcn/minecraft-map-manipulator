@@ -334,7 +334,7 @@ let main() =
             "execute as @e[tag=markAS] at @s align xyz run teleport @s ~0.5 ~ ~0.5"
             |]
         yield "go_forward",[|
-            "teleport @s ^ ^ ^0.2"
+            "teleport @s ^ ^ ^0.2"  // TODO do you need to teleport?  can you just repeatedly execute-offset?  offset lost from stack if we pop off, so would need to continue forward at end; write it that way too
             sprintf "execute as @s at @s if block ~ ~ ~ air run function %s:go_forward" NS
             |]
         yield "go_back",[|
