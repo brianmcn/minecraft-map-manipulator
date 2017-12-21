@@ -34,3 +34,16 @@ let writeFunctionToDisk(worldSaveFolder, packName, packNS, name, code) =
     if allDirsEnsured.Add(dir) then
         System.IO.Directory.CreateDirectory(dir) |> ignore
     System.IO.File.WriteAllLines(FIL, code)
+
+let writeDatapackMeta(worldSaveFolder, packName,description) =
+    let FOLDER = packName
+    let meta = sprintf """{
+               "pack": {
+                  "pack_format": 4,
+                  "description": "%s"
+               }
+            }""" description
+    let mcmetaFilename = System.IO.Path.Combine(worldSaveFolder, "datapacks", FOLDER, "pack.mcmeta")
+    ensureDirOfFile(mcmetaFilename)
+    System.IO.File.WriteAllText(mcmetaFilename, meta)
+        

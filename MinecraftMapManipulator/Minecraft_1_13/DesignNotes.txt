@@ -26,8 +26,10 @@ small program ideas:
 
 
 
+ (possibly see http://jragoncommands.weebly.com/tutorials.html for ideas)
  general topic-area list
   - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
+  - a sense of the bounds; some things are possible, and some things are not... the bounds are kinda arbitrary and must be learned through experience
   - setup (see prev series)
   - coordinates (F3 debug screen, xyz, facing rotations, ~~~, ^^^, /setblock, /teleport)
   - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)

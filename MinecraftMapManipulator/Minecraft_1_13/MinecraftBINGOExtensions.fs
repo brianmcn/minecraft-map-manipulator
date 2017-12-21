@@ -222,7 +222,7 @@ module Blind =
     ///////////////////////////////
 
     let main() =
-        MinecraftBINGO.writeDatapackMeta(PACK_NAME, "MinecraftBINGO extension pack for blind play")
+        Utilities.writeDatapackMeta(MinecraftBINGO.FOLDER, PACK_NAME, "MinecraftBINGO extension pack for blind play")
         hookTick()
         hookEvents()
         let a = [|

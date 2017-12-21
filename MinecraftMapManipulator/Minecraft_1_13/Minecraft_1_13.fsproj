@@ -60,8 +60,10 @@
   <ItemGroup>
     <Compile Include="Raycast.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="WarpPoints.fs" />
     <Compile Include="MinecraftBINGO.fs" />
     <Compile Include="MinecraftBINGOExtensions.fs" />
+    <Compile Include="PerformanceMicroBenchmarks.fs" />
     <Compile Include="Program.fs" />
     <Content Include="DesignNotes.txt" />
   </ItemGroup>
