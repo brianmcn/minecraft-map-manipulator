@@ -19,6 +19,7 @@
 //     - ocean monument
 //     - total of maybe 16 is good?
 // rather than any fancy way to name/identify e.g. POI8=jungle, I think just let player add extra sign as label above the tp-ing sign
+// should be The Void biome
 
 
 // POI is a location in the world.  There will be an invisible permanent armor stand there.  
@@ -30,6 +31,7 @@
 //  - once the player gets really close... (distance=..2?)
 //      - a countdown starts, so if they stay there for 2 or 3 seconds, they get teleported to the hub (known permanently fixed coords)
 //      - if they leave the 'closer' radius, the countdown is reset (this is useful to prevent accidental tps when walking by/through, as well as to prevent re-tp when tping from the hub)
+// TODO should it be end_gateway? probably not, one issue is, how to tp 'back'... without a cooldown, you just end up in an infinite tp loop... also entities can use end_gateways, so creeper could come through...
 // Creation: 
 //  - a player places a custom spawn egg (crafted out of some rare ingredient or whatnot)
 //  - this gets detected (e.g. via stats to know to check this tick, and then finding the spawned entity with @e for a location) (TODO only in overworld? how detect)

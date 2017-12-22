@@ -6,45 +6,58 @@ let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
 
 let allProfilerFunctions = ResizeArray()
 
-let profileThis(suffix,outer,inner,pre,cmds,post) =
-    let profilerFunc = ("prof-"+suffix,[|
-        yield "gamerule maxCommandChainLength 999999"
-        yield "gamerule commandBlockOutput false"
-        yield "gamerule sendCommandFeedback false"
-        yield "gamerule logAdminCommands false"
+let profileThis(suffix,outer,inner,innerInner,pre,cmds,post) =
+    let profName = "prof-"+suffix
+    let all = [|
+        yield profName,[|
+            yield "gamerule maxCommandChainLength 999999"
+            yield "gamerule commandBlockOutput false"
+            yield "gamerule sendCommandFeedback false"
+            yield "gamerule logAdminCommands false"
 
-        yield "scoreboard objectives add A dummy"
-        yield "scoreboard objectives add WB dummy"
+            yield "scoreboard objectives add A dummy"
+            yield "scoreboard objectives add WB dummy"
 
-        yield "scoreboard objectives setdisplay sidebar A"
+            yield "scoreboard objectives setdisplay sidebar A"
 
-        yield "scoreboard players set DATA WB 1" 
+            yield "scoreboard players set DATA WB 1" 
 
-        yield "worldborder set 10000000" 
-        yield "worldborder add 1000000 1000" 
+            yield "worldborder set 10000000" 
+            yield "worldborder add 1000000 1000" 
         
-        yield! pre
-        for _i = 1 to outer do
-            yield sprintf "function %s:code-%s" "test" suffix
-        yield! post
+            yield! pre
+            for _i = 1 to outer do
+                yield sprintf "function %s:code-%s" "test" suffix
+            yield! post
 
-        //yield "tellraw @p [\"done!\"]" 
-        yield "execute store result score DATA WB run worldborder get" 
-        yield "scoreboard players set Time A -10000000" 
-        yield "scoreboard players operation Time A += DATA WB" 
-        yield "scoreboard players operation @p WB = Time A"
-        yield sprintf """tellraw @a ["took ",{"score":{"name":"@p","objective":"WB"}}," milliseconds to run %d iterations of"]""" (outer*inner)
-        for cmd in cmds do
-            yield sprintf """tellraw @a ["    %s"]""" (Utilities.escape cmd)
-        yield "kill @e[name=Timer]"
-        |])
-    let dummyFunc = ("code-"+suffix,[|
-        for _i = 1 to inner do 
-            yield! cmds 
-        |])
-    for name,code in [| profilerFunc; dummyFunc |] do
+            //yield "tellraw @p [\"done!\"]" 
+            yield "execute store result score DATA WB run worldborder get" 
+            yield "scoreboard players set Time A -10000000" 
+            yield "scoreboard players operation Time A += DATA WB" 
+            yield "scoreboard players operation @p WB = Time A"
+            yield sprintf """tellraw @a ["took ",{"score":{"name":"@p","objective":"WB"}}," milliseconds to run %d iterations of"]""" (outer*inner*innerInner)
+            for cmd in cmds do
+                yield sprintf """tellraw @a ["    %s"]""" (Utilities.escape cmd)
+            yield "kill @e[name=Timer]"
+            |]
+        if innerInner=1 then
+            yield "code-"+suffix,[|
+                for _i = 1 to inner do 
+                    yield! cmds 
+                |]
+        else
+            yield "code-"+suffix,[|
+                for _i = 1 to inner do 
+                    yield sprintf "function %s:inner-%s" "test" suffix
+                |]
+            yield "inner-"+suffix,[|
+                for _i = 1 to innerInner do 
+                    yield! cmds 
+                |]
+        |]
+    for name,code in all do
         Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", name, code)
-    allProfilerFunctions.Add(fst profilerFunc)
+    allProfilerFunctions.Add(profName)
 
 
 let SELECTORS = [|
@@ -63,25 +76,89 @@ let SELECTORS_WITH_UUID = [|
     yield "u", "1-1-1-0-1"
     |]
 
+(*
+execute pseudocode (imagined)
+
+
+let instr = instructions.pop_front()
+decode(instr)
+    case: "execute as @e run FOO"
+        let ents = <list of entities>
+        let ctxt = new Context(CURRENT_SENDER, CURRENT_AT)
+        contextStack.Push(ctxt)
+        instructions.push_front(QUOTE(contextStack.Pop()))
+        instructions.push_front(QUOTE(CURRENT_AT = contextStack.Top().At))
+        instructions.push_front(QUOTE(CURRENT_SENDER = contextStack.Top().Sender))
+        for each e in ents do
+            instructions.push_front(QUOTE(FOO))
+            instructions.push_front(QUOTE(CURRENT_SENDER = e))
+            instructions.push_front(QUOTE(CURRENT_AT = ctxt.AT))
+        TODO - what is 'result' and 'success' values?
+
+*)
+
 
 let main() =
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
 
-    profileThis("seed",   500,1000,[],["seed"],[])                                              //  1100
+    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "call_seed", [|"seed"|])
+
+    let OUTER = 200
+    let INNER = 1000
+
+    ///////////
+    // good baseline stuff to keep
+
+
+    profileThis("seed",       OUTER,INNER,1,[],["seed"],[]) 
+    profileThis("callseed",   OUTER,INNER,1,[],["function test:call_seed"],[])    // TODO 500,1000 just fails silently and immediately, why?
+    (*
+took 29 milliseconds to run 200000 iterations of
+    seed
+took 102 milliseconds to run 200000 iterations of
+    function test:call_seed
+    *)
 
     for name,sel in SELECTORS_WITH_UUID do
-        profileThis("ei"+name,500,1000,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
+        profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
 
     for name,sel in SELECTORS_WITH_FAKE do
         // TODO note that "scoreboard players add 1-1-1-0-1 A 1" will add to a fake player with that name, and not to a UUID'd entity with that uuid
-        profileThis("sb"+name,500,1000,[],[sprintf "scoreboard players add %s A 1" sel],[])
+        profileThis("sb"+name,OUTER,INNER,1,[],[sprintf "scoreboard players add %s A 1" sel],[])
 
     for name,sel in SELECTORS_WITH_UUID do
-        profileThis("ea"+name,500,1000,[],[sprintf "execute as %s run scoreboard players add @s A 1" sel],[])
+        profileThis("ea"+name,OUTER,INNER,1,[],[sprintf "execute as %s run scoreboard players add @s A 1" sel],[])
+
+    profileThis("eseed",OUTER,INNER,1,[],[sprintf "execute run seed"],[])
+    for name,sel in SELECTORS_WITH_UUID do
+        profileThis("eiseed"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s run seed" sel],[])
+        profileThis("easeed"+name,OUTER,INNER,1,[],[sprintf "execute as %s run seed" sel],[])
+        profileThis("eaaseed"+name,OUTER,INNER,1,[],[sprintf "execute as %s at @s run seed" sel],[])
+// note: these do not have much effect... was trying to test if the 'number of instructions remaining in the continuation' affects the cost of invoking a function (assuming it 'inserts instructions to front of current list')
+//        profileThis("eiseed"+name,5000,100,1,[],[sprintf "execute if entity %s run seed" sel],[])
+//        profileThis("easeed"+name,5000,100,1,[],[sprintf "execute as %s run seed" sel],[])
+//        profileThis("eiseed"+name,50,100,100,[],[sprintf "execute if entity %s run seed" sel],[])
+//        profileThis("easeed"+name,50,100,100,[],[sprintf "execute as %s run seed" sel],[])
+
+
+    ///////////
+    // current experiments
+
 
     // TODO stuff in email notes
 
     (*
+
+took 7501 milliseconds to run 500000 iterations of
+    execute run seed
+took 75 milliseconds to run 500000 iterations of
+    seed
+
+took 9017 milliseconds to run 500000 iterations of
+    execute as @p run seed
+took 8912 milliseconds to run 500000 iterations of
+    execute if entity @p run seed
+
     for pre,suf in ["","run scoreboard players add FAKE A 1"; "tp","at @s run tp @s ~ ~ ~"] do
         profileThis(sprintf "%seip"pre,      500,1000,[],[sprintf"execute as @p %s"suf],[])                                
         profileThis(sprintf "%seis"pre,      500,1000,[],[sprintf"execute as @s %s"suf],[])                                

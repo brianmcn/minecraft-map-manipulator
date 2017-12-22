@@ -1,6 +1,6 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
