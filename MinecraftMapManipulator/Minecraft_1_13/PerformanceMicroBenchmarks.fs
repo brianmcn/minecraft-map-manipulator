@@ -2,7 +2,7 @@
 
 let PACK_NAME = "PerfPack"
 // TODO move to separate world, do setup to create initial objectives and entities
-let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
+let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """testing""")
 
 let allProfilerFunctions = ResizeArray()
 

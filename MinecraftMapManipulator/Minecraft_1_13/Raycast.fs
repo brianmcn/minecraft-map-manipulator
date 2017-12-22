@@ -128,7 +128,8 @@ let simulate() =
 
 let NS = "raycast"
 
-let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\raycast"""
+let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """raycast""")
+
 let allDirsEnsured = new System.Collections.Generic.HashSet<_>()
 let writeFunctionToDisk(name,code) =
     let DPDIR = System.IO.Path.Combine(FOLDER,"""datapacks\RaycastPack""")

@@ -46,7 +46,7 @@ let throwable_light() =
             // no need to kill, Duration wil do it
             |]
         |]
-    let world = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testPackEventing\"""
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, """testPackEventing""")
     for name,code in functions do
         Utilities.writeFunctionToDisk(world,"BasePack","snow",name,code)
 
@@ -54,7 +54,7 @@ let throwable_light() =
 [<EntryPoint>]
 let main argv = 
     MinecraftBINGO.cardgen_compile()
-    //MinecraftBINGOExtensions.Blind.main()
+    MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     PerformanceMicroBenchmarks.main()

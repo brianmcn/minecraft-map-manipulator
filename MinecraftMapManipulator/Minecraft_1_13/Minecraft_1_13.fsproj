@@ -58,8 +58,8 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="Raycast.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="Raycast.fs" />
     <Compile Include="WarpPoints.fs" />
     <Compile Include="MinecraftBINGO.fs" />
     <Compile Include="MinecraftBINGOExtensions.fs" />

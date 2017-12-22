@@ -144,8 +144,7 @@ let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 
 
-//let FOLDER = """"C:\Users\Admin1\AppData\Roaming\.minecraft\saves\BingoFor1x13"""
-let FOLDER = """C:\Users\Admin1\AppData\Roaming\.minecraft\saves\testing"""
+let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """testing""")
 let writeFunctionToDisk(packName,packNS,name,code) = Utilities.writeFunctionToDisk(FOLDER,packName,packNS,name,code)
 
 ////////////////////////////
