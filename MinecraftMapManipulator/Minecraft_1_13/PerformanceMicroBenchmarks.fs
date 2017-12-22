@@ -122,6 +122,9 @@ took 102 milliseconds to run 200000 iterations of
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
 
+//    profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute if entity @e[type=player]"],[])
+//    profileThis("ei-a",OUTER,INNER,1,[],[sprintf "execute if entity @a"],[])
+
     for name,sel in SELECTORS_WITH_FAKE do
         // TODO note that "scoreboard players add 1-1-1-0-1 A 1" will add to a fake player with that name, and not to a UUID'd entity with that uuid
         profileThis("sb"+name,OUTER,INNER,1,[],[sprintf "scoreboard players add %s A 1" sel],[])
