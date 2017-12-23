@@ -102,6 +102,7 @@ let main() =
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
 
     Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "call_seed", [|"seed"|])
+    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "call_add", [|"scoreboard players add @s A 1"|])
 
     let OUTER = 200
     let INNER = 1000
@@ -112,6 +113,9 @@ let main() =
 
     profileThis("seed",       OUTER,INNER,1,[],["seed"],[]) 
     profileThis("callseed",   OUTER,INNER,1,[],["function test:call_seed"],[])    // TODO 500,1000 just fails silently and immediately, why?
+
+    profileThis("calladd",   OUTER,INNER,1,[],["function test:call_add"],[])
+    profileThis("eradd",OUTER,INNER,1,[],[sprintf "execute run scoreboard players add @s A 1"],[])
     (*
 took 29 milliseconds to run 200000 iterations of
     seed
@@ -121,6 +125,8 @@ took 102 milliseconds to run 200000 iterations of
 
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
+        profileThis("eiat1"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s at @s run seed" sel],[])
+        profileThis("eiat2"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s at %s run seed" sel sel],[])
 
 //    profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute if entity @e[type=player]"],[])
 //    profileThis("ei-a",OUTER,INNER,1,[],[sprintf "execute if entity @a"],[])
