@@ -123,6 +123,43 @@ took 102 milliseconds to run 200000 iterations of
     function test:call_seed
     *)
 
+    profileThis("stoneairstoneif",OUTER,INNER,1,[],["execute if block ~ ~ ~ stone run setblock ~ ~ ~ air"; "setblock ~ ~ ~ stone"],[])
+    profileThis("stoneairstonefill",OUTER,INNER,1,[],["fill ~ ~ ~ ~ ~ ~ air replace stone"; "setblock ~ ~ ~ stone"],[])
+(*
+took 13796 milliseconds to run 200000 iterations of
+    execute if block ~ ~ ~ stone run setblock ~ ~ ~ air
+    setblock ~ ~ ~ stone
+took 7441 milliseconds to run 200000 iterations of
+    fill ~ ~ ~ ~ ~ ~ air replace stone
+    setblock ~ ~ ~ stone
+*)
+
+    // TODO how to profile 'summon'?  can't just summon 100,000 entities in a tick...
+    // Maybe use an RCB and a tick counter, and do like 1000 at a time? but then wall-clock time would include latency between ticks (unless game was fully lagged)
+    //profileThis("summon",       10,1000,1,[],["summon area_effect_cloud ~ ~ ~ {Duration:1}"],[])   // was about 300ms to summon 10,000 aecs (but their death costs not measured); would be 6000ms for 200k if linear scale
+
+    (*
+FAR ANIMALS
+took 417 milliseconds to run 50000 iterations of
+    execute at @p as @e[type=pig,sort=nearest,distance=..7,limit=1] run scoreboard players add @p A 1
+took 340 milliseconds to run 50000 iterations of
+    execute at @p as @e[type=pig,distance=..7,limit=1] run scoreboard players add @p A 1
+took 4234 milliseconds to run 50000 iterations of
+    execute at @p as @e[type=pig,distance=..57,limit=1] run scoreboard players add @p A 1
+NEAR PIG
+took 2843 milliseconds to run 50000 iterations of
+    execute at @p as @e[type=pig,sort=nearest,distance=..7,limit=1] run scoreboard players add @p A 1
+took 2776 milliseconds to run 50000 iterations of
+    execute at @p as @e[type=pig,distance=..7,limit=1] run scoreboard players add @p A 1
+took 7501 milliseconds to run 50000 iterations of
+    execute at @p as @e[type=pig,distance=..57,limit=1] run scoreboard players add @p A 1
+    *)
+    profileThis("nearby1",       50,1000,1,[],["execute at @p as @e[type=pig,sort=nearest,distance=..7,limit=1] run scoreboard players add @p A 1"],[])
+    profileThis("nearby2",       50,1000,1,[],["execute at @p as @e[type=pig,distance=..7,limit=1] run scoreboard players add @p A 1"],[])
+    profileThis("nearby3",       50,1000,1,[],["execute at @p as @e[type=pig,distance=..57,limit=1] run scoreboard players add @p A 1"],[])
+
+    
+
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
         profileThis("eiat1"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s at @s run seed" sel],[])

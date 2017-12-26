@@ -1,22 +1,22 @@
 ﻿
-(*
-: I notice that i I /give @p minecraft:snowball{Foo:1} 1, and then throw it, the thrown snowball /data get entity @e[type=snowball,limit=1,sort=nearest] loses the tag:{Foo:1} metadata... 
-is there any easy way to gift a player 'magic snowballs' that are distinctly detectable from normal ones?
-[10:13 AM] SirBenet: Don't think any data from item gets copied over to snowball unfortunately
-👆1
-[10:13 AM] SirBenet: Need to do something awkward like tag the nearest snowball when players used stat for snowball increases(edited)
-[10:15 AM] Maxaxik: It doesn't get copied because there's no NBT on the snowball to hold that information
-[10:29 AM] Lorgon111: Hm, and if I want to limit access to the 'magical' snowballs but still allow usual normal snowballs... 
-I guess I would have to do something crazy like track how many magic snowballs the player has in their inventory, and look again after a snowball is thrown, and if the count went down by 1, 
-then assume it's a magical one that just got thrown and tag the snowball entity nearest the player to get 'magic' processing?  Any other clever strategies?  
-I guess maybe also, rather than tracking 'inventory count', I could track 'SelectedItem', and if magic snowball was SelectedItem in the tick (before?) stat detected a throw, 
-then tag it? (and possibly also track offhand, since can throw from there)  Other thoughts?
-SliceThePi: @Lorgon111 What I do for "magic" snowballs is have a tag for when the player is holding an item. 
-I set it at the end of the tick so that even if the player runs out of snowballs, they'll still have the tag after throwing.
-[10:39 AM] SliceThePi: So essentially what you said.
-*)
 
 //       /give @p minecraft:snowball{Foo:1} 1
+// TODO make a recipe for it (e.g. 16 torches + 16 snowballs + 1 slimeball)
+(*
+I am imagining that in the near future we will be able to specify NBT in recipes.  
+One thing I imagined doing was adding a recipe so that e.g. you could take a stack of snowballs, and add a slimeball to get a stack of 'magic snowballs' 
+(which have some extra NBT and behave magically).  However looking at @￰￰Skylinerw 's recipe tutorial, I see
+
+The optional count number specifies the number of items in the stack, defaulting to 1 when not specified. This cannot be used in a key or ingredient, only in a result.
+
+so it sounds like you can't create the recipe I'm imagining (e.g. 16 snowballs + 1 slimeball = 16 magic snowballs), as inputs must be single items.
+Assuming that's the case, is there any clever way to enable a single 'rare ingredient' to be combined with a large number of 'common consumables' to craft new 'rare consumables', 
+using the recipe system (and not e.g. using 'floor crafting' or 'dispenser crafting')?
+
+
+I guess in the worst case I can do like 7 torches, a snowball, and a slimeball as the 9 items
+
+*)
 let throwable_light() =
     let objectives = [|
         // position of most recent unprocessed airborne snowball (snowy = -1 to "null out" after processing)
@@ -90,7 +90,7 @@ let main argv =
     //MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
-    throwable_light()
-    //PerformanceMicroBenchmarks.main()
+    //throwable_light()
+    PerformanceMicroBenchmarks.main()
     ignore argv
     0

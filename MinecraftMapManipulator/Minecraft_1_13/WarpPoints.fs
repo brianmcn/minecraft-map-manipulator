@@ -20,6 +20,15 @@
 //     - total of maybe 16 is good?
 // rather than any fancy way to name/identify e.g. POI8=jungle, I think just let player add extra sign as label above the tp-ing sign
 // should be The Void biome
+(* signs call this...
+for i = 1 to POI_MAX do
+    warp_to_poi%d:
+        summon area_effect_cloud ~ ~ ~ {Duration:1,Tags:["temp"]}
+        execute store result entity @e[tag=temp] Pos[0] double 1.0 run scoreboard players get $ENTITY poi%dx
+        execute store result entity @e[tag=temp] Pos[1] double 1.0 run scoreboard players get $ENTITY poi%dy
+        execute store result entity @e[tag=temp] Pos[2] double 1.0 run scoreboard players get $ENTITY poi%dz
+        execute at @e[tag=temp] run teleport @s ~ ~ ~
+*)
 
 
 // POI is a location in the world.  There will be an invisible permanent armor stand there.  
@@ -88,8 +97,9 @@ tp to wherever
 that is, find the nearest poi, only looking nearby, and if found, do whatever... this does constantly data merge the AS when nearby, but otherwise is cheap and simple
 *)
 // Creation: 
-//  - a player places a custom spawn egg (crafted out of some rare ingredient or whatnot)
-//  - this gets detected (e.g. via stats to know to check this tick, and then finding the spawned entity with @e for a location) (TODO only in overworld? how detect? guess could put a cmd block at 0,0,0 in overworld and then 'execute if block 0 0 0 command_block run say in overworld')
+//  - a player places a custom spawn egg (crafted out of some rare ingredient or whatnot) or maybe an enchanted bedrock item (stat placed "/scoreboard objectives add fdjkhds minecraft.used:minecraft.bedrock", SelectedItem to ensure was magic one... but then how find location? raycast to it? prob a tick later after stat...)
+//  - this gets detected (e.g. via stats or SelectedItem to know to check this tick, and then finding the spawned entity with @e for a location) (TODO only in overworld? how detect? guess could put a cmd block at 0,0,0 in overworld and then 'execute if block 0 0 0 command_block run say in overworld')
+//      - or just check very nearby entities, probably fine
 //  - the block underneath the spawned entity becomes bedrock (should it?), and the 'next free POI' invisible armor stand is spawned there (POI1, POI2, POI3, whichever hasn't been used yet)
 //            summon minecraft:armor_stand ~ ~1 ~ {Invisible:1b,Marker:0b,NoGravity:1b,Small:1b,CustomName:"POI 4",CustomNameVisible:1b}
 //  - the coords of the POI are stored in the scoreboard, so the TP hub sign can warp to there, e.g. 
@@ -97,4 +107,23 @@ that is, find the nearest poi, only looking nearby, and if found, do whatever...
 //  - some kind of sound plays, probably text in chat or title screen announcing name of created POI
 (*
 
+tick:
+// could stats detect e.g. /scoreboard objectives add fjkdh minecraft.used:minecraft.bat_spawn_egg
+execute at @p as @e[tag=summonedViaEggGuy,sort=nearest,distance=..7,limit=1] at @s run function create_new_warp_point
+
+create_new_warp_point:
+scoreboard players set $ENTITY found 0
+for i = 1 to POI_MAX do
+    execute unless entity $SCORE(found=1) unless entity $SCORE(poi%dy=-1) run summon armor_stand ~ ~ ~ {... Tags:["poi","poi%d","newpoi"]}
+    execute unless entity $SCORE(found=1) unless entity $SCORE(poi%dy=-1) run scoreboard players set $ENTITY found 1
+    execute as @e[tag=newpoi] run function create_new_warp_point_coda%d
+
+    create_new_warp_point_coda%d:
+        tag @s remove newpoi
+        execute align xyz offset ~0.5 ~0.0 ~0.5 run teleport @s ~ ~ ~
+        execute store result score $ENTITY poi%dx 1.0 run data get entity @s Pos[0] 1.0
+        execute store result score $ENTITY poi%dy 1.0 run data get entity @s Pos[1] 1.0
+        execute store result score $ENTITY poi%dz 1.0 run data get entity @s Pos[2] 1.0
+        // TODO play a sound
+        // TODO display a title
 *)

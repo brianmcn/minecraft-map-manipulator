@@ -31,11 +31,13 @@ small program ideas:
  general topic-area list
   - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
   - a sense of the bounds; some things are possible, and some things are not... the bounds are kinda arbitrary and must be learned through experience
-  - setup (see prev series)
+  - setup (see prev series; stuff like f3, keyboard shortcuts, gamemodes, F3+N, how to make rr world, ...)
   - sender (who) and location (where) and function/command (what).... execute as pig say hi; execute at cow setblock stone (is there a good something other than 'say' that differs by 'who'? yes, facing ^ ^ ^1, maybe also 'read my health' or something)
        yeah, imagining in first episode typing commands to summon a NoAI pig, a NoAI horse with a different rotation, and then running commands like function say_health as them or setblock at them
 	   talk abut the concepts, while showing un-as-yet-explained commands on the screen
   - coordinates (F3 debug screen, xyz, facing rotations, ~~~, ^^^, /setblock, /teleport)
+       make thingy to fly in direction looking with tp ^ ^ ^0.05 or whatever, maybe put block in sky at y=100 above slimes or minecart chests or something, as simple examples? 
+			coud cycling difficulty every 2 ticks quickly find slime chunks that way? or cycle every time find a slime?
   - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)
        aside: should I always have a long-lived entity tagged temp, for various debugging etc?
   - selectors
@@ -87,6 +89,9 @@ answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable
 https://minecraft.gamepedia.com/1.13/Flattening
 https://gist.github.com/Dinnerbone/943fbcd763c19be188ed6b72a12d7e65
 https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_super_early_preview_of/
+https://github.com/PepijnMC/Minecraft/tree/master/Data
+https://github.com/skylinerw/guides
+
 
 can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
 can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
@@ -122,51 +127,6 @@ data merge entity @e[tag=newfb,limit=1] {BlockState:{Name:"minecraft:gravel"}}
 tag @e[type=snowball,tag=] add processed
 tag @e[tag=newfb] remove newfb
 # falling_block seems to have different physics than snowball at landing; since block is invisible while thrown anyway, makes more sense just to find last air block snowball exists in and just replace it probably
-
-
-=========
-E&T ideas
-=========
-think about survival waypoints idea...
-wubbi https://www.youtube.com/watch?v=WCJRTd7Otq8 has a nice one
-basic idea:
- - have a room with lots of clickable signs (go to waypoint N)
- - player can add own signs for names if desired
- - spawn egg or whatnot to place new waypoint (crafting/found materials?), will have AS with particles or whatnot, will store coords in scoreboard in fixed (non-entity?) slots (WayX01, WayY01, ... WayX99...)
- - when player stays in particles for more than 3s or whatever, brings to tp room
- - could 'delete' waypoint by having e.g. WayYnn==-1 to mark as 'unused', and clickable sign to 'forget' it? hm, but how delete the entity there... i guess it could delete self after check if exist based on scores
-
-Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
-Like previous season, but with choice rather than linear (craft a knowledge book to 'choose')
-possible things to need to learn (from previous) include: Furnace, Bed, Anvil, I. Armor, Bow, D. Armor, Bucket, Shield, D. Pick
-others: enchant table, brewing stand (nether chest item to get recipe?), iron pick, all hoes, stone tools, 
-
-todo recipe for throwable light, like torch + snowball + slimeball?
-
-from old swirl notes:
-	tech tree: no early pickaxe? f&s rather than sword/axe? no torch recipe? villagers sell 3 choice of recipe? late bow/shield? early tnt? what foods? armor logic?
-	recipes: iron nuggets on tip stone pick -> weak iron pick, can mine gold; iron/gold ore smelt furance -> nuggets; iron/gold nuggets in recipe for chain mail
-
-	terrain changes: depthbasesize up (to like 13) and sea level up (to like 100) gives more underground (also bring ore distributions up higher), but
-	 - connectedness of caves/mineshafts below ground is still a big issue... maybe i carve out more air? idea to compute skeleton, and then have 'ends' search spherically for a 
-	   different airspace CC within like 10 blocks or something, and if found, connect with an air tunnel? also need a way to open up more tunnels to surface...
-	 - or maybe can get more with other settings, e.g. increase lower limit scale to 850? 3000? even upper height limit 3000? ...
-		 - lower limit down to 70 makes amplified-like crazy overhangy tall bits; upper limit down to 170, similar, not as many caves? both down to 212, not much land above sea level
-	 - or maybe can overlay cave air from a separate world with even larger cave-height, which creates more holes to surface and adds more caves?
-		 - yeah, depthbase 20, sea level 150, turn off mineshafts/lakes/dungeons/ravines, just grab cave air, overlay, seems plausible
-	(could replace large pockets of dirt/gravel/ore with glass/air, as another possible way to 'connect' caves?)
-	render's idea for advancements as 'tome of knowledge', e.g. tab for 'yellow wool', names that area, shows how many emeralds or other side objectives there are, etc.
-	render's sprint mechanic - if player not near any hostile mobs (could mark all hostiles as spawn in? and check 1Hz? dist>16?) for some time (10s?) then give sprint back?
-	render's consumable idea - craft tulip into food, then e.g. can give non-renewable food 'in world' rather than in a chest; also e.g. shrubs drop sticks, starve of wood, have craft table in environment
-	using glass/panes tactically is fun
-
-
-
-
-Figure out custom terrain to use
-
-QFE? need master list of all items, then curate for obtainable; rest should be straighforward?
-also the qfe could be an existing teleporter once i unlock first teleporter; first visit to QFE room could actually start the qfe game?
 
 ==============
 MinecraftBINGO
