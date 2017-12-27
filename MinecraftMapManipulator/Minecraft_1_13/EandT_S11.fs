@@ -96,6 +96,10 @@ aha, villages off forever.  igloo structure could be replaced in datapack, to no
 
 will need to fix all loot tables, to get rid of things like 'buckets'...
 
+could also have some completely random drops, like rather than having to use a fragment to get the recipe for a daylight sensor, just have the knowledge book randomly appear in loot chests sometimes
+
+also consider somehow gifting/getting shulker box early, to cope with inventory management horror festival... (shulker drops could be knowledge fragments rather than nametags?)
+
 if e.g. a nametag is a 'knowledge fragment', then e.g. "nametag + string" could be a recipe that unlocks the "fishing_rod knowledge book", 
     and using that book takes the prior nametag recipe and gives the next food one
 

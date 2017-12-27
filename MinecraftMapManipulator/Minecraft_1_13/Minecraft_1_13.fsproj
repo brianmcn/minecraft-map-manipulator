@@ -59,6 +59,7 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="Utilities.fs" />
+    <Compile Include="MC_Constants.fs" />
     <Compile Include="EandT_S11.fs" />
     <Compile Include="Raycast.fs" />
     <Compile Include="WarpPoints.fs" />
