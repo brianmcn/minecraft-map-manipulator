@@ -72,12 +72,12 @@ stone tools?
 bow
                                                    hoes
 iron ingot without furnace (1 from 8?)
-shield
+//shield
 iron pick
                                                                                                   piston
                                                    bone meal (from bone)
 gold ingot without furnace (4 from 8?)
-                                                   cooked meats without furnace (4 from 8?)
+                                                   //cooked meats without furnace (4 from 8?)
 furnace                                            furnace
 iron armor
 diamond pick
@@ -94,14 +94,40 @@ diamond armor
 maybe villages off, to prevent furnace/book?  i guess books also in stronghold/mansion, though, and furnace also in igloo?
 aha, villages off forever.  igloo structure could be replaced in datapack, to not have furnace/brewing until such time as I unlock them; could be uncraftable, but eventually becomes findable?
 
-will need to fix all loot tables, to get rid of things like 'buckets'...
-
-could also have some completely random drops, like rather than having to use a fragment to get the recipe for a daylight sensor, just have the knowledge book randomly appear in loot chests sometimes
+will need to fix all loot tables, to get rid of things like 'buckets'... change iron/gold ingots to nuggets in loot tables, other things need to prevent, maybe give glass instead? or see below
+ - could also have some completely random drops, like rather than having to use a fragment to get the recipe for a daylight sensor, just have the knowledge book randomly appear in loot chests sometimes, yeah
 
 also consider somehow gifting/getting shulker box early, to cope with inventory management horror festival... (shulker drops could be knowledge fragments rather than nametags?)
 
 if e.g. a nametag is a 'knowledge fragment', then e.g. "nametag + string" could be a recipe that unlocks the "fishing_rod knowledge book", 
     and using that book takes the prior nametag recipe and gives the next food one
+
+possibly start the game with one nametag to see all starting recipes, or e.g. picking it up grants the initial recipes
+
+recipes for   - nametag + ___
+stone tools   - cobblestone
+iron ingot    - iron nugget
+iron tools    - iron ingot
+gold ingot    - gold nugget
+iron armor    - iron block
+diamond armor - diamond block
+diamond tools - diamond
+bow           - stick
+fishing rod   - string
+cook fish     - cod
+hoes          - cobble, iron ingot, gold ingot
+bone meal     - bone
+throwable light-slimeball
+bed           - wool
+anvil         - 3 ingot?
+piston        - redstone
+enchant table - book
+bucket        - glass bottle (kill witch?)
+consumables:
+warp point    - purple dye
+shulker box   - chest
+
+In order to make these recipes discoverable, give all same prefix in name, so player can search recipe book for prefix to find all new recipes (maybe '111', is easy to type)
 
 maybe, in addition to having structures gen rare loot recipes, also maybe husks/strays could rarely drop? incentivize fighting them? (can base spawner spawn them if exposed to sunlight? no)
 
@@ -146,3 +172,74 @@ also the qfe could be an existing teleporter once i unlock first teleporter; fir
 
 
 *)
+
+open Recipes
+
+let PK_Enderchest(outsideItem,insideItem) =
+    PatternKey([|"XXX";"XOX";"XXX"|],[|'X',MC(outsideItem); 'O',MC(insideItem)|])
+let PK_Clock(outsideItem,insideItem) =
+    PatternKey([|" X ";"XOX";" X "|],[|'X',MC(outsideItem); 'O',MC(insideItem)|])
+let PK_Dispenser(outsideItem,insideItem,bottomItem) =
+    PatternKey([|"XXX";"XOX";"X$X"|],[|'X',MC(outsideItem); 'O',MC(insideItem); '$',MC(bottomItem)|])
+
+let FRAGMENT = "nametag"
+
+// TODO parent-prerequisites
+let custom_survival_recipes = [|
+    // recipes to unlock once
+    "iron_ingot",ShapedCrafting(PK_Enderchest("iron_ore","coal"),MC"iron_ingot",1)
+    "gold_ingot",ShapedCrafting(PK_Clock("gold_ore","coal"),MC"gold_ingot",2)
+    "cook_cod",ShapedCrafting(PK_Enderchest("cod","coal"),MC"cooked_cod",6)
+    "cook_salmon",ShapedCrafting(PK_Enderchest("salmon","coal"),MC"cooked_salmon",6)
+    //"throwable_torch",ShapedCrafting(PK_Dispenser("torch","slimeball","snowball"),MC"snowball",7) // TODO nbt
+
+    // consumables to craft at any time
+    //"warp_point",ShapelessCrafting([|MC(FRAGMENT);MC"purple_dye"|],MC"shulker_spawn_egg",1) // TODO nbt (name, loot table)
+    "shulker_box",ShapelessCrafting([|MC(FRAGMENT);MC"chest"|],MC"purple_shulker_box",1)
+    |]
+
+let lootable_recipes = [|
+    // TODO what are other good ones?
+    [MC"daylight_sensor"]
+    [for c in MC_Constants.COLORS do yield MC(c+"_stained_glass")]
+    |] // init: takes these recipes; loot tables for dungeons etc have rare chance to give KB with the set
+// TODO parent-prerequisites
+let custom_unlocking_recipes = [|
+    // recipe name, ingredients in addition to fragment, recipes granted, TODO-name-of-knowledge-book
+    "unlock_stone_tools", [MC"cobblestone"], [MC"stone_pickaxe";MC"stone_axe";MC"stone_shovel";MC"stone_sword"]
+    "unlock_iron_tools", [MC"iron_ingot"], [MC"iron_pickaxe";MC"iron_axe";MC"iron_shovel";MC"iron_sword"]
+    "unlock_diamond_tools", [MC"diamond"], [MC"diamond_pickaxe";MC"diamond_axe";MC"diamond_shovel";MC"diamond_sword"]
+    "unlock_iron_armor", [MC"iron_block"], [MC"iron_helmet";MC"iron_chestplate";MC"iron_leggings";MC"iron_boots"]
+    "unlock_diamond_armor", [MC"diamond_block"], [MC"diamond_helmet";MC"diamond_chestplate";MC"diamond_leggings";MC"diamond_boots"]
+    "unlock_bow", [MC"stick"], [MC"bow"]
+    "unlock_fishing_rod", [MC"string"], [MC"fishing_rod"]
+    "unlock_hoes", [MC"cobblestone";MC"iron_ingot";MC"gold_ingot"], [MC"wooden_hoe";MC"stone_hoe";MC"iron_hoe";MC"gold_hoe";MC"diamond_hoe"]
+    "unlock_bone_meal", [MC"bone"], [MC"bone_meal"]
+    "unlock_bed", [MC"white_wool"], [for c in MC_Constants.COLORS do yield MC(c+"_bed")]
+    "unlock_anvil", [MC"iron_ingot";MC"iron_ingot";MC"iron_ingot"], [MC"anvil"]
+    "unlock_piston", [MC"redstone"], [MC"piston"]
+    "unlock_enchanting_table", [MC"book"], [MC"enchanting_table"]
+    "unlock_bucket", [MC"glass_bottle"], [MC"bucket"]
+    |]
+//for recipe_name, _ingredients, knowledge_grants in custom_unlocking_recipes do
+    // init: for r in knowledge_grants do /recipe take @p r
+    // author advancement: trigger: recipe_unlocked, recipes: knowledge_grants.[0], rewards: function that "/recipe take @p recipe_name" and also "/recipe give @p child_recipe"
+    // author recipe, once knowledge_book nbt is possible
+
+
+// TODO parent-prerequisites logic
+// init: grant all with no parents (elsewhere advancement unlocks children)
+
+
+(*
+loot table design changes:
+
+abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_temple and nether_bridge:
+ - iron ingots -> iron nuggets
+ - gold_ingots -> gold_nuggets
+ - bucket -> glass or maybe one of the random lootable_recipes?
+
+ could basically do a search&replace in the file, and add one more to 'pools' for the rare extra
+
+*)
+

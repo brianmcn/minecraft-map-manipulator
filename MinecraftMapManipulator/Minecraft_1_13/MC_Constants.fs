@@ -1,5 +1,24 @@
 ﻿module MC_Constants
 
+let COLORS = [|
+    "white"
+    "orange"
+    "magenta"
+    "light_blue"
+    "yellow"
+    "lime"
+    "pink"
+    "gray"
+    "light_gray"
+    "cyan"
+    "purple"
+    "blue"
+    "brown"
+    "green"
+    "red"
+    "black"
+    |]
+
 let ALL_GIVEABLE_ITEM_IDS = [|
     "stone"
     "granite"
@@ -1007,5 +1026,5 @@ let main() =
             yield sprintf "fill %d %d %d %d %d %d air" X y (Z-2) biggest_x y (biggest_z+1)
         |])
 
-
+        // TODO come up with a decent way to test it
 // invulnerable item frame can hold name item, survival player cannot break or retrieve (unless break block behind)
