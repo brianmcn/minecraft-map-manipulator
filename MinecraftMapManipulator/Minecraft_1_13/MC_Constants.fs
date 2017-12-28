@@ -844,6 +844,18 @@ let partitionItemList(items) =
     after_suf.Add(1, remaining)
     Array.append (after_pre.ToArray()) (after_suf.ToArray())
 
+// TODO change this
+let rec compile(s:string) =
+    let i = s.IndexOf("$SCORE(")
+    if i <> -1 then
+        let j = s.IndexOf(')',i)
+        let info = s.Substring(i+7,j-i-7)
+        let s = s.Remove(i,j-i+1)
+        let s = s.Insert(i,sprintf "@p[scores={%s}]" info)
+        compile(s)
+    else
+        s.Replace("$ENTITY","@p")
+
 let main() =
     let r = partitionItemList(SURVIVAL_OBTAINABLE_ITEM_IDS)
     let show = true
@@ -860,6 +872,37 @@ let main() =
             else
                 printfn "%4d = %3dx%3d = 4x%3d" a.Length n (a.Length/n) ((a.Length+3)/4)
     printfn "%d total items" SURVIVAL_OBTAINABLE_ITEM_IDS.Length 
+
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "testflattening")
+    Utilities.writeDatapackMeta(world,"QFE","qfe")
+    Utilities.writeFunctionToDisk(world,"QFE","qfe","init",[|
+        yield sprintf "scoreboard objectives add gotAnItem dummy"
+        yield sprintf "scoreboard objectives add Items dummy"
+        yield sprintf "scoreboard objectives add qfeIsOn dummy"
+        for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
+            yield sprintf "scoreboard objectives add notYet%03d dummy" i
+        yield sprintf "scoreboard players set @p Items 0"
+        yield sprintf "scoreboard players set $ENTITY qfeIsOn 0"    // clickable sign toggles
+        for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
+            yield sprintf "scoreboard players set $ENTITY notYet%03d 1" i
+        |] |> Array.map compile)
+    Utilities.writeFunctionToDisk(world,"QFE","qfe","tick",[|
+        "execute if entity $SCORE(qfeIsOn=1) run function qfe:main"
+        |] |> Array.map compile)
+    Utilities.writeFunctionToDisk(world,"QFE","qfe","main",[|
+        for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
+            yield sprintf "execute if entity $SCORE(notYet%03d=1) run function qfe:check%03d" i i
+        |] |> Array.map compile)
+    let itemNum = ref 1
+    let check(itemName, x, y, z) =
+        Utilities.writeFunctionToDisk(world,"QFE","qfe",sprintf"check%03d"!itemNum,[|
+            yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
+            yield sprintf "execute store success score $ENTITY gotAnItem run clear @p %s 1" itemName // todo multiplayer
+            yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players set $ENTITY notYet%03d 0" !itemNum
+            yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players add @p Items 1"
+            yield sprintf "execute if entity $SCORE(gotAnItem=1) run setblock %d %d %d emerald_block" x y z
+        |] |> Array.map compile)
+        itemNum := !itemNum + 1
 
     let groups = r |> Array.map snd
     let X = 250
@@ -878,7 +921,8 @@ let main() =
     while i < data.Length do
         let item = data.[i]
         wall1commands.Add(sprintf "setblock %d %d %d redstone_block" x y z)
-        wall1commands.Add(sprintf """summon item_frame %d %d %d {Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" (x+1) y z FACING item item)
+        wall1commands.Add(sprintf """summon item_frame %d %d %d {Invulnerable:1b,Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" (x+1) y z FACING item item)
+        check(item,x,y,z)
         i <- i + 1
         y <- y - 1
         if y<Y then 
@@ -904,7 +948,8 @@ let main() =
     while i < data.Length do
         let item = data.[i]
         wall2commands.Add(sprintf "setblock %d %d %d redstone_block" x y z)
-        wall2commands.Add(sprintf """summon item_frame %d %d %d {Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" x y (z+1) FACING item item)
+        wall2commands.Add(sprintf """summon item_frame %d %d %d {Invulnerable:1b,Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" x y (z+1) FACING item item)
+        check(item,x,y,z)
         i <- i + 1
         y <- y - 1
         if y<Y then 
@@ -925,7 +970,8 @@ let main() =
     while i < data.Length do
         let item = data.[i]
         wall3commands.Add(sprintf "setblock %d %d %d redstone_block" x y z)
-        wall3commands.Add(sprintf """summon item_frame %d %d %d {Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" (x-1) y z FACING item item)
+        wall3commands.Add(sprintf """summon item_frame %d %d %d {Invulnerable:1b,Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" (x-1) y z FACING item item)
+        check(item,x,y,z)
         i <- i + 1
         y <- y - 1
         if y<Y then 
@@ -944,17 +990,14 @@ let main() =
     while i < data.Length do
         let item = data.[i]
         wall4commands.Add(sprintf "setblock %d %d %d redstone_block" x y z)
-        wall4commands.Add(sprintf """summon item_frame %d %d %d {Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" x y (z-1) FACING item item)
+        wall4commands.Add(sprintf """summon item_frame %d %d %d {Invulnerable:1b,Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" x y (z-1) FACING item item)
+        check(item,x,y,z)
         i <- i + 1
         y <- y - 1
         if y<Y then 
             y <- Y+3
             x <- x-1
 
-
-
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "testflattening")
-    Utilities.writeDatapackMeta(world,"QFE","qfe")
     Utilities.writeFunctionToDisk(world,"QFE","qfe","wall1",wall1commands.ToArray())
     Utilities.writeFunctionToDisk(world,"QFE","qfe","wall2",wall2commands.ToArray())
     Utilities.writeFunctionToDisk(world,"QFE","qfe","wall3",wall3commands.ToArray())
