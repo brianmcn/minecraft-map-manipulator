@@ -920,6 +920,8 @@ let main() =
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players set $ENTITY notYet%03d 0" !itemNum
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players add @p Items 1"
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run setblock %d %d %d emerald_block" x y z
+            // TODO line above doesn't work if chunks unloaded... maybe better strategy is not to have it ever 'always running', and instead you can manually
+            // 'tick' it by clicking a sign in the qfe lobby (and chunks are near you and loaded)
         |] |> Array.map compile)
         itemNum := !itemNum + 1
 

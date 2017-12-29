@@ -230,6 +230,7 @@ let custom_unlocking_recipes = [|
 // TODO parent-prerequisites logic
 // init: grant all with no parents (elsewhere advancement unlocks children)
 
+// TODO datapack that replaces igloo, and then daapack disables once igloo pre-reqs met
 
 (*
 loot table design changes:
@@ -243,3 +244,9 @@ abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_templ
 
 *)
 
+
+// TODO tree auto-chopper thingy? gold axe plus 3 diamonds = special unrepairable gold axe?
+
+// TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find?)
+
+// TODO vanilla swirl all-seeing eye (any others?)

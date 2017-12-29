@@ -92,6 +92,7 @@ let main argv =
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
-    MC_Constants.main()
+    //MC_Constants.main()
+    WarpPoints.main()
     ignore argv
     0
