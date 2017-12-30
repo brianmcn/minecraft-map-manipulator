@@ -140,25 +140,44 @@ that is, find the nearest wp, only looking nearby, and if found, do whatever... 
 //  - the coords of the WP are stored in the scoreboard, so the TP hub sign can warp to there, e.g. 
 //     - function warp_to_wp4 looks up wp4x wp4y wp4z summons temp entity, stores Pos[] to there, tp player to the entity; wpny are init to -1 for all n, to tell which are used already
 //  - some kind of sound plays, probably text in chat or title screen announcing name of created WP
-(*
+let creation_functions = [|
+    yield "init",[|
+        yield "kill @e[tag=wp]"
+        yield "scoreboard objectives add found dummy"
+        yield "scoreboard objectives add spawnBat minecraft.used:minecraft.bat_spawn_egg"
+        for i = 1 to WP_MAX do
+            yield sprintf "scoreboard objectives add wp%dx dummy" i
+            yield sprintf "scoreboard objectives add wp%dy dummy" i
+            yield sprintf "scoreboard objectives add wp%dz dummy" i
+            yield sprintf "scoreboard players set $ENTITY wp%dy -1" i
+        yield """give @p bat_spawn_egg{EntityTag:{Tags:["cwpBat"]}} 1"""  // TODO remove
+        |]
+    yield "tick",[|
+        "execute at @p[scores={spawnBat=1..}] as @e[tag=cwpBat,sort=nearest,distance=..10,limit=1] at @s run function wp:create_new_warp_point"
+        |]
+    yield "create_new_warp_point",[|
+        yield "scoreboard players set @a spawnBat 0"
+        yield "scoreboard players set $ENTITY found 0"
+        for i = 1 to WP_MAX do
+            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:0b,NoGravity:1b,Invulnerable:1b,CustomName:"Warp",Tags:["wp","wp%d"]}""" i i
+            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
+        yield "say @s"
+        yield "kill @s"
+        |]
+    for i = 1 to WP_MAX do
+        yield sprintf "create_new_warp_point_coda%d" i, [|
+            "execute align xyz offset ~0.5 ~0.0 ~0.5 run teleport @s ~ ~ ~"
+            sprintf "execute store result score $ENTITY wp%dx run data get entity @s Pos[0] 1.0" i
+            sprintf "execute store result score $ENTITY wp%dy run data get entity @s Pos[1] 1.0" i
+            sprintf "execute store result score $ENTITY wp%dz run data get entity @s Pos[2] 1.0" i
+            // TODO play a sound
+            // TODO display a title
+            """scoreboard players set $ENTITY found 1"""
+            |]
+    |]
 
-tick:
-// could stats detect e.g. /scoreboard objectives add fjkdh minecraft.used:minecraft.bat_spawn_egg
-execute at @p as @e[tag=summonedViaEggGuy,sort=nearest,distance=..7,limit=1] at @s run function create_new_warp_point
-
-create_new_warp_point:
-scoreboard players set $ENTITY found 0
-for i = 1 to WP_MAX do
-    execute unless entity $SCORE(found=1) unless entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {... Tags:["wp","wp%d","newwp"]}
-    execute unless entity $SCORE(found=1) unless entity $SCORE(wp%dy=-1) run scoreboard players set $ENTITY found 1
-    execute as @e[tag=newwp] run function create_new_warp_point_coda%d
-
-    create_new_warp_point_coda%d:
-        tag @s remove newwp
-        execute align xyz offset ~0.5 ~0.0 ~0.5 run teleport @s ~ ~ ~
-        execute store result score $ENTITY wp%dx 1.0 run data get entity @s Pos[0] 1.0
-        execute store result score $ENTITY wp%dy 1.0 run data get entity @s Pos[1] 1.0
-        execute store result score $ENTITY wp%dz 1.0 run data get entity @s Pos[2] 1.0
-        // TODO play a sound
-        // TODO display a title
-*)
+let wp_c_main() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
+    Utilities.writeDatapackMeta(world,"wp_pack","warp points")
+    for name,code in creation_functions do
+        Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY

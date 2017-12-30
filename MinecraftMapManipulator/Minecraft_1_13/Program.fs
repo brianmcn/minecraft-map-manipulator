@@ -94,6 +94,7 @@ let main argv =
     //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
     //WarpPoints.main()
-    EandT_S11.tc_main()
+    WarpPoints.wp_c_main()
+    //EandT_S11.tc_main()
     ignore argv
     0

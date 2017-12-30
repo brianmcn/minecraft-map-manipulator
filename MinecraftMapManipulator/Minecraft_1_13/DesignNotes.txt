@@ -30,7 +30,7 @@ small program ideas:
  (possibly see http://jragoncommands.weebly.com/tutorials.html for ideas)
  general topic-area list
   - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
-  - a sense of the bounds; some things are possible, and some things are not... the bounds are kinda arbitrary and must be learned through experience
+  - a sense of the bounds; some things are possible, and some things are not (e.g. coords of block last mined)... the bounds are kinda arbitrary and must be learned through experience
   - setup (see prev series; stuff like f3, keyboard shortcuts, gamemodes, F3+N, how to make rr world, ...)
   - sender (who) and location (where) and function/command (what).... execute as pig say hi; execute at cow setblock stone (is there a good something other than 'say' that differs by 'who'? yes, facing ^ ^ ^1, maybe also 'read my health' or something)
        yeah, imagining in first episode typing commands to summon a NoAI pig, a NoAI horse with a different rotation, and then running commands like function say_health as them or setblock at them
