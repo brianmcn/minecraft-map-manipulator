@@ -245,8 +245,85 @@ abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_templ
 *)
 
 
-// TODO tree auto-chopper thingy? gold axe plus 3 diamonds = special unrepairable gold axe?
+// TODO tree auto-chopper thingy? gold axe plus 3 diamonds = special unrepairable : {Item:{tag:{RepairCost:2147483647}}} gold axe?  or ought it be findable rare item rather than a recipe? or require a fragment?
+// TODO similarly vein-miner for mining (recipe?), or possibly 3x3 miner?
+// TODO vaguely similar, 'reap' where a hoe can re-plant seeds while harvesting
+
+// impossible to implement treecapitator 'right' (can't know what block player just mined), so find a way that's efficient approximation and not exploitable:
+let LOGS = [| "acacia_log"; "oak_log"; "spruce_log"; "jungle_log"; "dark_oak_log"; "birch_log" |]
+let TREE_DIRS = [|
+    // 8 dirs on this level
+    "~00 ~00 ~01"
+    "~01 ~00 ~01"
+    "~01 ~00 ~00"
+    "~01 ~00 ~-1"
+    "~00 ~00 ~-1"
+    "~-1 ~00 ~-1"
+    "~-1 ~00 ~00"
+    "~-1 ~00 ~01"
+    // 8 dirs on next level
+    "~00 ~01 ~01"
+    "~01 ~01 ~01"
+    "~01 ~01 ~00"
+    "~01 ~01 ~-1"
+    "~00 ~01 ~-1"
+    "~-1 ~01 ~-1"
+    "~-1 ~01 ~00"
+    "~-1 ~01 ~01"
+    // above
+    "~00 ~01 ~00"
+    |]
+let treecapitator_functions = [|
+    yield "init",[|
+        yield "scoreboard objectives add isHoldingTC dummy"
+        yield "scoreboard objectives add wasHoldingTC dummy"
+        yield "scoreboard objectives add remainTC dummy"
+        for b in LOGS do
+            yield sprintf "scoreboard objectives add %sTC minecraft.mined:minecraft.%s" b b
+        |]
+    yield "tick",[|
+        "scoreboard players set @a isHoldingTC 0"
+        "scoreboard players set @a[nbt={SelectedItem:{tag:{TC:1}}}] isHoldingTC 1"  // TODO pick a real item tag
+        "execute as @a[scores={isHoldingTC=1,wasHoldingTC=0}] run function tc:reset_stats"
+        "execute as @a run scoreboard players operation @s wasHoldingTC = @s isHoldingTC"
+        "execute as @a[scores={isHoldingTC=1}] run function tc:check_mined"
+        |]
+    yield "reset_stats",[|
+        for b in LOGS do
+            yield sprintf "scoreboard players set @s %sTC 0" b
+        |]
+    yield "check_mined",[|
+        for b in LOGS do
+            yield sprintf """execute if entity @s[scores={%sTC=1..}] at @s at @e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"}}] run function tc:chop_start_%s""" b b b
+        |]
+    for b in LOGS do
+        yield sprintf "chop_start_%s" b,[|
+            "scoreboard players set @s remainTC 500"  // TODO appropriate limit?
+            sprintf "function tc:chop_check_%s" b
+            "function tc:reset_stats"
+            |]
+        yield sprintf "chop_check_%s" b,[|
+            sprintf "execute if entity @s[scores={remainTC=1..}] run function tc:chop_body_%s" b
+            |]
+        yield sprintf "chop_body_%s" b,[|
+            yield "setblock ~ ~ ~ air destroy"
+            yield "scoreboard players remove @s remainTC 1"
+            for dir in TREE_DIRS do
+                yield sprintf "execute offset %s if block ~ ~ ~ %s run function tc:chop_check_%s" dir b b
+            |]
+    |]
+let tc_main() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
+    Utilities.writeDatapackMeta(world,"tree_chop","chop trees")
+    for name,code in treecapitator_functions do
+        Utilities.writeFunctionToDisk(world,"tree_chop","tc",name,code)
+
 
 // TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find?)
 
 // TODO vanilla swirl all-seeing eye (any others?)
+
+// TODO desire lines?
+
+// TODO how to communicate initial (and permanent, e.g. furnace craft) limitations to player at start or along way?  
+// what is right way to communicate deviations from vanilla without giving eveything away and taking away mystery?
