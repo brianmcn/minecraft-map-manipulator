@@ -28,7 +28,7 @@ let quickstack_functions = [|
         yield "scoreboard objectives add numMoved dummy"
         yield "scoreboard objectives add toSet dummy"
         |]
-    for name,nbt,range in ["ender","EnderItems", [0..26]; "inv","Inventory",[9..35]] do
+    for name,nbt,range in ["ender","EnderItems", [0..26]; "inv","Inventory",[0..35]] do  // note - must be 0..35 because e.g. Inventory[5] might be Slot:22b if lots of empy hotbar/inventory
         yield sprintf "compute_%s_counts" name,[|
             for i in range do
                 yield sprintf "scoreboard players set $ENTITY %sslot%d 0" name i
@@ -49,11 +49,13 @@ let quickstack_functions = [|
             |]
         *)
         yield "check_cobblestone", [|
+                """execute if entity @p[nbt={EnderItems:[{id:"minecraft:cobblestone"}]}] run function qs:check_cobblestone_body"""
+            |]
+        yield "check_cobblestone_body", [|
             // TODO this won't stack X into empty spaces before the first X - bug or feature?
             yield "scoreboard players set $ENTITY hasItem 0"
             for i = 0 to 26 do
                 yield "scoreboard players set $ENTITY space 0"
-                // TODO efficiency?
                 yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:cobblestone"}]}] run scoreboard players set $ENTITY hasItem 1""" i
                 yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:cobblestone"}]}] run scoreboard players set $ENTITY space 64""" i
                 yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:cobblestone"}]}] run scoreboard players operation $ENTITY space -= $ENTITY enderslot%d""" i i
@@ -68,7 +70,6 @@ let quickstack_functions = [|
             |]
         for i = 9 to 35 do
             yield sprintf "mv/move_cobblestone_from_%d" i, [|
-                sprintf "say mcf%d" i
                 // numMoved = min(space,invslot)
                 sprintf "scoreboard players operation $ENTITY numMoved = $ENTITY space"
                 sprintf "scoreboard players operation $ENTITY numMoved < $ENTITY invslot%d" i
@@ -113,6 +114,9 @@ let quickstack_functions = [|
     |]
 
 let main() =
+    printfn "how many items can safely stack into 64s: %d" MC_Constants.STACKABLE_TO_64_ITEM_IDS.Length  
+    for s in MC_Constants.STACKABLE_TO_64_ITEM_IDS do
+        printfn "%s" s
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
     Utilities.writeDatapackMeta(world,"qspack","quick stack")
     for name,code in quickstack_functions do
