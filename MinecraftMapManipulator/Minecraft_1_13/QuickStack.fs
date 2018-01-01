@@ -22,6 +22,7 @@ let quickstack_functions = [|
         yield "scoreboard objectives add slot dummy"
         yield "scoreboard objectives add count dummy"
         //
+        yield "scoreboard objectives add hasItem dummy"
         yield "scoreboard objectives add toFill dummy"
         yield "scoreboard objectives add space dummy"
         yield "scoreboard objectives add numMoved dummy"
@@ -41,26 +42,26 @@ let quickstack_functions = [|
             for i in range do
                 yield sprintf "execute if entity $SCORE(succ=1,slot=%d) run scoreboard players operation $ENTITY %sslot%d = $ENTITY count" i name i
             |]
+        (*
         yield sprintf "debug_%s" name, [|
             for i in range do
                 yield sprintf """tellraw @a ["slot %d has ",{"score":{"name":"$ENTITY","objective":"%sslot%d"}}," items"]""" i name i
             |]
-(*
-is there any cobblestone? where is the next slot to store cobblestone, and how much fits?
-set has 0
-for i = 0 to 26 do
-    set space 0
-    if {Slot:%db,id:"minecraft:cobblestone"} then
-        has <- 1
-        if enderslot%d < 64 then
-            space <- 64 - enderslot%d
-    if has && enderslot%d == 0 then
-        space <- 64
-    if space > 0 then
-        toFill <- %d
-        try_to_fill slot %d with <space> more cobble
+        *)
+        yield "check_cobblestone", [|
+            // TODO this won't stack X into empty spaces before the first X - bug or feature?
+            yield "scoreboard players set $ENTITY hasItem 0"
+            for i = 0 to 26 do
+                yield "scoreboard players set $ENTITY space 0"
+                // TODO efficiency?
+                yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:cobblestone"}]}] run scoreboard players set $ENTITY hasItem 1""" i
+                yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:cobblestone"}]}] run scoreboard players set $ENTITY space 64""" i
+                yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:cobblestone"}]}] run scoreboard players operation $ENTITY space -= $ENTITY enderslot%d""" i i
+                yield sprintf """execute if entity $SCORE(hasItem=1,enderslot%d=0) run scoreboard players set $ENTITY space 64""" i
+                yield sprintf """execute if entity $SCORE(space=1..) run scoreboard players set $ENTITY toFill %d""" i
+                yield sprintf """execute if entity $SCORE(space=1..) run function qs:move_cobblestone"""
 
-*)
+            |]
         yield "move_cobblestone", [|  // given a <toFill> (EC slot #) and a <space> (max count that can fit there yet, 64-current), finds some cobble in non-hotbar inv to move to EC slot ToFill
             for i = 9 to 35 do
                 yield sprintf """execute if entity $SCORE(space=1..) if entity @p[nbt={Inventory:[{Slot:%db,id:"minecraft:cobblestone"}]}] run function qs:mv/move_cobblestone_from_%d""" i i
@@ -101,11 +102,14 @@ for i = 0 to 26 do
                 |]
         for i = 0 to 26 do
             yield sprintf "end/set_end%d" i, [| // end[%d] <- toSet
-                // debug
-                yield sprintf """tellraw @a ["set_end%d, toSet=",{"score":{"name":"$ENTITY","objective":"toSet"}}]""" i
                 for n = 1 to 64 do
                     yield sprintf "execute if entity $SCORE(toSet=%d) run replaceitem entity @p enderchest.%d cobblestone %d" n i n
                 |]
+        yield "quick_stack", [|
+            "function qs:compute_ender_counts"
+            "function qs:compute_inv_counts"
+            "function qs:check_cobblestone"
+            |]
     |]
 
 let main() =
