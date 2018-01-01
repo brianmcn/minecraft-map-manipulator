@@ -21,6 +21,11 @@ let quickstack_functions = [|
         yield "scoreboard objectives add succ dummy"
         yield "scoreboard objectives add slot dummy"
         yield "scoreboard objectives add count dummy"
+        //
+        yield "scoreboard objectives add toFill dummy"
+        yield "scoreboard objectives add space dummy"
+        yield "scoreboard objectives add numMoved dummy"
+        yield "scoreboard objectives add toSet dummy"
         |]
     for name,nbt,range in ["ender","EnderItems", [0..26]; "inv","Inventory",[9..35]] do
         yield sprintf "compute_%s_counts" name,[|
@@ -40,15 +45,6 @@ let quickstack_functions = [|
             for i in range do
                 yield sprintf """tellraw @a ["slot %d has ",{"score":{"name":"$ENTITY","objective":"%sslot%d"}}," items"]""" i name i
             |]
-    |]
-
-let main() =
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
-    Utilities.writeDatapackMeta(world,"qspack","quick stack")
-    for name,code in quickstack_functions do
-        Utilities.writeFunctionToDisk(world,"qspack","qs",name,code |> Array.map MC_Constants.compile)
-
-
 (*
 is there any cobblestone? where is the next slot to store cobblestone, and how much fits?
 set has 0
@@ -64,23 +60,58 @@ for i = 0 to 26 do
         toFill <- %d
         try_to_fill slot %d with <space> more cobble
 
-find cobble to move from inv to EC
-for i = 9 to 35 do
-    if space>0 && {Slot:%db,id:"minecraft:cobblestone"} then
-        if invslot%d >= space then
-            replaceitem EC toFill slot to 64
-            replaceItem inv%d to (invslot%d - space)
-            enderslot<whatever> <- 64
-            invslot%d <- (invslot%d - space)
-            space <- 0
-            say (for debugging)
-        if space > 0 then  // 'else' after effects
-            diff <- space - invslot%d
-            replaceitem EC toFill slot add diff
-            replaceItem inv%d to 0
-            enderslot<whatever> <- old+diff
-            invslot%d <- 0
-            space <- space-diff
-            say (for debugging)
-
 *)
+        yield "move_cobblestone", [|  // given a <toFill> (EC slot #) and a <space> (max count that can fit there yet, 64-current), finds some cobble in non-hotbar inv to move to EC slot ToFill
+            for i = 9 to 35 do
+                yield sprintf """execute if entity $SCORE(space=1..) if entity @p[nbt={Inventory:[{Slot:%db,id:"minecraft:cobblestone"}]}] run function qs:mv/move_cobblestone_from_%d""" i i
+            |]
+        for i = 9 to 35 do
+            yield sprintf "mv/move_cobblestone_from_%d" i, [|
+                sprintf "say mcf%d" i
+                // numMoved = min(space,invslot)
+                sprintf "scoreboard players operation $ENTITY numMoved = $ENTITY space"
+                sprintf "scoreboard players operation $ENTITY numMoved < $ENTITY invslot%d" i
+                // update enderchest & data
+                sprintf "function qs:incr_enderslot"
+                // update invdata & inventory
+                sprintf "scoreboard players operation $ENTITY invslot%d -= $ENTITY numMoved" i
+                sprintf "scoreboard players operation $ENTITY toSet = $ENTITY invslot%d" i
+                sprintf "function qs:inv/set_inv%d" i
+                // update remaining space
+                sprintf "scoreboard players operation $ENTITY space -= $ENTITY numMoved"
+                // debug
+                sprintf """tellraw @a ["moved ",{"score":{"name":"$ENTITY","objective":"numMoved"}}," items from inv slot %d to EC slot ",{"score":{"name":"$ENTITY","objective":"toFill"}}]""" i
+                |]
+        yield "incr_enderslot", [| // sets ES[toFill] <- ES[toFill] + numMoved
+            for n = 0 to 64 do
+                yield sprintf "execute if entity $SCORE(numMoved=%d) run function qs:incr/incr_enderslot_by_%d" n n
+            |]
+        for n = 1 to 64 do
+            yield sprintf "incr/incr_enderslot_by_%d" n, [| // sets ES[toFill] <- ES[toFill] + %d
+                for i = 0 to 26 do
+                    yield sprintf "execute if entity $SCORE(toFill=%d) run scoreboard players add $ENTITY enderslot%d %d" i i n
+                    yield sprintf "execute if entity $SCORE(toFill=%d) run scoreboard players operation $ENTITY toSet = $ENTITY enderslot%d" i i
+                    yield sprintf "execute if entity $SCORE(toFill=%d) run function qs:end/set_end%d" i i
+                |]
+        for i = 9 to 35 do
+            yield sprintf "inv/set_inv%d" i, [| // inv[%d] <- toSet
+                yield sprintf "execute if entity $SCORE(toSet=0) run replaceitem entity @p inventory.%d air 1" (i-9)
+                for n = 1 to 63 do
+                    yield sprintf "execute if entity $SCORE(toSet=%d) run replaceitem entity @p inventory.%d cobblestone %d" n (i-9) n
+                |]
+        for i = 0 to 26 do
+            yield sprintf "end/set_end%d" i, [| // end[%d] <- toSet
+                // debug
+                yield sprintf """tellraw @a ["set_end%d, toSet=",{"score":{"name":"$ENTITY","objective":"toSet"}}]""" i
+                for n = 1 to 64 do
+                    yield sprintf "execute if entity $SCORE(toSet=%d) run replaceitem entity @p enderchest.%d cobblestone %d" n i n
+                |]
+    |]
+
+let main() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
+    Utilities.writeDatapackMeta(world,"qspack","quick stack")
+    for name,code in quickstack_functions do
+        Utilities.writeFunctionToDisk(world,"qspack","qs",name,code |> Array.map MC_Constants.compile)
+
+
