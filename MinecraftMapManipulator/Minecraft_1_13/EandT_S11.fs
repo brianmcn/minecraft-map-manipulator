@@ -327,3 +327,7 @@ let tc_main() =
 
 // TODO how to communicate initial (and permanent, e.g. furnace craft) limitations to player at start or along way?  
 // what is right way to communicate deviations from vanilla without giving eveything away and taking away mystery?
+
+
+
+

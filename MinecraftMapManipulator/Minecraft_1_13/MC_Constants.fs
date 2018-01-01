@@ -916,7 +916,7 @@ let main() =
     let check(itemName, x, y, z) =
         Utilities.writeFunctionToDisk(world,"QFE","qfe",sprintf"check%03d"!itemNum,[|
             yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
-            yield sprintf "execute store success score $ENTITY gotAnItem run clear @p %s 1" itemName // todo multiplayer
+            yield sprintf "execute store success score $ENTITY gotAnItem run clear @p %s 1" itemName // todo multiplayer   TODO don't take 1, take 0 (just verify have it)
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players set $ENTITY notYet%03d 0" !itemNum
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players add @p Items 1"
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run setblock %d %d %d emerald_block" x y z
