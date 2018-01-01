@@ -159,6 +159,15 @@ took 7501 milliseconds to run 50000 iterations of
     profileThis("nearby3",       50,1000,1,[],["execute at @p as @e[type=pig,distance=..57,limit=1] run scoreboard players add @p A 1"],[])
 
     
+    // TODO someone suggests that @e[tag=X,type=armor_stand] might be more efficient than @e[tag=X] if limited to a specific chunk/section, so test that
+    // AjaxGb: Essentially, each subchunk (16x16x16) stores a hashmap of type -> list of entities. These hashmaps only get used if you have r or dx/dy/dz in play, so without them type will have no special efficiency.
+    // MrPingouin: r and dx/dy/dz are the same, they both define a bounding box
+    // AjaxGb: Regarding ClassInheritanceMultiMap (entity-by-type) By default, the map only maps the base Entity class. Scanning for entities of a specific class will add a mapping for that class, which will 
+    // be kept up-to-date. Entity selectors only scan for Entity and then do their own filtering afterwards, so no subdivision (or related efficiency improvement/hit) will occur.
+    // Many other systems do cause such subdivisions. For example, hoppers scan for items, so any subchunk with a hopper will have an EntityItem subdivision.
+    // me: since a common place for a hopper is e.g. at a mob farm, so there are lots of entities in a small location, so type filtering the small location is actually a win for that scenario
+
+    // TODO could author tests to dump a bunch of text/numbers, but also have some expected ratios, and print e.g. UNEXPECTED if something is out-of-tolerance, to highlight problems in the text dump
 
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
