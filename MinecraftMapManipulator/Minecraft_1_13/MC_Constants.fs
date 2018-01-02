@@ -1260,3 +1260,69 @@ let ITEMS_THAT_DO_NOT_STACK_TO_64_OR_MIGHT_HAVE_METADATA = [|
     |]
 
 let STACKABLE_TO_64_ITEM_IDS = ALL_GIVEABLE_ITEM_IDS |> Array.filter (fun x -> not(ITEMS_THAT_DO_NOT_STACK_TO_64_OR_MIGHT_HAVE_METADATA |> Array.contains(x)))
+
+// things you may want to quick stack to enderchest in a mining expedition
+let PRAGMATIC_64_STACKABLES = [|
+    "stone"
+    "granite"
+    "diorite"
+    "andesite"
+    "dirt"
+    "cobblestone"
+    "gravel"
+
+    "coal_ore"
+    "iron_ore"
+    "gold_ore"
+    "lapis_ore"
+    "redstone_ore"
+    "diamond_ore"
+    "emerald_ore"
+
+    "coal_block"
+    "iron_block"
+    "gold_block"
+    "lapis_block"
+    "redstone_block"
+    "diamond_block"
+    "emerald_block"
+
+    "coal"
+    "iron_ingot"
+    "gold_ingot"
+    "lapis_lazuli"
+    "redstone"
+    "diamond"
+    "emerald"
+
+    "sand"
+    "red_sand"
+    "sandstone"
+
+    "cobweb"
+    "mossy_cobblestone"
+
+    "white_terracotta"
+    "orange_terracotta"
+    "magenta_terracotta"
+    "light_blue_terracotta"
+    "yellow_terracotta"
+    "lime_terracotta"
+    "pink_terracotta"
+    "gray_terracotta"
+    "light_gray_terracotta"
+    "cyan_terracotta"
+    "purple_terracotta"
+    "blue_terracotta"
+    "brown_terracotta"
+    "green_terracotta"
+    "red_terracotta"
+    "black_terracotta"
+    "terracotta"
+
+    "string"
+    "gunpowder"
+    "flint"
+    "bone"
+    "spider_eye"
+    |]

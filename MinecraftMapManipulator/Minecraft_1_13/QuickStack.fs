@@ -12,7 +12,13 @@
 //  - quick stack to nearby chests (particle animations) - how to invoke? clickable sign?
 // algorithms are complicated and may be expensive, work them out
 
-let STACKABLES = [|"cobblestone";"diorite"|]
+let STACKABLES = [|"cobblestone";"diorite"|]  // TODO run out of RAM with more, test when launcher works to allocate RAM
+//let STACKABLES = MC_Constants.STACKABLE_TO_64_ITEM_IDS
+//let STACKABLES = MC_Constants.PRAGMATIC_64_STACKABLES
+(*
+     Total Files Listed:
+            8201 File(s)     46,004,791 bytes
+*)
 
 let quickstack_functions = [|
     yield "init", [|
@@ -118,13 +124,14 @@ let quickstack_functions = [|
     |]
 
 let main() =
-    printfn "how many items can safely stack into 64s: %d" MC_Constants.STACKABLE_TO_64_ITEM_IDS.Length  
-    for s in MC_Constants.STACKABLE_TO_64_ITEM_IDS do
+    printfn "stackables into 64s: %d" STACKABLES.Length  
+    for s in STACKABLES do
         printfn "%s" s
     // issue: for /replaceitem we need every slot * every stack size * every item, which is 27 * 64 * ~500 ~= 864000 which is probably too many commands...
     // and there's no way to encode/decode item type as scores, since one line of code (/replaceitem) needs all 3 bits explicitly specified (no variables)
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
     Utilities.writeDatapackMeta(world,"qspack","quick stack")
+    printfn "%d functions" quickstack_functions.Length 
     for name,code in quickstack_functions do
         Utilities.writeFunctionToDisk(world,"qspack","qs",name,code |> Array.map MC_Constants.compile)
 

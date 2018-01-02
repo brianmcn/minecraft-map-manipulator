@@ -131,6 +131,26 @@ tp to wherever
 
 that is, find the nearest wp, only looking nearby, and if found, do whatever... this does constantly data merge the AS when nearby, but otherwise is cheap and simple
 *)
+let CLOSE = "1.2"
+let COUNTDOWN = 30
+let nearby_behavior_functions = [|
+    "proc_nearest_wp",[| // run as & at the wp armor_stand
+        yield sprintf "scoreboard players set @p[distance=%s..] countdown %d" CLOSE COUNTDOWN
+        yield "execute unless entity @p[distance=..5] run data merge entity @s {CustomNameVisible:0b}" //,ArmorItems:[{},{},{},{}]}"
+        yield sprintf "execute if entity @p[distance=%s..5] run data merge entity @s {CustomNameVisible:1b}" CLOSE //,ArmorItems:[{},{},{},{id:"minecraft:purple_stained_glass",Count:1b}]}
+        yield sprintf "scoreboard players remove @p[distance=..%s,scores={countdown=1..}] countdown 1" CLOSE
+        for i = 1 to COUNTDOWN do
+            yield sprintf "execute if entity @p[distance=..%s,scores={countdown=%d}] run playsound minecraft:block.note.pling block @p ~ ~ ~ 0.1 %f 0.1" CLOSE i (float(COUNTDOWN-i)*1.5/(float COUNTDOWN)+0.5)
+        yield "particle minecraft:falling_dust purpur_block ~ ~1.5 ~ 0.25 0.5 0.25 1 1 force"
+        yield sprintf "execute as @p[distance=..%s,scores={countdown=0}] run function wp:do_teleport" CLOSE
+        |]
+    "do_teleport",[|
+        sprintf "data merge entity @e[tag=wp,distance=..%s,sort=nearest,limit=1] {CustomNameVisible:0b}" CLOSE //,ArmorItems:[{},{},{},{}]}
+        // TODO
+        "teleport @p ~ ~5 ~5"
+        |]
+    |]
+
 // Creation: 
 //  - a player places a custom spawn egg (crafted out of some rare ingredient or whatnot) or maybe an enchanted bedrock item (stat placed "/scoreboard objectives add fdjkhds minecraft.used:minecraft.bedrock", SelectedItem to ensure was magic one... but then how find location? raycast to it? prob a tick later after stat...)
 //  - this gets detected (e.g. via stats or SelectedItem to know to check this tick, and then finding the spawned entity with @e for a location) (TODO only in overworld? how detect? guess could put a cmd block at 0,0,0 in overworld and then 'execute if block 0 0 0 command_block run say in overworld')
@@ -151,15 +171,19 @@ let creation_functions = [|
             yield sprintf "scoreboard objectives add wp%dz dummy" i
             yield sprintf "scoreboard players set $ENTITY wp%dy -1" i
         yield """give @p bat_spawn_egg{EntityTag:{Tags:["cwpBat"]}} 1"""  // TODO remove
+        // nearby_behavior
+        yield "scoreboard objectives add countdown dummy"
         |]
     yield "tick",[|
         "execute at @p[scores={spawnBat=1..}] as @e[tag=cwpBat,sort=nearest,distance=..10,limit=1] at @s run function wp:create_new_warp_point"
+        // nearby_behavior
+        "execute at @p as @e[tag=wp,sort=nearest,distance=..7,limit=1] at @s run function wp:proc_nearest_wp"
         |]
     yield "create_new_warp_point",[|
         yield "scoreboard players set @a spawnBat 0"
         yield "scoreboard players set $ENTITY found 0"
         for i = 1 to WP_MAX do
-            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:0b,NoGravity:1b,Invulnerable:1b,CustomName:"Warp",Tags:["wp","wp%d"]}""" i i
+            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"Warp",Tags:["wp","wp%d"]}""" i i
             yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
         yield "say @s"
         yield "kill @s"
@@ -180,4 +204,6 @@ let wp_c_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
     Utilities.writeDatapackMeta(world,"wp_pack","warp points")
     for name,code in creation_functions do
+        Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
+    for name,code in nearby_behavior_functions do
         Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
