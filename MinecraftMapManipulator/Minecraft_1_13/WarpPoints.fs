@@ -20,14 +20,14 @@ for i = 1 to WP_MAX do
 // maybe each time you arrive the book and the warp signs and sea lanterns and barriers are replaced, so in case you screw up and break one it comes back? only has text on signs for warp points you've created?
 // folks can 'redecorate' by replacing stone or air, but not change sign locations, sea lanterns
 
-let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold =
+let placeWallSignCmds prefix x y z facing txt1 txt2 txt3 txt4 cmd isBold =
     if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
     let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") (if isBold then "black" else "gray")
     let c1 = if isBold && (cmd<>null) then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
     [|
-        sprintf "setblock %d %d %d air" x y z
-        sprintf """setblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" 
-                    x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
+        sprintf "%ssetblock %d %d %d air" prefix x y z
+        sprintf """%ssetblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" 
+                    prefix x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
     |]
 
 // corner of interior
@@ -40,97 +40,36 @@ let WP_LOBBY_LENGTH = WP_MAX/2 + 4
 let WP_LOBBY_WIDTH = 5
 let WP_LOBBY_HEIGHT = 4
 let lobby_functions = [|
-    "init_stone_lobby", [|
+    yield "init_stone_lobby", [|
         sprintf "fill %d %d %d %d %d %d air" (WP_X-1) (WP_Y-1) (WP_Z-1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+WP_LOBBY_HEIGHT) (WP_Z+WP_LOBBY_WIDTH)
         sprintf "fill %d %d %d %d %d %d stone hollow" (WP_X-1) (WP_Y-1) (WP_Z-1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+WP_LOBBY_HEIGHT) (WP_Z+WP_LOBBY_WIDTH)
         |]
-    "recreate_lobby_essentials", [|
+    yield "recreate_lobby_essentials", [|
         yield sprintf "fill %d %d %d %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z-1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z-1)
         for i = 0 to (WP_MAX-1)/2 do
-            // TODO conditional text on signs, TODO clickable function
-            yield! placeWallSignCmds (WP_X+4+i) (WP_Y+1) (WP_Z) "south" "WARP TO" "" "Warp Point" (sprintf"%d"(i+1)) "say click" true
-            yield! placeWallSignCmds (WP_X+4+i) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH-1) "north" "WARP TO" "" "Warp Point" (sprintf"%d"(WP_MAX-i)) "say click" true
+            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=0..) run "(i+1)) (WP_X+4+i) (WP_Y+1) (WP_Z) "south" "WARP TO" "" "Warp Point" (sprintf"%d"(i+1)) (sprintf"function wp:warp_to_wp%d"(i+1)) true
+            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=0..) run "(WP_MAX-i)) (WP_X+4+i) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH-1) "north" "WARP TO" "" "Warp Point" (sprintf"%d"(WP_MAX-i)) (sprintf"function wp:warp_to_wp%d"(WP_MAX-i)) true
+            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=-1) run "(i+1)) (WP_X+4+i) (WP_Y+1) (WP_Z) "south" "(not yet made)" "" "Warp Point" (sprintf"%d"(i+1)) (sprintf"function wp:warp_to_wp%d"(i+1)) false
+            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=-1) run "(WP_MAX-i)) (WP_X+4+i) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH-1) "north" "(not yet made)" "" "Warp Point" (sprintf"%d"(WP_MAX-i)) (sprintf"function wp:warp_to_wp%d"(WP_MAX-i)) false
         yield sprintf "fill %d %d %d %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH+1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH)
         yield sprintf "setblock %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2)
         yield sprintf "setblock %d %d %d sea_lantern" (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2)
         // TODO clickable function
-        yield! placeWallSignCmds (WP_X+WP_LOBBY_LENGTH) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2) "west" "WARP TO" "Quest for" "Everything" "Lobby" "say click" true
+        yield! placeWallSignCmds "" (WP_X+WP_LOBBY_LENGTH) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2) "west" "WARP TO" "Quest for" "Everything" "Lobby" "say click" true
         // TODO item frame with written book explaining it
         |]
+    for i = 1 to WP_MAX do
+        yield sprintf "warp_to_wp%d" i,[|
+            """summon area_effect_cloud ~ ~ ~ {Duration:1,Tags:["tempaec"]}"""
+            sprintf "execute store result entity @e[tag=tempaec,limit=1] Pos[0] double 1.0 run scoreboard players get $ENTITY wp%dx" i
+            sprintf "execute store result entity @e[tag=tempaec,limit=1] Pos[1] double 1.0 run scoreboard players get $ENTITY wp%dy" i
+            sprintf "execute store result entity @e[tag=tempaec,limit=1] Pos[2] double 1.0 run scoreboard players get $ENTITY wp%dz" i
+            "teleport @s @e[tag=tempaec,limit=1]"
+            |]
     |]
 
-let main() =
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
-    Utilities.writeDatapackMeta(world,"wp_pack","warp points")
-    for name,code in lobby_functions do
-        Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code)
-
-
 // WP is a location in the world.  There will be an invisible permanent armor stand there.  
-// TODO should it be end_gateway? probably not, one issue is, how to tp 'back'... without a cooldown, you just end up in an infinite tp loop... also entities can use end_gateways, so creeper could come through...
-// Behavior:
-//  - once the player gets close enough... ("at @p if entity @e[tag=wp,distance=..6]")
-//      - text pops up with name of location and glass box appears (always was CustomName:"WP4", but CustomNameVisible:1b and ArmorItems:[{},{},{},{id:"minecraft:purple_stained_glass",Count:1b}])
-//      - if they travel further away (how to efficiently detect and poke?  i guess another larger distance range, like 6.1..8.0) or tp away, CNV and AI should change back
-//          - maybe I should uuid all the WP armor_stands, so they're "cheap" to address, then each one can have a 'tick' function with "execute as 1-1-1-0-4 run function tick_wp_4" and only does work when loaded
-//  - once the player gets really close... (distance=..2?)
-//      - a countdown starts, so if they stay there for 2 or 3 seconds, they get teleported to the hub (known permanently fixed coords)
-//      - if they leave the 'closer' radius, the countdown is reset (this is useful to prevent accidental tps when walking by/through, as well as to prevent re-tp when tping from the hub)
-(*
-state machine: 0=faraway, 1=closer, 2=very close
-
-note: some of this logic fails if two wps are placed within a few blocks of each other
-
-tick:
-execute if @p[scores={state=0}] at @p as @e[tag=wp,distance=..5] run function getting_close
-execute if @p[scores={state=1}] at @p as @e[tag=wp,distance=5..7] run function getting_far
-execute if @p[scores={state=0..1}] at @p as @e[tag=wp,distance=..2] run function getting_very_close
-execute if @p[scores={state=2}] at @p as @e[tag=wp,distance=2..] run function leaving_very_close
-scoreboard players remove @p[scores={state=2,countdown=1..}] countdown 1
-exeute as @p[scores={state=2,countdown=0}] run function do_teleport
-
-getting_close:
-data merge entity @s {CustomNameVisible:1b,ArmorItems:[{},{},{},{id:"minecraft:purple_stained_glass",Count:1b}]}
-scoreboard players set @p state 1
-
-getting_far:
-data merge entity @s {CustomNameVisible:0b,ArmorItems:[{},{},{},{}]}
-scoreboard players set @p state 0
-
-getting_very_close:
-scoreboard players set @p countdown 60
-scoreboard players set @p state 2
-
-leaving_very_close:
-scoreboard players set @p countdown 60
-scoreboard players set @p state 1
-
-do_teleport:
-data merge entity @e[tag=wp,distance=..2,sort-nearest,limit=1] {CustomNameVisible:0b,ArmorItems:[{},{},{},{}]}
-tp to wherever
-
-OR
-
-I can get rid of the state machine, and do something like
-
-tick:
-execute at @p as @e[tag=wp,sort=nearest,distance=..7,limit=1] at @s run function proc_nearest_wp
-
-proc_nearest_wp:
-scoreboard players set @p[distance=2..] countdown 60
-execute if entity @p[distance=5..] run data merge entity @s {CustomNameVisible:0b,ArmorItems:[{},{},{},{}]}
-execute if entity @p[distance=2..5] run data merge entity @s {CustomNameVisible:1b,ArmorItems:[{},{},{},{id:"minecraft:purple_stained_glass",Count:1b}]}
-scoreboard players remove @p[distance=..2,scores={countdown=1..}] countdown 1
-// consider optionally playing a build-up sound while counting down for audio feedback
-// consider optionally making particles then too, this looks good on repeat:  particle minecraft:falling_dust purpur_block ~ ~1.5 ~4 0.25 0.5 0.25 1 1 force
-execute as @p[distance=..2,scores={countdown=0}] run function do_teleport
-
-do_teleport:
-data merge entity @e[tag=wp,distance=..2,sort-nearest,limit=1] {CustomNameVisible:0b,ArmorItems:[{},{},{},{}]}
-tp to wherever
-
-that is, find the nearest wp, only looking nearby, and if found, do whatever... this does constantly data merge the AS when nearby, but otherwise is cheap and simple
-*)
+// should it be end_gateway? probably not, one issue is, how to tp 'back'... without a cooldown, you just end up in an infinite tp loop... also entities can use end_gateways, so creeper could come through...
 let CLOSE = "1.2"
 let COUNTDOWN = 30
 let nearby_behavior_functions = [|
@@ -146,8 +85,10 @@ let nearby_behavior_functions = [|
         |]
     "do_teleport",[|
         sprintf "data merge entity @e[tag=wp,distance=..%s,sort=nearest,limit=1] {CustomNameVisible:0b}" CLOSE //,ArmorItems:[{},{},{},{}]}
-        // TODO
-        "teleport @p ~ ~5 ~5"
+        sprintf "scoreboard players set @p countdown %d" (COUNTDOWN*2)
+        "tag @p add justSentToLobby"
+        sprintf "teleport @p %d %d %d 0 90" (WP_X+2) WP_Y (WP_Z+2)
+
         |]
     |]
 
@@ -178,12 +119,14 @@ let creation_functions = [|
         "execute at @p[scores={spawnBat=1..}] as @e[tag=cwpBat,sort=nearest,distance=..10,limit=1] at @s run function wp:create_new_warp_point"
         // nearby_behavior
         "execute at @p as @e[tag=wp,sort=nearest,distance=..7,limit=1] at @s run function wp:proc_nearest_wp"
+        "execute at @p[tag=justSentToLobby] run function wp:recreate_lobby_essentials"
+        "tag @p[tag=justSentToLobby] remove justSentToLobby"
         |]
     yield "create_new_warp_point",[|
         yield "scoreboard players set @a spawnBat 0"
         yield "scoreboard players set $ENTITY found 0"
         for i = 1 to WP_MAX do
-            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"Warp",Tags:["wp","wp%d"]}""" i i
+            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"Warp %d",Tags:["wp","wp%d"]}""" i i i
             yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
         yield "say @s"
         yield "kill @s"
@@ -206,4 +149,6 @@ let wp_c_main() =
     for name,code in creation_functions do
         Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
     for name,code in nearby_behavior_functions do
+        Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
+    for name,code in lobby_functions do
         Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
