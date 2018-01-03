@@ -89,11 +89,10 @@ let throwable_light() =
 let main argv = 
     //MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()
-    //Raycast.main()
+    Raycast.main()
     //throwable_light()
-    PerformanceMicroBenchmarks.main()
+    //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
-    //WarpPoints.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()

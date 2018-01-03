@@ -87,7 +87,7 @@ let nearby_behavior_functions = [|
         sprintf "data merge entity @e[tag=wp,distance=..%s,sort=nearest,limit=1] {CustomNameVisible:0b}" CLOSE //,ArmorItems:[{},{},{},{}]}
         sprintf "scoreboard players set @p countdown %d" (COUNTDOWN*2)
         "tag @p add justSentToLobby"
-        sprintf "teleport @p %d %d %d 0 90" (WP_X+2) WP_Y (WP_Z+2)
+        sprintf "teleport @p %d %d %d 90 0" (WP_X+2) WP_Y (WP_Z+2)
 
         |]
     |]
@@ -126,7 +126,7 @@ let creation_functions = [|
         yield "scoreboard players set @a spawnBat 0"
         yield "scoreboard players set $ENTITY found 0"
         for i = 1 to WP_MAX do
-            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"Warp %d",Tags:["wp","wp%d"]}""" i i i
+            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"\"Warp %d\"",Tags:["wp","wp%d"]}""" i i i
             yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
         yield "say @s"
         yield "kill @s"

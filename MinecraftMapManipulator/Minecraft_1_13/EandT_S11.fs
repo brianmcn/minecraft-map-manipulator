@@ -15,6 +15,8 @@ E&T ideas
  is this interesting? https://www.reddit.com/r/Minecraft/comments/7npasa/set_a_waypoint_on_the_map_17w50a_snapshot/ 
 
 
+// TODO with facing, is 'item magnet' interesting?
+
 
 Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
     gamerule doLimitedCrafting true      recipe take @p <name>     then later 'give' it back or have a knowledge book gift it

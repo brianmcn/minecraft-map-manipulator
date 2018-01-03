@@ -302,10 +302,10 @@ let main() =
             yield "kill @e[type=!player]"
             |]
         yield "init",[|
-            yield """summon armor_stand ~ ~ ~ {Invisible:0b,Glowing:0b,NoGravity:1b,Invulnerable:1b,Small:0b,Tags:["markAS"],CustomName:markAS}"""
-            yield """summon magma_cube ~ ~ ~ {Team:RayTeam,Size:1,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,Tags:["raymagma","magma"],CustomName:raymagma}"""
+            yield """summon armor_stand ~ ~ ~ {Invisible:0b,Glowing:0b,NoGravity:1b,Invulnerable:1b,Small:0b,Tags:["markAS"],CustomName:"\"markAS\""}"""
+            yield """summon magma_cube ~ ~ ~ {Team:RayTeam,Size:1,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,Tags:["raymagma","magma"],CustomName:"\"raymagma\""}"""
             // AbsorptionAmount:3.5e38f makes it invincible even to void, so we can teleport it below y=0; must kill by setting Health=0
-            yield """summon magma_cube ~ ~ ~ {Team:CollideTeam,Size:1,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,Tags:["tempAS","collidemagma","magma"],CustomName:collidemagma,AbsorptionAmount:3.5e38f}"""
+            yield """summon magma_cube ~ ~ ~ {Team:CollideTeam,Size:1,Silent:1,NoAI:1,DeathLootTable:"minecraft:empty",Glowing:1,Invulnerable:1,Tags:["tempAS","collidemagma","magma"],CustomName:"\"collidemagma\"",AbsorptionAmount:3.5e38f}"""
             yield "effect give @e[tag=magma] invisibility 999999 1 true"
             for o in allObjectives do
                 yield sprintf "scoreboard objectives add %s dummy" o

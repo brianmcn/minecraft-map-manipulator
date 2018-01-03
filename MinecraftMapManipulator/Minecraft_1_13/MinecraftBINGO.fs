@@ -218,13 +218,13 @@ let SIGN_ENTITY_TAG = "tag=signguy,x=0,y=4,z=0,distance=..1.0,limit=1"
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
 // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
-    yield """summon armor_stand 84 4 4 {CustomName:"                          ",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
-    yield """summon armor_stand 4 4 84 {CustomName:"XH",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
+    yield """summon armor_stand 84 4 4 {CustomName:"\"                          \"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
+    yield """summon armor_stand 4 4 84 {CustomName:"\"XH\"",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
 #if UUID
-    yield sprintf """summon armor_stand 64 4 64 {CustomName:%s,UUIDMost:%dl,UUIDLeast:%dl,Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" ENTITY_UUID most least
+    yield sprintf """summon armor_stand 64 4 64 {CustomName:"\"%s\"",UUIDMost:%dl,UUIDLeast:%dl,Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" ENTITY_UUID most least
 #else
-    yield """summon armor_stand 0 4 0 {CustomName:"signguy",Tags:["signguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
+    yield """summon armor_stand 0 4 0 {CustomName:"\"signguy\"",Tags:["signguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     for x = -6 to 6 do
         for z = -6 to 6 do
             yield sprintf "setblock %d 4 %d minecraft:sign" x z
@@ -367,7 +367,7 @@ let prng = [|
 
 ///////////////////////////////////////////////////////
 
-let LOBBY = "62 25.0 63 0 180"
+let LOBBY = "62 25.0 63 180 0"
 let TICKS_TO_UPDATE_MAP = 30
 let game_objectives = [|
     // GLOBALS
@@ -575,8 +575,8 @@ let game_functions = [|
         "kill @e[tag=bookText]"
         |]
     yield "summon_book_text_entities",[|
-        """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:ON,Team:green}"""
-        """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText"],CustomName:OFF,Team:red}"""
+        """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText","bookTextON"],CustomName:"\"ON\"",Team:green}"""
+        """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText","bookTextOFF"],CustomName:"\"OFF\"",Team:red}"""
         |]
     yield "set_options_to_defaults", [|
         for opt,_desc,def in toggleableOptions do
@@ -607,10 +607,10 @@ let game_functions = [|
     yield "on_get_configuration_books",[|
         for opt,_desc,_def in toggleableOptions do
             yield sprintf "scoreboard players enable @s %strig" opt
-            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookText,name=ON] %sval 1" opt opt
-            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookText,name=ON] %sval 0" opt opt
-            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookText,name=OFF] %sval 0" opt opt
-            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookText,name=OFF] %sval 1" opt opt
+            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextON] %sval 1" opt opt
+            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextON] %sval 0" opt opt
+            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextOFF] %sval 0" opt opt
+            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextOFF] %sval 1" opt opt
         // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
         yield "clear @a minecraft:written_book{ConfigBook:1}"
         yield sprintf "%s" (Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Standard options",[|
@@ -643,7 +643,7 @@ let game_functions = [|
         |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
         "scoreboard players add @s ticksSinceGotMap 1"
-        """execute if entity @s[scores={ticksSinceGotMap=40..}] run give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
+        """execute if entity @s[scores={ticksSinceGotMap=40..}] run give @s minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32"""
         "scoreboard players set @s[scores={ticksSinceGotMap=40..}] ticksSinceGotMap 0"
         |]
     yield "choose_seed",[|
@@ -715,7 +715,7 @@ let game_functions = [|
         // pretty timer
         "scoreboard players operation @s minutes = $ENTITY minutes"
         "scoreboard players operation @s preseconds = $ENTITY preseconds"
-        "scoreboard players reset @s[scores={preseconds=-1}] preseconds"
+        "scoreboard players reset @s[scores={preseconds=-1}] preseconds"  // TODO causes problems with score display due to https://bugs.mojang.com/browse/MC-123104
         "scoreboard players operation @s seconds = $ENTITY seconds"
         // extreme hills detection
         "scoreboard players remove @s[scores={inXH=1..}] inXH 1"
@@ -823,13 +823,7 @@ let game_functions = [|
         |]
     yield "reset_player_scores",[|
         yield "scoreboard players operation $ENTITY Seed = Seed Score"  // save seed
-        //yield "scoreboard players reset * Score"  // TODO fails due to bug https://bugs.mojang.com/browse/MC-122993
-        // workaround
-        yield "execute as @a run scoreboard players reset @s Score"
-        yield "scoreboard players reset Minutes Score"
-        yield "scoreboard players reset Seconds Score"
-        yield "scoreboard players reset LockoutGoal Score"
-        yield "scoreboard players reset Time Score"
+        yield "scoreboard players reset * Score"
         // re-initialize
         yield "scoreboard players operation Seed Score = $ENTITY Seed"  // restore seed
         for t in TEAMS do
@@ -866,14 +860,14 @@ let game_functions = [|
         |]
     yield "ensure_card_updated", [|  // called on one player with a cleared inventory
         yield sprintf "teleport @s %s" LOBBY
-        yield """give @s minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 640"""
+        yield """give @s minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 640"""
         yield sprintf "$NTICKSLATER(%d)" TICKS_TO_UPDATE_MAP
         yield "clear @a"  // Note: no longer @s since NTICKSLATER
         yield sprintf "function %s:start3" NS
         |]
     yield "start3", [|
         // give maps in offhand for start of game
-        yield """replaceitem entity @a weapon.offhand minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
+        yield """replaceitem entity @a weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
         // give player all the effects
         yield "effect give @a minecraft:slowness 999 127 true"
         yield "effect give @a minecraft:mining_fatigue 999 7 true"
@@ -888,7 +882,7 @@ let game_functions = [|
         |]
     yield "do_spawn_sequence", [|
         // tp all to waiting room
-        yield sprintf "tp @a %s 0 180" WAITING_ROOM.TPSTR
+        yield sprintf "tp @a %s 180 0" WAITING_ROOM.TPSTR
         // set up spawn points
         yield "scoreboard players set $ENTITY PRNG_MOD 998"
         yield sprintf "execute if entity @a[team=red] run function %s:do_red_spawn" NS
@@ -1006,7 +1000,7 @@ let map_update_functions = [|
         // note: only persist entities not already persisted, this way e.g. we don't later un-persist the zombie who picked up your sword
         """execute as @e[type=!player,distance=..160,nbt={PersistenceRequired:0b}] run data merge entity @s {PersistenceRequired:1b,Tags:["persisted"]}"""  // preserve mobs
         "execute at @s run particle minecraft:portal ~ ~ ~ 0.1 0.1 0.1 1 29 normal"
-        sprintf "tp @s %s 180 180" MAP_UPDATE_ROOM.TPSTR
+        sprintf "tp @s %s 180 0" MAP_UPDATE_ROOM.TPSTR
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         |]
     yield "warp_back", [|
@@ -1263,7 +1257,7 @@ let checker_functions = [|
 let makeItemChests() =
     // prepare item display chests
     let otherChest1 =
-        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
+        let sb = new System.Text.StringBuilder("""{CustomName:"\"Possible items (column bins)\"",Items:[""")
         for i = 0 to 8 do
             for j = 0 to 2 do
                 let item = bingoItems.[i].[j]
@@ -1271,7 +1265,7 @@ let makeItemChests() =
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
     let otherChest2 =
-        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
+        let sb = new System.Text.StringBuilder("""{CustomName:"\"Possible items (column bins)\"",Items:[""")
         for i = 9 to 17 do
             for j = 0 to 2 do
                 let item = bingoItems.[i].[j]
@@ -1279,7 +1273,7 @@ let makeItemChests() =
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
     let otherChest3 =
-        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
+        let sb = new System.Text.StringBuilder("""{CustomName:"\"Possible items (column bins)\"",Items:[""")
         for i = 18 to 26 do
             for j = 0 to 2 do
                 let item = bingoItems.[i].[j]
@@ -1287,7 +1281,7 @@ let makeItemChests() =
         let s = sb.ToString()
         s.Substring(0, s.Length-1) + "]}"
     let otherChest4 =
-        let sb = new System.Text.StringBuilder("""{CustomName:"Possible items (column bins)",Items:[""")
+        let sb = new System.Text.StringBuilder("""{CustomName:"\"Possible items (column bins)\"",Items:[""")
         for i = 27 to bingoItems.Length-1 do
             for j = 0 to 2 do
                 let item = bingoItems.[i].[j]
@@ -1421,7 +1415,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optnvval=1) run effect give @s minecraft:night_vision 99999 1 true"
             "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optdsval=1) run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
             "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optboatval=1) run give @a minecraft:oak_boat 1"
-            """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
+            """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
             |],"on_respawn")
         // TODO putting this in a separate function is a work around for https://bugs.mojang.com/browse/MC-121934
@@ -1438,6 +1432,8 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "advancement grant @s everything"
             sprintf "advancement revoke @s only %s:xh" NS
             |],"first_time_player")
+        // TODO rewrite with 'facing' if that makes things easier
+        // TODO also rewrite because not working
         yield! compile([|
             (* Compute which direction spawn is relative to the player's XZ
                     1
@@ -1604,7 +1600,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf"function %s:map_update_init"NS
             yield sprintf"function %s:make_lobby"NS
             yield sprintf"function %s:choose_random_seed"NS
-            yield """give @p minecraft:filled_map{display:{Name:"BINGO Card"},map:0} 32"""
+            yield """give @p minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32"""
             |]
         |]
     printfn "writing functions..."
