@@ -2,7 +2,7 @@
 
 let PACK_NAME = "PerfPack"
 // TODO move to separate world, do setup to create initial objectives and entities
-let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """testing""")
+let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestSize""")
 
 let allProfilerFunctions = ResizeArray()
 
@@ -175,6 +175,25 @@ Execute as @s[scores={test=1}] run ...
 Execute if @s[scores={test=1}] run ...
 Or wouldnt there be a difference?
 *)
+
+    // todo (^ ^ ^1 versus ~ ~ ~1) is latter faster?
+    profileThis("tpcarrot",   OUTER,INNER,1,[],["tp @p ^ ^ ^1";"tp @p ^ ^ ^-1"],[])
+    profileThis("tptilde",   OUTER,INNER,1,[],["tp @p ~ ~ ~1";"tp @p ~ ~ ~-1"],[])
+    (*
+took 1935 milliseconds to run 200000 iterations of
+    tp @p ~ ~ ~1
+    tp @p ~ ~ ~-1
+took 2015 milliseconds to run 200000 iterations of
+    tp @p ~ ~ ~1
+    tp @p ~ ~ ~-1
+took 1991 milliseconds to run 200000 iterations of
+    tp @p ^ ^ ^1
+    tp @p ^ ^ ^-1
+took 1874 milliseconds to run 200000 iterations of
+    tp @p ^ ^ ^1
+    tp @p ^ ^ ^-1    
+    *)
+
 
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'

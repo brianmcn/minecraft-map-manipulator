@@ -8,7 +8,7 @@ E&T ideas
  - most recipe work is in Recipes
  - QuickStack
  - WarpPoints
- - Treecapitator in EandT_S11
+ - Treecapitator & Vein Miner in EandT_S11
  - throwable_light in Program
 
 

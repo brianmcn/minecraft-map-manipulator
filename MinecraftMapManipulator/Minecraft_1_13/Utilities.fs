@@ -6,7 +6,7 @@ let MC_ROOT = """C:\Users\brianmcn\AppData\Roaming\.minecraft\saves\"""
 //////////////////////////////
 // written books
 
-let escape(s:string) = s.Replace("\"","^").Replace("\\","\\\\").Replace("^","\\\"")    //    "  \    ->    \"   \\
+let escape(s:string) = s.Replace("\"","º").Replace("\\","\\\\").Replace("º","\\\"")    //    "  \    ->    \"   \\
 
 let writtenBookNBTString(author, title, pages:string[], extraItemNBT) =
     let sb = System.Text.StringBuilder()

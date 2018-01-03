@@ -91,11 +91,11 @@ let main argv =
     //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
-    //PerformanceMicroBenchmarks.main()
+    PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
     //WarpPoints.main()
     //WarpPoints.wp_c_main()
-    EandT_S11.tc_main()
+    //EandT_S11.tc_main()
     //QuickStack.main()
     ignore argv
     0
