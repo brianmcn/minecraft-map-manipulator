@@ -4,7 +4,17 @@
 =========
 E&T ideas
 =========
-WarpPoints.fs
+ - QFE is in MC_Constants
+ - most recipe work is in Recipes
+ - QuickStack
+ - WarpPoints
+ - Treecapitator in EandT_S11
+ - throwable_light in Program
+
+
+ is this interesting? https://www.reddit.com/r/Minecraft/comments/7npasa/set_a_waypoint_on_the_map_17w50a_snapshot/ 
+
+
 
 Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
     gamerule doLimitedCrafting true      recipe take @p <name>     then later 'give' it back or have a knowledge book gift it
@@ -250,7 +260,9 @@ abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_templ
 // TODO vaguely similar, 'reap' where a hoe can re-plant seeds while harvesting
 
 // impossible to implement treecapitator 'right' (can't know what block player just mined), so find a way that's efficient approximation and not exploitable:
-let LOGS = [| "acacia_log"; "oak_log"; "spruce_log"; "jungle_log"; "dark_oak_log"; "birch_log" |]
+let LOGS = [| "acacia_log"; "oak_log"; "spruce_log"; "jungle_log"; "dark_oak_log"; "birch_log" |] |> Array.map (fun x -> x,x)
+let ORES = [| "coal_ore"; "iron_ore"; "gold_ore"; "lapis_ore"; "redstone_ore"; "diamond_ore" |] |> Array.map (fun x -> x,x) 
+            |> Array.append [| "coal_ore", "coal"; "lapis_ore", "lapis_lazuli"; "redstone_ore", "redstone"; "diamond_ore", "diamond"|]
 let TREE_DIRS = [|
     // 8 dirs on this level
     "~00 ~00 ~01"
@@ -273,50 +285,61 @@ let TREE_DIRS = [|
     // above
     "~00 ~01 ~00"
     |]
-let treecapitator_functions = [|
-    yield "init",[|
-        yield "scoreboard objectives add isHoldingTC dummy"
-        yield "scoreboard objectives add wasHoldingTC dummy"
-        yield "scoreboard objectives add remainTC dummy"
-        for b in LOGS do
-            yield sprintf "scoreboard objectives add %sTC minecraft.mined:minecraft.%s" b b
-        |]
-    yield "tick",[|
-        "scoreboard players set @a isHoldingTC 0"
-        "scoreboard players set @a[nbt={SelectedItem:{tag:{TC:1}}}] isHoldingTC 1"  // TODO pick a real item tag
-        "execute as @a[scores={isHoldingTC=1,wasHoldingTC=0}] run function tc:reset_stats"
-        "execute as @a run scoreboard players operation @s wasHoldingTC = @s isHoldingTC"
-        "execute as @a[scores={isHoldingTC=1}] run function tc:check_mined"
-        |]
-    yield "reset_stats",[|
-        for b in LOGS do
-            yield sprintf "scoreboard players set @s %sTC 0" b
-        |]
-    yield "check_mined",[|
-        for b in LOGS do
-            yield sprintf """execute if entity @s[scores={%sTC=1..}] at @s at @e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"}}] run function tc:chop_start_%s""" b b b
-        |]
-    for b in LOGS do
-        yield sprintf "chop_start_%s" b,[|
-            "scoreboard players set @s remainTC 500"  // TODO appropriate limit?
-            sprintf "function tc:chop_check_%s" b
-            "function tc:reset_stats"
+let ORE_DIRS = [|
+    // 6 neighbors
+    "~00 ~00 ~01"
+    "~01 ~00 ~00"
+    "~00 ~01 ~00"
+    "~00 ~00 ~-1"
+    "~-1 ~00 ~00"
+    "~00 ~-1 ~00"
+    |]
+let connected_mining_functions = [|
+    for suffixF,suffixS,tag,blocks,dirs in ["tc","TC","TC",LOGS,TREE_DIRS;
+                                            "vm","VM","VM",ORES,ORE_DIRS] do
+        yield sprintf"init_%s"suffixF,[|
+            yield sprintf "scoreboard objectives add isHolding%s dummy" suffixS
+            yield sprintf "scoreboard objectives add wasHolding%s dummy" suffixS
+            yield sprintf "scoreboard objectives add remain%s dummy" suffixS
+            for b,_ in blocks do
+                yield sprintf "scoreboard objectives add %s%s minecraft.mined:minecraft.%s" b suffixS b
             |]
-        yield sprintf "chop_check_%s" b,[|
-            sprintf "execute if entity @s[scores={remainTC=1..}] run function tc:chop_body_%s" b
+        yield sprintf"tick_%s"suffixF,[|
+            sprintf "scoreboard players set @a isHolding%s 0" suffixS
+            sprintf "scoreboard players set @a[nbt={SelectedItem:{tag:{%s:1}}}] isHolding%s 1" tag suffixS  // TODO pick a real item tag
+            sprintf "execute as @a[scores={isHolding%s=1,wasHolding%s=0}] run function tc:reset_stats_%s" suffixS suffixS suffixF
+            sprintf "execute as @a run scoreboard players operation @s wasHolding%s = @s isHolding%s" suffixS suffixS
+            sprintf "execute as @a[scores={isHolding%s=1}] run function tc:check_mined_%s" suffixS suffixF
             |]
-        yield sprintf "chop_body_%s" b,[|
-            yield "setblock ~ ~ ~ air destroy"
-            yield "scoreboard players remove @s remainTC 1"
-            for dir in TREE_DIRS do
-                yield sprintf "execute offset %s if block ~ ~ ~ %s run function tc:chop_check_%s" dir b b
+        yield sprintf"reset_stats_%s"suffixF,[|
+            for b,_ in blocks do
+                yield sprintf "scoreboard players set @s %s%s 0" b suffixS
             |]
+        yield sprintf"check_mined_%s"suffixF,[|
+            for b,bi in blocks do
+                yield sprintf """execute if entity @s[scores={%s%s=1..}] at @s at @e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"}}] run function tc:chop_start_%s_%s""" b suffixS bi suffixF bi
+            |]
+        for b,bi in blocks do
+            yield sprintf "chop_start_%s_%s" suffixF bi,[|
+                sprintf "scoreboard players set @s remain%s 500" suffixS  // TODO appropriate limit?
+                sprintf "function tc:chop_check_%s_%s" suffixF bi
+                sprintf "function tc:reset_stats_%s" suffixF
+                |]
+            yield sprintf "chop_check_%s_%s" suffixF bi,[|
+                sprintf "execute if entity @s[scores={remain%s=1..}] run function tc:chop_body_%s_%s" suffixS suffixF bi
+                |]
+            yield sprintf "chop_body_%s_%s" suffixF bi,[|
+                yield sprintf "setblock ~ ~ ~ air destroy"
+                yield sprintf "scoreboard players remove @s remain%s 1" suffixS
+                for dir in dirs do
+                    yield sprintf "execute offset %s if block ~ ~ ~ %s run function tc:chop_check_%s_%s" dir b suffixF bi
+                |]
     |]
 let tc_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
-    Utilities.writeDatapackMeta(world,"tree_chop","chop trees")
-    for name,code in treecapitator_functions do
-        Utilities.writeFunctionToDisk(world,"tree_chop","tc",name,code)
+    Utilities.writeDatapackMeta(world,"multi_miner","cut down entire trees or mine entire ore veins")
+    for name,code in connected_mining_functions do
+        Utilities.writeFunctionToDisk(world,"multi_miner","tc",name,code)
 
 
 // TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find?)

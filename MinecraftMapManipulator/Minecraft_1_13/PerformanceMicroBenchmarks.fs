@@ -169,6 +169,13 @@ took 7501 milliseconds to run 50000 iterations of
 
     // TODO could author tests to dump a bunch of text/numbers, but also have some expected ratios, and print e.g. UNEXPECTED if something is out-of-tolerance, to highlight problems in the text dump
 
+    // TODO 
+    (*What has less impact on performance:
+Execute as @s[scores={test=1}] run ...
+Execute if @s[scores={test=1}] run ...
+Or wouldnt there be a difference?
+*)
+
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
         profileThis("eiat1"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s at @s run seed" sel],[])

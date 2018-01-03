@@ -136,3 +136,16 @@ let main() =
         Utilities.writeFunctionToDisk(world,"qspack","qs",name,code |> Array.map MC_Constants.compile)
 
 
+(*
+TODO
+
+'replenish' from a container
+Container to inv
+Goes to hotbar or to inv
+Tops off stacks, but does not start new stacks
+Always leaves 1 in each stack of container
+move e.g. enderchest to bottom-right inventory to activate (as opposed to top-rick to quick-stack)
+
+both quick-stack and replenish could be done terraria-AOE style to nearby chests 5x5x4 around player
+could have particles between player and chest to help viz
+*)
