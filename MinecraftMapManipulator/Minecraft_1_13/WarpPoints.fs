@@ -128,7 +128,6 @@ let creation_functions = [|
         for i = 1 to WP_MAX do
             yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"\"Warp %d\"",Tags:["wp","wp%d"]}""" i i i
             yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
-        yield "say @s"
         yield "kill @s"
         |]
     for i = 1 to WP_MAX do
@@ -137,8 +136,7 @@ let creation_functions = [|
             sprintf "execute store result score $ENTITY wp%dx run data get entity @s Pos[0] 1.0" i
             sprintf "execute store result score $ENTITY wp%dy run data get entity @s Pos[1] 1.0" i
             sprintf "execute store result score $ENTITY wp%dz run data get entity @s Pos[2] 1.0" i
-            // TODO play a sound
-            // TODO display a title
+            "execute at @s run playsound minecraft:block.portal.trigger block @a ~ ~ ~ 0.2 1.0"
             """scoreboard players set $ENTITY found 1"""
             |]
     |]

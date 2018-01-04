@@ -5,8 +5,6 @@ let USE_GAMELOOP = true         // if false, use a repeating command block inste
 
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
-// TODO - BEWARE But X and Y rotation are also swapped in /tp, which is fixed for next snapshot
-
 // TODO remove slimeball?  what else could go there alt enderpearl?  rabbit hide?  I think yes, but sleep on it.
 // Next day: it's nice to give people options.  Trade-off between people who will be frustrated by competitive or 'truly random' cards with this very hard item, 
 // versus those who enjoy the item or those who will happily skip to another card if this card isn't to their liking.  It is also maybe a shame that there are so
@@ -207,7 +205,7 @@ let toLeastMost(uuid:System.Guid) =
     least,most
 
 #if UUID
-// TODO if https://bugs.mojang.com/browse/MC-122118 gets fixed, might be able to use player, rather than uuid'd entity
+// if https://bugs.mojang.com/browse/MC-122118 gets fixed, might be able to use player, rather than uuid'd entity? no, even after fix, it's choppy (client can see tp somehow)
 let ENTITY_UUID = "1-1-1-0-1"
 let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
 let least,most = toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
@@ -519,7 +517,7 @@ let game_functions = [|
         yield! placeWallSignCmds 150 151 148 "south" "teleport" "back to" "LOBBY" "" (sprintf "teleport @s %s" LOBBY) true false
         // TODO need to put glass area above art at world-spawn, with a sign to go to lobby, to deal with this scenario: new player joins server, then dies in the lobby (or other scenarios), which spawns them above the art.
         // glass and sign won't affect map
-        // also do that thingy that make people spawn at exact world spawn coords and not random nearby
+        // also do that thingy that make people spawn at exact world spawn coords and not random nearby (spawnRadius?)
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -718,7 +716,7 @@ let game_functions = [|
         // pretty timer
         "scoreboard players operation @s minutes = $ENTITY minutes"
         "scoreboard players operation @s preseconds = $ENTITY preseconds"
-        "scoreboard players reset @s[scores={preseconds=-1}] preseconds"  // TODO causes problems with score display due to https://bugs.mojang.com/browse/MC-123104
+        //"scoreboard players reset @s[scores={preseconds=-1}] preseconds"  // TODO causes problems with score display due to https://bugs.mojang.com/browse/MC-123104
         "scoreboard players operation @s seconds = $ENTITY seconds"
         // extreme hills detection
         "scoreboard players remove @s[scores={inXH=1..}] inXH 1"
@@ -1448,40 +1446,14 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             *)
 #if UUID
             // called as uuid entity
-            // get uuid to player, init some vals
-            "scoreboard players operation @s xspawn = @p[tag=dirGuy] xspawn"
-            "scoreboard players operation @s zspawn = @p[tag=dirGuy] zspawn"
             "teleport @s @p[tag=dirGuy]"
-            // compute dx dz to spawn
-            "execute store result score @s dx run data get entity @s Pos[0] 1.0" 
-            "execute store result score @s dz run data get entity @s Pos[2] 1.0"
-            "scoreboard players operation @s dx -= @s xspawn"
-            "scoreboard players operation @s dz -= @s zspawn"
-            // normalize to nearby, by choosing max abs val, and dividing 
-            // x = abs(dx)
-            "scoreboard players operation @s x = @s dx"
-            "scoreboard players operation @s[scores={x=..-1}] x *= $ENTITY MINUS_ONE"
-            // z = abs(dz)
-            "scoreboard players operation @s z = @s dz"
-            "scoreboard players operation @s[scores={z=..-1}] z *= $ENTITY MINUS_ONE"
-            // TEMP = max(dx,dz)
-            "scoreboard players operation @s TEMP = @s x"
-            "scoreboard players operation @s TEMP > @s z"
-            "scoreboard players set @s[scores={TEMP=..0}] TEMP 1"  // prevent dx=0,dz=0 from making division by zero
-            // multiply by 60 before divide by TEMP (to ensure that integer rounding still preserves relative numbers with some precision)
-            "scoreboard players operation @s dx *= $ENTITY SIXTY"
-            "scoreboard players operation @s dz *= $ENTITY SIXTY"
-            "scoreboard players operation @s dx /= @s TEMP"
-            "scoreboard players operation @s dz /= @s TEMP"
-            // now ~dx ~ ~dz will be a nearby position in the same direction as spawn, 'tp' him there
-            "execute store result score @s x run data get entity @s Pos[0] 1.0" 
-            "execute store result score @s z run data get entity @s Pos[2] 1.0"
-            "scoreboard players operation @s x += @s dx"
-            "scoreboard players operation @s z += @s dz"
-            "execute store result entity @s Pos[0] double 1.0 run scoreboard players get @s x" 
-            "execute store result entity @s Pos[2] double 1.0 run scoreboard players get @s z" 
-            // now make him facing
+            // move him to spawn xz (doesn't matter if chunks loaded)
+            "execute store result entity @s Pos[0] double 1.0 run scoreboard players get @p[tag=dirGuy] xspawn" 
+            "execute store result entity @s Pos[2] double 1.0 run scoreboard players get @p[tag=dirGuy] zspawn" 
+            // face him at player
             "execute at @s run tp ~ ~ ~ facing @p[tag=dirGuy]"
+            // move him back now that we got our facing data
+            "execute at @p[tag=dirGuy] run tp ~ ~ ~"
             // convert Rotation to score: TEMP = entity, x = player
             "execute store result score @s TEMP run data get entity @s Rotation[0] 1.0" 
             "execute store result score @s x run data get entity @p[tag=dirGuy] Rotation[0] 1.0" 
@@ -1491,14 +1463,14 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "scoreboard players operation @s TEMP += $ENTITY THREE_SIXTY"
             "scoreboard players operation @s TEMP += $ENTITY THREE_SIXTY"
             "scoreboard players operation @s TEMP %= $ENTITY THREE_SIXTY"
-            "scoreboard players set @s spawnDir 1"
-            "scoreboard players set @s[scores={TEMP=23..67}] spawnDir 2"
-            "scoreboard players set @s[scores={TEMP=68..112}] spawnDir 3"
-            "scoreboard players set @s[scores={TEMP=113..157}] spawnDir 4"
-            "scoreboard players set @s[scores={TEMP=158..202}] spawnDir 5"
-            "scoreboard players set @s[scores={TEMP=203..247}] spawnDir 6"
-            "scoreboard players set @s[scores={TEMP=248..292}] spawnDir 7"
-            "scoreboard players set @s[scores={TEMP=293..337}] spawnDir 8"
+            "scoreboard players set @s spawnDir 5"
+            "scoreboard players set @s[scores={TEMP=23..67}] spawnDir 6"
+            "scoreboard players set @s[scores={TEMP=68..112}] spawnDir 7"
+            "scoreboard players set @s[scores={TEMP=113..157}] spawnDir 8"
+            "scoreboard players set @s[scores={TEMP=158..202}] spawnDir 1"
+            "scoreboard players set @s[scores={TEMP=203..247}] spawnDir 2"
+            "scoreboard players set @s[scores={TEMP=248..292}] spawnDir 3"
+            "scoreboard players set @s[scores={TEMP=293..337}] spawnDir 4"
             // done
             "scoreboard players operation @p[tag=dirGuy] spawnDir = @s spawnDir"
 #else
