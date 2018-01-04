@@ -87,9 +87,9 @@ let throwable_light() =
 
 [<EntryPoint>]
 let main argv = 
-    //MinecraftBINGO.cardgen_compile()
+    MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()
-    Raycast.main()
+    //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
@@ -98,3 +98,5 @@ let main argv =
     //QuickStack.main()
     ignore argv
     0
+
+

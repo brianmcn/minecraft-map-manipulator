@@ -388,6 +388,8 @@ let game_objectives = [|
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
     yield "SIXTY"
+    yield "THREE_SIXTY"
+    yield "MINUS_ONE"
     yield "ONE_THOUSAND"
     yield "TEN_THOUSAND"
     yield "spawnDir"           // a player's spawnDir holds a value 1-8 that specifies which of 8 directions most closely points back to seed's spawn point
@@ -397,7 +399,6 @@ let game_objectives = [|
     yield "z"                  // temp variable on player
     yield "dx"                 // temp variable on player
     yield "dz"                 // temp variable on player
-    yield "bestsumsq"          // temp variable on player
     yield "Seed"
     yield "minutes"
     yield "seconds"
@@ -428,6 +429,8 @@ let game_functions = [|
         yield "scoreboard objectives add Deaths deathCount"  // for use by on_respawn
         yield "scoreboard players set $ENTITY TWENTY_MIL 20000000"
         yield "scoreboard players set $ENTITY SIXTY 60"
+        yield "scoreboard players set $ENTITY THREE_SIXTY 360"
+        yield "scoreboard players set $ENTITY MINUS_ONE -1"
         yield "scoreboard players set $ENTITY ONE_THOUSAND 1000"
         yield "scoreboard players set $ENTITY TEN_THOUSAND 10000"
         yield "scoreboard players set $ENTITY gameInProgress 0"
@@ -1445,66 +1448,59 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             *)
 #if UUID
             // called as uuid entity
-            // TODO clean up this code, it seems sufficiently efficient for now
-            let N90 = "5"    // how many away orthogonally
-            let N45 = "3.54" // how many away diagonally (ortho * sin45)
-            let common = [|
-                sprintf "execute store result score @s dx run data get entity @s Pos[0] 1.0" 
-                sprintf "execute store result score @s dz run data get entity @s Pos[2] 1.0"
-                sprintf "teleport @s @p[tag=dirGuy]"
-                sprintf "execute at @s align xz run teleport @s ~ ~ ~ 0 ~"       // null out y rotation
-                "scoreboard players operation @s dx -= @s xspawn"
-                "scoreboard players operation @s dz -= @s zspawn"
-                "scoreboard players operation @s dx *= @s dx"
-                "scoreboard players operation @s dz *= @s dz"
-                "scoreboard players operation @s dx += @s dz"
-                |]
-            yield sprintf "scoreboard players operation @s xspawn = @p[tag=dirGuy] xspawn"
-            yield sprintf "scoreboard players operation @s zspawn = @p[tag=dirGuy] zspawn"
-            yield sprintf "teleport @s @p[tag=dirGuy]"
-            yield sprintf "execute at @s align xz run teleport @s ~ ~ ~ 0 ~"       // null out y rotation
-            // 1
-            yield sprintf "execute at @s run teleport @s ^ ^ ^%s" N90
-            yield! common
-            yield "scoreboard players set @s spawnDir 1"
-            yield "scoreboard players operation @s bestsumsq = @s dx"
-            // 2
-            yield sprintf "execute at @s run teleport @s ^-%s ^ ^%s" N45 N45
-            yield! common
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 2"
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
-            // 3
-            yield sprintf "execute at @s run teleport @s ^-%s ^ ^" N90
-            yield! common
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 3"
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
-            // 4
-            yield sprintf "execute at @s run teleport @s ^-%s ^ ^-%s" N45 N45
-            yield! common
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 4"
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
-            // 5
-            yield sprintf "execute at @s run teleport @s ^ ^ ^-%s" N90
-            yield! common
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 5"
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
-            // 6
-            yield sprintf "execute at @s run teleport @s ^%s ^ ^-%s" N45 N45
-            yield! common
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 6"
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
-            // 7
-            yield sprintf "execute at @s run teleport @s ^%s ^ ^" N90
-            yield! common
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 7"
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
-            // 8
-            yield sprintf "execute at @s run teleport @s ^%s ^ ^%s" N45 N45
-            yield! common
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir 8"
-            yield "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
+            // get uuid to player, init some vals
+            "scoreboard players operation @s xspawn = @p[tag=dirGuy] xspawn"
+            "scoreboard players operation @s zspawn = @p[tag=dirGuy] zspawn"
+            "teleport @s @p[tag=dirGuy]"
+            // compute dx dz to spawn
+            "execute store result score @s dx run data get entity @s Pos[0] 1.0" 
+            "execute store result score @s dz run data get entity @s Pos[2] 1.0"
+            "scoreboard players operation @s dx -= @s xspawn"
+            "scoreboard players operation @s dz -= @s zspawn"
+            // normalize to nearby, by choosing max abs val, and dividing 
+            // x = abs(dx)
+            "scoreboard players operation @s x = @s dx"
+            "scoreboard players operation @s[scores={x=..-1}] x *= $ENTITY MINUS_ONE"
+            // z = abs(dz)
+            "scoreboard players operation @s z = @s dz"
+            "scoreboard players operation @s[scores={z=..-1}] z *= $ENTITY MINUS_ONE"
+            // TEMP = max(dx,dz)
+            "scoreboard players operation @s TEMP = @s x"
+            "scoreboard players operation @s TEMP > @s z"
+            "scoreboard players set @s[scores={TEMP=..0}] TEMP 1"  // prevent dx=0,dz=0 from making division by zero
+            // multiply by 60 before divide by TEMP (to ensure that integer rounding still preserves relative numbers with some precision)
+            "scoreboard players operation @s dx *= $ENTITY SIXTY"
+            "scoreboard players operation @s dz *= $ENTITY SIXTY"
+            "scoreboard players operation @s dx /= @s TEMP"
+            "scoreboard players operation @s dz /= @s TEMP"
+            // now ~dx ~ ~dz will be a nearby position in the same direction as spawn, 'tp' him there
+            "execute store result score @s x run data get entity @s Pos[0] 1.0" 
+            "execute store result score @s z run data get entity @s Pos[2] 1.0"
+            "scoreboard players operation @s x += @s dx"
+            "scoreboard players operation @s z += @s dz"
+            "execute store result entity @s Pos[0] double 1.0 run scoreboard players get @s x" 
+            "execute store result entity @s Pos[2] double 1.0 run scoreboard players get @s z" 
+            // now make him facing
+            "execute at @s run tp ~ ~ ~ facing @p[tag=dirGuy]"
+            // convert Rotation to score: TEMP = entity, x = player
+            "execute store result score @s TEMP run data get entity @s Rotation[0] 1.0" 
+            "execute store result score @s x run data get entity @p[tag=dirGuy] Rotation[0] 1.0" 
+            "scoreboard players operation @s TEMP -= @s x"
+            // get number into range 0-360
+            "scoreboard players operation @s TEMP += $ENTITY THREE_SIXTY"
+            "scoreboard players operation @s TEMP += $ENTITY THREE_SIXTY"
+            "scoreboard players operation @s TEMP += $ENTITY THREE_SIXTY"
+            "scoreboard players operation @s TEMP %= $ENTITY THREE_SIXTY"
+            "scoreboard players set @s spawnDir 1"
+            "scoreboard players set @s[scores={TEMP=23..67}] spawnDir 2"
+            "scoreboard players set @s[scores={TEMP=68..112}] spawnDir 3"
+            "scoreboard players set @s[scores={TEMP=113..157}] spawnDir 4"
+            "scoreboard players set @s[scores={TEMP=158..202}] spawnDir 5"
+            "scoreboard players set @s[scores={TEMP=203..247}] spawnDir 6"
+            "scoreboard players set @s[scores={TEMP=248..292}] spawnDir 7"
+            "scoreboard players set @s[scores={TEMP=293..337}] spawnDir 8"
             // done
-            yield "scoreboard players operation @p[tag=dirGuy] spawnDir = @s spawnDir"
+            "scoreboard players operation @p[tag=dirGuy] spawnDir = @s spawnDir"
 #else
             // called as & at each player
             // the sign trick - can place all the signs at spawn up-front, no need to set blocks, just read the block entity data
