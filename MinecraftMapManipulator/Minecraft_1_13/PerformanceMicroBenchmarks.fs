@@ -139,6 +139,15 @@ took 7441 milliseconds to run 200000 iterations of
     //profileThis("summon",       10,1000,1,[],["summon area_effect_cloud ~ ~ ~ {Duration:1}"],[])   // was about 300ms to summon 10,000 aecs (but their death costs not measured); would be 6000ms for 200k if linear scale
 
     (*
+setblock on edge of loaded chunks seems to create next chunk over:
+Tested it
+[6:22 PM] tryashtar: Seems to be correct -- placing one at the border opens up the adjacent chunk for placing.
+[6:27 PM] Lorgon111: Can you test for blocks (e.g. does the terrain generator run?)
+Did it work in 1.12?
+[6:30 PM] Lorgon111: (if the former, then exploiting this would create a way to do automated tests of terrain generator performance)
+    *)
+
+    (*
 FAR ANIMALS
 took 417 milliseconds to run 50000 iterations of
     execute at @p as @e[type=pig,sort=nearest,distance=..7,limit=1] run scoreboard players add @p A 1

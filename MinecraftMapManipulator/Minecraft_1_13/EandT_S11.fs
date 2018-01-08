@@ -320,6 +320,7 @@ let connected_mining_functions = [|
         yield sprintf"check_mined_%s"suffixF,[|
             for b,bi in blocks do
                 yield sprintf """execute if entity @s[scores={%s%s=1..}] at @s at @e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"}}] run function tc:chop_start_%s_%s""" b suffixS bi suffixF bi
+                // TODO consider PickupDelay:10s as a filter on item-just-broken maybe
             |]
         for b,bi in blocks do
             yield sprintf "chop_start_%s_%s" suffixF bi,[|

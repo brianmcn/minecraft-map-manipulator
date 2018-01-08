@@ -515,9 +515,10 @@ let game_functions = [|
         yield sprintf "fill 148 149 148 152 149 152 minecraft:light_gray_stained_glass"
         yield sprintf "setblock 150 151 147 stone"
         yield! placeWallSignCmds 150 151 148 "south" "teleport" "back to" "LOBBY" "" (sprintf "teleport @s %s" LOBBY) true false
-        // TODO need to put glass area above art at world-spawn, with a sign to go to lobby, to deal with this scenario: new player joins server, then dies in the lobby (or other scenarios), which spawns them above the art.
-        // glass and sign won't affect map
-        // also do that thingy that make people spawn at exact world spawn coords and not random nearby (spawnRadius?)
+        // make area for players who respawn without valid spawn point
+        yield sprintf "fill 60 %d 60 70 %d 70 minecraft:light_gray_stained_glass" (ART_HEIGHT+10) (ART_HEIGHT+10)
+        yield sprintf "setblock 65 %d 60 light_gray_stained_glass" (ART_HEIGHT+12)
+        yield! placeWallSignCmds 65  (ART_HEIGHT+12) 61 "south" "teleport" "to" "LOBBY" "" (sprintf "teleport @s %s" LOBBY) true false
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -976,10 +977,13 @@ let map_update_functions = [|
         for o in map_update_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
         |]
+    yield "map_near_player", [| // called as/at the map item
+        sprintf """execute unless entity @a[scores={ticksLeftMU=1..}] as @p[distance=..5] run function %s:warp_home""" NS
+        "kill @s"
+        |]
     yield "map_update_tick", [| // called every tick
-        // find player who dropped map
-        sprintf """execute unless entity @a[scores={ticksLeftMU=1..}] at @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}}] as @p[distance=..5] run function %s:warp_home""" NS
-        "kill @e[type=item,nbt={Item:{id:\"minecraft:filled_map\",tag:{map:0}}}]"  // TODO is this super expensive? line above too... could try inverting it, e.g. only find maps near players, to cull chunks searched?
+        // find maps near players (for efficiency, rather than looking for all items in world, only look near players)
+        sprintf """execute at @a as @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}},distance=..5] run function %s:map_near_player""" NS
         // run progress for anyone in the update room
         sprintf "execute as @a[scores={ticksLeftMU=1}] run function %s:warp_back" NS
         "scoreboard players remove @a[scores={ticksLeftMU=1..}] ticksLeftMU 1"
@@ -991,7 +995,6 @@ let map_update_functions = [|
         |]
     yield "warp_home_body", [|
         sprintf "scoreboard players set @s ticksLeftMU %d" TICKS_TO_UPDATE_MAP
-        // TODO tp into walls and suffocate when next to them due to https://bugs.mojang.com/browse/MC-123388
         "execute store result score @s ReturnX run data get entity @s Pos[0] 128.0"   // doubles
         "execute store result score @s ReturnY run data get entity @s Pos[1] 128.0"
         "execute store result score @s ReturnZ run data get entity @s Pos[2] 128.0"
@@ -1410,6 +1413,20 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         for name,code in map_update_functions do
             yield! compile(code, name)
         yield! compile([|
+            // enable triggers (for click-in-chat-to-tp-home stuff)  TODO factor into a function
+            "scoreboard players set @a home 0"
+            "scoreboard players enable @a home"
+            // players may dead
+            "execute store result score @s TEMP run data get entity @s Health 100.0"
+            // lobby respawn rules // TODO should this be effect in area of lobby?
+            "execute if entity @s[scores={TEMP=1..}] run effect give @s minecraft:night_vision 99999 1 true"
+            """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
+            "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
+            |],"on_lobby_respawn")
+        yield! compile([|
+            // enable triggers (for click-in-chat-to-tp-home stuff)  TODO factor into a function
+            "scoreboard players set @a home 0"
+            "scoreboard players enable @a home"
             // players may dead
             "execute store result score @s TEMP run data get entity @s Health 100.0"
             // custom respawn equipment
@@ -1433,8 +1450,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "advancement grant @s everything"
             sprintf "advancement revoke @s only %s:xh" NS
             |],"first_time_player")
-        // TODO rewrite with 'facing' if that makes things easier
-        // TODO also rewrite because not working
         yield! compile([|
             (* Compute which direction spawn is relative to the player's XZ
                     1
@@ -1533,10 +1548,10 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
             yield sprintf "execute as @a[tag=!playerHasBeenSeen] run function %s:first_time_player" NS
-            yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @p[scores={PlayerSeed=0..}] run function %s:set_seed" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=0) as @p[scores={PlayerSeed=0..}] run function %s:set_seed" NS
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
-            yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
-            // TODO deaths in lobby give boats
+            yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
             yield! gameLoopContinuationCheck()
@@ -1558,6 +1573,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield "gamerule announceAdvancements false"
             yield "gamerule disableElytraMovementCheck true"
             yield "gamerule maxCommandChainLength 999999"
+            yield "gamerule spawnRadius 1"
             yield "clear @a"
             yield "effect clear @a"
             yield! entity_init()

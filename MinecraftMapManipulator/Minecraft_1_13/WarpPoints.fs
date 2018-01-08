@@ -94,7 +94,7 @@ let nearby_behavior_functions = [|
 
 // Creation: 
 //  - a player places a custom spawn egg (crafted out of some rare ingredient or whatnot) or maybe an enchanted bedrock item (stat placed "/scoreboard objectives add fdjkhds minecraft.used:minecraft.bedrock", SelectedItem to ensure was magic one... but then how find location? raycast to it? prob a tick later after stat...)
-//  - this gets detected (e.g. via stats or SelectedItem to know to check this tick, and then finding the spawned entity with @e for a location) (TODO only in overworld? how detect? guess could put a cmd block at 0,0,0 in overworld and then 'execute if block 0 0 0 command_block run say in overworld')
+//  - this gets detected (e.g. via stats or SelectedItem to know to check this tick, and then finding the spawned entity with @e for a location) (TODO only in overworld? how detect? guess could put a cmd block at 0,0,0 in overworld and then 'execute if block 0 0 0 command_block run say in overworld'  oh, /execute as @a[nbt={Dimension:0}] run say I'm in the overworld)
 //      - or just check very nearby entities, probably fine
 //  - the block underneath the spawned entity becomes bedrock (should it?), and the 'next free WP' invisible armor stand is spawned there (WP1, WP2, WP3, whichever hasn't been used yet)
 //            summon minecraft:armor_stand ~ ~1 ~ {Invisible:1b,Marker:0b,NoGravity:1b,Small:1b,CustomName:"WP 4",CustomNameVisible:1b}

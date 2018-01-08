@@ -84,6 +84,60 @@ let throwable_light() =
     for name,code in functions do
         Utilities.writeFunctionToDisk(world,"ThrowableLightPack","snow",name,code)
 
+let area_highlight() =
+    let functions = [|
+        "init",[|
+            "scoreboard objectives add X dummy"
+            "scoreboard objectives add Y dummy"
+            "scoreboard objectives add Z dummy"
+            "scoreboard objectives add curX dummy"
+            "scoreboard objectives add curY dummy"
+            "scoreboard objectives add curZ dummy"
+            |]
+        "do",[|
+            "scoreboard players set $ENTITY curX 0"
+            "function we:loop_x"
+            |]
+        "loop_x",[|
+            "scoreboard players set $ENTITY curY 0"
+            "function we:loop_y"
+            "scoreboard players add $ENTITY curX 1"
+            "execute if score $ENTITY curX < $ENTITY X offset ~1 ~ ~ run function we:loop_x"
+            |]
+        "loop_y",[|
+            "scoreboard players set $ENTITY curZ 0"
+            "function we:loop_z"
+            "scoreboard players add $ENTITY curY 1"
+            "execute if score $ENTITY curY < $ENTITY Y offset ~ ~1 ~ run function we:loop_y"
+            |]
+        "loop_z",[|
+            //"setblock ~ ~ ~ stone"
+            //"particle minecraft:dust 0.8 0.8 0.8 0.5 ~ ~ ~ 0.2 0.2 0.2 1 3 normal"
+            //"particle minecraft:block stone ~ ~ ~ 0.2 0.2 0.2 1 3 normal"
+            "particle minecraft:end_rod ~ ~ ~ 0.1 0.1 0.1 0.01 1 normal"
+            "scoreboard players add $ENTITY curZ 1"
+            "execute if score $ENTITY curZ < $ENTITY Z offset ~ ~ ~1 run function we:loop_z"
+            |]
+        |]
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWE")
+    Utilities.writeDatapackMeta(world,"WE","we")
+    for name,code in functions do
+        Utilities.writeFunctionToDisk(world,"WE","we",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
+
+(*
+A single sumofsqares dispatchntable can make it so can fill arbitrary region size with dx dy dz using fill ^ ^ ^ ^ ^ ^N and a facing entity.
+
+Also clone
+
+Fun with particles like Shane's corners too, easy to make something cool
+
+Yeah clone is fill at rest with ICBs of clone ^^^M ^^^M ^^^ maybe, almost
+
+Preview using particle block, or armorstand with head block... Raytrace to dest to project in front where to place
+
+Nudge with eg selected item and W/S
+
+*)
 
 [<EntryPoint>]
 let main argv = 
@@ -96,6 +150,7 @@ let main argv =
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()
+    //area_highlight()
     ignore argv
     0
 
