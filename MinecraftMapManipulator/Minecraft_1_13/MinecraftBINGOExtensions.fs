@@ -51,14 +51,10 @@ module Blind =
     ///////////////////////////////
     // hook into events from base packs
     let hookTick() =
-        let FIL = System.IO.Path.Combine(MinecraftBINGO.FOLDER,sprintf """datapacks\%s\data\minecraft\tags\functions\tick.json""" PACK_NAME)
-        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
-        System.IO.File.WriteAllText(FIL, sprintf """{"values": ["%s:tick"]}""" PACK_NS)
+        Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, "minecraft", "tick", [sprintf "%s:tick" PACK_NS])
 
     let hook(event) =
-        let FIL = System.IO.Path.Combine(MinecraftBINGO.FOLDER,sprintf """datapacks\%s\data\%s\tags\functions\%s.json""" PACK_NAME BINGO_NS event)
-        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
-        System.IO.File.WriteAllText(FIL, sprintf """{"values": ["%s:%s"]}""" PACK_NS event)
+        Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, BINGO_NS, event, [sprintf "%s:%s" PACK_NS event])
 
     let hookEvents() =
         for event in ["on_new_card"; "on_start_game"; "on_finish"; "on_get_configuration_books"] do

@@ -1,7 +1,6 @@
 ﻿module MinecraftBINGO
 
 let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
-let USE_GAMELOOP = true         // if false, use a repeating command block instead
 
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
@@ -147,19 +146,12 @@ let writeFunctionToDisk(packName,packNS,name,code) = Utilities.writeFunctionToDi
 
 ////////////////////////////
 // hook into events from base pack
-let FIL = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\minecraft\tags\functions\tick.json""")
-System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
-if USE_GAMELOOP then
-    System.IO.File.WriteAllText(FIL,sprintf"""{"values": ["%s:theloop"]}"""NS)
-else
-    System.IO.File.WriteAllText(FIL,"")
+Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", [sprintf"%s:theloop"NS])
 
 ////////////////////////////
 // publish own events for child packs
 let publishEvent(eventName) =
-    let FIL = System.IO.Path.Combine(FOLDER,sprintf """datapacks\%s\data\%s\tags\functions\%s.json""" PACK_NAME NS eventName)
-    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
-    System.IO.File.WriteAllText(FIL,"""{"values": []}""")
+    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, NS, eventName, [])
 for eventName in ["on_new_card"; "on_start_game"; "on_finish"; "on_get_configuration_books"] do
     publishEvent(eventName)
 for t in TEAMS do
@@ -216,6 +208,7 @@ let SIGN_ENTITY_TAG = "tag=signguy,x=0,y=4,z=0,distance=..1.0,limit=1"
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
 // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
+// TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
     yield """summon armor_stand 84 4 4 {CustomName:"\"                          \"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 4 4 84 {CustomName:"\"XH\"",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
@@ -436,10 +429,6 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY announceOnlyTeam 0"
         yield "scoreboard players set $ENTITY fireworkItem 1"
         yield sprintf "team join green @e[%s]" XH_TAG
-        // loop
-        if not USE_GAMELOOP then
-            yield "setblock 68 25 64 air"
-            yield sprintf """setblock 68 25 64 repeating_command_block{auto:1b,TrackOutput:0b,Command:"function %s:theloop"}""" NS
         yield sprintf "function %s:set_options_to_defaults" NS
         yield sprintf "function %s:summon_book_text_entities" NS
         |]

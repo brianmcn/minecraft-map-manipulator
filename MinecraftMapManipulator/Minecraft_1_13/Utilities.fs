@@ -49,4 +49,9 @@ let writeDatapackMeta(worldSaveFolder, packName,description) =
     let mcmetaFilename = System.IO.Path.Combine(worldSaveFolder, "datapacks", FOLDER, "pack.mcmeta")
     ensureDirOfFile(mcmetaFilename)
     System.IO.File.WriteAllText(mcmetaFilename, meta)
-        
+
+let writeFunctionTagsFileWithValues(worldSaveFolder, packName, ns, funcName, values) =     
+    let FIL = System.IO.Path.Combine(worldSaveFolder, "datapacks", packName, "data", ns, sprintf """tags\functions\%s.json""" funcName)
+    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
+    let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)
+    System.IO.File.WriteAllText(FIL,sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))

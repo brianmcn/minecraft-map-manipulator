@@ -142,7 +142,7 @@ Nudge with eg selected item and W/S
 [<EntryPoint>]
 let main argv = 
     MinecraftBINGO.cardgen_compile()
-    //MinecraftBINGOExtensions.Blind.main()
+    MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
