@@ -72,17 +72,21 @@ module Blind =
 
     let COVER_HEIGHT = MinecraftBINGO.ART_HEIGHT + 2
     let COVER_HEIGHT_UNDER = MinecraftBINGO.ART_HEIGHT_UNDER - 1
-    let toggleableOptions = [|
-        "thing5", "Some option"
-        "thing6", "Another option"
-        "thing7", "Great option"
-        |]
-    let toggleables = toggleableOptions |> Array.map fst
+
+    let CFG = "cfg"
+    let blindConfigBookTag = "BlindConfigBook"
+    type ConfigBook = Utilities.ConfigBook 
+    type ConfigPage = Utilities.ConfigPage 
+    type ConfigOption = Utilities.ConfigOption 
+    let blindConfigBook = ConfigBook("Lorgon111","Blind options",[|
+        ConfigPage("Not an option, just a clickable action",[|
+            // TODO this is a nice idea, but can't actually get a config book to use it after-a-game-but-before-reset-to-start-next-game
+            ConfigOption("optunc", "Uncover card now", true, [|sprintf "function %s:uncover" PACK_NS|])
+            |])
+        |])
     let all_objectives = [|
         yield "blindPackInited"   // has the pack ever been initialized
         yield "blindPackEnabled"  // is the pack currently enabled
-        for t in toggleables do
-            yield "val"+t
         |]
     let all_funcs = [|
         yield "get_sign_for_lobby", [|
@@ -117,59 +121,28 @@ module Blind =
             // clear any blocks in the world
             sprintf "function %s:uncover" PACK_NS
             // clear any inventory in the world
-            "clear @a minecraft:written_book{BlindConfigBook:1}"
+            sprintf "clear @a minecraft:written_book{%s:1}" blindConfigBookTag
             // clear any entities in the world
             sprintf """datapack disable "file/%s" """ PACK_NAME
-            |]
-        yield "on_get_configuration_books",[|
-            for t in toggleables do
-                yield sprintf "scoreboard players enable @s trig%s" t
-                yield sprintf "execute if entity $SCORE(val%s=1) run scoreboard players set @e[tag=bookText,name=ON] val%s 1" t t
-                yield sprintf "execute if entity $SCORE(val%s=0) run scoreboard players set @e[tag=bookText,name=ON] val%s 0" t t
-                yield sprintf "execute if entity $SCORE(val%s=1) run scoreboard players set @e[tag=bookText,name=OFF] val%s 0" t t
-                yield sprintf "execute if entity $SCORE(val%s=0) run scoreboard players set @e[tag=bookText,name=OFF] val%s 1" t t
-            // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-            // TODO they could store it in a chest or item frame or something in the lobby...
-            yield "clear @a minecraft:written_book{BlindConfigBook:1}"
-            yield sprintf "%s" (Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Blind options",[|
-                """[{"text":"Some descriptive header"}"""
-                    + String.concat "" [| for t,name in toggleableOptions do 
-                            yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger trig%s set 1"}},{"selector":"@e[tag=bookText,scores={val%s=1}]"}""" name t t
-                        |]
-                    + "]"
-                |], "BlindConfigBook:1"))
             |]
         yield "init",[|
             for o in all_objectives do
                 yield sprintf "scoreboard objectives add %s dummy" o
-            for t in toggleables do
-                yield sprintf "scoreboard objectives add trig%s trigger" t
+            yield sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.INIT 
             // set any default values
             yield "scoreboard players set $ENTITY blindPackEnabled 0"
+            yield sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.DEFAULT
             |]
         yield "tick",[|
             sprintf "execute if entity $SCORE(gameInProgress=0) run function %s:config_loop" PACK_NS 
             |]
         yield "config_loop",[|
-            for t in toggleables do
-                yield sprintf "execute as @a[scores={trig%s=1}] run function %s:toggle_%s" t PACK_NS t
-            yield """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{BlindConfigBook:1}}}]"""
+            yield sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.LISTEN
+            yield sprintf """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{%s:1}}}]""" blindConfigBookTag
             |]
-        // TODO set defaults
-        for t,name in toggleableOptions do
-            yield sprintf "toggle_%s" t, [|
-                sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY val%s" t
-                // turn off
-                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY val%s 0" t
-                sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" name
-                // turn on
-                sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY val%s 1" t
-                sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" name
-                // boilerplate
-                sprintf "scoreboard players set @s trig%s 0" t
-                sprintf "scoreboard players enable @s trig%s" t
-                sprintf "function %s:on_get_configuration_books" PACK_NS
-                |]
+        yield "on_get_configuration_books",[| // base pack calls us outside CFG folder
+            sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.GET  // call our code inside CFG folder
+            |]
         yield "on_new_card",[|
             //sprintf """tellraw @a ["%s:on_new_card was called"]""" PACK_NS 
             sprintf "function %s:cover" PACK_NS
@@ -201,7 +174,6 @@ module Blind =
             yield sprintf "setblock %s stone" (MinecraftBINGO.CHEST_THIS_CARD_1.Offset(0,1,0).STR)
             yield sprintf "setblock %s stone" (MinecraftBINGO.CHEST_THIS_CARD_2.Offset(0,1,0).STR)
             |]
-        // TODO, at end of game, you come back to lobby, but game is still running, and you want to uncover-all to see what you missed, how? no sign to click, no book to get... HMMMM
         yield "uncover",[|
             // uncover top, bottom, and chest
             yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT COVER_HEIGHT
@@ -232,3 +204,5 @@ module Blind =
             |]
         for name,code in a do
             MinecraftBINGO.writeFunctionToDisk(PACK_NAME, PACK_NS, name,code)
+        Utilities.writeConfigOptionsFunctions(MinecraftBINGO.FOLDER, PACK_NAME, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (n,c) -> MinecraftBINGO.compile(c,n)))
+

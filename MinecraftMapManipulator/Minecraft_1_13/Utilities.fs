@@ -87,7 +87,7 @@ module ConfigFunctionNames =
     let LISTEN = "listen_for_triggers"
     let GET = "on_get_configuration_books"
 // assumes existence of ON/OFF booktext entities, $ENTITY/$SCORE compilation entities
-let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,compileF) =
+let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqueTag,compileF) =
     let funcs = [|
         yield ConfigFunctionNames.INIT,[|
             for opt in configBook.FlatOptions do
@@ -127,7 +127,8 @@ let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,compi
                 yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextOFF] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
                 yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextOFF] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
             // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-            yield "clear @a minecraft:written_book{ConfigBook:1}"
+            // TODO they could store it in a chest or item frame or something in the lobby...
+            yield sprintf "clear @a minecraft:written_book{%s:1}" uniqueTag
             yield sprintf "%s" (makeCommandGivePlayerWrittenBook(configBook.Author,configBook.Title,[|
                 for page in configBook.Pages do
                     yield sprintf """[{"text":"%s"}""" page.Header 
@@ -135,7 +136,7 @@ let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,compi
                                     yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" opt.Description opt.ScoreboardPrefix opt.ScoreboardPrefix 
                                         |]
                             + "]"
-                |], "ConfigBook:1"))
+                |], sprintf "%s:1" uniqueTag))
             |]
         |]
     let funcs = [|

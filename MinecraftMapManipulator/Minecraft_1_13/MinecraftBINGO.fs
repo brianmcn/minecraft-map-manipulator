@@ -47,6 +47,7 @@ let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modify
 let NS = "test"
 let PACK_NAME = "BingoPack"
 let CFG = "cfg"
+let bingoConfigBookTag = "BingoConfigBook"
 type ConfigBook = Utilities.ConfigBook 
 type ConfigPage = Utilities.ConfigPage 
 type ConfigOption = Utilities.ConfigOption 
@@ -551,7 +552,7 @@ let game_functions = [|
         |]
     yield "config_loop",[|
         sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.LISTEN
-        """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
+        sprintf """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{%s:1}}}]""" bingoConfigBookTag
         |]
     yield "get_configuration_books",[|
         // call ourselves
@@ -1527,7 +1528,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
     printfn "writing functions..."
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
     writeExtremeHillsDetection()
-    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, (fun (n,c) -> compile(c,n)))
+    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (n,c) -> compile(c,n)))
     for name,code in r do
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing
