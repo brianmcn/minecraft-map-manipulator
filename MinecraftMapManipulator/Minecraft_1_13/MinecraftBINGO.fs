@@ -48,32 +48,34 @@ let NS = "test"
 let PACK_NAME = "BingoPack"
 let CFG = "cfg"
 let bingoConfigBookTag = "BingoConfigBook"
+type ConfigDescription = Utilities.ConfigDescription
 type ConfigBook = Utilities.ConfigBook 
 type ConfigPage = Utilities.ConfigPage 
 type ConfigOption = Utilities.ConfigOption 
 let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
     ConfigPage("Starting items and effects",[|
-        ConfigOption("optnv", "Night Vision", true, [||])
-        ConfigOption("optds", "Depth Strider boots", false, [||])
-        ConfigOption("optboat", "Starting boat", true, [||])
+        ConfigOption("optnv",  ConfigDescription.Toggle "Night Vision", 1, [||])
+        ConfigOption("optds",  ConfigDescription.Toggle "Depth Strider boots", 0, [||])
+        ConfigOption("optboat",ConfigDescription.Toggle "Starting boat", 1, [||])
         // TODO team chest
         // TODO, OOB elytra
         |])
     ConfigPage("Optional game modes",[|
-        ConfigOption("optlo", "Lockout mode", false, [|sprintf "function %s:compute_lockout_goal" NS|])
-        ConfigOption("opttfo","Two-for-one mode", false, [||])
+        ConfigOption("optlo", ConfigDescription.Toggle "Lockout mode", 0, [|sprintf "function %s:compute_lockout_goal" NS|])
+        ConfigOption("opttfo",ConfigDescription.Toggle "Two-for-one mode", 0, [||])
         |])
     ConfigPage("Other options",[|
-        ConfigOption("opthh", "Novice mode - longer explanatory messages and help", true, [||])    // if we need to explain how to update the card, how to click the chat, etc.
-        ConfigOption("optlw", "Leading whitespace", false, [||])                                   // if we want leading whitespace to keep most chat away from left side
-        ConfigOption("optsa", "Arrow points to spawn", true, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
-        ConfigOption("optxh", "Show when extreme hills", true, [||])                               // if add 'XH' on player actionbar when in extreme hills
+        ConfigOption("opthh", ConfigDescription.Toggle "Novice mode - longer explanatory messages and help", 1, [||])    // if we need to explain how to update the card, how to click the chat, etc.
+        ConfigOption("optlw", ConfigDescription.Toggle "Leading whitespace", 0, [||])                                   // if we want leading whitespace to keep most chat away from left side
+        ConfigOption("optsa", ConfigDescription.Toggle "Arrow points to spawn", 1, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
+        ConfigOption("optxh", ConfigDescription.Toggle "Show when extreme hills", 1, [||])                               // if add 'XH' on player actionbar when in extreme hills
         // TODO the text overflow the page and covers the back arrow
         |])
-    // TODO
-    // got item side effects
-    //   announceItem012/fireworkItem01
-    //   announceOnlyTeam  // TODO test this
+    ConfigPage("Got-an-item effects",[|
+        ConfigOption("optai", ConfigDescription.Radio [|"<nothing> in chat"; "'got an item' in chat"; "'got bone' in chat"|], 2, [||])
+        ConfigOption("optfi",ConfigDescription.Toggle "Play firework sound", 1, [||])
+        ConfigOption("optaot",ConfigDescription.Toggle "Announce only to teammates", 0, [||]) // TODO test this
+        |])
     |])
 
 // TODO f9b, 6p, 2 teams, tick lag (seeing fps lag in long game in jungle in singleplayer too)
@@ -354,9 +356,6 @@ let game_objectives = [|
     yield "numActivePlayers"
     yield "hasAnyoneUpdated"
     // TODO someone wants option to turn off actionbar entirely
-    yield "announceOnlyTeam"   // 1 if announce/firework only to your teammates, 0 if to everyone
-    yield "announceItem"       // 2 if announce item name, 1 if just say 'got an item', 0 if no text generated
-    yield "fireworkItem"       // 1 if play sound when get item, 0 if silent
     yield "inXH"               // on a player, has a value greater than 0 if recently in extreme hills (or variant)
     yield "gameInProgress"     // 0 if not going, 1 if startup sequence, making spawns etc, 2 if game is running
     yield "TWENTY_MIL"
@@ -406,9 +405,6 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY ONE_THOUSAND 1000"
         yield "scoreboard players set $ENTITY TEN_THOUSAND 10000"
         yield "scoreboard players set $ENTITY gameInProgress 0"
-        yield "scoreboard players set $ENTITY announceItem 2"
-        yield "scoreboard players set $ENTITY announceOnlyTeam 0"
-        yield "scoreboard players set $ENTITY fireworkItem 1"
         yield sprintf "team join green @e[%s]" XH_TAG
         yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.DEFAULT 
         yield sprintf "function %s:summon_book_text_entities" NS
@@ -1056,11 +1052,10 @@ let checker_functions = [|
                 yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
                 if s <> "33" then
                     yield sprintf "execute if entity $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
-            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,announceItem=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
+            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,optaival=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
-            // announceOnlyTeam fails due to 'the bug'
-            yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
-            yield sprintf "execute if entity $SCORE(gotItems=1,fireworkItem=1,announceOnlyTeam=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf "execute if entity $SCORE(gotItems=1,optfival=1,optaotval=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf "execute if entity $SCORE(gotItems=1,optfival=1,optaotval=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
@@ -1156,13 +1151,13 @@ let checker_functions = [|
             let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
             let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
             let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG name
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,optlwval=1) run tellraw @a %s""" prefix s n itemdatum_time_playername
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=0,optlwval=0) run tellraw @a %s""" prefix s n time_playername_gotthe_datum
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=0) run tellraw @a %s""" prefix s n time_playername_gotanitem
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=0,optlwval=1) run tellraw @a %s""" prefix s n itemdatum_time_playername
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" prefix s n time_playername_gotthe_datum
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=1,optaotval=0) run tellraw @a %s""" prefix s n time_playername_gotanitem
             // Note that $ENTITY teamNum was set to @s teamNum in the root of the search
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,optlwval=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n itemdatum_time_playername
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=2,announceOnlyTeam=1,optlwval=0) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotthe_datum
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,announceItem=1,announceOnlyTeam=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotanitem
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=1,optlwval=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n itemdatum_time_playername
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=1,optlwval=0) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotthe_datum
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=1,optaotval=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotanitem
             |]
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
@@ -1528,7 +1523,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
     printfn "writing functions..."
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
     writeExtremeHillsDetection()
-    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (n,c) -> compile(c,n)))
+    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (n,c) -> compile(c,n)), sprintf "@e[%s]" ENTITY_TAG)
     for name,code in r do
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing

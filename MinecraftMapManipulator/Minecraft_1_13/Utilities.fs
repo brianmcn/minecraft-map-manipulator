@@ -59,13 +59,15 @@ let writeFunctionTagsFileWithValues(worldSaveFolder, packName, ns, funcName, val
 //////////////////////////////////////////////////////////////
 // config options books
 
-// todo add radio button
+type ConfigDescription =
+    | Toggle of string     // on-off toggleable option (value = 1 if on, 0 if off)
+    | Radio of string[]    // radio button group where one choice is selected (value = index of one active)
 
-type ConfigOption(scoreboardPrefix:string, description:string, defaultsOn:bool, extraCommandsWhenToggled:string[]) =
+type ConfigOption(scoreboardPrefix:string, description:ConfigDescription, defaultValue:int, extraCommandsWhenSwitched:string[]) =
     member this.ScoreboardPrefix = scoreboardPrefix
     member this.Description = description
-    member this.DefaultValue = if defaultsOn then 1 else 0
-    member this.ExtraCommands = extraCommandsWhenToggled
+    member this.DefaultValue = defaultValue 
+    member this.ExtraCommands = extraCommandsWhenSwitched
 
 type ConfigPage(header:string, options:ConfigOption[]) =
     member this.Header = header
@@ -87,7 +89,7 @@ module ConfigFunctionNames =
     let LISTEN = "listen_for_triggers"
     let GET = "on_get_configuration_books"
 // assumes existence of ON/OFF booktext entities, $ENTITY/$SCORE compilation entities
-let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqueTag,compileF) =
+let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqueTag,compileF,entity_selector) =
     let funcs = [|
         yield ConfigFunctionNames.INIT,[|
             for opt in configBook.FlatOptions do
@@ -104,13 +106,20 @@ let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqu
             |]
         for opt in configBook.FlatOptions do
             yield sprintf "toggle_%s" opt.ScoreboardPrefix, [|
-                yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt.ScoreboardPrefix 
-                // turn off
-                yield sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix 
-                yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" opt.Description 
-                // turn on
-                yield sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt.ScoreboardPrefix
-                yield sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" opt.Description 
+                match opt.Description with
+                | Toggle(desc) ->
+                    yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt.ScoreboardPrefix 
+                    // turn off
+                    yield sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix 
+                    yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" desc
+                    // turn on
+                    yield sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt.ScoreboardPrefix
+                    yield sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" desc
+                | Radio(descs) ->
+                    yield sprintf "scoreboard players add $ENTITY %sval 1" opt.ScoreboardPrefix 
+                    yield sprintf "execute if entity $SCORE(%sval=%d..) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix descs.Length opt.ScoreboardPrefix 
+                    for i = 0 to descs.Length-1 do
+                        yield sprintf """execute if entity $SCORE(%sval=%d) run tellraw @a ["turning on: %s"]""" opt.ScoreboardPrefix i descs.[i]
                 // boilerplate
                 yield sprintf "scoreboard players set @s %strig 0" opt.ScoreboardPrefix 
                 yield sprintf "scoreboard players enable @s %strig" opt.ScoreboardPrefix 
@@ -133,7 +142,13 @@ let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqu
                 for page in configBook.Pages do
                     yield sprintf """[{"text":"%s"}""" page.Header 
                             + String.concat "" [| for opt in page.Options do 
-                                    yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" opt.Description opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                                    match opt.Description  with
+                                    | Toggle(desc) ->
+                                        yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                                    | Radio(descs) ->
+                                        yield sprintf """,{"text":"\n\n#"},{"score":{"name":"%s","objective":"%sval"}},{"text":" below "},{"text":"(click here)","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}}""" entity_selector opt.ScoreboardPrefix opt.ScoreboardPrefix
+                                        for i = 0 to descs.Length-1 do
+                                            yield sprintf """,{"text":"\n%d...%s"}""" i descs.[i]
                                         |]
                             + "]"
                 |], sprintf "%s:1" uniqueTag))

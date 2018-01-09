@@ -75,13 +75,14 @@ module Blind =
 
     let CFG = "cfg"
     let blindConfigBookTag = "BlindConfigBook"
+    type ConfigDescription = Utilities.ConfigDescription
     type ConfigBook = Utilities.ConfigBook 
     type ConfigPage = Utilities.ConfigPage 
     type ConfigOption = Utilities.ConfigOption 
     let blindConfigBook = ConfigBook("Lorgon111","Blind options",[|
         ConfigPage("Not an option, just a clickable action",[|
             // TODO this is a nice idea, but can't actually get a config book to use it after-a-game-but-before-reset-to-start-next-game
-            ConfigOption("optunc", "Uncover card now", true, [|sprintf "function %s:uncover" PACK_NS|])
+            ConfigOption("optunc", ConfigDescription.Toggle "Uncover card now", 1, [|sprintf "function %s:uncover" PACK_NS|])
             |])
         |])
     let all_objectives = [|
@@ -204,5 +205,5 @@ module Blind =
             |]
         for name,code in a do
             MinecraftBINGO.writeFunctionToDisk(PACK_NAME, PACK_NS, name,code)
-        Utilities.writeConfigOptionsFunctions(MinecraftBINGO.FOLDER, PACK_NAME, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (n,c) -> MinecraftBINGO.compile(c,n)))
+        Utilities.writeConfigOptionsFunctions(MinecraftBINGO.FOLDER, PACK_NAME, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (n,c) -> MinecraftBINGO.compile(c,n)), sprintf "@e[%s]" MinecraftBINGO.ENTITY_TAG)
 
