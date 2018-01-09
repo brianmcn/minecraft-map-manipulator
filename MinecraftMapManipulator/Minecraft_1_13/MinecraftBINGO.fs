@@ -113,6 +113,7 @@ gothfaerie
 WarNev3rChanges
 BananaClanana
 BlkR0se  // todo spelling?
+Krazy_Faith
 *)
 /////////////////////////////////////////////////////////////
 
@@ -370,6 +371,7 @@ let game_objectives = [|
     yield "fakeStart"
     yield "lockoutGoal"
     yield "numActiveTeams"
+    yield "numActivePlayers"
     yield "hasAnyoneUpdated"
     // TODO someone wants option to turn off actionbar entirely
     yield "announceOnlyTeam"   // 1 if announce/firework only to your teammates, 0 if to everyone
@@ -390,6 +392,8 @@ let game_objectives = [|
     yield "z"                  // temp variable on player
     yield "dx"                 // temp variable on player
     yield "dz"                 // temp variable on player
+    yield "playerNum"          // a value from [0..numActivePlayers) which is used to "distribute the load" in SMP so some checks only done certain ticks so lots of players don't lag the server
+    yield "tickNum"            // a value from [0..numActivePlayers) which increases each tick (mod numActivePlayers), used to run certain per-player commands only in certain ticks rather than every tick
     yield "Seed"
     yield "minutes"
     yield "seconds"
@@ -633,7 +637,6 @@ let game_functions = [|
         sprintf "function %s:start1" NS
         |]
     yield "ensure_maps",[|   // called when player @s currently has no bingo cards
-        "scoreboard players add @s ticksSinceGotMap 1"
         """execute if entity @s[scores={ticksSinceGotMap=40..}] run give @s minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32"""
         "scoreboard players set @s[scores={ticksSinceGotMap=40..}] ticksSinceGotMap 0"
         |]
@@ -699,7 +702,7 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
         "scoreboard players set $ENTITY preseconds -1"                                                 // briefly store an atypical value to copy
         "execute if entity $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
-        sprintf "execute as @a run function %s:update_time_per_player" NS
+        sprintf "execute as @a run function %s:update_time_per_player" NS  // NOTE every-tick @a
         sprintf "scoreboard players reset @e[%s,scores={preseconds=-1}] preseconds" ENTITY_TAG         // restore typical value
         |]
     yield "update_time_per_player",[|
@@ -830,10 +833,18 @@ let game_functions = [|
         yield "execute if entity $SCORE(optloval=1) run scoreboard players operation LockoutGoal Score = $ENTITY lockoutGoal"
         yield "execute unless entity $SCORE(optloval=1) run scoreboard players reset LockoutGoal Score"
         |]
+    yield "compute_player_numbers", [|
+        yield "execute store result score $ENTITY numActivePlayers if entity @a"
+        // arbitrarily assign each person a unique number in range [0..numActivePlayers)
+        yield "scoreboard players set @a playerNum -1"
+        for i = 0 to 39 do
+            yield sprintf "scoreboard players set @p[scores={playerNum=-1}] playerNum %d" i
+        |]
     yield "start2", [|
         // clear player scores again (in case player joined server after card gen'd)
         yield sprintf "function %s:reset_player_scores" NS
         yield sprintf "function %s:compute_lockout_goal" NS
+        yield sprintf "function %s:compute_player_numbers" NS
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
         yield sprintf "function %s:kill_book_text_entities" NS
@@ -868,6 +879,8 @@ let game_functions = [|
         yield "effect give @a minecraft:invisibility 999 4 true"
         // set time to day so not tp at night
         yield "time set 0"
+        // set to peaceful so that hostiles don't spawn and are not available to interact with for players who cheat-move-in-multiplayer-startup
+        yield "difficulty peaceful"
         yield sprintf "execute if entity $SCORE(fakeStart=1) run function %s:start5" NS
         yield sprintf "execute if entity $SCORE(fakeStart=0) run function %s:do_spawn_sequence" NS
         |]
@@ -886,8 +899,7 @@ let game_functions = [|
         // feed & heal again
         yield "effect give @a saturation 10 4 true"
         yield "effect give @a regeneration 10 4 true"
-        // clear hostile mobs & weather
-        yield "difficulty peaceful"
+        // clear weather
         yield "weather clear 99999"
         yield sprintf """tellraw @a [%s,"Game will begin shortly..."]""" LEADING_WHITESPACE
         yield "$NTICKSLATER(20)"
@@ -972,7 +984,7 @@ let map_update_functions = [|
         |]
     yield "map_update_tick", [| // called every tick
         // find maps near players (for efficiency, rather than looking for all items in world, only look near players)
-        sprintf """execute at @a as @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}},distance=..5] run function %s:map_near_player""" NS
+        sprintf """execute at @a as @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}},distance=..3] run function %s:map_near_player""" NS  // TODO serializing nbt per player, lag?
         // run progress for anyone in the update room
         sprintf "execute as @a[scores={ticksLeftMU=1}] run function %s:warp_back" NS
         "scoreboard players remove @a[scores={ticksLeftMU=1..}] ticksLeftMU 1"
@@ -1099,6 +1111,9 @@ let checker_functions = [|
         yield sprintf "scoreboard players set $ENTITY lockoutGoal 25"
         |]
     yield "check_inventory",[| // called as a player @s
+        sprintf "execute if score @s playerNum = $ENTITY tickNum run function %s:check_inventory_core" NS
+        |]
+    yield "check_inventory_core",[| // called as a player @s
         sprintf "execute if entity @s[team=red] run function %s:red_inventory_changed" NS
         sprintf "execute if entity @s[team=blue] run function %s:blue_inventory_changed" NS
         sprintf "execute if entity @s[team=green] run function %s:green_inventory_changed" NS
@@ -1425,12 +1440,14 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
             |],"on_respawn")
-        // TODO putting this in a separate function is a work around for https://bugs.mojang.com/browse/MC-121934
+        yield! compile([|
+            sprintf "execute if score @s playerNum = $ENTITY tickNum run function %s:have_no_map_core" NS
+            |],"have_no_map")
         yield! compile([|
             // players may dead
             "execute store result score @s TEMP run data get entity @s Health 100.0"
-            sprintf """execute if entity @s[scores={TEMP=1..}] unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS
-            |],"have_no_map")
+            sprintf """execute if entity @s[scores={TEMP=1..}] unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS  // NOTE may be expensive...
+            |],"have_no_map_core")
         yield! compile([|
             "tag @s add playerHasBeenSeen"
             sprintf "teleport @s %s" LOBBY
@@ -1541,9 +1558,13 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS
+            yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS  // NOTE every-tick @a
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
             yield! gameLoopContinuationCheck()
+            // throttling infrastructure (so some things don't run for every player every tick)
+            yield "scoreboard players add $ENTITY tickNum 1"
+            yield "execute if score $ENTITY tickNum >= $ENTITY numActivePlayers run scoreboard players set $ENTITY tickNum 0"
+            yield "scoreboard players add @a ticksSinceGotMap 1"
             |],"theloop")
         yield! compile(prng, "prng")
         yield! compile(prng_init(), "prng_init")

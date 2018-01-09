@@ -26,6 +26,8 @@ a common sign in the lobby (part of base bingo) should broadcast #on_give_config
 
 // TODO see if minecraft:load is useful
 
+// TODO uncover card at end game (in book? link in chat that only works in lobby? ...)
+
 //////////////////////////////
 
 module Blind =
