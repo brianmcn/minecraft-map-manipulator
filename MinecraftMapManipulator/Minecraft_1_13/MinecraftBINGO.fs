@@ -22,7 +22,7 @@ let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modify
 
 // TODO evaluate new items, other new features
 
-// TODO history book, donation link, thank testers
+// TODO history book, donation link
 
 // TODO decide what 'loadouts' need to ship in-game (vanilla; NV; NV+start-with-boats; NV+DS; starting chest... are ones I know are used) - so long as I can 'ship' them out-of-band with separate datapack, prefer minimal
 //   - but figure how how OOB alternatives work here in terms of exclusive-selection UI from lobby...
@@ -87,19 +87,6 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
 
 // TODO non-default option to enable another 'arrow' that points to your prior death location
 
-/////////////////////////////////////////////////////////////
-
-(*
-testers:
-Ekiph
-brtw
-Zampone
-gothfaerie
-WarNev3rChanges
-BananaClanana
-BlkR0se  // todo spelling?
-Krazy_Faith
-*)
 /////////////////////////////////////////////////////////////
 
 type Coords(x:int,y:int,z:int) = 
@@ -448,6 +435,67 @@ let game_functions = [|
             //
             yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
             |]
+    let bingo40testers = [|
+        "Ekiph"
+        "brtw"
+        "Zampone"
+        "gothfaerie"
+        "WarNev3rChanges"
+        "BananaClanana"
+        "BlkR0se"  // todo spelling?
+        "Krazy_Faith"
+        |]
+    let bingo30testers = [|
+        "Bergasms"
+        "Cacille"
+        "ConeDodger"
+        "DucksEatFree"
+        "gothfaerie"
+        "Insmanity"
+        "obesity84"
+        "Shook50"
+        |]
+    let bingo20testers = [|
+        "GrannyGamer1"
+        "gothfaerie"
+        "ConeDodger"
+        "phedran"
+        "jahg1977"
+        "Zhuria"
+        "Meroka"
+        "Alzorath"
+        "NihonTiger"
+        "DireDwarf"
+        "iSuchtel"
+        "Blitzkriegsler"
+        "IronStoneMine"
+        "mod1982"
+        "VanRyderLP"
+        "generikb"
+        "Trazlander"
+        "three_two"
+        "kurtjmac"
+        "Bergasms"
+        "FixxxerTV"
+        "Grim"
+        "LZmiljoona"
+        "GreatScottLP"
+        "LDShadowLady"
+        "CthulhuToo"
+        "Shook50"
+        "DucksEatFree"
+        |]
+    let allTesters = [| yield! bingo20testers; yield! bingo30testers; yield! bingo40testers |] |> set |> Seq.toArray |> Array.sortBy (fun s -> s.ToLower()) 
+    yield "thanks_book", [| 
+        Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Thanks", [|
+            sprintf """{"text":"I've spent more than 300 hours developing MinecraftBINGO, but I got a lot of help along the way.\n\nThanks to many playtesters on this and prior versions, including:\n\n%s,"}"""
+                (String.concat ", " allTesters.[0..1])
+            sprintf """{"text":"%s,"}""" (String.concat ", " allTesters.[2..19])
+            sprintf """{"text":"%s"}""" (String.concat ", " allTesters.[20..])
+            """{"text":"Special thanks to\nAntVenom\nwho gave me the idea for Version 1.0, and\nBergasms\nwho helped me test and implement the first version."}"""
+            """{"text":"And of course, to you,\n","extra":[{"selector":"@p"},{"text":"\nthanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
+            |], null)
+        |]
     yield "make_lobby", [|
         (*
         TODO
@@ -460,6 +508,8 @@ let game_functions = [|
         yield "fill 60 24 60 70 28 60 stone"
         yield "setblock 64 25 60 sea_lantern"
         yield sprintf "function %s:place_signs0" NS
+        // thanks book
+        yield! placeWallSignCmds 60 26 77 "north" "THANKS" "" "" "" (sprintf "function %s:thanks_book" NS) true false
         // make map-update-room
         yield sprintf "fill %s %s sea_lantern hollow" (MAP_UPDATE_ROOM.Offset(-3,-2,-3).STR) (MAP_UPDATE_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (MAP_UPDATE_ROOM.Offset(-1,-1,-1).STR) (MAP_UPDATE_ROOM.Offset(1,2,1).STR)
