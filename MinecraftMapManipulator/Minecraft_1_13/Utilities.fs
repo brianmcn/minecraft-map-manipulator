@@ -42,7 +42,7 @@ let writeDatapackMeta(worldSaveFolder, packName,description) =
     let FOLDER = packName
     let meta = sprintf """{
                "pack": {
-                  "pack_format": 4,
+                  "pack_format": 1,
                   "description": "%s"
                }
             }""" description

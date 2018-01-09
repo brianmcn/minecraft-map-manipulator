@@ -20,9 +20,9 @@ let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modify
 
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
-// TODO evaluate new items, other new features
+// TODO signs/books explaining gameplay/game modes/custom terrain/custom config
 
-// TODO history book, donation link
+// TODO evaluate new items, other new features
 
 // TODO decide what 'loadouts' need to ship in-game (vanilla; NV; NV+start-with-boats; NV+DS; starting chest... are ones I know are used) - so long as I can 'ship' them out-of-band with separate datapack, prefer minimal
 //   - but figure how how OOB alternatives work here in terms of exclusive-selection UI from lobby...
@@ -496,6 +496,23 @@ let game_functions = [|
             """{"text":"And of course, to you,\n","extra":[{"selector":"@p"},{"text":"\nthanks for playing!\n\nSigned,\nDr. Brian Lorgon111"}]}"""
             |], null)
         |]
+    yield "version_book", [|
+        Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Versions", [|
+            """{"text":"You're playing MinecraftBINGO\n\nVersion ","extra":[{"text":"4.0",color:"red"},{"text":"\n\nTo get the latest version, click\n\n"},{"text":"@MinecraftBINGO","clickEvent":{"action":"open_url","value":"https://twitter.com/MinecraftBINGO"},"underlined":"true"}]}"""
+            // TODO add 4.0 info
+            """{"text":"Version History\n\n3.1 - 2017/03/24\n\nUpdated for 1.11 - removed abandonded mineshafts & cobweb, added 6 new items"}"""
+            """{"text":"Version History\n\n3.0 - 2016/02/29\n\nRewrote everything from scratch using new Minecraft 1.9 command blocks. So much more efficient!"}"""
+            """{"text":"Version History\n\n2.5 - 2014/11/27\n\nUpdate for Minecraft 1.8.1, which changed map colors.\n\n2.4 - 2014/09/12\n\nAdded 'seed' game mode to specify card and spawn point via a seed number."}"""
+            """{"text":"Version History\n\n2.3 - 2014/06/17\n\nAdded more items and lockout mode.\n\n2.2 - 2014/05/29\n\nAdded multiplayer team gameplay."}"""
+            """{"text":"Version History\n\n2.1 - 2014/05/12\n\nCustomized terrain with tiny biomes and many dungeons.\n\n2.0 - 2014/04/09\n\nRandomize the 25 items on the card."}"""
+            """{"text":"Version History\n\n1.0 - 2013/10/03\n\nOriginal Minecraft 1.6 version. Only one fixed card, dispensed buckets of water to circle items on the map. (pre-dates /setblock!)"}"""
+            |], null)
+        |]
+    yield "donation_book", [|
+        Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Donations", [|
+            """{"text":"I spent more than 300 hours programming MinecraftBINGO - mapmaking is a lot of work!\nIf you enjoy the game, and are willing and able, send me a tip! Any amount is appreciated.\n\n","extra":[{"text":"Click here to tip Brian","clickEvent":{"action":"open_url","value":"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YFATHZXXAXRZS"},"underlined":"true"}]}"""
+            |], null )
+        |]
     yield "make_lobby", [|
         (*
         TODO
@@ -508,8 +525,10 @@ let game_functions = [|
         yield "fill 60 24 60 70 28 60 stone"
         yield "setblock 64 25 60 sea_lantern"
         yield sprintf "function %s:place_signs0" NS
-        // thanks book
-        yield! placeWallSignCmds 60 26 77 "north" "THANKS" "" "" "" (sprintf "function %s:thanks_book" NS) true false
+        // thanks/donations/versions books
+        yield! placeWallSignCmds 62 26 77 "north" "THANKS" "" "" "" (sprintf "function %s:thanks_book" NS) true false
+        yield! placeWallSignCmds 61 26 77 "north" "DONATE" "" "" "" (sprintf "function %s:donation_book" NS) true false  // TODO update paypal button text
+        yield! placeWallSignCmds 60 26 77 "north" "HISTORY" "" "" "" (sprintf "function %s:version_book" NS) true false
         // make map-update-room
         yield sprintf "fill %s %s sea_lantern hollow" (MAP_UPDATE_ROOM.Offset(-3,-2,-3).STR) (MAP_UPDATE_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (MAP_UPDATE_ROOM.Offset(-1,-1,-1).STR) (MAP_UPDATE_ROOM.Offset(1,2,1).STR)
