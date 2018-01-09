@@ -55,3 +55,92 @@ let writeFunctionTagsFileWithValues(worldSaveFolder, packName, ns, funcName, val
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
     let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)
     System.IO.File.WriteAllText(FIL,sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))
+
+//////////////////////////////////////////////////////////////
+// config options books
+
+// todo add radio button
+
+type ConfigOption(scoreboardPrefix:string, description:string, defaultsOn:bool, extraCommandsWhenToggled:string[]) =
+    member this.ScoreboardPrefix = scoreboardPrefix
+    member this.Description = description
+    member this.DefaultValue = if defaultsOn then 1 else 0
+    member this.ExtraCommands = extraCommandsWhenToggled
+
+type ConfigPage(header:string, options:ConfigOption[]) =
+    member this.Header = header
+    member this.Options = options
+
+type ConfigBook(author:string, title:string, pages:ConfigPage[]) =
+    member this.Author = author
+    member this.Title = title
+    member this.Pages = pages
+    member this.FlatOptions = [|
+        for page in this.Pages do
+            for opt in page.Options do
+                yield opt
+        |]
+
+module ConfigFunctionNames =
+    let INIT = "init"
+    let DEFAULT = "set_options_to_defaults"
+    let LISTEN = "listen_for_triggers"
+    let GET = "on_get_configuration_books"
+// assumes existence of ON/OFF booktext entities, $ENTITY/$SCORE compilation entities
+let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,compileF) =
+    let funcs = [|
+        yield ConfigFunctionNames.INIT,[|
+            for opt in configBook.FlatOptions do
+                yield sprintf "scoreboard objectives add %sval dummy" opt.ScoreboardPrefix 
+                yield sprintf "scoreboard objectives add %strig trigger" opt.ScoreboardPrefix 
+        |]
+        yield ConfigFunctionNames.DEFAULT,[|
+            for opt in configBook.FlatOptions do
+                yield sprintf "scoreboard players set $ENTITY %sval %d" opt.ScoreboardPrefix opt.DefaultValue
+            |]
+        yield ConfigFunctionNames.LISTEN,[|
+            for opt in configBook.FlatOptions do
+                yield sprintf "execute as @a[scores={%strig=1}] run function %s:%s/toggle_%s" opt.ScoreboardPrefix ns folder opt.ScoreboardPrefix
+            |]
+        for opt in configBook.FlatOptions do
+            yield sprintf "toggle_%s" opt.ScoreboardPrefix, [|
+                yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt.ScoreboardPrefix 
+                // turn off
+                yield sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix 
+                yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" opt.Description 
+                // turn on
+                yield sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt.ScoreboardPrefix
+                yield sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" opt.Description 
+                // boilerplate
+                yield sprintf "scoreboard players set @s %strig 0" opt.ScoreboardPrefix 
+                yield sprintf "scoreboard players enable @s %strig" opt.ScoreboardPrefix 
+                // special cases
+                yield! opt.ExtraCommands 
+                // get a new book
+                yield sprintf "function %s:%s/%s" ns folder ConfigFunctionNames.GET
+                |]
+        yield ConfigFunctionNames.GET,[|
+            for opt in configBook.FlatOptions do
+                yield sprintf "scoreboard players enable @s %strig" opt.ScoreboardPrefix 
+                yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextON] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextON] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextOFF] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextOFF] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+            // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
+            yield "clear @a minecraft:written_book{ConfigBook:1}"
+            yield sprintf "%s" (makeCommandGivePlayerWrittenBook(configBook.Author,configBook.Title,[|
+                for page in configBook.Pages do
+                    yield sprintf """[{"text":"%s"}""" page.Header 
+                            + String.concat "" [| for opt in page.Options do 
+                                    yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" opt.Description opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                                        |]
+                            + "]"
+                |], "ConfigBook:1"))
+            |]
+        |]
+    let funcs = [|
+        for name,code in funcs do
+            yield! compileF(name,code)
+        |]
+    for name,code in funcs do
+        writeFunctionToDisk(world, pack, ns, sprintf "%s/%s" folder name, code)

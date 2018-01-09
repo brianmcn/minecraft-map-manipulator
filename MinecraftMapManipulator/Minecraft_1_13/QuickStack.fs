@@ -12,9 +12,9 @@
 //  - quick stack to nearby chests (particle animations) - how to invoke? clickable sign?
 // algorithms are complicated and may be expensive, work them out
 
-//let STACKABLES = [|"cobblestone";"diorite"|]  // TODO run out of RAM with more, test when launcher works to allocate RAM
+let STACKABLES = [|"cobblestone";"diorite"|]  // TODO run out of RAM with more, test when launcher works to allocate RAM
 //let STACKABLES = MC_Constants.STACKABLE_TO_64_ITEM_IDS
-let STACKABLES = MC_Constants.PRAGMATIC_64_STACKABLES
+//let STACKABLES = MC_Constants.PRAGMATIC_64_STACKABLES
 (*
      Total Files Listed:
             8201 File(s)     46,004,791 bytes
@@ -35,6 +35,8 @@ let quickstack_functions = [|
         yield "scoreboard objectives add space dummy"
         yield "scoreboard objectives add numMoved dummy"
         yield "scoreboard objectives add toSet dummy"
+        //
+        yield "scoreboard objectives add enderInTopRight dummy"
         |]
     for name,nbt,range in ["ender","EnderItems", [0..26]; "inv","Inventory",[0..35]] do  // note - must be 0..35 because e.g. Inventory[5] might be Slot:22b if lots of empy hotbar/inventory
         yield sprintf "compute_%s_counts" name,[|
@@ -121,6 +123,15 @@ let quickstack_functions = [|
             for itemType in STACKABLES do
                 yield sprintf "function qs:check_%s" itemType
             |]
+        yield "tick", [|
+            """execute unless entity @p[scores={enderInTopRight=1}] if entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run function qs:just_moved_to_top_right"""
+            """execute if entity @p[scores={enderInTopRight=1}] unless entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run scoreboard players set $ENTITY enderInTopRight 0"""
+            |]
+        yield "just_moved_to_top_right", [|
+            "scoreboard players set $ENTITY enderInTopRight 1"
+            "say invoking!"
+            "function qs:quick_stack"
+            |]
     |]
 
 let main() =
@@ -134,6 +145,7 @@ let main() =
     printfn "%d functions" quickstack_functions.Length 
     for name,code in quickstack_functions do
         Utilities.writeFunctionToDisk(world,"qspack","qs",name,code |> Array.map MC_Constants.compile)
+    Utilities.writeFunctionTagsFileWithValues(world,"qspack","minecraft","tick",["qs:tick"])
 
 
 (*

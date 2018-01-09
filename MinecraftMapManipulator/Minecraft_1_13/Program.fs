@@ -137,6 +137,8 @@ Preview using particle block, or armorstand with head block... Raytrace to dest 
 
 Nudge with eg selected item and W/S
 
+See also https://www.youtube.com/watch?v=SOOvommDpUA for ideas
+
 *)
 
 [<EntryPoint>]

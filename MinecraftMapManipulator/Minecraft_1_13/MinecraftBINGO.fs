@@ -10,26 +10,13 @@ let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modify
 // few unique probabilities; if enderpearl were 5/6 and slimeball were 1/6 in the bin, for example... hm, I could make each bin have 6 items and futz with probabilities more...
 // and then have e.g. 3 enderpearl, 2 rabbit hide, 1 slimeball; double-chests still enable the bin-visualization... ench book and maybe cake could be less, lime could be 50%...
 
-// TODO hungry-peaceful-bingo: You could simulate a hungry peaceful mode by having a dozen repeating command blocks which do e.g. "tp @e[type=skeleton] ~ ~-250 ~" to constantly teleport each type 
-// of hostile mob into the void.  I guess enderpearl, slimeball, spider eye, and fermented spider eye are the only items you can't get in peaceful now?
-
-// TODO triple-play mode? get a row, column and a diagonal to win? interesting strategy to plan/optimize?
-
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/
 
-// TOOD learn tags - eventing? add function to group?
-// TODO yes, this is how customizing should work, e.g. the "night vision + depth strider" is a data pack, and bingo has an event group for #custom:on_start and #custom:on_respawn and child packs add to that
-// TODO optional announcing item could be an on_got_item001 hooks, or just a flag
-// TODO 'blind' play would need like an on_new_card and on_got_square11 hooks
-// TODO 128 item groups? #item001 = diamond? #set_structure001 = structure block for the art? show-all-items chest may be problematic.  may impact perf.  unsure how to do 'max value' for cardgen & checks...
-
-// TODO test non-playing players who just want to hang out in lobby
+// TODO test non-playing players who just want to hang out in lobby (ideally they should not be on a team color, so they have no perf impact with inventory checking - 'leave team' sign in multiplayer lobby?)
 
 // TODO 'utility sign' hidden option?
 // Note: replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo... - can do now via "seed 0" to replay easily
 // TODO next seed (seed+1) is a good utility sign for gothfaerie
-
-// TODO consider recipe book for complex crafting?
 
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
@@ -51,47 +38,42 @@ let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modify
 
 // TODO first time loading up map signs? (see HasTheMapEverBeenLoadedBefore) enable command blocks, disable spawn protection?
 
-// TODO multiplayer where teams spawn nearby (pvp etc)
-
 // TODO investigate 'off' RNG in source code
 
-// TODO command block customization, for people on server without access to files
-
-// TODO speed uhc stuff, like auto-smelting, etc?
-
-// invisibility could be a fun option for an OOB game mode
+// TODO command block customization, for people on server without access to files (yeah, e.g. just an on-start and on-respawn ICB outside lobby that get triggered for each player given a tag)
 
 // TODO refactor utility modules into a separate datapack? prng, arrow to X, warp-home/back, ...?
 
-// TODO what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and point), they can steal back?
-
-let startingItemsEffects = [|
-    "optnv", "Night Vision", 1
-    "optds", "Depth Strider boots", 0
-    "optboat", "Starting boat", 1
-    // TODO team chest
-    // TODO, OOB elytra
-    |]
-let otherNiceties = [|
-    "opthh", "Novice mode - longer explanatory messages and help", 1    // 1 if we need to explain how to update the card, how to click the chat, etc; 0 if not
-    "optlw", "Leading whitespace", 0                                    // 1 if we want leading whitespace to keep most chat away from left side; 0 if not
-    "optsa", "Arrow points to spawn", 1                                 // 1 if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?), 0 if not
-    "optxh", "Show when extreme hills", 1                               // 1 if add 'XH' on player actionbar when in extreme hills, 0 if not
-    // TODO the text overflow the page and covers the back arrow
-    |]
-let optionalGameModes = [|
-    "optlo", "Lockout mode", 0
-    "opttfo","Two-for-one mode", 0
-    |]
-let toggleableOptions = [|
-    yield! startingItemsEffects
+let NS = "test"
+let PACK_NAME = "BingoPack"
+let CFG = "cfg"
+type ConfigBook = Utilities.ConfigBook 
+type ConfigPage = Utilities.ConfigPage 
+type ConfigOption = Utilities.ConfigOption 
+let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
+    ConfigPage("Starting items and effects",[|
+        ConfigOption("optnv", "Night Vision", true, [||])
+        ConfigOption("optds", "Depth Strider boots", false, [||])
+        ConfigOption("optboat", "Starting boat", true, [||])
+        // TODO team chest
+        // TODO, OOB elytra
+        |])
+    ConfigPage("Optional game modes",[|
+        ConfigOption("optlo", "Lockout mode", false, [|sprintf "function %s:compute_lockout_goal" NS|])
+        ConfigOption("opttfo","Two-for-one mode", false, [||])
+        |])
+    ConfigPage("Other options",[|
+        ConfigOption("opthh", "Novice mode - longer explanatory messages and help", true, [||])    // if we need to explain how to update the card, how to click the chat, etc.
+        ConfigOption("optlw", "Leading whitespace", false, [||])                                   // if we want leading whitespace to keep most chat away from left side
+        ConfigOption("optsa", "Arrow points to spawn", true, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
+        ConfigOption("optxh", "Show when extreme hills", true, [||])                               // if add 'XH' on player actionbar when in extreme hills
+        // TODO the text overflow the page and covers the back arrow
+        |])
     // TODO
     // got item side effects
-    // announceItem012/fireworkItem01
-    // announceOnlyTeam  // TODO test this
-    yield! otherNiceties
-    yield! optionalGameModes 
-    |]
+    //   announceItem012/fireworkItem01
+    //   announceOnlyTeam  // TODO test this
+    |])
 
 // TODO f9b, 6p, 2 teams, tick lag (seeing fps lag in long game in jungle in singleplayer too)
 
@@ -134,9 +116,6 @@ let ART_HEIGHT_UNDER = ART_HEIGHT-2
 
 let CHEST_THIS_CARD_1 = Coords(59,25,62)
 let CHEST_THIS_CARD_2 = Coords(59,25,63)
-
-let NS = "test"
-let PACK_NAME = "BingoPack"
 
 let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
@@ -406,15 +385,12 @@ let game_objectives = [|
         yield sprintf "%sSpawnX" t    // a number between 1 and 999 that needs to be multipled by 10000
         yield sprintf "%sSpawnY" t    // height of surface there
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
-    for opt,_desc,_def in toggleableOptions do
-        yield sprintf "%sval" opt
     |]
 let game_functions = [|
     yield "game_init", [|
         for o in game_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
-        for opt,_desc,_def in toggleableOptions do
-            yield sprintf "scoreboard objectives add %strig trigger" opt
+        yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.INIT 
         for t in TEAMS do
             yield sprintf "team add %s" t
             yield sprintf "team option %s color %s" t t
@@ -433,7 +409,7 @@ let game_functions = [|
         yield "scoreboard players set $ENTITY announceOnlyTeam 0"
         yield "scoreboard players set $ENTITY fireworkItem 1"
         yield sprintf "team join green @e[%s]" XH_TAG
-        yield sprintf "function %s:set_options_to_defaults" NS
+        yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.DEFAULT 
         yield sprintf "function %s:summon_book_text_entities" NS
         |]
     let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold onlyPlaceIfMultiplayer =
@@ -573,62 +549,13 @@ let game_functions = [|
         """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText","bookTextON"],CustomName:"\"ON\"",Team:green}"""
         """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText","bookTextOFF"],CustomName:"\"OFF\"",Team:red}"""
         |]
-    yield "set_options_to_defaults", [|
-        for opt,_desc,def in toggleableOptions do
-            yield sprintf "scoreboard players set $ENTITY %sval %d" opt def
-        |]
     yield "config_loop",[|
-        for opt,_desc,_def in toggleableOptions do
-            yield sprintf "execute as @a[scores={%strig=1}] run function %s:toggle_%s" opt NS opt
-        yield """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
-        |]
-    for opt,desc,_def in toggleableOptions do
-        yield sprintf "toggle_%s" opt, [|
-            yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt
-            // turn off
-            yield sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt
-            yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" desc
-            // turn on
-            yield sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt
-            yield sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" desc
-            // boilerplate
-            yield sprintf "scoreboard players set @s %strig 0" opt
-            yield sprintf "scoreboard players enable @s %strig" opt
-            // special cases
-            if opt="optlo" then
-                yield sprintf "function %s:compute_lockout_goal" NS
-            yield sprintf "function %s:on_get_configuration_books" NS
-            |]
-    yield "on_get_configuration_books",[|
-        for opt,_desc,_def in toggleableOptions do
-            yield sprintf "scoreboard players enable @s %strig" opt
-            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextON] %sval 1" opt opt
-            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextON] %sval 0" opt opt
-            yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextOFF] %sval 0" opt opt
-            yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextOFF] %sval 1" opt opt
-        // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-        yield "clear @a minecraft:written_book{ConfigBook:1}"
-        yield sprintf "%s" (Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Standard options",[|
-            """[{"text":"Starting items and effects"}"""
-                + String.concat "" [| for opt,desc,_def in startingItemsEffects do 
-                        yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
-                    |]
-                + "]"
-            """[{"text":"Optional game modes"}"""
-                + String.concat "" [| for opt,desc,_def in optionalGameModes do 
-                        yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
-                    |]
-                + "]"
-            """[{"text":"Other options"}"""
-                + String.concat "" [| for opt,desc,_def in otherNiceties do 
-                        yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt opt
-                    |]
-                + "]"
-            |], "ConfigBook:1"))
+        sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.LISTEN
+        """kill @e[type=item,nbt={Item:{id:"minecraft:written_book",tag:{ConfigBook:1}}}]"""
         |]
     yield "get_configuration_books",[|
         // call ourselves
-        sprintf "function %s:on_get_configuration_books" NS
+        sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.GET
         // call subscribers to the event
         sprintf "function #%s:on_get_configuration_books" NS
         |]
@@ -1600,8 +1527,26 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
     printfn "writing functions..."
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
     writeExtremeHillsDetection()
+    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, (fun (n,c) -> compile(c,n)))
     for name,code in r do
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing
         else
             writeFunctionToDisk(PACK_NAME, NS, name,code)
+
+//////////////////////////////////////////////////
+// Possible future/OOB features
+
+// TODO hungry-peaceful-bingo: You could simulate a hungry peaceful mode by having a dozen repeating command blocks which do e.g. "tp @e[type=skeleton] ~ ~-250 ~" to constantly teleport each type 
+// of hostile mob into the void.  I guess enderpearl, slimeball, spider eye, and fermented spider eye are the only items you can't get in peaceful now?
+
+// TODO triple-play mode? get a row, column and a diagonal to win? interesting strategy to plan/optimize?
+
+// TODO multiplayer where teams spawn nearby (pvp etc)
+
+// TODO speed uhc stuff, like auto-smelting, etc?
+
+// invisibility could be a fun option for an OOB game mode
+
+// TODO what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and point), they can steal back?
+

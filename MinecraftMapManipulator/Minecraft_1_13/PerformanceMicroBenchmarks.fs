@@ -291,6 +291,8 @@ took 8912 milliseconds to run 500000 iterations of
     profileThis("ig",2,500,[],["""execute store success score @p FOO run clear @p #test:item001 1"""],[])
     *)
 
+    // TODO compare execute-store versus reading some data without nbt
+
     // NF = 'next function'
     let next = [|
         for i = 0 to allProfilerFunctions.Count-1 do
