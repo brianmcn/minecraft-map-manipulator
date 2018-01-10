@@ -1,6 +1,7 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
+let PROFILE = false             // turn on to log how many commands (lines) run each tick
 
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
@@ -73,7 +74,7 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
         |])
     ConfigPage("Got-an-item effects",[|
         ConfigOption("optai", ConfigDescription.Radio [|"<nothing> in chat"; "'got an item' in chat"; "'got bone' in chat"|], 2, [||])
-        ConfigOption("optfi",ConfigDescription.Toggle "Play firework sound", 1, [||])
+        ConfigOption("optfi",ConfigDescription.Toggle "Play firework sound", 1, [||]) // TODO goth etc may want global sound, or other teams see 'got item' but you see 'got bone'
         ConfigOption("optaot",ConfigDescription.Toggle "Announce only to teammates", 0, [||]) // TODO test this
         |])
     |])
@@ -294,6 +295,13 @@ let compile(f,name) =
                 let objName = cmd.Substring(i,j-i)
                 if objName.Length > 16 then
                     failwithf "bad objective name (too long): '%s'" objName
+    let r = 
+        if PROFILE then
+            [|  for name,code in r do
+                    yield name, Array.append code [|sprintf "scoreboard players add @e[%s] LINES %d" ENTITY_TAG code.Length|]
+                |]
+        else
+            r
     r
 
 ///////////////////////////////////////////////////////
@@ -372,6 +380,8 @@ let game_objectives = [|
         yield sprintf "%sSpawnX" t    // a number between 1 and 999 that needs to be multipled by 10000
         yield sprintf "%sSpawnY" t    // height of surface there
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
+    if PROFILE then
+        yield "LINES"
     |]
 let game_functions = [|
     yield "game_init", [|
@@ -426,7 +436,7 @@ let game_functions = [|
             //
             yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) otherSignsEnabled false
             yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled false
-            yield! placeWallSignCmds 63 27 61 "south" "get" "CONFIGURATION" "books" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
+            yield! placeWallSignCmds 63 27 61 "south" "get" "CONFIGURATION" "book(s)" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
             //
             yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
@@ -742,7 +752,7 @@ let game_functions = [|
             yield sprintf "scoreboard players add $ENTITY %sSpawnZ 1" t
             yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["%sSpawn","CurrentSpawn","SpawnLoc"]}""" t  // these entities killed at end of start4
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[0] double 10000.0 run scoreboard players get $ENTITY %sSpawnX" t t
-            yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double %d.0 run scoreboard players get $ENTITY %sSpawnX" t (SKYBOX+10) t  // TODO falling from box+10 causes barrier particles when hit floor, can I use lower value and avoid them?
+            yield sprintf "execute as @e[tag=%sSpawn] store success entity @s Pos[1] double %d.0 run scoreboard players get $ENTITY %sSpawnX" t (SKYBOX+10) t
             yield sprintf "execute as @e[tag=%sSpawn] store result entity @s Pos[2] double 10000.0 run scoreboard players get $ENTITY %sSpawnZ" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             // store xspawn/zspawn on players
@@ -754,6 +764,7 @@ let game_functions = [|
             yield "$NTICKSLATER(20)"
             // build skybox and put players there
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run fill ~-1 %d ~-1 ~1 %d ~1 barrier hollow" t SKYBOX (SKYBOX+20)
+            yield sprintf "execute at @e[tag=%sSpawn,limit=1] run setblock ~ %d ~ minecraft:light_gray_stained_glass" t (SKYBOX+1)  // so that particles not bright red when falling atop
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             // figure out Y height of surface
             yield sprintf "function %s:compute_height" NS
@@ -1122,6 +1133,7 @@ let checker_functions = [|
                 if s <> "33" then
                     yield sprintf "execute if entity $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
             yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,optaival=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
+            // Note teamNum set in root check call; TODO remove teamNum if unused
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
             yield sprintf "execute if entity $SCORE(gotItems=1,optfival=1,optaotval=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
             yield sprintf "execute if entity $SCORE(gotItems=1,optfival=1,optaotval=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
@@ -1211,22 +1223,26 @@ let checker_functions = [|
         yield "$NTICKSLATER(8)"
         yield """execute as @a at @s run playsound entity.firework.twinkle ambient @s ~ ~ ~"""
     |]
+    for item in flatBingoItems do
+        yield sprintf "inv/got_%s" item, [|
+            let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE item ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
+            let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG item
+            yield sprintf """execute if entity $SCORE(optaival=2,optaotval=0,optlwval=1) run tellraw @a %s""" itemdatum_time_playername
+            yield sprintf """execute if entity $SCORE(optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" time_playername_gotthe_datum
+            yield sprintf """execute if entity $SCORE(optaival=1,optaotval=0) run tellraw @a %s""" time_playername_gotanitem
+            for t in TEAMS do
+                yield sprintf """execute if entity $SCORE(optaival=2,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t itemdatum_time_playername
+                yield sprintf """execute if entity $SCORE(optaival=2,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotthe_datum
+                yield sprintf """execute if entity $SCORE(optaival=1,optaotval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotanitem
+            |]
     for s in SQUARES do
         if flatBingoItems.Length >= 128 then
             failwith "bad binary search"
         let check_and_display(prefix, n, name) = [|
             // Note - profiling suggests this guard does not help before 'clear': if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
             yield sprintf """%sexecute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" prefix s n name
-            let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE name ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG name
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=0,optlwval=1) run tellraw @a %s""" prefix s n itemdatum_time_playername
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" prefix s n time_playername_gotthe_datum
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=1,optaotval=0) run tellraw @a %s""" prefix s n time_playername_gotanitem
-            // Note that $ENTITY teamNum was set to @s teamNum in the root of the search
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=1,optlwval=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n itemdatum_time_playername
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=2,optaotval=1,optlwval=0) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotthe_datum
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1,optaival=1,optaotval=1) run execute as @a if score @s teamNum = $ENTITY teamNum run tellraw @s %s""" prefix s n time_playername_gotanitem
+            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run function %s:inv/got_%s""" prefix s n NS name
             |]
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
@@ -1428,7 +1444,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             // custom respawn equipment
             "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optnvval=1) run effect give @s minecraft:night_vision 99999 1 true"
             "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optdsval=1) run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
-            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optboatval=1) run give @a minecraft:oak_boat 1"
+            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optboatval=1) run give @s minecraft:oak_boat 1"
             """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
             |],"on_respawn")
@@ -1539,6 +1555,8 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "tag @s remove dirGuy"
             |],"find_dir_to_spawn")
         yield! compile([|
+            if PROFILE then
+                yield "scoreboard players set $ENTITY LINES 0"
 #if UUID
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run teleport %s 64 4 64" ENTITY_UUID // TODO factor 64 4 64
 #endif
@@ -1557,6 +1575,8 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield "scoreboard players add $ENTITY tickNum 1"
             yield "execute if score $ENTITY tickNum >= $ENTITY numActivePlayers run scoreboard players set $ENTITY tickNum 0"
             yield "scoreboard players add @a ticksSinceGotMap 1"
+//            if PROFILE then
+//                yield sprintf """tellraw @a [{"score":{"name":"@e[%s]","objective":"LINES"}}]""" ENTITY_TAG 
             |],"theloop")
         yield! compile(prng, "prng")
         yield! compile(prng_init(), "prng_init")
