@@ -335,11 +335,11 @@ let connected_mining_functions = [|
                 yield sprintf "setblock ~ ~ ~ air destroy"
                 yield sprintf "scoreboard players remove @s remain%s 1" suffixS
                 for dir in dirs do
-                    yield sprintf "execute offset %s if block ~ ~ ~ %s run function tc:chop_check_%s_%s" dir b suffixF bi
+                    yield sprintf "execute positioned %s if block ~ ~ ~ %s run function tc:chop_check_%s_%s" dir b suffixF bi
                 |]
     |]
 let tc_main() =
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
     Utilities.writeDatapackMeta(world,"multi_miner","cut down entire trees or mine entire ore veins")
     for name,code in connected_mining_functions do
         Utilities.writeFunctionToDisk(world,"multi_miner","tc",name,code)

@@ -19,6 +19,7 @@ let COLORS = [|
     "black"
     |]
 
+// todo see if this is still up to date at release
 let ALL_GIVEABLE_ITEM_IDS = [|
     "stone"
     "granite"
