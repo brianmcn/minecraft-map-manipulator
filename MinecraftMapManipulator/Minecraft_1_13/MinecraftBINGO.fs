@@ -3,6 +3,10 @@
 let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let PROFILE = false             // turn on to log how many commands (lines) run each tick
 
+// TODO experiment with nether teleports, can I add nether items?
+// TODO check on all changes here https://www.reddit.com/r/Minecraft/comments/7pf79c/minecraft_snapshot_18w02a/dsgqjdj/
+
+
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
 // TODO remove slimeball?  what else could go there alt enderpearl?  rabbit hide?  I think yes, but sleep on it.

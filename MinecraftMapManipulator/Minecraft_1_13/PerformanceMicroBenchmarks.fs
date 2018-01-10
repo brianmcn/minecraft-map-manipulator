@@ -228,6 +228,20 @@ took 1874 milliseconds to run 200000 iterations of
     profileThis("erunadd",OUTER,INNER,1,[],[sprintf "execute run %s" ADD],[])
 
 
+    profileThis("adhoc1",OUTER,INNER,1,[],["execute if entity @s[scores={X=1}]"],[])
+    profileThis("adhoc2",OUTER,INNER,1,[],["execute if score @s X matches 1"],[])
+    (*
+took 46 milliseconds to run 200000 iterations of
+    execute if entity @s[scores={X=1}]
+took 54 milliseconds to run 200000 iterations of
+    execute if score @s X matches 1
+took 49 milliseconds to run 200000 iterations of
+    execute if entity @s[scores={X=1}]
+took 51 milliseconds to run 200000 iterations of
+    execute if score @s X matches 1
+    *)
+
+
 (*
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("eatiseed"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel; "seed"],[])
@@ -350,7 +364,7 @@ took 13354 milliseconds to run 500000 iterations of
 
 
 
-
+18w01a
 took 32 milliseconds to run 200000 iterations of
     seed
 took 103 milliseconds to run 200000 iterations of
@@ -378,5 +392,34 @@ took 2692 milliseconds to run 200000 iterations of
 took 6703 milliseconds to run 200000 iterations of
     execute run scoreboard players add @s A 1
 
+
+
+18w02a
+took 47 milliseconds to run 200000 iterations of
+    seed
+took 97 milliseconds to run 200000 iterations of
+    function test:call_seed
+took 535 milliseconds to run 200000 iterations of
+    scoreboard players add @s A 1
+took 787 milliseconds to run 200000 iterations of
+    function test:call_add
+took 19 milliseconds to run 200000 iterations of
+    execute if entity @s
+took 597 milliseconds to run 200000 iterations of
+    execute at @s if entity @s
+took 663 milliseconds to run 200000 iterations of
+    execute at @s if entity @s
+    seed
+took 3907 milliseconds to run 200000 iterations of
+    execute at @s if entity @s run seed
+took 2428 milliseconds to run 200000 iterations of
+    execute at @s if entity @s
+    scoreboard players add @s A 1
+took 7941 milliseconds to run 200000 iterations of
+    execute at @s if entity @s run scoreboard players add @s A 1
+took 2801 milliseconds to run 200000 iterations of
+    execute run seed
+took 6589 milliseconds to run 200000 iterations of
+    execute run scoreboard players add @s A 1
 
 *)

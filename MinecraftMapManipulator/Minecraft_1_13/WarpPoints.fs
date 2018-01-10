@@ -65,6 +65,9 @@ let lobby_functions = [|
             sprintf "execute store result entity @e[tag=tempaec,limit=1] Pos[1] double 1.0 run scoreboard players get $ENTITY wp%dy" i
             sprintf "execute store result entity @e[tag=tempaec,limit=1] Pos[2] double 1.0 run scoreboard players get $ENTITY wp%dz" i
             "teleport @s @e[tag=tempaec,limit=1]"
+            sprintf "execute if entity $SCORE(wp%dd=-1) at @s in the_nether run tp @s ~ ~ ~" i
+            sprintf "execute if entity $SCORE(wp%dd=0) at @s in overworld run tp @s ~ ~ ~" i
+            sprintf "execute if entity $SCORE(wp%dd=1) at @s in the_end run tp @s ~ ~ ~" i
             |]
     |]
 
@@ -87,8 +90,7 @@ let nearby_behavior_functions = [|
         sprintf "data merge entity @e[tag=wp,distance=..%s,sort=nearest,limit=1] {CustomNameVisible:0b}" CLOSE //,ArmorItems:[{},{},{},{}]}
         sprintf "scoreboard players set @p countdown %d" (COUNTDOWN*2)
         "tag @p add justSentToLobby"
-        sprintf "teleport @p %d %d %d 90 0" (WP_X+2) WP_Y (WP_Z+2)
-
+        sprintf "execute in overworld run teleport @p %d %d %d 90 0" (WP_X+2) WP_Y (WP_Z+2)
         |]
     |]
 
@@ -110,6 +112,7 @@ let creation_functions = [|
             yield sprintf "scoreboard objectives add wp%dx dummy" i
             yield sprintf "scoreboard objectives add wp%dy dummy" i
             yield sprintf "scoreboard objectives add wp%dz dummy" i
+            yield sprintf "scoreboard objectives add wp%dd dummy" i     // dimension: 0 overworld, -1 nether, 1 end
             yield sprintf "scoreboard players set $ENTITY wp%dy -1" i
         yield """give @p bat_spawn_egg{EntityTag:{Tags:["cwpBat"]}} 1"""  // TODO remove
         // nearby_behavior
@@ -132,17 +135,18 @@ let creation_functions = [|
         |]
     for i = 1 to WP_MAX do
         yield sprintf "create_new_warp_point_coda%d" i, [|
-            "execute align xyz offset ~0.5 ~0.0 ~0.5 run teleport @s ~ ~ ~"
+            "execute align xyz positioned ~0.5 ~0.0 ~0.5 run teleport @s ~ ~ ~"
             sprintf "execute store result score $ENTITY wp%dx run data get entity @s Pos[0] 1.0" i
             sprintf "execute store result score $ENTITY wp%dy run data get entity @s Pos[1] 1.0" i
             sprintf "execute store result score $ENTITY wp%dz run data get entity @s Pos[2] 1.0" i
+            sprintf "execute store result score $ENTITY wp%dd run data get entity @s Dimension 1.0" i
             "execute at @s run playsound minecraft:block.portal.trigger block @a ~ ~ ~ 0.2 1.0"
             """scoreboard players set $ENTITY found 1"""
             |]
     |]
 
 let wp_c_main() =
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestSize")
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
     Utilities.writeDatapackMeta(world,"wp_pack","warp points")
     for name,code in creation_functions do
         Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
