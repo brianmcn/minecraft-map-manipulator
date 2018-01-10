@@ -1,9 +1,15 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
-let PROFILE = false             // turn on to log how many commands (lines) run each tick
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
 // TODO experiment with nether teleports, can I add nether items?
+//  - glowstone dust
+//  - ghast tear
+//  - nether quartz
+//  - comparator
+//  - daylight sensor
+//  - nether brick (item)
 // TODO check on all changes here https://www.reddit.com/r/Minecraft/comments/7pf79c/minecraft_snapshot_18w02a/dsgqjdj/
 
 
@@ -558,8 +564,8 @@ let game_functions = [|
         yield sprintf """summon area_effect_cloud 0 %d 120 {Duration:2,Tags:["logoaec"]}""" ART_HEIGHT
         for i = 1 to 4 do
             let x = 32*(i-1)
-            yield sprintf """execute at @e[tag=logoaec] offset ~%d ~ ~ run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:32,sizeY:1,sizeZ:7,mode:"LOAD",name:"test:logo%d"}""" x i
-            yield sprintf """execute at @e[tag=logoaec] offset ~%d ~ ~1 run setblock ~ ~ ~ minecraft:redstone_block""" x
+            yield sprintf """execute at @e[tag=logoaec] positioned ~%d ~ ~ run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:32,sizeY:1,sizeZ:7,mode:"LOAD",name:"test:logo%d"}""" x i
+            yield sprintf """execute at @e[tag=logoaec] positioned ~%d ~ ~1 run setblock ~ ~ ~ minecraft:redstone_block""" x
         // make the 150 150 150 room
         yield sprintf "fill 148 149 148 152 149 152 minecraft:light_gray_stained_glass"
         yield sprintf "setblock 150 151 147 stone"
@@ -785,9 +791,9 @@ let game_functions = [|
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run teleport @a[team=%s] ~0.5 ~ ~0.5" t t
             yield sprintf "execute at @e[tag=%sSpawn,limit=1] run spawnpoint @a[team=%s] ~0.5 ~ ~0.5" t t
             // place beacon to mark spawn
-            yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run fill ~-2 ~0 ~-2 ~2 ~3 ~2 minecraft:barrier hollow"
-            yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run fill ~-1 ~1 ~-1 ~1 ~1 ~1 minecraft:diamond_block"
-            yield "execute as @e[tag=CurrentSpawn] at @s offset ~ ~10 ~ run setblock ~ ~2 ~ minecraft:beacon"
+            yield "execute as @e[tag=CurrentSpawn] at @s positioned ~ ~10 ~ run fill ~-2 ~0 ~-2 ~2 ~3 ~2 minecraft:barrier hollow"
+            yield "execute as @e[tag=CurrentSpawn] at @s positioned ~ ~10 ~ run fill ~-1 ~1 ~-1 ~1 ~1 ~1 minecraft:diamond_block"
+            yield "execute as @e[tag=CurrentSpawn] at @s positioned ~ ~10 ~ run setblock ~ ~2 ~ minecraft:beacon"
             yield sprintf "tag @e[tag=CurrentSpawn] remove CurrentSpawn"
             // call next continuation
             if t = "red" then
@@ -1484,7 +1490,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "execute store result entity @s Pos[0] double 1.0 run scoreboard players get @p[tag=dirGuy] xspawn" 
             "execute store result entity @s Pos[2] double 1.0 run scoreboard players get @p[tag=dirGuy] zspawn" 
             // face him at player
-            "execute at @s run tp ~ ~ ~ facing @p[tag=dirGuy]"
+            "execute at @s run tp @s ~ ~ ~ facing entity @p[tag=dirGuy]"
             // move him back now that we got our facing data
             "execute at @p[tag=dirGuy] run tp ~ ~ ~"
             // convert Rotation to score: TEMP = entity, x = player
