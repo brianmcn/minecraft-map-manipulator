@@ -73,7 +73,7 @@ let instr = instructions.pop_front()
 decode(instr)
     case: "execute as @e run FOO"
         let ents = <list of entities>
-        let ctxt = new Context(CURRENT_SENDER, CURRENT_AT)
+        let ctxt = new Context(CURRENT_SENDER, CURRENT_AT)   // context actually has:  sender, x y z, yrot xrot, dimension, anchor (feet/eyes), perm., output-suppression, callback (where to 'store' results)
         contextStack.Push(ctxt)
         instructions.push_front(QUOTE(contextStack.Pop()))
         instructions.push_front(QUOTE(CURRENT_AT = contextStack.Top().At))
