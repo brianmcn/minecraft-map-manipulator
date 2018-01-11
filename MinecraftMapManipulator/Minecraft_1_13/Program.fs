@@ -141,18 +141,42 @@ See also https://www.youtube.com/watch?v=SOOvommDpUA for ideas
 
 *)
 
+
+let find_slime_chunks() =
+    let PACK_NAME = "SlimePack"
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestSlime""")
+    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "Slime finder")
+
+    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", ["test:on_load"])
+    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", ["test:on_tick"])
+
+    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_load", [|
+        "scoreboard objectives add Tick dummy"
+        |])
+    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_tick", [|
+        "scoreboard players add @p Tick 1"
+        "scoreboard players set @p[scores={Tick=4}] Tick 0"
+        "execute if entity @p[scores={Tick=0}] run difficulty peaceful"
+        "execute if entity @p[scores={Tick=1}] run difficulty normal"
+        //"execute if entity @p[scores={Tick=3}] at @e[type=slime] run setblock ~ 127 ~ emerald_block"
+        //"execute if entity @p[scores={Tick=3}] at @e[type=zombie] run setblock ~ 127 ~ emerald_block"
+        |])
+
+
+
 [<EntryPoint>]
 let main argv = 
-    //MinecraftBINGO.cardgen_compile()
-    //MinecraftBINGOExtensions.Blind.main()
+    MinecraftBINGO.cardgen_compile()
+    MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
-    PerformanceMicroBenchmarks.main()
+    //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()
     //area_highlight()
+    //find_slime_chunks()
     ignore argv
     0
 

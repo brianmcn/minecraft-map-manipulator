@@ -722,7 +722,7 @@ let game_functions = [|
         // pretty timer
         "scoreboard players operation @s minutes = $ENTITY minutes"
         "scoreboard players operation @s preseconds = $ENTITY preseconds"
-        //"scoreboard players reset @s[scores={preseconds=-1}] preseconds"  // TODO causes problems with score display due to https://bugs.mojang.com/browse/MC-123104
+        "scoreboard players reset @s[scores={preseconds=-1}] preseconds"
         "scoreboard players operation @s seconds = $ENTITY seconds"
         // extreme hills detection
         "scoreboard players remove @s[scores={inXH=1..}] inXH 1"
