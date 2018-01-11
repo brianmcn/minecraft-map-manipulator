@@ -163,11 +163,30 @@ let find_slime_chunks() =
         |])
 
 
+(*
+
+seed: -2788760844838102142
+
+minecraft:igloo/igloo_top      7x5x8
+minecraft:igloo/igloo_middle   3x3x3
+minecraft:igloo/igloo_bottom   7x6x9
+
+datapack replaces furnace in top with a sign
+
+*)
+let igloo_replacement() =
+    let PACK_NAME = "IglooPack"
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestIgloo""")
+    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "Replace furnace in igloo")
+    // copy in the structure manually, have an example in TestIgloo world now
+    // TODO bug https://bugs.mojang.com/browse/MC-124167 means disabling pack does not disable this structure override
+
+
 
 [<EntryPoint>]
 let main argv = 
     MinecraftBINGO.cardgen_compile()
-    MinecraftBINGOExtensions.Blind.main()
+    //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
@@ -177,6 +196,7 @@ let main argv =
     //QuickStack.main()
     //area_highlight()
     //find_slime_chunks()
+    //igloo_replacement()
     ignore argv
     0
 

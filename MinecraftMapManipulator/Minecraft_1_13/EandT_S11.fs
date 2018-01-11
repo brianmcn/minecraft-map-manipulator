@@ -15,8 +15,6 @@ E&T ideas
  is this interesting? https://www.reddit.com/r/Minecraft/comments/7npasa/set_a_waypoint_on_the_map_17w50a_snapshot/ 
 
 
-// TODO with facing, is 'item magnet' interesting?
-
 
 Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
     gamerule doLimitedCrafting true      recipe take @p <name>     then later 'give' it back or have a knowledge book gift it
@@ -149,40 +147,14 @@ from old swirl notes:
 	tech tree: no early pickaxe? f&s rather than sword/axe? no torch recipe? villagers sell 3 choice of recipe? late bow/shield? early tnt? what foods? armor logic?
 	recipes: iron nuggets on tip stone pick -> weak iron pick, can mine gold; iron/gold ore smelt furance -> nuggets; iron/gold nuggets in recipe for chain mail
 
-	terrain changes: depthbasesize up (to like 13) and sea level up (to like 100) gives more underground (also bring ore distributions up higher), but
-	 - connectedness of caves/mineshafts below ground is still a big issue... maybe i carve out more air? idea to compute skeleton, and then have 'ends' search spherically for a 
-	   different airspace CC within like 10 blocks or something, and if found, connect with an air tunnel? also need a way to open up more tunnels to surface...
-	 - or maybe can get more with other settings, e.g. increase lower limit scale to 850? 3000? even upper height limit 3000? ...
-		 - lower limit down to 70 makes amplified-like crazy overhangy tall bits; upper limit down to 170, similar, not as many caves? both down to 212, not much land above sea level
-	 - or maybe can overlay cave air from a separate world with even larger cave-height, which creates more holes to surface and adds more caves?
-		 - yeah, depthbase 20, sea level 150, turn off mineshafts/lakes/dungeons/ravines, just grab cave air, overlay, seems plausible
-	(could replace large pockets of dirt/gravel/ore with glass/air, as another possible way to 'connect' caves?)
-	render's idea for advancements as 'tome of knowledge', e.g. tab for 'yellow wool', names that area, shows how many emeralds or other side objectives there are, etc.
 	render's sprint mechanic - if player not near any hostile mobs (could mark all hostiles as spawn in? and check 1Hz? dist>16?) for some time (10s?) then give sprint back?
 	render's consumable idea - craft tulip into food, then e.g. can give non-renewable food 'in world' rather than in a chest; also e.g. shrubs drop sticks, starve of wood, have craft table in environment
 	using glass/panes tactically is fun
 
-
-	Sea Level: 120
-	River Size: 5
-	DepthBaseSize: 17
-	LowerLimit: 512
-	UpperLimit: 512
-
 	caves always go up to max of 128, other params dont' seem to affcet caves
 	mineshafts seem to generate anywhere below sea level
 	ravines only go up to max 68
-
-	it is not clear that custom terrain will make game any more 'fun'
-
-
-
-Figure out custom terrain to use
-
-QFE? need master list of all items, then curate for obtainable; rest should be straighforward?
-also the qfe could be an existing teleporter once i unlock first teleporter; first visit to QFE room could actually start the qfe game?
-
-
+	it is not clear that custom terrain (apart from usual 'fewer lakes', 'more dungeons') will make game any more 'fun'
 *)
 
 open Recipes
@@ -347,13 +319,13 @@ let tc_main() =
 
 // TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find?)
 
-// TODO vanilla swirl all-seeing eye (any others?)
+// TODO vanilla swirl all-seeing eye (FSE that grants night vision and attributes big slowness when held) and enderchest+unrepairable-silk-touch-wooden-pickaxe; fortune hoe could also be good?
 
 // TODO desire lines?
 
 // TODO how to communicate initial (and permanent, e.g. furnace craft) limitations to player at start or along way?  
 // what is right way to communicate deviations from vanilla without giving eveything away and taking away mystery?
 
-
+// TODO do I want to make it so falling into void in The End teleports the player back to y=255 in the overworld?
 
 

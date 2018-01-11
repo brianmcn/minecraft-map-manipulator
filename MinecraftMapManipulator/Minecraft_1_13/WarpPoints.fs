@@ -8,18 +8,8 @@
 // hub is a room full of signs, e.g. WP1, WP2, WP3, ... you can warp to any by clicking the sign
 // rather than any fancy way to name/identify e.g. WP8=jungle, I think just let player add extra sign as label above the tp-ing sign
 // should be The Void biome
-(* signs call this...
-for i = 1 to WP_MAX do
-    warp_to_wp%d:
-        summon area_effect_cloud ~ ~ ~ {Duration:1,Tags:["temp"]}
-        execute store result entity @e[tag=temp] Pos[0] double 1.0 run scoreboard players get $ENTITY wp%dx
-        execute store result entity @e[tag=temp] Pos[1] double 1.0 run scoreboard players get $ENTITY wp%dy
-        execute store result entity @e[tag=temp] Pos[2] double 1.0 run scoreboard players get $ENTITY wp%dz
-        execute at @e[tag=temp] run teleport @s ~ ~ ~
-*)
 // maybe each time you arrive the book and the warp signs and sea lanterns and barriers are replaced, so in case you screw up and break one it comes back? only has text on signs for warp points you've created?
 // folks can 'redecorate' by replacing stone or air, but not change sign locations, sea lanterns
-
 let placeWallSignCmds prefix x y z facing txt1 txt2 txt3 txt4 cmd isBold =
     if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
     let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") (if isBold then "black" else "gray")
@@ -78,8 +68,8 @@ let COUNTDOWN = 30
 let nearby_behavior_functions = [|
     "proc_nearest_wp",[| // run as & at the wp armor_stand
         yield sprintf "scoreboard players set @p[distance=%s..] countdown %d" CLOSE COUNTDOWN
-        yield "execute unless entity @p[distance=..5] run data merge entity @s {CustomNameVisible:0b}" //,ArmorItems:[{},{},{},{}]}"
-        yield sprintf "execute if entity @p[distance=%s..5] run data merge entity @s {CustomNameVisible:1b}" CLOSE //,ArmorItems:[{},{},{},{id:"minecraft:purple_stained_glass",Count:1b}]}
+        yield "execute unless entity @p[distance=..5] run data merge entity @s {CustomNameVisible:0b}"
+        yield sprintf "execute if entity @p[distance=%s..5] run data merge entity @s {CustomNameVisible:1b}" CLOSE
         yield sprintf "scoreboard players remove @p[distance=..%s,scores={countdown=1..}] countdown 1" CLOSE
         for i = 1 to COUNTDOWN do
             yield sprintf "execute if entity @p[distance=..%s,scores={countdown=%d}] run playsound minecraft:block.note.pling block @p ~ ~ ~ 0.1 %f 0.1" CLOSE i (float(COUNTDOWN-i)*1.5/(float COUNTDOWN)+0.5)
@@ -87,22 +77,13 @@ let nearby_behavior_functions = [|
         yield sprintf "execute as @p[distance=..%s,scores={countdown=0}] run function wp:do_teleport" CLOSE
         |]
     "do_teleport",[|
-        sprintf "data merge entity @e[tag=wp,distance=..%s,sort=nearest,limit=1] {CustomNameVisible:0b}" CLOSE //,ArmorItems:[{},{},{},{}]}
+        sprintf "data merge entity @e[tag=wp,distance=..%s,sort=nearest,limit=1] {CustomNameVisible:0b}" CLOSE
         sprintf "scoreboard players set @p countdown %d" (COUNTDOWN*2)
         "tag @p add justSentToLobby"
         sprintf "execute in overworld run teleport @p %d %d %d 90 0" (WP_X+2) WP_Y (WP_Z+2)
         |]
     |]
 
-// Creation: 
-//  - a player places a custom spawn egg (crafted out of some rare ingredient or whatnot) or maybe an enchanted bedrock item (stat placed "/scoreboard objectives add fdjkhds minecraft.used:minecraft.bedrock", SelectedItem to ensure was magic one... but then how find location? raycast to it? prob a tick later after stat...)
-//  - this gets detected (e.g. via stats or SelectedItem to know to check this tick, and then finding the spawned entity with @e for a location) (TODO only in overworld? how detect? guess could put a cmd block at 0,0,0 in overworld and then 'execute if block 0 0 0 command_block run say in overworld'  oh, /execute as @a[nbt={Dimension:0}] run say I'm in the overworld)
-//      - or just check very nearby entities, probably fine
-//  - the block underneath the spawned entity becomes bedrock (should it?), and the 'next free WP' invisible armor stand is spawned there (WP1, WP2, WP3, whichever hasn't been used yet)
-//            summon minecraft:armor_stand ~ ~1 ~ {Invisible:1b,Marker:0b,NoGravity:1b,Small:1b,CustomName:"WP 4",CustomNameVisible:1b}
-//  - the coords of the WP are stored in the scoreboard, so the TP hub sign can warp to there, e.g. 
-//     - function warp_to_wp4 looks up wp4x wp4y wp4z summons temp entity, stores Pos[] to there, tp player to the entity; wpny are init to -1 for all n, to tell which are used already
-//  - some kind of sound plays, probably text in chat or title screen announcing name of created WP
 let creation_functions = [|
     yield "init",[|
         yield "kill @e[tag=wp]"

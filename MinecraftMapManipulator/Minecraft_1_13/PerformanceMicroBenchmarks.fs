@@ -166,6 +166,12 @@ Tested it
 [6:27 PM] Lorgon111: Can you test for blocks (e.g. does the terrain generator run?)
 Did it work in 1.12?
 [6:30 PM] Lorgon111: (if the former, then exploiting this would create a way to do automated tests of terrain generator performance)
+
+Also
+
+if you LOAD a structure block here in loaded chunks, but the structure has e.g. offsetX = 10000, it will 
+  load that chunk right now (this tick) so you can setblock into that (previously unloaded) chunk right now
+
     *)
 
     (*
@@ -232,10 +238,55 @@ took 1874 milliseconds to run 200000 iterations of
         profileThis("eatifrunadd"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s run %s" sel ADD],[])
     profileThis("erunseed",OUTER,INNER,1,[],[sprintf "execute run %s" SEED],[])
     profileThis("erunadd",OUTER,INNER,1,[],[sprintf "execute run %s" ADD],[])
+    profileThis("erunseed3",OUTER,INNER,1,[],[sprintf "execute run execute run execute run %s" SEED],[])
+    profileThis("erunseed4",OUTER,INNER,1,[],[sprintf "execute run execute run execute run execute run %s" SEED],[])
+
+(*
+took 2757 milliseconds to run 200000 iterations of
+    execute run seed
+took 8872 milliseconds to run 200000 iterations of
+    execute run execute run execute run seed
+took 12058 milliseconds to run 200000 iterations of
+    execute run execute run execute run execute run seed
+*)
 
 //    profileThis("adhoc1",OUTER,INNER,1,[],["execute if entity @s[scores={X=1}]"],[])
 //    profileThis("adhoc2",OUTER,INNER,1,[],["execute if score @s X matches 1"],[])
+
+
+    // NBT serialization versus alternatives
+    profileThis("readtagtag",OUTER,INNER,1,["tag @p add SomeTag"],["execute unless entity @p[tag=SomeTag] run function test:fail"],["tag @p remove SomeTag"])
+    profileThis("readtagnbt",OUTER,INNER,1,["tag @p add SomeTag"],["""execute unless entity @p[nbt={Tags:["SomeTag"]}] run function test:fail"""],["tag @p remove SomeTag"])
+    let MAX = 10
+    profileThis("readtagstag",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["execute unless entity @p[tag=SomeTag1] run function test:fail"],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagsnbt",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["""execute unless entity @p[nbt={Tags:["SomeTag1"]}] run function test:fail"""],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagstagmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d] run function test:fail"MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagsnbtmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d"]}] run function test:fail"""MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagstagtwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d,tag=SomeTag%d] run function test:fail"2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagsnbttwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d","SomeTag%d"]}] run function test:fail"""2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+
     (*
+
+took 49 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag] run function test:fail
+took 1104 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag"]}] run function test:fail
+
+took 1196 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag1"]}] run function test:fail
+took 52 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag1] run function test:fail
+
+took 52 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag10] run function test:fail
+took 1226 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag10"]}] run function test:fail
+
+took 53 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag2,tag=SomeTag9] run function test:fail
+took 1257 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag2","SomeTag9"]}] run function test:fail
+
 took 46 milliseconds to run 200000 iterations of
     execute if entity @s[scores={X=1}]
 took 54 milliseconds to run 200000 iterations of
@@ -315,8 +366,6 @@ took 8912 milliseconds to run 500000 iterations of
     profileThis("ic",2,500,[],["""execute if entity @p[nbt={Inventory:[{id:"minecraft:diamond"}]}] store success score @p FOO run clear @p diamond 1"""],[])
     profileThis("ig",2,500,[],["""execute store success score @p FOO run clear @p #test:item001 1"""],[])
     *)
-
-    // TODO compare execute-store versus reading some data without nbt
 
     // NF = 'next function'
     let next = [|

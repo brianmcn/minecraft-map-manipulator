@@ -1,6 +1,6 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
 // TODO experiment with nether teleports, can I add nether items?
@@ -28,6 +28,7 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // TODO 'utility sign' hidden option?
 // Note: replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo... - can do now via "seed 0" to replay easily
 // TODO next seed (seed+1) is a good utility sign for gothfaerie
+// yeah I should just have a function you can explicitly invoke that adds a number of utility signs
 
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
@@ -76,20 +77,17 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
         ConfigOption("opttfo",ConfigDescription.Toggle "Two-for-one mode", 0, [||])
         |])
     ConfigPage("Other options",[|
-        ConfigOption("opthh", ConfigDescription.Toggle "Novice mode - longer explanatory messages and help", 1, [||])    // if we need to explain how to update the card, how to click the chat, etc.
-        ConfigOption("optlw", ConfigDescription.Toggle "Leading whitespace", 0, [||])                                   // if we want leading whitespace to keep most chat away from left side
+        ConfigOption("opthh", ConfigDescription.Toggle "Novice mode (various extra help text)", 1, [||])                 // if we need to explain how to update the card, how to click the chat, etc.
+        ConfigOption("optlw", ConfigDescription.Toggle "Leading whitespace", 0, [||])                                    // if we want leading whitespace to keep most chat away from left side
         ConfigOption("optsa", ConfigDescription.Toggle "Arrow points to spawn", 1, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
         ConfigOption("optxh", ConfigDescription.Toggle "Show when extreme hills", 1, [||])                               // if add 'XH' on player actionbar when in extreme hills
-        // TODO the text overflow the page and covers the back arrow
         |])
     ConfigPage("Got-an-item effects",[|
         ConfigOption("optai", ConfigDescription.Radio [|"<nothing> in chat"; "'got an item' in chat"; "'got bone' in chat"|], 2, [||])
         ConfigOption("optfi",ConfigDescription.Toggle "Play firework sound", 1, [||]) // TODO goth etc may want global sound, or other teams see 'got item' but you see 'got bone'
-        ConfigOption("optaot",ConfigDescription.Toggle "Announce only to teammates", 0, [||]) // TODO test this
+        ConfigOption("optaot",ConfigDescription.Toggle "Announce only to teammates", 0, [||]) // TODO refine this (ever a reason not to give teammates fullest info?)
         |])
     |])
-
-// TODO f9b, 6p, 2 teams, tick lag (seeing fps lag in long game in jungle in singleplayer too)
 
 // TODO Maybe put the card's seed on the right margin, so a screenshot of the card without the rest of the UI includes the seed number for that card?﻿ 
 // TODO display config options on card sidebar? or swap sidebar and logo (logo on side, extra on bottom?)
@@ -1343,8 +1341,15 @@ let cardgen_functions = [|
     yield "cardgen_init", [|
         for o in cardgen_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
+        for i = 0 to flatBingoItems.Length-1 do
+            yield sprintf "scoreboard objectives add okItem%03d dummy" i
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
+        |]
+    yield "cardgen_chooseable", [|
+        for i = 0 to flatBingoItems.Length-1 do
+            yield sprintf "# %03d %s" i flatBingoItems.[i]
+            yield sprintf "scoreboard players set $ENTITY okItem%03d 1" i
         |]
     yield "cardgen_choose1", [|
         yield sprintf "scoreboard players set $ENTITY PRNG_MOD %d" bingoItems.Length 
@@ -1363,20 +1368,23 @@ let cardgen_functions = [|
             |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cg/cardgen_binbody%02d" i, [|
-            yield sprintf "scoreboard players add $ENTITY squaresPlaced 1"
-            yield sprintf "scoreboard players set $ENTITY bin%02d 1" i
             yield sprintf "scoreboard players set $ENTITY PRNG_MOD 3"
             yield sprintf "function %s:prng" NS
             for j = 0 to 2 do
-                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" j bingoItems.[i].[j]
-                yield sprintf """execute if entity $SCORE(PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" j
                 let index = flatBingoItems |> Array.findIndex(fun x -> x = bingoItems.[i].[j])
+                yield sprintf """execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" index j bingoItems.[i].[j]
+                yield sprintf """execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" index j
                 for x = 1 to 5 do
                     for y = 1 to 5 do
-                        yield sprintf "execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" j (5*(y-1)+x) x y index
+                        yield sprintf "execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" index j (5*(y-1)+x-1) x y index
                         let chest = if y < 4 then CHEST_THIS_CARD_2.STR else CHEST_THIS_CARD_1.STR
                         let slot = if y < 4 then (y-1)*9+x-1 else (y-4)*9+x-1
-                        yield sprintf """execute if entity $SCORE(PRNG_OUT=%d,squaresPlaced=%d) run replaceitem block %s container.%d %s""" j (5*(y-1)+x) chest slot bingoItems.[i].[j]
+                        yield sprintf """execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run replaceitem block %s container.%d %s""" index j (5*(y-1)+x-1) chest slot bingoItems.[i].[j]
+                // if we didn't pick it because not choosable, re-choose
+                yield sprintf "execute if entity $SCORE(okItem%03d=0,PRNG_OUT=%d) run function %s:cardgen_choose1" index j NS
+                // if we did pick it, note it
+                yield sprintf "execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players add $ENTITY squaresPlaced 1" index j
+                yield sprintf "execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players set $ENTITY bin%02d 1" index j i
             |]
     yield "cardgen_makecard", [|
         yield sprintf "kill @e[tag=sky]"
@@ -1405,6 +1413,8 @@ let cardgen_functions = [|
         yield sprintf "setblock %s air" CHEST_THIS_CARD_2.STR
         yield sprintf "setblock %s chest[facing=east,type=left]" CHEST_THIS_CARD_1.STR
         yield sprintf "setblock %s chest[facing=east,type=right]" CHEST_THIS_CARD_2.STR
+        // init choosables
+        yield sprintf "function %s:cardgen_chooseable" NS
         // pick items and place structure art
         for _x = 1 to 5 do
             yield sprintf "function %s:cardgen_choose1" NS
@@ -1632,16 +1642,16 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
 //////////////////////////////////////////////////
 // Possible future/OOB features
 
-// TODO hungry-peaceful-bingo: You could simulate a hungry peaceful mode by having a dozen repeating command blocks which do e.g. "tp @e[type=skeleton] ~ ~-250 ~" to constantly teleport each type 
+// hungry-peaceful-bingo: You could simulate a hungry peaceful mode by having a dozen repeating command blocks which do e.g. "tp @e[type=skeleton] ~ ~-250 ~" to constantly teleport each type 
 // of hostile mob into the void.  I guess enderpearl, slimeball, spider eye, and fermented spider eye are the only items you can't get in peaceful now?
 
-// TODO triple-play mode? get a row, column and a diagonal to win? interesting strategy to plan/optimize?
+// triple-play mode? get a row, column and a diagonal to win? interesting strategy to plan/optimize?
 
-// TODO multiplayer where teams spawn nearby (pvp etc)
+// multiplayer where teams spawn nearby (pvp etc)
 
-// TODO speed uhc stuff, like auto-smelting, etc?
+// speed uhc stuff, like auto-smelting, etc?
 
 // invisibility could be a fun option for an OOB game mode
 
-// TODO what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and point), they can steal back?
+// what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and point), they can steal back?
 
