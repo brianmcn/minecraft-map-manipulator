@@ -71,9 +71,10 @@ let SELECTORS = [|
     "p",      "@p"
     "s",      "@s"
     "tag",    "@e[tag=scoreAS]"
-    // TODO if name gets fixed, compare name= and tag=
+    "name",    "@e[name=scoreAS]"
     "tagtype","@e[tag=scoreAS,type=armor_stand]"
     "tagdist","@e[tag=scoreAS,distance=..1]"
+    "namedist","@e[name=scoreAS,distance=..1]"
     |]
 let SELECTORS_WITH_FAKE = [|
     yield! SELECTORS
@@ -248,6 +249,16 @@ took 51 milliseconds to run 200000 iterations of
 
     for name,sel in SELECTORS_WITH_UUID do
         profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute unless entity %s run function %s:fail" sel "test"],[])  // the new 'testfor'
+(*
+took 2502 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS] run function test:fail
+took 20649 milliseconds to run 200000 iterations of
+    execute unless entity @e[name=scoreAS] run function test:fail
+took 178 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,distance=..1] run function test:fail
+took 166 milliseconds to run 200000 iterations of
+    execute unless entity @e[name=scoreAS,distance=..1] run function test:fail
+*)
 
 (*
 //    profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute if entity @e[type=player]"],[])
