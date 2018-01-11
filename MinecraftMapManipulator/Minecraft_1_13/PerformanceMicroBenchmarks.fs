@@ -6,10 +6,10 @@ let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestPerf""")
 let allProfilerFunctions = ResizeArray()
 
 let profileThis(suffix,outer,inner,innerInner,pre,cmds,post) =
-    let profName = "run-"+suffix
+    let profName = "run/run-"+suffix
     let all = [|
         yield profName,[|
-            "execute as @p at @s run function test:prof-" + suffix
+            "execute as @e[tag=scoreAS] at @s run function test:prof-" + suffix
             |]
         yield "prof-"+suffix,[|
             yield "worldborder set 10000000" 
@@ -17,7 +17,7 @@ let profileThis(suffix,outer,inner,innerInner,pre,cmds,post) =
         
             yield! pre
             for _i = 1 to outer do
-                yield sprintf "function %s:code-%s" "test" suffix
+                yield sprintf "function %s:code/code-%s" "test" suffix
             yield! post
 
             yield "execute store result score DATA WB run worldborder get" 
@@ -29,16 +29,16 @@ let profileThis(suffix,outer,inner,innerInner,pre,cmds,post) =
                 yield sprintf """tellraw @a ["    %s"]""" (Utilities.escape cmd)
             |]
         if innerInner=1 then
-            yield "code-"+suffix,[|
+            yield "code/code-"+suffix,[|
                 for _i = 1 to inner do 
                     yield! cmds 
                 |]
         else
-            yield "code-"+suffix,[|
+            yield "code/code-"+suffix,[|
                 for _i = 1 to inner do 
-                    yield sprintf "function %s:inner-%s" "test" suffix
+                    yield sprintf "function %s:inner/inner-%s" "test" suffix
                 |]
-            yield "inner-"+suffix,[|
+            yield "inner/inner-"+suffix,[|
                 for _i = 1 to innerInner do 
                     yield! cmds 
                 |]
@@ -47,27 +47,8 @@ let profileThis(suffix,outer,inner,innerInner,pre,cmds,post) =
         Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", name, code)
     allProfilerFunctions.Add(profName)
 
-
-let SELECTORS = [|
-    "p",      "@p"
-    "s",      "@s"
-    "tag",    "@e[tag=scoreAS]"
-    // TODO if name gets fixed, compare name= and tag=
-    "tagtype","@e[tag=scoreAS,type=armor_stand]"
-    "tagdist",sprintf "@e[%s]" MinecraftBINGO.ENTITY_TAG 
-    |]
-let SELECTORS_WITH_FAKE = [|
-    yield! SELECTORS
-    yield "fake", "x"
-    |]
-let SELECTORS_WITH_UUID = [|
-    yield! SELECTORS
-    yield "u", "1-1-1-0-1"
-    |]
-
 (*
 execute pseudocode (imagined)
-
 
 let instr = instructions.pop_front()
 decode(instr)
@@ -86,6 +67,22 @@ decode(instr)
 
 *)
 
+let SELECTORS = [|
+    "p",      "@p"
+    "s",      "@s"
+    "tag",    "@e[tag=scoreAS]"
+    // TODO if name gets fixed, compare name= and tag=
+    "tagtype","@e[tag=scoreAS,type=armor_stand]"
+    "tagdist","@e[tag=scoreAS,distance=..1]"
+    |]
+let SELECTORS_WITH_FAKE = [|
+    yield! SELECTORS
+    yield "fake", "x"
+    |]
+let SELECTORS_WITH_UUID = [|
+    yield! SELECTORS
+    yield "u", "1-1-1-0-1"
+    |]
 
 let main() =
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "Performance testing")
@@ -95,7 +92,7 @@ let main() =
 
     Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_load", [|
         "kill @e[type=armor_stand]"
-        """summon armor_stand 84 4 4 {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
+        """summon armor_stand ~ ~ ~ {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""  // ~ ~ ~ because #load now runs at world spawn
 
         "gamerule maxCommandChainLength 999999"
         "gamerule commandBlockOutput false"
@@ -105,29 +102,37 @@ let main() =
         "scoreboard objectives add A dummy"
         "scoreboard objectives add WB dummy"
         "scoreboard objectives add NF dummy"
+        "scoreboard objectives add FailureCount dummy"
 
         "scoreboard objectives setdisplay sidebar A"
 
         "scoreboard players set DATA WB 1" 
         "scoreboard players set @p NF -1"
+        "scoreboard players set @p FailureCount 0"
 
         "say datapack loaded, initialization complete"
         "say after terrain all loaded and settled, run"
         """tellraw @a ["    scoreboard players set @p NF 0"]"""
-        "say to run various performance tests begun as&at the player"
+        "say to run various performance tests begun as&at"
+        "say an invisible armor_stand at world spawn"
         |])
 
     let SEED = "seed"
     let ADD = "scoreboard players add @s A 1"
     Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "call_seed", [|SEED|])
     Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "call_add", [|ADD|])
+    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "fail", [|
+        "execute if entity @p[scores={FailureCount=0}] run say FIRST FAILURE!!! DEBUG THIS!!!"
+        "execute if entity @p[scores={FailureCount=0}] run say FIRST FAILURE!!! DEBUG THIS!!!"
+        "execute if entity @p[scores={FailureCount=0}] run say FIRST FAILURE!!! DEBUG THIS!!!"
+        "scoreboard players add @p FailureCount 1"
+        |])
 
     let OUTER = 200
     let INNER = 1000
 
     ///////////
     // good baseline stuff to keep
-
 
     profileThis("seed",       OUTER,INNER,1,[],[SEED],[]) 
     profileThis("callseed",   OUTER,INNER,1,[],["function test:call_seed"],[])    // TODO 500,1000 just fails silently and immediately, why?
@@ -227,9 +232,8 @@ took 1874 milliseconds to run 200000 iterations of
     profileThis("erunseed",OUTER,INNER,1,[],[sprintf "execute run %s" SEED],[])
     profileThis("erunadd",OUTER,INNER,1,[],[sprintf "execute run %s" ADD],[])
 
-
-    profileThis("adhoc1",OUTER,INNER,1,[],["execute if entity @s[scores={X=1}]"],[])
-    profileThis("adhoc2",OUTER,INNER,1,[],["execute if score @s X matches 1"],[])
+//    profileThis("adhoc1",OUTER,INNER,1,[],["execute if entity @s[scores={X=1}]"],[])
+//    profileThis("adhoc2",OUTER,INNER,1,[],["execute if score @s X matches 1"],[])
     (*
 took 46 milliseconds to run 200000 iterations of
     execute if entity @s[scores={X=1}]
@@ -242,14 +246,10 @@ took 51 milliseconds to run 200000 iterations of
     *)
 
 
-(*
     for name,sel in SELECTORS_WITH_UUID do
-        profileThis("eatiseed"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel; "seed"],[])
-        profileThis("eati"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel],[])
-        profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
-        profileThis("eiat1"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s at @s run seed" sel],[])
-        profileThis("eiat2"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s at %s run seed" sel sel],[])
+        profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute unless entity %s run function %s:fail" sel "test"],[])  // the new 'testfor'
 
+(*
 //    profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute if entity @e[type=player]"],[])
 //    profileThis("ei-a",OUTER,INNER,1,[],[sprintf "execute if entity @a"],[])
 
@@ -309,12 +309,17 @@ took 8912 milliseconds to run 500000 iterations of
 
     // NF = 'next function'
     let next = [|
+        // Note: we summon the uuidguy here, rather than in #load, because you cannot kill and summon same uuid in same tick
+        yield sprintf """execute if entity @p[scores={NF=0}] unless entity @e[tag=uuidguy] at @e[tag=scoreAS] run summon armor_stand ~ ~ ~80 {CustomName:"\"%s\"",Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1,UUIDMost:%dl,UUIDLeast:%dl}""" 
+            MinecraftBINGO.ENTITY_UUID MinecraftBINGO.most MinecraftBINGO.least  // ~ ~ ~80 to have him out of scoreAS's chunks but within spawn chunks
+
         for i = 0 to allProfilerFunctions.Count-1 do
             let funcName = allProfilerFunctions.[i]
             yield sprintf "execute if entity @p[scores={NF=%d}] run function test:%s" i funcName
-        yield sprintf "execute if entity @p[scores={NF=%d}] run say done with all tests! do" allProfilerFunctions.Count
+        yield sprintf """execute if entity @p[scores={NF=%d}] run tellraw @a ["done with all tests!"]""" allProfilerFunctions.Count
+        yield sprintf """execute if entity @p[scores={NF=%d}] run tellraw @a ["There were ",{"score":{"name":"@p","objective":"FailureCount"}}," failures that need debugging.  Run"]""" allProfilerFunctions.Count
         yield sprintf """execute if entity @p[scores={NF=%d}] run tellraw @a ["    scoreboard players set @p NF 0"]""" allProfilerFunctions.Count
-        yield sprintf "execute if entity @p[scores={NF=%d}] run say to restart" allProfilerFunctions.Count
+        yield sprintf """execute if entity @p[scores={NF=%d}] run tellraw @a ["to restart"]""" allProfilerFunctions.Count
         yield "execute if entity @p[scores={NF=0..}] run scoreboard players add @p NF 1"
         |]
     Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_tick", next)
@@ -395,31 +400,43 @@ took 6703 milliseconds to run 200000 iterations of
 
 
 18w02a
-took 47 milliseconds to run 200000 iterations of
+took 33 milliseconds to run 200000 iterations of
     seed
-took 97 milliseconds to run 200000 iterations of
+took 96 milliseconds to run 200000 iterations of
     function test:call_seed
-took 535 milliseconds to run 200000 iterations of
+took 516 milliseconds to run 200000 iterations of
     scoreboard players add @s A 1
-took 787 milliseconds to run 200000 iterations of
+took 850 milliseconds to run 200000 iterations of
     function test:call_add
-took 19 milliseconds to run 200000 iterations of
+took 25 milliseconds to run 200000 iterations of
     execute if entity @s
-took 597 milliseconds to run 200000 iterations of
+took 673 milliseconds to run 200000 iterations of
     execute at @s if entity @s
-took 663 milliseconds to run 200000 iterations of
+took 713 milliseconds to run 200000 iterations of
     execute at @s if entity @s
     seed
-took 3907 milliseconds to run 200000 iterations of
+took 3956 milliseconds to run 200000 iterations of
     execute at @s if entity @s run seed
-took 2428 milliseconds to run 200000 iterations of
+took 2341 milliseconds to run 200000 iterations of
     execute at @s if entity @s
     scoreboard players add @s A 1
-took 7941 milliseconds to run 200000 iterations of
+took 8526 milliseconds to run 200000 iterations of
     execute at @s if entity @s run scoreboard players add @s A 1
-took 2801 milliseconds to run 200000 iterations of
+took 2782 milliseconds to run 200000 iterations of
     execute run seed
-took 6589 milliseconds to run 200000 iterations of
+took 7002 milliseconds to run 200000 iterations of
     execute run scoreboard players add @s A 1
+took 47 milliseconds to run 200000 iterations of
+    execute unless entity @p run function test:fail
+took 43 milliseconds to run 200000 iterations of
+    execute unless entity @s run function test:fail
+took 3350 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS] run function test:fail
+took 3420 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,type=armor_stand] run function test:fail
+took 187 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,distance=..1] run function test:fail
+took 43 milliseconds to run 200000 iterations of
+    execute unless entity 1-1-1-0-1 run function test:fail
 
 *)
