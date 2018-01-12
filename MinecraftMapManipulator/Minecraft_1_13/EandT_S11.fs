@@ -18,7 +18,7 @@ E&T ideas
 
 Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
     gamerule doLimitedCrafting true      recipe take @p <name>     then later 'give' it back or have a knowledge book gift it
-Like previous season, but with choice rather than linear (craft a knowledge book to 'choose', nametag with custom nbt found in loot chests could be good 'fragment' that gets crafted into knowledge_book?)
+Like previous season, but with choice rather than linear (craft a knowledge book to 'choose', nametag with custom nbt found in loot chests could be good 'fragment' that gets crafted into knowledge_book? 'command block' is another 'inert material item' for survival players (cannot place/use))
 possible things to need to learn (from previous) include: Furnace, Bed, Anvil, I. Armor, Bow, D. Armor, Bucket, Shield, D. Pick
 others: enchant table, brewing stand (nether chest item to get recipe?), iron pick, all hoes, stone tools, chest, (certain foods? no because can't limit furnace, but see * below), charcoal, fishing_rod
 others: various arbitrary ones (like colored glass, daylight sensor, rabbit stew) could be gated to 'slow down' the QFE process maybe, piston (for automated farms), firework_rocket (for flying), bone meal
@@ -166,7 +166,7 @@ let PK_Clock(outsideItem,insideItem) =
 let PK_Dispenser(outsideItem,insideItem,bottomItem) =
     PatternKey([|"XXX";"XOX";"X$X"|],[|'X',MC(outsideItem); 'O',MC(insideItem); '$',MC(bottomItem)|])
 
-let FRAGMENT = "nametag"
+let FRAGMENT = "nametag"  // todo consider command block, maybe even 3 colors for different currencies, or structure block (cannot use these blocks in survival)
 
 // TODO parent-prerequisites
 let custom_survival_recipes = [|
@@ -214,7 +214,7 @@ let custom_unlocking_recipes = [|
 // TODO parent-prerequisites logic
 // init: grant all with no parents (elsewhere advancement unlocks children)
 
-// TODO datapack that replaces igloo, and then daapack disables once igloo pre-reqs met
+// TODO datapack that replaces igloo, and then daapack disables once igloo pre-reqs met, except https://bugs.mojang.com/browse/MC-124167
 
 (*
 loot table design changes:

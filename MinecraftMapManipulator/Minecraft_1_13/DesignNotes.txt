@@ -9,6 +9,10 @@
  - portal gun (or even not gun part, just spawn egg for orange/blue portal, can stay 'alive' even when you travel far away)
  - world pre-generator
  - shoot arrow replaces air with torch temporarily where it lands? (remote lighting)
+ - spectator over-shoulder-cam?
+
+
+
 =======================
 command tutorial series
 =======================

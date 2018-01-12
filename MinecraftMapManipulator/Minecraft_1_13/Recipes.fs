@@ -15,6 +15,8 @@ type MS = // MinecraftString
         | MC s -> sprintf "minecraft:%s" s
         | PATH s -> s
 
+let quote(s) = "\""+s+"\""
+
 type PatternKey =
     | PatternKey of string[] *          // e.g. [ "XX"; "X#"; " #" ]
                     (char*MS)[]         // e.g. [ '#',MS"stick"; 'X',MS"gold_ingot" ]
@@ -29,9 +31,9 @@ type Recipe =
             w.WriteLine("""    "type": "crafting_shapeless",""")
             w.WriteLine("""    "ingredients": [""")
             for i,c in ICH ingreds do
-                w.WriteLine("""        { "item": """+i.ToString()+""" }"""+c)
+                w.WriteLine("""        { "item": """+quote(i.ToString())+""" }"""+c)
             w.WriteLine("""    ],""")
-            w.WriteLine("""    "result": { "item": """+result.ToString()+""", "count": """+resultCount.ToString()+""" }""")
+            w.WriteLine("""    "result": { "item": """+quote(result.ToString())+""", "count": """+resultCount.ToString()+""" }""")
         | ShapedCrafting(PatternKey(pattern,key),result,resultCount) ->
             w.WriteLine("""    "type": "crafting_shaped",""")
             w.WriteLine("""    "pattern": [""")
@@ -40,11 +42,24 @@ type Recipe =
             w.WriteLine("""    ],""")
             w.WriteLine("""    "key": {""")
             for (x,s),c in ICH key do
-                w.WriteLine(sprintf """        "%c": { "item": %s }%s""" x (s.ToString()) c)
+                w.WriteLine(sprintf """        "%c": { "item": %s }%s""" x (quote(s.ToString())) c)
             w.WriteLine("""    },""")
-            w.WriteLine("""    "result": { "item": """+result.ToString()+""", "count": """+resultCount.ToString()+""" }""")
+            w.WriteLine("""    "result": { "item": """+quote(result.ToString())+""", "count": """+resultCount.ToString()+""" }""")
         w.WriteLine("""}""")
 
 let writeRecipes(recipes, worldSaveFolder, datapackName, ns) =
-    // TODO
-    ()
+    let RECIPE_DIR = System.IO.Path.Combine(worldSaveFolder, "datapacks", datapackName, "data", ns, "recipes")
+    for name,(recipe:Recipe) in recipes do
+        let FIL = System.IO.Path.Combine(RECIPE_DIR, name+".json")
+        if name.ToLowerInvariant() <> name then failwithf "bad recipe name: %s" name
+        use w = new System.IO.StringWriter()
+        recipe.Write(w)
+        Utilities.ensureDirOfFile(FIL)
+        System.IO.File.WriteAllText(FIL, w.GetStringBuilder().ToString())
+
+let test_recipe() =
+    let PACK_NAME = "Recipes"
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestIgloo""")
+    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "custom recipes")
+    writeRecipes([|"foo", ShapelessCrafting([|MC"stick";MC"stone"|],MC"bone_meal",2)|],
+        FOLDER, PACK_NAME, "blah")

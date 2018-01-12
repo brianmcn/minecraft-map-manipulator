@@ -182,10 +182,72 @@ let igloo_replacement() =
     // TODO bug https://bugs.mojang.com/browse/MC-124167 means disabling pack does not disable this structure override
 
 
+let shoulder_cam() =
+    let PACK_NAME = "ShoulderCamPack"
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestCam""")
+    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "spectator watches player in F5-like mode")
+    let X = "0.5"
+    let Y = "0.0"
+    let Z = "1.0"
+    let MAX = 5
+    // TODO works very poorly, dunno why... could try TPing a saddled pig rather than a player, and sit on the saddle, or could try TPing a mob and spectate the mob...
+    let functions = [|
+        "init", [|
+            "scoreboard objectives add Count dummy"
+            |]
+        "tick", [|
+(*
+            "scoreboard players set @p[tag=subject] Count 0"
+            "teleport @e[tag=camera] @p[tag=subject]"  // gain subject facing
+            "execute as @e[tag=camera] at @s run teleport @s ~ ~1.62 ~"
+            "execute as @e[tag=camera] at @s run function sc:raycast"
+*)
+(*
+            // this works kinda decent, but issue is player is tp'd instantly at 20Hz, so shaky movement
+            // need interpolation, but that only happens for non-player entities
+            // so need to be spectating or riding a mob
+            "execute at @p[tag=subject] run teleport @e[type=armor_stand,tag=camera] ~ ~ ~"
+            "execute as @e[type=armor_stand,tag=camera] at @s run teleport @s ^ ^ ^-5"
+            "execute as @e[type=armor_stand,tag=camera] at @s run teleport @p[tag=camera] ~ ~ ~"
+*)
+            // OK, below works decent.  Have ideas for rotation and raytracing to get around terrain, too
+            "execute at @p[tag=subject] run teleport @e[type=pig,tag=camera] ~ ~2 ~"
+            "execute as @e[type=pig,tag=camera] at @s run teleport @s ^ ^ ^-5"
+            // spectate through it, don't do like below
+            //"execute as @e[type=pig,tag=camera] at @s run teleport @p[tag=camera] ~ ~2 ~"  // +2 to avoid entity collision
+            |]
+(*
+        "raycast", [|
+            sprintf "execute if block ~ ~ ~ air unless entity @p[tag=subject,scores={Count=%d..}] run function sc:step" MAX
+            "execute unless block ~ ~ ~ air run function sc:step_back"
+            sprintf "execute if entity @p[tag=subject,scores={Count=%d..}] run function sc:there" MAX
+            |]
+        "step", [|
+            "scoreboard players add @p[tag=subject] Count 1"
+//            sprintf "execute positioned ^%s ^%s ^%s run function sc:raycast" X Y Z
+//            sprintf "execute at @s run teleport @s ^%s ^%s ^%s" X Y Z
+            sprintf "execute at @s run teleport @s ~%s ~%s ~%s" X Y Z
+            sprintf "execute at @s run function sc:raycast"
+            |]
+        "step_back", [|
+//            sprintf "execute positioned ^-%s ^-%s ^-%s run function sc:there" X Y Z
+//            sprintf "execute at @s run teleport @s ^-%s ^-%s ^-%s" X Y Z
+            sprintf "execute at @s run teleport @s ~-%s ~-%s ~-%s" X Y Z
+            sprintf "scoreboard players set @p[tag=subject] Count %d" MAX
+            |]
+        "there", [|
+            "execute at @s run teleport @s ~ ~-1.62 ~ facing entity @p[tag=subject] eyes"
+            |]
+*)
+        |]
+    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", ["sc:init"])
+    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", ["sc:tick"])
+    for name, code in functions do
+        Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "sc", name, code)
 
 [<EntryPoint>]
 let main argv = 
-    MinecraftBINGO.cardgen_compile()
+    //MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
@@ -197,6 +259,8 @@ let main argv =
     //area_highlight()
     //find_slime_chunks()
     //igloo_replacement()
+    //Recipes.test_recipe()
+    shoulder_cam()
     ignore argv
     0
 

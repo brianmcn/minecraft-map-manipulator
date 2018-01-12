@@ -3,6 +3,8 @@
 let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
+// TODO factor out compiler, now that can use #load and world spawn to summon permanent entities?
+
 // TODO oh yeah, nether is buggy
 // TODO arrow to spawn while in nether (remove? point to entry portal?)
 // TODO experiment with nether teleports, can I add nether items?
