@@ -1,8 +1,10 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
+// TODO oh yeah, nether is buggy
+// TODO arrow to spawn while in nether (remove? point to entry portal?)
 // TODO experiment with nether teleports, can I add nether items?
 //  - glowstone dust
 //  - ghast tear
@@ -10,8 +12,6 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 //  - comparator
 //  - daylight sensor
 //  - nether brick (item)
-// TODO check on all changes here https://www.reddit.com/r/Minecraft/comments/7pf79c/minecraft_snapshot_18w02a/dsgqjdj/
-
 
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
@@ -21,7 +21,7 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // few unique probabilities; if enderpearl were 5/6 and slimeball were 1/6 in the bin, for example... hm, I could make each bin have 6 items and futz with probabilities more...
 // and then have e.g. 3 enderpearl, 2 rabbit hide, 1 slimeball; double-chests still enable the bin-visualization... ench book and maybe cake could be less, lime could be 50%...
 
-// TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/
+// TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/ (prob not until 1.14)
 
 // TODO test non-playing players who just want to hang out in lobby (ideally they should not be on a team color, so they have no perf impact with inventory checking - 'leave team' sign in multiplayer lobby?)
 
@@ -49,8 +49,6 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // /give @p sign{BlockEntityTag:{Text1:"[\"foo\",{\"score\":{\"name\":\"@p\",\"objective\":\"Score\"}}]",Text2:"[{\"score\":{\"name\":\"@p\",\"objective\":\"Score\"}}]",Text3:"[{\"selector\":\"@p\"}]",Text4:"[]",id:"minecraft:sign"}} 1
 
 // TODO first time loading up map signs? (see HasTheMapEverBeenLoadedBefore) enable command blocks, disable spawn protection?
-
-// TODO investigate 'off' RNG in source code
 
 // TODO command block customization, for people on server without access to files (yeah, e.g. just an on-start and on-respawn ICB outside lobby that get triggered for each player given a tag)
 
@@ -536,7 +534,7 @@ let game_functions = [|
         TODO
             It's hard to design a lobby without first knowing the interface (set of activation signs) to all the features.  Get features working first.
         *)
-        yield sprintf "teleport @a %s" LOBBY
+        yield sprintf "execute in overworld run teleport @a %s" LOBBY
         yield "effect give @a minecraft:night_vision 99999 1 true"
         yield "fill 60 24 60 70 28 70 air"
         yield "fill 60 24 60 70 24 70 stone"
@@ -898,7 +896,7 @@ let game_functions = [|
         |]
     yield "do_spawn_sequence", [|
         // tp all to waiting room
-        yield sprintf "tp @a %s 180 0" WAITING_ROOM.TPSTR
+        yield sprintf "execute in overworld run teleport @a %s 180 0" WAITING_ROOM.TPSTR
         // set up spawn points
         yield "scoreboard players set $ENTITY PRNG_MOD 998"
         yield sprintf "execute if entity @a[team=red] run function %s:do_red_spawn" NS
@@ -955,7 +953,7 @@ let game_functions = [|
         yield "execute if entity $SCORE(opthhval=0) run scoreboard players set $ENTITY hasAnyoneUpdated 1"
         |]
     yield "go_home", [|
-        sprintf "teleport @s %s" LOBBY
+        sprintf "execute in overworld run teleport @s %s" LOBBY
         "effect give @s minecraft:saturation 10 4 true"  // feed (and probably will heal some too)
         "effect give @s minecraft:night_vision 99999 1 true"
         "scoreboard players set @a home 0"
@@ -964,7 +962,7 @@ let game_functions = [|
     yield "finish1", [| // called for transition gameInProgress 2->0
         "scoreboard players set $ENTITY gameInProgress 0"
         sprintf "function %s:place_signs0" NS
-        sprintf "teleport @a %s" LOBBY
+        sprintf "execute in overworld run teleport @a %s" LOBBY
         "gamemode survival @a"
         "clear @a"
         // feed & heal, as people get concerned in lobby about this
@@ -979,11 +977,12 @@ let game_functions = [|
 
 let map_update_objectives = [|
     yield "ticksLeftMU"        // remaining time left for a player who dropped maps to wait in map-update room for card colors to have time to redraw
-    yield sprintf "ReturnX"
-    yield sprintf "ReturnY"
-    yield sprintf "ReturnZ"
-    yield sprintf "ReturnRotX"
-    yield sprintf "ReturnRotY"
+    yield "ReturnX"
+    yield "ReturnY"
+    yield "ReturnZ"
+    yield "ReturnRotX"
+    yield "ReturnRotY"
+    yield "ReturnDim"  // 0 for overworld, 1 for nether
     |]
 let map_update_functions = [| 
     yield "map_update_init", [|
@@ -1013,11 +1012,12 @@ let map_update_functions = [|
         "execute store result score @s ReturnZ run data get entity @s Pos[2] 128.0"
         "execute store result score @s ReturnRotX run data get entity @s Rotation[0] 8.0"   // floats
         "execute store result score @s ReturnRotY run data get entity @s Rotation[1] 8.0"
+        "execute store result score @s ReturnDim run data get entity @s Dimension 1.0"
         sprintf """tellraw @a [%s,{"selector":"@s"}," is updating the BINGO map"]""" LEADING_WHITESPACE
         // note: only persist entities not already persisted, this way e.g. we don't later un-persist the zombie who picked up your sword
         """execute as @e[type=!player,distance=..160,nbt={PersistenceRequired:0b}] run data merge entity @s {PersistenceRequired:1b,Tags:["persisted"]}"""  // preserve mobs
         "execute at @s run particle minecraft:portal ~ ~ ~ 0.1 0.1 0.1 1 29 normal"
-        sprintf "tp @s %s 180 0" MAP_UPDATE_ROOM.TPSTR
+        sprintf "execute in overworld run teleport @s %s 180 0" MAP_UPDATE_ROOM.TPSTR
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         |]
     yield "warp_back", [|
@@ -1029,6 +1029,8 @@ let map_update_functions = [|
         "execute store result entity @e[limit=1,tag=return_loc] Rotation[0] float 0.125 run scoreboard players get @s ReturnRotX"
         "execute store result entity @e[limit=1,tag=return_loc] Rotation[1] float 0.125 run scoreboard players get @s ReturnRotY"
         "teleport @s @e[limit=1,tag=return_loc]"
+        "execute if entity @s[scores={ReturnDim=-1}] at @s in the_nether run teleport @s ~ ~ ~"
+        "execute if entity @s[scores={ReturnDim=0}] at @s in overworld run teleport @s ~ ~ ~"
         """execute as @e[type=!player,tag=persisted] run data merge entity @s {PersistenceRequired:0b,Tags:["none"]}"""  // un-preserve mobs (note: cannot use distance=, since just teleported, so must search world)
         "execute at @s run playsound entity.endermen.teleport ambient @a"
         "scoreboard players set $ENTITY hasAnyoneUpdated 1"
@@ -1500,9 +1502,9 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "execute store result entity @s Pos[0] double 1.0 run scoreboard players get @p[tag=dirGuy] xspawn" 
             "execute store result entity @s Pos[2] double 1.0 run scoreboard players get @p[tag=dirGuy] zspawn" 
             // face him at player
-            "execute at @s run tp @s ~ ~ ~ facing entity @p[tag=dirGuy]"
+            "execute at @s run teleport @s ~ ~ ~ facing entity @p[tag=dirGuy]"
             // move him back now that we got our facing data
-            "execute at @p[tag=dirGuy] run tp ~ ~ ~"
+            "execute at @p[tag=dirGuy] run teleport ~ ~ ~"
             // convert Rotation to score: TEMP = entity, x = player
             "execute store result score @s TEMP run data get entity @s Rotation[0] 1.0" 
             "execute store result score @s x run data get entity @p[tag=dirGuy] Rotation[0] 1.0" 
@@ -1578,7 +1580,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             if PROFILE then
                 yield "scoreboard players set $ENTITY LINES 0"
 #if UUID
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) run teleport %s 64 4 64" ENTITY_UUID // TODO factor 64 4 64
+            yield sprintf "execute if entity $SCORE(gameInProgress=2) in overworld run teleport %s 64 4 64" ENTITY_UUID // TODO factor 64 4 64
 #endif
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
@@ -1602,7 +1604,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield! compile(prng_init(), "prng_init")
         yield makeItemChests()
         yield "preinit",[|
-            yield sprintf "tp @a %s" LOBBY
+            yield sprintf "execute in overworld run teleport @a %s" LOBBY
             yield "kill @e[type=!player]"
             |]
         yield "init",[|

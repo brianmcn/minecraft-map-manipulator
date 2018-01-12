@@ -39,6 +39,7 @@ small program ideas:
        make thingy to fly in direction looking with tp ^ ^ ^0.05 or whatever; maybe cycle difficulty and put block in sky at y=100 above slimes (slow) or zombies (faster) or minecart chests or something, as simple examples? 
   - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)
        aside: should I always have a long-lived entity tagged temp, for various debugging etc?
+	   fake player nbt like SelectedItem/SelectedItemSlot
   - blocks (name[properties]{blockentitynbt}) and items (name{nbt})
   - selectors
   - scoreboard (ent-value pairs, sidebar display, selector test) 
