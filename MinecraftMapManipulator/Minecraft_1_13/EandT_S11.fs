@@ -170,45 +170,61 @@ let FRAGMENT = "nametag"  // todo consider command block, maybe even 3 colors fo
 
 // TODO parent-prerequisites
 let custom_survival_recipes = [|
-    // recipes to unlock once
-    "iron_ingot",ShapedCrafting(PK_Enderchest("iron_ore","coal"),MC"iron_ingot",1)
-    "gold_ingot",ShapedCrafting(PK_Clock("gold_ore","coal"),MC"gold_ingot",2)
-    "cook_cod",ShapedCrafting(PK_Enderchest("cod","coal"),MC"cooked_cod",6)
-    "cook_salmon",ShapedCrafting(PK_Enderchest("salmon","coal"),MC"cooked_salmon",6)
+    // recipes to unlock once, name-of-knowledge-book-and-lore 
+    "iron_ingot",ShapedCrafting(PK_Enderchest("iron_ore","coal"),MC"iron_ingot",1),["Furnace-less iron";"A way to turn";"iron ore into";"ingots without";"a furnace"]
+    "gold_ingot",ShapedCrafting(PK_Clock("gold_ore","coal"),MC"gold_ingot",2),["Furnace-less gold";"A way to turn";"gold ore into";"ingots without";"a furnace"]
+    "cook_cod",ShapedCrafting(PK_Enderchest("cod","coal"),MC"cooked_cod",6),["Furnace-less cod";"A way to cook";"cod without";"a furnace"]
+    //"cook_salmon",ShapedCrafting(PK_Enderchest("salmon","coal"),MC"cooked_salmon",6)
     //"throwable_torch",ShapedCrafting(PK_Dispenser("torch","slimeball","snowball"),MC"snowball",7) // TODO nbt
 
     // consumables to craft at any time
     //"warp_point",ShapelessCrafting([|MC(FRAGMENT);MC"purple_dye"|],MC"shulker_spawn_egg",1) // TODO nbt (name, loot table)
-    "shulker_box",ShapelessCrafting([|MC(FRAGMENT);MC"chest"|],MC"purple_shulker_box",1)
+    "shulker_box",ShapelessCrafting([|MC(FRAGMENT);MC"chest"|],MC"purple_shulker_box",1),["Shulker box";"Inventory";"management";"is hard even";"in early game"]
     |]
 
 let lootable_recipes = [|
     // TODO what are other good ones?
     [MC"daylight_sensor"]
     [for c in MC_Constants.COLORS do yield MC(c+"_stained_glass")]
+    // rabbit stew
+    // maybe some others where the knowledge books themselves can randomly be found in loot chests
     |] // init: takes these recipes; loot tables for dungeons etc have rare chance to give KB with the set
 // TODO parent-prerequisites
 let custom_unlocking_recipes = [|
-    // recipe name, ingredients in addition to fragment, recipes granted, TODO-name-of-knowledge-book
-    "unlock_stone_tools", [MC"cobblestone"], [MC"stone_pickaxe";MC"stone_axe";MC"stone_shovel";MC"stone_sword"]
-    "unlock_iron_tools", [MC"iron_ingot"], [MC"iron_pickaxe";MC"iron_axe";MC"iron_shovel";MC"iron_sword"]
-    "unlock_diamond_tools", [MC"diamond"], [MC"diamond_pickaxe";MC"diamond_axe";MC"diamond_shovel";MC"diamond_sword"]
-    "unlock_iron_armor", [MC"iron_block"], [MC"iron_helmet";MC"iron_chestplate";MC"iron_leggings";MC"iron_boots"]
-    "unlock_diamond_armor", [MC"diamond_block"], [MC"diamond_helmet";MC"diamond_chestplate";MC"diamond_leggings";MC"diamond_boots"]
-    "unlock_bow", [MC"stick"], [MC"bow"]
-    "unlock_fishing_rod", [MC"string"], [MC"fishing_rod"]
-    "unlock_hoes", [MC"cobblestone";MC"iron_ingot";MC"gold_ingot"], [MC"wooden_hoe";MC"stone_hoe";MC"iron_hoe";MC"gold_hoe";MC"diamond_hoe"]
-    "unlock_bone_meal", [MC"bone"], [MC"bone_meal"]
-    "unlock_bed", [MC"white_wool"], [for c in MC_Constants.COLORS do yield MC(c+"_bed")]
-    "unlock_anvil", [MC"iron_ingot";MC"iron_ingot";MC"iron_ingot"], [MC"anvil"]
-    "unlock_piston", [MC"redstone"], [MC"piston"]
-    "unlock_enchanting_table", [MC"book"], [MC"enchanting_table"]
-    "unlock_bucket", [MC"glass_bottle"], [MC"bucket"]
+    // pre-req, recipe name, ingredients in addition to fragment, recipes granted, name-of-knowledge-book-and-lore 
+    null,                 "unlock_stone_tools",     [MC"cobblestone"], [MC"stone_pickaxe";MC"stone_axe";MC"stone_shovel";MC"stone_sword"],["Stone tools"]
+    "unlock_stone_tools", "unlock_iron_tools",      [MC"iron_ingot"], [MC"iron_pickaxe";MC"iron_axe";MC"iron_shovel";MC"iron_sword"],["Iron tools"]
+    "unlock_iron_tools",  "unlock_diamond_tools",   [MC"diamond"], [MC"diamond_pickaxe";MC"diamond_axe";MC"diamond_shovel";MC"diamond_sword"],["Diamond tools"]
+    null,                 "unlock_iron_armor",      [MC"iron_block"], [MC"iron_helmet";MC"iron_chestplate";MC"iron_leggings";MC"iron_boots"],["Iron armor"]
+    "unlock_iron_armor",  "unlock_diamond_armor",   [MC"diamond_block"], [MC"diamond_helmet";MC"diamond_chestplate";MC"diamond_leggings";MC"diamond_boots"],["Diamond armor"]
+    null,                 "unlock_bow",             [MC"stick"], [MC"bow"],["Bow"]
+    null,                 "unlock_fishing_rod",     [MC"string"], [MC"fishing_rod"],["Fishing Rod"]
+    "unlock_fishing_rod", "unlock_cook_fish",       [MC"cod"], [PATH"TODO:cook_cod"],["Furnace-less cod";"A way to cook";"cod without";"a furnace"]
+    "unlock_cook_fish",   "unlock_hoes",            [MC"cobblestone";MC"iron_ingot";MC"gold_ingot"], [MC"wooden_hoe";MC"stone_hoe";MC"iron_hoe";MC"gold_hoe";MC"diamond_hoe"],["Hoes";"All five";"materials"]
+    "unlock_hoes",        "unlock_bone_meal",       [MC"bone"], [MC"bone_meal"],["Bone meal";"from bones"]
+    null,                 "unlock_bed",             [MC"white_wool"], [for c in MC_Constants.COLORS do yield MC(c+"_bed")],["Beds";"all colors"]
+    null,                 "unlock_anvil",           [MC"iron_ingot";MC"iron_ingot";MC"iron_ingot"], [MC"anvil"],["Anvil"]
+    null,                 "unlock_book",            [MC"paper"], [MC"book"],["Book"]
+    "unlock_anvil",       "unlock_piston",          [MC"redstone"], [MC"piston"],["Piston"]
+    null,                 "unlock_enchanting_table",[MC"book"], [MC"enchanting_table"],["Enchanting Table"]
+    null,                 "unlock_bucket",          [MC"glass_bottle"], [MC"bucket"],["Bucket"]
     |]
 //for recipe_name, _ingredients, knowledge_grants in custom_unlocking_recipes do
     // init: for r in knowledge_grants do /recipe take @p r
     // author advancement: trigger: recipe_unlocked, recipes: knowledge_grants.[0], rewards: function that "/recipe take @p recipe_name" and also "/recipe give @p child_recipe"
     // author recipe, once knowledge_book nbt is possible
+let blah() = 
+    let initCommands = ResizeArray()
+    for _prereq, recipeName, _ingredients, knowledgeGrants, kbName in custom_unlocking_recipes do
+        for kg in knowledgeGrants do
+            initCommands.Add(sprintf "recipe @a take %s" (kg.ToString()))
+            // TODO unlocking stuff 
+            // can maybe fudge it sans nbt, e.g.
+            // rather than craft a KB, craft N chain_command_blocks
+            // a listener tries to clear 64->0 chain_command_blocks, and when succeeds at N, behaves as though KB consumed and
+            //  - "recipe take @s %s" recipeName
+            //  - "recipe give @s %s" kg
+            //  - TODO "recipe give @s %s" <unlocked children KB recipes>
 
 
 // TODO parent-prerequisites logic

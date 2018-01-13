@@ -35,6 +35,7 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
 // TODO signs/books explaining gameplay/game modes/custom terrain/custom config
+//  - gameplay books, like lockout & 2-for-1-mode should be linked next to options, e.g. 'click for more info'
 
 // TODO evaluate new items, other new features
 
