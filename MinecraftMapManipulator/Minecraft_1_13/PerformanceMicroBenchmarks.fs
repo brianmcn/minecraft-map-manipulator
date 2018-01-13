@@ -67,6 +67,16 @@ decode(instr)
 
 *)
 
+
+// regarding "tagtype" below
+// someone suggests that @e[tag=X,type=armor_stand] might be more efficient than @e[tag=X] if limited to a specific chunk/section, so test that
+// AjaxGb: Essentially, each subchunk (16x16x16) stores a hashmap of type -> list of entities. These hashmaps only get used if you have r or dx/dy/dz in play, so without them type will have no special efficiency.
+// MrPingouin: r and dx/dy/dz are the same, they both define a bounding box
+// AjaxGb: Regarding ClassInheritanceMultiMap (entity-by-type) By default, the map only maps the base Entity class. Scanning for entities of a specific class will add a mapping for that class, which will 
+// be kept up-to-date. Entity selectors only scan for Entity and then do their own filtering afterwards, so no subdivision (or related efficiency improvement/hit) will occur.
+// Many other systems do cause such subdivisions. For example, hoppers scan for items, so any subchunk with a hopper will have an EntityItem subdivision.
+// me: since a common place for a hopper is e.g. at a mob farm, so there are lots of entities in a small location, so type filtering the small location is actually a win for that scenario
+
 let SELECTORS = [|
     "p",      "@p"
     "s",      "@s"
@@ -111,6 +121,9 @@ let main() =
         "scoreboard players set @p NF -1"
         "scoreboard players set @p FailureCount 0"
 
+        // convenience for various tests to use:
+        "scoreboard objectives add TEMP_OBJ dummy"
+
         "say datapack loaded, initialization complete"
         "say after terrain all loaded and settled, run"
         """tellraw @a ["    scoreboard players set @p NF 0"]"""
@@ -135,11 +148,52 @@ let main() =
     ///////////
     // good baseline stuff to keep
 
+    // trivial calls, functions
     profileThis("seed",       OUTER,INNER,1,[],[SEED],[]) 
-    profileThis("callseed",   OUTER,INNER,1,[],["function test:call_seed"],[])    // TODO 500,1000 just fails silently and immediately, why?
+    profileThis("callseed",   OUTER,INNER,1,[],["function test:call_seed"],[])    // TODO 500,1000 just fails silently and immediately, why?  past maxCommandChainLength?
+    profileThis("add",        OUTER,INNER,1,[],[ADD],[])
+    profileThis("calladd",    OUTER,INNER,1,[],["function test:call_add"],[])
 
-    profileThis("add",OUTER,INNER,1,[],[ADD],[])
-    profileThis("calladd",   OUTER,INNER,1,[],["function test:call_add"],[])
+    // some bits that show off execute overhead
+    for name,sel in ["s","@s"] do
+        profileThis("eif"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
+        profileThis("eatif"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel],[])
+        profileThis("eatifseed"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel; SEED],[])
+        profileThis("eatifrunseed"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s run %s" sel SEED],[])
+        profileThis("eatifadd"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel; ADD],[])
+        profileThis("eatifrunadd"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s run %s" sel ADD],[])
+    profileThis("erunadd",OUTER,INNER,1,[],[sprintf "execute run %s" ADD],[])
+    profileThis("erunseed",OUTER,INNER,1,[],[sprintf "execute run %s" SEED],[])
+    profileThis("erunseed3",OUTER,INNER,1,[],[sprintf "execute run execute run execute run %s" SEED],[])
+    profileThis("erunseed4",OUTER,INNER,1,[],[sprintf "execute run execute run execute run execute run %s" SEED],[])
+
+    // NBT serialization versus alternatives
+    profileThis("readtagtag",OUTER,INNER,1,["tag @p add SomeTag"],["execute unless entity @p[tag=SomeTag] run function test:fail"],["tag @p remove SomeTag"])
+    profileThis("readtagnbt",OUTER,INNER,1,["tag @p add SomeTag"],["""execute unless entity @p[nbt={Tags:["SomeTag"]}] run function test:fail"""],["tag @p remove SomeTag"])
+    let MAX = 10
+    profileThis("readtagstag",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["execute unless entity @p[tag=SomeTag1] run function test:fail"],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagsnbt",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["""execute unless entity @p[nbt={Tags:["SomeTag1"]}] run function test:fail"""],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagstagmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d] run function test:fail"MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagsnbtmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d"]}] run function test:fail"""MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagstagtwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d,tag=SomeTag%d] run function test:fail"2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    profileThis("readtagsnbttwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d","SomeTag%d"]}] run function test:fail"""2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+
+    // various selectors
+    for name,sel in SELECTORS_WITH_UUID do
+        profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute unless entity %s run function %s:fail" sel "test"],[])  // the new 'testfor'
+
+    // carets versus tildes (will move player to world spawn)
+    profileThis("tpcarrot",   OUTER,INNER,1,[],["tp @p ^ ^ ^1";"tp @p ^ ^ ^-1"],[])
+    profileThis("tptilde",   OUTER,INNER,1,[],["tp @p ~ ~ ~1";"tp @p ~ ~ ~-1"],[])
+
+    // selector score literals versus 'matches'
+    profileThis("scorelitsel",OUTER,INNER,1,["scoreboard players set @s TEMP_OBJ 1"],["execute unless entity @s[scores={TEMP_OBJ=1}] run function test:fail"],[])
+    profileThis("scorelitmat",OUTER,INNER,1,["scoreboard players set @s TEMP_OBJ 1"],["execute unless score @s TEMP_OBJ matches 1 run function test:fail"],[])
+
+    // type=player versus @a
+    profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute unless entity @e[type=player] run function test:fail"],[])
+    profileThis("ei-a",OUTER,INNER,1,[],[sprintf "execute unless entity @a run function test:fail"],[])
+
 
 (*
     profileThis("stoneairstoneif",OUTER,INNER,1,[],["execute if block ~ ~ ~ stone run setblock ~ ~ ~ air"; "setblock ~ ~ ~ stone"],[])
@@ -171,8 +225,8 @@ Also
 
 if you LOAD a structure block here in loaded chunks, but the structure has e.g. offsetX = 10000, it will 
   load that chunk right now (this tick) so you can setblock into that (previously unloaded) chunk right now
-
     *)
+
 
     (*
 FAR ANIMALS
@@ -195,13 +249,6 @@ took 7501 milliseconds to run 50000 iterations of
 //    profileThis("nearby3",       50,1000,1,[],["execute at @p as @e[type=pig,distance=..57,limit=1] run scoreboard players add @p A 1"],[])
 
     
-    // TODO someone suggests that @e[tag=X,type=armor_stand] might be more efficient than @e[tag=X] if limited to a specific chunk/section, so test that
-    // AjaxGb: Essentially, each subchunk (16x16x16) stores a hashmap of type -> list of entities. These hashmaps only get used if you have r or dx/dy/dz in play, so without them type will have no special efficiency.
-    // MrPingouin: r and dx/dy/dz are the same, they both define a bounding box
-    // AjaxGb: Regarding ClassInheritanceMultiMap (entity-by-type) By default, the map only maps the base Entity class. Scanning for entities of a specific class will add a mapping for that class, which will 
-    // be kept up-to-date. Entity selectors only scan for Entity and then do their own filtering afterwards, so no subdivision (or related efficiency improvement/hit) will occur.
-    // Many other systems do cause such subdivisions. For example, hoppers scan for items, so any subchunk with a hopper will have an EntityItem subdivision.
-    // me: since a common place for a hopper is e.g. at a mob farm, so there are lots of entities in a small location, so type filtering the small location is actually a win for that scenario
 
     // TODO could author tests to dump a bunch of text/numbers, but also have some expected ratios, and print e.g. UNEXPECTED if something is out-of-tolerance, to highlight problems in the text dump
 
@@ -212,58 +259,8 @@ Execute if @s[scores={test=1}] run ...
 Or wouldnt there be a difference?
 *)
 
-    (*
-    profileThis("tpcarrot",   OUTER,INNER,1,[],["tp @p ^ ^ ^1";"tp @p ^ ^ ^-1"],[])
-    profileThis("tptilde",   OUTER,INNER,1,[],["tp @p ~ ~ ~1";"tp @p ~ ~ ~-1"],[])
-took 1935 milliseconds to run 200000 iterations of
-    tp @p ~ ~ ~1
-    tp @p ~ ~ ~-1
-took 2015 milliseconds to run 200000 iterations of
-    tp @p ~ ~ ~1
-    tp @p ~ ~ ~-1
-took 1991 milliseconds to run 200000 iterations of
-    tp @p ^ ^ ^1
-    tp @p ^ ^ ^-1
-took 1874 milliseconds to run 200000 iterations of
-    tp @p ^ ^ ^1
-    tp @p ^ ^ ^-1    
-    *)
-
-    for name,sel in ["s","@s"] do
-        profileThis("eif"+name,OUTER,INNER,1,[],[sprintf "execute if entity %s" sel],[])  // the new 'testfor'
-        profileThis("eatif"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel],[])
-        profileThis("eatifseed"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel; SEED],[])
-        profileThis("eatifrunseed"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s run %s" sel SEED],[])
-        profileThis("eatifadd"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s" sel; ADD],[])
-        profileThis("eatifrunadd"+name,OUTER,INNER,1,[],[sprintf "execute at %s if entity @s run %s" sel ADD],[])
-    profileThis("erunseed",OUTER,INNER,1,[],[sprintf "execute run %s" SEED],[])
-    profileThis("erunadd",OUTER,INNER,1,[],[sprintf "execute run %s" ADD],[])
-    profileThis("erunseed3",OUTER,INNER,1,[],[sprintf "execute run execute run execute run %s" SEED],[])
-    profileThis("erunseed4",OUTER,INNER,1,[],[sprintf "execute run execute run execute run execute run %s" SEED],[])
-
-(*
-took 2757 milliseconds to run 200000 iterations of
-    execute run seed
-took 8872 milliseconds to run 200000 iterations of
-    execute run execute run execute run seed
-took 12058 milliseconds to run 200000 iterations of
-    execute run execute run execute run execute run seed
-*)
-
-//    profileThis("adhoc1",OUTER,INNER,1,[],["execute if entity @s[scores={X=1}]"],[])
-//    profileThis("adhoc2",OUTER,INNER,1,[],["execute if score @s X matches 1"],[])
 
 
-    // NBT serialization versus alternatives
-    profileThis("readtagtag",OUTER,INNER,1,["tag @p add SomeTag"],["execute unless entity @p[tag=SomeTag] run function test:fail"],["tag @p remove SomeTag"])
-    profileThis("readtagnbt",OUTER,INNER,1,["tag @p add SomeTag"],["""execute unless entity @p[nbt={Tags:["SomeTag"]}] run function test:fail"""],["tag @p remove SomeTag"])
-    let MAX = 10
-    profileThis("readtagstag",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["execute unless entity @p[tag=SomeTag1] run function test:fail"],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagsnbt",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["""execute unless entity @p[nbt={Tags:["SomeTag1"]}] run function test:fail"""],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagstagmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d] run function test:fail"MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagsnbtmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d"]}] run function test:fail"""MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagstagtwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d,tag=SomeTag%d] run function test:fail"2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagsnbttwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d","SomeTag%d"]}] run function test:fail"""2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
 
     (*
 
@@ -287,33 +284,10 @@ took 53 milliseconds to run 200000 iterations of
 took 1257 milliseconds to run 200000 iterations of
     execute unless entity @p[nbt={Tags:["SomeTag2","SomeTag9"]}] run function test:fail
 
-took 46 milliseconds to run 200000 iterations of
-    execute if entity @s[scores={X=1}]
-took 54 milliseconds to run 200000 iterations of
-    execute if score @s X matches 1
-took 49 milliseconds to run 200000 iterations of
-    execute if entity @s[scores={X=1}]
-took 51 milliseconds to run 200000 iterations of
-    execute if score @s X matches 1
     *)
 
 
-    for name,sel in SELECTORS_WITH_UUID do
-        profileThis("ei"+name,OUTER,INNER,1,[],[sprintf "execute unless entity %s run function %s:fail" sel "test"],[])  // the new 'testfor'
 (*
-took 2502 milliseconds to run 200000 iterations of
-    execute unless entity @e[tag=scoreAS] run function test:fail
-took 20649 milliseconds to run 200000 iterations of
-    execute unless entity @e[name=scoreAS] run function test:fail
-took 178 milliseconds to run 200000 iterations of
-    execute unless entity @e[tag=scoreAS,distance=..1] run function test:fail
-took 166 milliseconds to run 200000 iterations of
-    execute unless entity @e[name=scoreAS,distance=..1] run function test:fail
-*)
-
-(*
-//    profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute if entity @e[type=player]"],[])
-//    profileThis("ei-a",OUTER,INNER,1,[],[sprintf "execute if entity @a"],[])
 
     for name,sel in SELECTORS_WITH_FAKE do
         // TODO note that "scoreboard players add 1-1-1-0-1 A 1" will add to a fake player with that name, and not to a UUID'd entity with that uuid
@@ -339,20 +313,7 @@ took 166 milliseconds to run 200000 iterations of
     // current experiments
 
 
-    // TODO stuff in email notes
-
     (*
-
-took 7501 milliseconds to run 500000 iterations of
-    execute run seed
-took 75 milliseconds to run 500000 iterations of
-    seed
-
-took 9017 milliseconds to run 500000 iterations of
-    execute as @p run seed
-took 8912 milliseconds to run 500000 iterations of
-    execute if entity @p run seed
-
     for pre,suf in ["","run scoreboard players add FAKE A 1"; "tp","at @s run tp @s ~ ~ ~"] do
         profileThis(sprintf "%seip"pre,      500,1000,[],[sprintf"execute as @p %s"suf],[])                                
         profileThis(sprintf "%seis"pre,      500,1000,[],[sprintf"execute as @s %s"suf],[])                                
@@ -460,43 +421,81 @@ took 6703 milliseconds to run 200000 iterations of
 
 
 18w02a
-took 33 milliseconds to run 200000 iterations of
+took 29 milliseconds to run 200000 iterations of
     seed
-took 96 milliseconds to run 200000 iterations of
+took 101 milliseconds to run 200000 iterations of
     function test:call_seed
-took 516 milliseconds to run 200000 iterations of
+took 597 milliseconds to run 200000 iterations of
     scoreboard players add @s A 1
-took 850 milliseconds to run 200000 iterations of
+took 957 milliseconds to run 200000 iterations of
     function test:call_add
-took 25 milliseconds to run 200000 iterations of
+took 24 milliseconds to run 200000 iterations of
     execute if entity @s
-took 673 milliseconds to run 200000 iterations of
+took 688 milliseconds to run 200000 iterations of
     execute at @s if entity @s
-took 713 milliseconds to run 200000 iterations of
+took 723 milliseconds to run 200000 iterations of
     execute at @s if entity @s
     seed
-took 3956 milliseconds to run 200000 iterations of
+took 4116 milliseconds to run 200000 iterations of
     execute at @s if entity @s run seed
-took 2341 milliseconds to run 200000 iterations of
+took 2394 milliseconds to run 200000 iterations of
     execute at @s if entity @s
     scoreboard players add @s A 1
-took 8526 milliseconds to run 200000 iterations of
+took 8541 milliseconds to run 200000 iterations of
     execute at @s if entity @s run scoreboard players add @s A 1
-took 2782 milliseconds to run 200000 iterations of
-    execute run seed
-took 7002 milliseconds to run 200000 iterations of
+took 6969 milliseconds to run 200000 iterations of
     execute run scoreboard players add @s A 1
+took 2815 milliseconds to run 200000 iterations of
+    execute run seed
+took 9076 milliseconds to run 200000 iterations of
+    execute run execute run execute run seed
+took 12264 milliseconds to run 200000 iterations of
+    execute run execute run execute run execute run seed
+took 48 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag] run function test:fail
+took 1065 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag"]}] run function test:fail
 took 47 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag1] run function test:fail
+took 1097 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag1"]}] run function test:fail
+took 48 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag10] run function test:fail
+took 1098 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag10"]}] run function test:fail
+took 53 milliseconds to run 200000 iterations of
+    execute unless entity @p[tag=SomeTag2,tag=SomeTag9] run function test:fail
+took 1125 milliseconds to run 200000 iterations of
+    execute unless entity @p[nbt={Tags:["SomeTag2","SomeTag9"]}] run function test:fail
+took 50 milliseconds to run 200000 iterations of
     execute unless entity @p run function test:fail
-took 43 milliseconds to run 200000 iterations of
+took 39 milliseconds to run 200000 iterations of
     execute unless entity @s run function test:fail
-took 3350 milliseconds to run 200000 iterations of
+took 2648 milliseconds to run 200000 iterations of
     execute unless entity @e[tag=scoreAS] run function test:fail
-took 3420 milliseconds to run 200000 iterations of
+took 20253 milliseconds to run 200000 iterations of
+    execute unless entity @e[name=scoreAS] run function test:fail
+took 2775 milliseconds to run 200000 iterations of
     execute unless entity @e[tag=scoreAS,type=armor_stand] run function test:fail
-took 187 milliseconds to run 200000 iterations of
+took 170 milliseconds to run 200000 iterations of
     execute unless entity @e[tag=scoreAS,distance=..1] run function test:fail
-took 43 milliseconds to run 200000 iterations of
+took 170 milliseconds to run 200000 iterations of
+    execute unless entity @e[name=scoreAS,distance=..1] run function test:fail
+took 41 milliseconds to run 200000 iterations of
     execute unless entity 1-1-1-0-1 run function test:fail
+took 3927 milliseconds to run 200000 iterations of
+    tp @p ^ ^ ^1
+    tp @p ^ ^ ^-1
+took 4142 milliseconds to run 200000 iterations of
+    tp @p ~ ~ ~1
+    tp @p ~ ~ ~-1
+took 67 milliseconds to run 200000 iterations of
+    execute unless entity @s[scores={TEMP_OBJ=1}] run function test:fail
+took 73 milliseconds to run 200000 iterations of
+    execute unless score @s TEMP_OBJ matches 1 run function test:fail
+took 85 milliseconds to run 200000 iterations of
+    execute unless entity @e[type=player] run function test:fail
+took 44 milliseconds to run 200000 iterations of
+    execute unless entity @a run function test:fail
 
 *)

@@ -186,59 +186,27 @@ let shoulder_cam() =
     let PACK_NAME = "ShoulderCamPack"
     let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestCam""")
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "spectator watches player in F5-like mode")
-    let X = "0.5"
-    let Y = "0.0"
-    let Z = "1.0"
-    let MAX = 5
-    // TODO works very poorly, dunno why... could try TPing a saddled pig rather than a player, and sit on the saddle, or could try TPing a mob and spectate the mob...
     let functions = [|
         "init", [|
             "scoreboard objectives add Count dummy"
             |]
         "tick", [|
-(*
-            "scoreboard players set @p[tag=subject] Count 0"
-            "teleport @e[tag=camera] @p[tag=subject]"  // gain subject facing
-            "execute as @e[tag=camera] at @s run teleport @s ~ ~1.62 ~"
-            "execute as @e[tag=camera] at @s run function sc:raycast"
-*)
-(*
-            // this works kinda decent, but issue is player is tp'd instantly at 20Hz, so shaky movement
-            // need interpolation, but that only happens for non-player entities
-            // so need to be spectating or riding a mob
-            "execute at @p[tag=subject] run teleport @e[type=armor_stand,tag=camera] ~ ~ ~"
-            "execute as @e[type=armor_stand,tag=camera] at @s run teleport @s ^ ^ ^-5"
-            "execute as @e[type=armor_stand,tag=camera] at @s run teleport @p[tag=camera] ~ ~ ~"
-*)
             // OK, below works decent.  Have ideas for rotation and raytracing to get around terrain, too
             "execute at @p[tag=subject] run teleport @e[type=pig,tag=camera] ~ ~2 ~"
             "execute as @e[type=pig,tag=camera] at @s run teleport @s ^ ^ ^-5"
             // spectate through it, don't do like below
             //"execute as @e[type=pig,tag=camera] at @s run teleport @p[tag=camera] ~ ~2 ~"  // +2 to avoid entity collision
             |]
-(*
-        "raycast", [|
-            sprintf "execute if block ~ ~ ~ air unless entity @p[tag=subject,scores={Count=%d..}] run function sc:step" MAX
-            "execute unless block ~ ~ ~ air run function sc:step_back"
-            sprintf "execute if entity @p[tag=subject,scores={Count=%d..}] run function sc:there" MAX
-            |]
-        "step", [|
-            "scoreboard players add @p[tag=subject] Count 1"
-//            sprintf "execute positioned ^%s ^%s ^%s run function sc:raycast" X Y Z
-//            sprintf "execute at @s run teleport @s ^%s ^%s ^%s" X Y Z
-            sprintf "execute at @s run teleport @s ~%s ~%s ~%s" X Y Z
-            sprintf "execute at @s run function sc:raycast"
-            |]
-        "step_back", [|
-//            sprintf "execute positioned ^-%s ^-%s ^-%s run function sc:there" X Y Z
-//            sprintf "execute at @s run teleport @s ^-%s ^-%s ^-%s" X Y Z
-            sprintf "execute at @s run teleport @s ~-%s ~-%s ~-%s" X Y Z
-            sprintf "scoreboard players set @p[tag=subject] Count %d" MAX
-            |]
-        "there", [|
-            "execute at @s run teleport @s ~ ~-1.62 ~ facing entity @p[tag=subject] eyes"
-            |]
-*)
+        // TODO ideas for player to control it:
+        // Camera sits at a location defined by XRot/YRot/R from the player
+        // Player could control it via a single item in inventory, along lines of
+        //  - if item in upper left slot, then scroll-wheeling (SelectedItem change) changes RotX by 10
+        //  - if item in next slot, then scroll-wheeling (SelectedItem change) changes RotY by 5
+        //  - if item in next slot, then scroll-wheeling (SelectedItem change) changes R by 0.2 (min 0.2, max 20?)
+        //  - if item upper right, stationary mode, camera does not move
+        //  - if item next slot, 'chase' mode, if camera in front 2/3 of player facing for a certain threshold of time, then it starts RotX+10 each tick until it gets behind (back third)
+        //  - if item next slot, toggles camera visibility (is pig invisible or not)
+        //  - any other slot, follow mode, just stays relative position
         |]
     Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", ["sc:init"])
     Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", ["sc:tick"])
@@ -251,7 +219,7 @@ let main argv =
     //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
-    //PerformanceMicroBenchmarks.main()
+    PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
@@ -260,7 +228,7 @@ let main argv =
     //find_slime_chunks()
     //igloo_replacement()
     //Recipes.test_recipe()
-    shoulder_cam()
+    //shoulder_cam()
     ignore argv
     0
 
