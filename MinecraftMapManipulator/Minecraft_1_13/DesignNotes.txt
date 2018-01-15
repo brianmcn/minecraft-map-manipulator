@@ -36,7 +36,7 @@ small program ideas:
   - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
   - a sense of the bounds; some things are possible, and some things are not (e.g. coords of block last mined)... the bounds are kinda arbitrary and must be learned through experience
   - setup (see prev series; stuff like f3, keyboard shortcuts, gamemodes, F3+N, how to make rr world, ...)
-  - sender (who) and location (where) and facing/anchoring (?how?) and function/command (what).... execute as pig say hi; execute at cow setblock stone (is there a good something other than 'say' that differs by 'who'? yes, facing ^ ^ ^1, maybe also 'read my health' or something)
+  - sender (who) and location (where) and facing/anchoring (?how?which-way?) and function/command (what).... execute as pig say hi; execute at cow setblock stone (is there a good something other than 'say' that differs by 'who'? yes, facing ^ ^ ^1, maybe also 'read my health' or something)
        yeah, imagining in first episode typing commands to summon a NoAI pig, a NoAI horse with a different rotation, and then running commands like function say_health as them or setblock at them
 	   talk abut the concepts, while showing un-as-yet-explained commands on the screen
   - coordinates (F3 debug screen, xyz, facing rotations, absolute 1 2 3, relative ~~~, local ^^^, /setblock, /teleport)
@@ -58,6 +58,7 @@ small program ideas:
   - blocks, blockstates & nbt []{}, and /data get block, data merge block, /replaceitem rather than /data for "inventories"
   - performance?
   - debugging (a useful helper might be "print_the_at" which summons an entity (or tp's an existing entity ~ ~ ~) and data gets its Pos to show you what the current "at" is)
+         useful strategy is to 'reduce until it works, then build back up'
   - "Minecraft stuff" (useful pokable entity data, physics, ...?)
 
 
@@ -65,26 +66,6 @@ small program ideas:
 GENERAL PROGRAMMING
 ===================
 apparently no trampolines needed, functions can recurse forever?
-
-TODO work out an example like this (entity-less loop over an area):
-	------------
-	so i guess if I want to loop over an area of rows x cols, i init some variables with the values i want, and then have a function like 'do_row' and 'do_square' which are something like
-	scoreboard players remove @p rows 1
-	execute if entity @p[scores={rows=1..}] offset ~1 ~ ~ run function ns:do_row
-	function ns:do_square
-
-	scoreboard players remove @p cols 1
-	execute if entity @p[scores={cols=1..}] offset ~ ~ ~1 run function ns:do_square
-	setblock ~ ~ ~ stone   // or something like #call:thingy, and you can subrscribe to thingy with your receiver and guard it with e.g. if entity @s[tag=iWasTheCaller] ...
-
-	maybe?  i guess I should just try it
-	[10:39 PM] Lorgon111: that's not quite right, but close-ish i think
-	-----------
-
-think about skylinerw's "else feature"
-before a 'switch', set a global flag, condition each branch on the flag, and first instruction of each called branch function unsets the flag
-it's a transaction, yes? safe?
-annoying that caller and callee have to coordinate, but seems simple and workable?
 
 Note: what is behavior if #base:group calls child1:run which disables child1/child2?
 answer: if fully-enabled order is {base,child1,child2}, if child1 calls "disable child2" then 
@@ -97,56 +78,25 @@ https://www.reddit.com/user/Dinnerbone/comments/6l6e3d/a_completely_incomplete_s
 https://github.com/PepijnMC/Minecraft/tree/master/Data
 https://github.com/skylinerw/guides
 
-
 can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
 can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
 
-'the carets' give us easy sin/cos/tan, but we still don't have easy arcsin/arccos/arctan... MCPE's 'facing' gives that
+'the carets' give us easy sin/cos/tan, 'facing' gives arcsin/arccos/arctan...
 
 should I always have a long-lived entity tagged temp & uuid'd, for various debugging etc? D-E-B-0-6?
 
 how to do moral equivalent of 'testfor' results now: execute store result score @s NumPlayers if entity @a
 
-Things to test in snapshot
+cool trick to see if you're in the top-half of an oak_slab block (note that dx,dy,dz selectors test against entity hitbox, not your exact coords)
+  /execute at @s if block ~ ~ ~ minecraft:oak_slab[type=bottom] align y positioned ~ ~0.75 ~ run say @s[distance=..0.25]
 
-    TODO verify "at @e" will loop, that is, perform the chained command for each entity
-    same for 'as'
-    but not for 'if/unless'
-
-    understand data packs, how to turn off e.g. vanilla advancements/crafting
-
-	cool trick to see if you're in the top-half of an oak_slab block (note that dx,dy,dz selectors test against entity hitbox, not your exact coords)
-	/execute at @s if block ~ ~ ~ minecraft:oak_slab[type=bottom] align y offset ~ ~0.75 ~ run say @s[distance=..0.25]
-
-# make a snowball turn into fallingsand block
-# client only gets original summon info, so use 'barrier' so block is invisible to client, else they see falling sand fall from their face
-execute at @e[type=snowball,tag=] run summon falling_block ~ ~ ~ {BlockState:{Name:"minecraft:barrier"},Time:1,Tags:["newfb"],Motion:[0.1,0.1,0.1]}
-execute store result entity @e[tag=newfb,limit=1] Pos[0] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Pos[0] 1000.0
-execute store result entity @e[tag=newfb,limit=1] Pos[1] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Pos[1] 1000.0
-execute store result entity @e[tag=newfb,limit=1] Pos[2] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Pos[2] 1000.0
-execute store result entity @e[tag=newfb,limit=1] Motion[0] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Motion[0] 1000.0
-execute store result entity @e[tag=newfb,limit=1] Motion[1] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Motion[1] 1000.0
-execute store result entity @e[tag=newfb,limit=1] Motion[2] double 0.001 run data get entity @e[type=snowball,tag=,limit=1] Motion[2] 1000.0
-# change to block we want to end up with
-data merge entity @e[tag=newfb,limit=1] {BlockState:{Name:"minecraft:gravel"}}
-tag @e[type=snowball,tag=] add processed
-tag @e[tag=newfb] remove newfb
-# falling_block seems to have different physics than snowball at landing; since block is invisible while thrown anyway, makes more sense just to find last air block snowball exists in and just replace it probably
 
 ==============
 MinecraftBINGO
 ==============
-cut the tutorial for good
-ignore custom modes, and item chests in initial version
-bug: https://www.reddit.com/r/minecraftbingo/comments/74sd7m/broken_seed_spawn_in_a_waterfall_and_die_in_a_wall/
 bugs & ideas from top of old file
 
-
 feature ideas:
- x beacon at spawn
- x randomly put people on 1/2/3/4 teams
- - 'blind' covered play (on_newcard, on_got_squareNM, what else? need UI to turn on & off (data pack enabling?) and maybe UI to uncover card at end?)
- - use achievement toasts rather than chat for got-item notifications?
  - enable-able datapacks mean e.g. alternate loot tables could be turned on, etc?
  - custom configs done as separate data packs? out-of-band changes/extensions?
     - on-start/on-respawn is one type of simple customization that maybe could be in datapack
@@ -161,46 +111,13 @@ new items:
  x redstone torch as easier repeater?
  x water/lava bucket? (would interact with tool-like gameplay a little, but not bad) is very easy... cauldron alternatives? lava yes, water no
 
-architecture
-
-helper functions
- x PRNG
- x make new card (clone art, setup checker command blocks)
- x finalize prior game (clear inv, feed/heal, tp all to lobby, ...)
- x make new seeded card
- x make new random card
- x ensure card updated (player holding map at spawn)
- x begin a game (lots of logic here...)
- x check for bingo (5-in-a-row logic)
- - team-got-an-item (announce, add score, check for win/lockout)
- x various 'win' announcements/fireworks/scoreboard
- x worldborder timekeeper logic (compute actual seconds)
- x find spawn point based on seed (maybe different logic/implementation from now? yes, binary search a list of larger choices...)
- x compute lockout goal
-
 blocks
  x art assets
  - ?lobby? (or code that write it?)
  - 'branding' on the map (bingo by lorgon, bDia)
  - history/books/donations/etc
 
-ongoing per-tick code
- x updating game time when game in progress (seconds on scoreboard, MM:SS on statusbar)
- x check for players who drop map when game in progress (kill map, tag player, invoke TP sequence)
- x check for players with no more maps to give more
- x check for anyone with a trigger home score (to tp back to lobby)
- x check for on-respawn when game in progress (test for live player with death count, run on-respawn code, reset deaths)
- x check for 25-mins passed when game in progress
-
-setup
- - gamerules
- x scoreboard objectives created
- x constants initialized
- - ?build lobby?
- x any permanent entities
-
 discarded ideas:
- 
  - new item: water bottle as alt bottle? no, has NBT (id:minecraft:potion,tag:{Potion:minecraft:water})
  - new item: salmon as harder cod? (old bingo fish was 82%, cod is 50%, salmon is 21%, that is probably too hard)
  
@@ -211,5 +128,4 @@ discarded ideas:
 
  - suggested to fill map update room head with water IFF player's head is in water at moment of teleport :P  
         there are other exploits (e.g. in multiplayer, if skeleton shoots at you, drop map and arrow sails by), don't try to fix them all
-
 

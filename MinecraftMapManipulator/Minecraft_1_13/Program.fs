@@ -213,13 +213,47 @@ let shoulder_cam() =
     for name, code in functions do
         Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "sc", name, code)
 
+let test_selection_execution_order() =
+//summon minecraft:armor_stand ~ ~ ~ {Tags:[A,A4],CustomName:"\"A4\""}
+// xecute as @e[sort=nearest,tag=bob] at @s run tag @e[distance=0.2..,tag=bob] remove bob 
+    let PACK_NAME = "Blah"
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestRepro""")
+    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "blah")
+    let functions = [|
+        "stuff", [|
+            "say I am @s"
+            "execute as @e[tag=A] run function test:coda"
+            |]
+        "coda", [|
+            "say @s got called to remove tag"
+            "tag @s remove A"
+            |]
+        |]
+    for name, code in functions do
+        Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", name, code)
+(*
+[A1] I am A1
+[A4] A4 got called to remove tag
+[A3] A3 got called to remove tag
+[A2] A2 got called to remove tag
+[A1] A1 got called to remove tag
+[A1: Executed 14 commands from function 'test:stuff']
+[A2] I am A2
+[A2: Executed 2 commands from function 'test:stuff']
+[A3] I am A3
+[A3: Executed 2 commands from function 'test:stuff']
+[A4] I am A4
+[A4: Executed 2 commands from function 'test:stuff']
+*)
+
+
 [<EntryPoint>]
 let main argv = 
     //MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
-    PerformanceMicroBenchmarks.main()
+    //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
@@ -229,6 +263,7 @@ let main argv =
     //igloo_replacement()
     //Recipes.test_recipe()
     //shoulder_cam()
+    test_selection_execution_order()
     ignore argv
     0
 

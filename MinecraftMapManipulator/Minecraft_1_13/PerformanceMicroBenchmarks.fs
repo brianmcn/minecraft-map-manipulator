@@ -65,6 +65,18 @@ decode(instr)
             instructions.push_front(QUOTE(CURRENT_AT = ctxt.AT))
         TODO - what is 'result' and 'success' values?
 
+
+18w02a:
+Lorgon111: I think I see.  oy.a(bm, qt, bx.c, IntFunction, boolean) is the thing that runs code.  There is code like what my decompiler calls
+  int n2 = bl2 ? n : (bl3 ? 1 : 0);
+  c2.a(gg2, (gv)intFunction.apply(n2));
+which is deciding if it needs to use the result or success of a call, and stores it to somewhere via the IntFunction (how store is implemented)...(edited)
+Lorgon111: Actually, that's probably not the main runner, it's just the helper part that injects the store part... still figuring this out...
+Lorgon111: And oy.a(bm, Collection<string>, bni, boolean) is the helper for scoreboard arguments, it is taking each string and deciding if it's a player or 
+  fake player or whatever via bnl (player lookup?) and bnk (score lookup?)
+Lorgon111: And dh has code for selectors... and I think bs has a d field which is the "No entity was found" that is breaking some of the stuff in the bug...
+Name:"[\"Mrpingouin\"]": see dn for all the argument type defnition (but these classes should only do a parsing job)
+Lorgon111: And df is the other portion of selectors, it knows about the 4 types of sort=, and the letters a e p r s
 *)
 
 

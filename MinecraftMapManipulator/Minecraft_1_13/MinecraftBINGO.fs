@@ -3,7 +3,8 @@
 let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
-// TODO factor out compiler, now that can use #load and world spawn to summon permanent entities?
+// TODO factor out compiler, now that can use #load and world spawn to summon permanent entities? Not that easy, because efficiently addressing them requires hardcoded location @e[x=y=z=distance=]...
+// But I guess at F# level I can factor out the XYZ and still factor the code...
 
 // TODO oh yeah, nether is buggy
 // TODO arrow to spawn while in nether (remove? point to entry portal?)
@@ -177,6 +178,8 @@ let toLeastMost(uuid:System.Guid) =
     least,most
 
 #if UUID
+// TODO consider: as it stands now (and I think most ever), I don't need a uuid.  Just always park this guy at a known location.  Then you can address him as @e[tag=blah,x=,y=,z=,distance=],
+//    and run some function as him which may tp him around mid-tick, but then simply must contractually return him to known x,y,z when you're done.  No uuid needed; tagdist is almost as fast as uuid?
 // if https://bugs.mojang.com/browse/MC-122118 gets fixed, might be able to use player, rather than uuid'd entity? no, even after fix, it's choppy (client can see tp somehow)
 let ENTITY_UUID = "1-1-1-0-1"
 let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
