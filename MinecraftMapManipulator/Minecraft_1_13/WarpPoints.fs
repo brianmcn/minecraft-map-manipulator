@@ -128,10 +128,17 @@ let creation_functions = [|
 
 let wp_c_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
-    Utilities.writeDatapackMeta(world,"wp_pack","warp points")
-    for name,code in creation_functions do
-        Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
-    for name,code in nearby_behavior_functions do
-        Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
-    for name,code in lobby_functions do
-        Utilities.writeFunctionToDisk(world,"wp_pack","wp",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
+    let PACK_NAME = "wp_pack"
+    Utilities.writeDatapackMeta(world,PACK_NAME,"warp points")
+    let compiler = new Compiler.Compiler(1,100,1,false)
+    let all = [|
+        for name,code in [|yield! creation_functions; yield! nearby_behavior_functions; yield! lobby_functions|] do
+            yield! compiler.Compile("wp", name, code)
+        yield! compiler.GetCompilerLoadTick()
+        |]
+    for ns, name, code in all do
+        Utilities.writeFunctionToDisk(world,PACK_NAME,ns,name,code |> Array.map MC_Constants.compile)
+
+    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "load", [sprintf"%s:load"Compiler.NS;"wp:init"])
+    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "tick", [sprintf"%s:tick"Compiler.NS;"wp:tick"])
+

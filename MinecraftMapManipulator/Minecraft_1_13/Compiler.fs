@@ -126,14 +126,13 @@ type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
                 yield sprintf "scoreboard players add @s numPendingCont %d" scoreASx 
             else
                 yield sprintf "scoreboard players remove @s numPendingCont %d" -scoreASx
-            yield """execute unless entity @s[scores={numPendingCont=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS x coordinate too far from world spawn"]"""
+            yield """execute unless entity @s[scores={numPendingCont=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS x coordinate too far from world spawn, dx:",{"score":{"name":"@s","objective":"numPendingCont"}}]"""
             yield sprintf "execute store result score @s numPendingCont run data get entity @e[tag=loadaec,limit=1] Pos[2] 1.0"
             if scoreASz >= 0 then
                 yield sprintf "scoreboard players add @s numPendingCont %d" scoreASz 
             else
                 yield sprintf "scoreboard players remove @s numPendingCont %d" -scoreASz
-            yield """execute unless entity @s[scores={numPendingCont=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS z coordinate too far from world spawn"]"""
-            // TODO test bit above
+            yield """execute unless entity @s[scores={numPendingCont=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS z coordinate too far from world spawn, dz:",{"score":{"name":"@s","objective":"numPendingCont"}}]"""
 
             // count the number of scoreAS in the world
             yield sprintf "execute store result score @s numPendingCont if entity @e[%s]" ENTITY_TAG
