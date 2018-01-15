@@ -250,7 +250,7 @@ let test_selection_execution_order() =
 [<EntryPoint>]
 let main argv = 
     MinecraftBINGO.cardgen_compile()
-    //MinecraftBINGOExtensions.Blind.main()
+    MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()

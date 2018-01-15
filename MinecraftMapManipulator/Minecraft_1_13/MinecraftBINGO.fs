@@ -169,123 +169,18 @@ let writeExtremeHillsDetection() =
 
 ////////////////////////////
 
+let compiler = new Compiler.Compiler(84,4,4,PROFILE)
+
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
     yield """summon armor_stand 4 4 84 {CustomName:"\"XH\"",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 67 4 67 {CustomName:"\"nonuuidguy\"",Tags:["nonuuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     |]
-let ENTITY_TAG = "tag=scoreAS,x=84,y=4,z=4,distance=..1.0,limit=1"   // consider UUIDing it? no, because UUIDs do not accept selectors
+let ENTITY_TAG = compiler.EntityTag 
 let NONUUID_TAG = "tag=nonuuidguy,x=67,y=4,z=67,distance=..1.0,limit=1"
 let XH_TAG = "tag=XHguy,x=4,y=4,z=84,distance=..1.0,limit=1"
 let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" ENTITY_TAG
 let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
-
-let allCallbackShortNames = ResizeArray()
-let continuationNum = ref 1
-let newName() =    // names are like 'cont6'... this is used as scoreboard objective name, and then function full name will be cont/cont6
-    let r = sprintf "cont%d" !continuationNum
-    incr continuationNum
-    r
-let gameLoopContinuationCheck() =  // Note: an F# function because capturing mutable globals; must be called at end of F# execution after all compile() calls are done
-    [|   // Must be called as $ENTITY
-#if DEBUG
-//        yield "say ---calling gameLoop---"
-#endif    
-        // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
-        for f in allCallbackShortNames do
-            yield sprintf "scoreboard players remove @s[scores={%s=1..}] %s 1" f f
-        // then call all that need to go now
-        for f in allCallbackShortNames do
-            yield sprintf "execute if entity @s[scores={%s=1}] run function %s:cont/%s" f NS f
-    |]
-let compile(f,name) =
-    let rec replaceScores(s:string) = 
-        let i = s.IndexOf("$SCORE(")
-        if i <> -1 then
-            let j = s.IndexOf(')',i)
-            let info = s.Substring(i+7,j-i-7)
-            let s = s.Remove(i,j-i+1)
-            let s = s.Insert(i,sprintf "@e[%s,scores={%s}]" ENTITY_TAG info)
-            replaceScores(s)
-        else
-            s
-    let replaceContinue(s:string) = 
-        // TODO if there are many NTICKSLATER in one non-re-entrant block of code, then we could 'group' them so there is just one variable to check
-        // in the main game loop each tick, rather than many... that may or may not be a useful perf optimization
-        let i = s.IndexOf("$NTICKSLATER(")
-        if i <> -1 then
-            if i <> 0 then failwith "$NTICKSLATER must be only thing on the line"
-            let j = s.IndexOf(')',i)
-            if j <> s.Length-1 then failwith "$NTICKSLATER must be only thing on the line"
-            let info = s.Substring(i+13,j-i-13)
-            // $NTICKSLATER(n) will
-            //  - create a new named .mcfunction for the continuation
-            //  - create a new scoreboard objective for it
-            //  - set the value of e.g. @e[tag=callbackAS] in the new objective to 'n'
-            //     - but first check the existing score was 0; this system can't register the same callback function more than once at a time, that would be an error (no re-entrancy)
-            //  - add a hook in the gameloop that, foreach callback function in the global registry, will check the score, and
-            //     - if the score is ..0, do nothing (unscheduled)
-            //     - if the score is 1, call the corresponding callback function (time to continue now)
-            //     - else subtract 1 from the score (get 1 tick closer to calling it)
-            let nn = newName()
-            allCallbackShortNames.Add(nn)
-            [|
-                sprintf """execute if entity @e[%s,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" ENTITY_TAG nn nn
-                sprintf "scoreboard players set @e[%s] %s %d" ENTITY_TAG nn (int info + 1) // +1 because we decr at start of gameloop
-            |], "cont/"+nn
-        else
-            [|s|], null
-    let a = f |> Seq.toArray 
-    // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
-    let a = a |> Array.map replaceScores
-    // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
-    let a = a |> Array.map (fun s -> s.Replace("$ENTITY",sprintf"@e[%s]"ENTITY_TAG))
-    let r = [|
-        let cur = ResizeArray()
-        let curName = ref name
-        let i = ref 0
-        while !i < a.Length do
-            let b,nn = replaceContinue(a.[!i])
-            cur.AddRange(b)
-            if nn<>null then
-                yield !curName, cur.ToArray()
-                cur.Clear()
-                curName := nn
-            incr i
-        yield !curName, cur.ToArray()
-    |]
-#if DEBUG
-    let r = [|
-        for name,code in r do
-            if name <> "theloop" then
-                yield name, [| yield sprintf """tellraw @a ["calling '%s'"]""" name; yield! code |]
-            else
-                yield name, [| yield! code; yield sprintf """tellraw @a ["at end theloop, cont6:",{"score":{"name":"@e[%s]","objective":"cont6"}}]""" ENTITY_TAG |]
-        |]
-#endif    
-    // try to catch common errors in post-processing
-    let okChars = [|'a'..'z'|] |> Array.append [|'_';'-'|] |> Array.append [|'0'..'9'|] |> Array.append [|'/'|]
-    // TODO add more validation, e.g. find all "function foo:bar" and ensure such a function exists, e.g. to check for spelling errors
-    for name,code in r do
-        for c in name do
-            if not(okChars |> Array.contains c) then
-                failwithf "bad function name (char '%c'): %s" c name
-        for cmd in code do
-            let soa = "scoreboard objectives add "
-            if cmd.StartsWith(soa) then
-                let i = soa.Length 
-                let j = cmd.IndexOf(" ",i)
-                let objName = cmd.Substring(i,j-i)
-                if objName.Length > 16 then
-                    failwithf "bad objective name (too long): '%s'" objName
-    let r = 
-        if PROFILE then
-            [|  for name,code in r do
-                    yield name, Array.append code [|sprintf "scoreboard players add @e[%s] LINES %d" ENTITY_TAG code.Length|]
-                |]
-        else
-            r
-    r
 
 ///////////////////////////////////////////////////////
 
@@ -363,15 +258,8 @@ let game_objectives = [|
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
     |]
 let game_functions = [|
-    yield "compiler_init", [|
-        if PROFILE then
-            yield sprintf "scoreboard objectives add LINES dummy"
-        for cbn in allCallbackShortNames do
-            yield sprintf "scoreboard objectives add %s dummy" cbn
-        yield """summon armor_stand 84 4 4 {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" // TODO factor location
-        |]
     yield "game_init", [|
-        yield sprintf "function %s:compiler_init" NS
+        yield sprintf "function %s:load" Compiler.NS
         // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
         // TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
         yield """data merge entity $ENTITY {CustomName:"\"                          \""}"""
@@ -1422,15 +1310,11 @@ let cardgen_functions = [|
     |]
 let cardgen_compile() = // TODO this is really full game, naming/factoring...
     let r = [|
-        for name,code in cardgen_functions do
-            yield! compile(code, name)
-        for name,code in checker_functions do
-            yield! compile(code, name)
-        for name,code in game_functions do
-            yield! compile(code, name)
-        for name,code in map_update_functions do
-            yield! compile(code, name)
-        yield! compile([|
+        yield! cardgen_functions
+        yield! checker_functions
+        yield! game_functions
+        yield! map_update_functions
+        yield "on_lobby_respawn", [|
             // enable triggers (for click-in-chat-to-tp-home stuff)  TODO factor into a function
             "scoreboard players set @a home 0"
             "scoreboard players enable @a home"
@@ -1440,8 +1324,8 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "execute if entity @s[scores={TEMP=1..}] run effect give @s minecraft:night_vision 99999 1 true"
             """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
-            |],"on_lobby_respawn")
-        yield! compile([|
+            |]
+        yield "on_respawn", [|
             // enable triggers (for click-in-chat-to-tp-home stuff)  TODO factor into a function
             "scoreboard players set @a home 0"
             "scoreboard players enable @a home"
@@ -1453,24 +1337,24 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optboatval=1) run give @s minecraft:oak_boat 1"
             """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
-            |],"on_respawn")
-        yield! compile([|
+            |]
+        yield "have_no_map", [|
             sprintf "execute if score @s playerNum = $ENTITY tickNum run function %s:have_no_map_core" NS
-            |],"have_no_map")
-        yield! compile([|
+            |]
+        yield "have_no_map_core", [|
             // players may dead
             "execute store result score @s TEMP run data get entity @s Health 100.0"
             sprintf """execute if entity @s[scores={TEMP=1..}] unless entity @s[nbt={Inventory:[{id:"minecraft:filled_map",tag:{map:0}}]}] run function %s:ensure_maps""" NS  // NOTE may be expensive...
-            |],"have_no_map_core")
-        yield! compile([|
+            |]
+        yield "first_time_player", [|
             "tag @s add playerHasBeenSeen"
             sprintf "teleport @s %s" LOBBY
             "effect give @s minecraft:night_vision 99999 1 true"
             "recipe give @s *"
             "advancement grant @s everything"
             sprintf "advancement revoke @s only %s:xh" NS
-            |],"first_time_player")
-        yield! compile([|
+            |]
+        yield "find_dir_to_spawn_body", [|
             (* Compute which direction spawn is relative to the player's XZ
                     1
                   8   2
@@ -1507,15 +1391,14 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "scoreboard players set @s[scores={TEMP=293..337}] spawnDir 4"
             // done
             "scoreboard players operation @p[tag=dirGuy] spawnDir = @s spawnDir"
-            |],"find_dir_to_spawn_body")
-        yield! compile([|
+            |]
+        yield "find_dir_to_spawn", [|
             "tag @s add dirGuy"
             sprintf "execute as @e[%s] run function %s:find_dir_to_spawn_body" NONUUID_TAG NS
             "tag @s remove dirGuy"
-            |],"find_dir_to_spawn")
-        yield! compile([|
-            if PROFILE then
-                yield "scoreboard players set $ENTITY LINES 0"
+            |]
+        yield "theloop", [|
+            yield sprintf "execute as $ENTITY run function %s:tick" Compiler.NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
@@ -1526,16 +1409,15 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS  // NOTE every-tick @a
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
-            yield sprintf "execute as $ENTITY run function %s:game_loop_continuation_check" NS
             // throttling infrastructure (so some things don't run for every player every tick)
             yield "scoreboard players add $ENTITY tickNum 1"
             yield "execute if score $ENTITY tickNum >= $ENTITY numActivePlayers run scoreboard players set $ENTITY tickNum 0"
             yield "scoreboard players add @a ticksSinceGotMap 1"
 //            if PROFILE then
 //                yield sprintf """tellraw @a [{"score":{"name":"@e[%s]","objective":"LINES"}}]""" ENTITY_TAG 
-            |],"theloop")
-        yield! compile(prng, "prng")
-        yield! compile(prng_init(), "prng_init")
+            |]
+        yield "prng", prng
+        yield "prng_init", prng_init()
         yield makeItemChests()
         yield "preinit",[|
             yield sprintf "execute in overworld run teleport @a %s" LOBBY
@@ -1568,14 +1450,18 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
     printfn "writing functions..."
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
     writeExtremeHillsDetection()
-    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (n,c) -> compile(c,n)), sprintf "@e[%s]" ENTITY_TAG)
-    for name,code in r do
+    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (ns,n,c) -> compiler.Compile(ns,n,c)), sprintf "@e[%s]" ENTITY_TAG)
+    let r = [|
+        for name,code in r do
+            yield! compiler.Compile(NS, name, code)
+        |]
+    for ns,name,code in r do
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing
         else
-            writeFunctionToDisk(PACK_NAME, NS, name, code)
-    let glcc = gameLoopContinuationCheck()  // run this after all compile() calls
-    writeFunctionToDisk(PACK_NAME, NS, "game_loop_continuation_check", glcc)
+            writeFunctionToDisk(PACK_NAME, ns, name, code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        writeFunctionToDisk(PACK_NAME, ns, name, code)
 
 //////////////////////////////////////////////////
 // Possible future/OOB features

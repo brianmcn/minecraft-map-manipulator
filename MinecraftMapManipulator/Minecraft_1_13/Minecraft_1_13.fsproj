@@ -58,6 +58,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <Compile Include="Compiler.fs" />
     <Compile Include="Utilities.fs" />
     <Compile Include="MC_Constants.fs" />
     <Compile Include="Recipes.fs" />

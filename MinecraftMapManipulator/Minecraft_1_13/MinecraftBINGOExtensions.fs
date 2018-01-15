@@ -201,9 +201,9 @@ module Blind =
         hookEvents()
         let a = [|
             for name,code in all_funcs do
-                yield! MinecraftBINGO.compile(code,name)
+                yield! MinecraftBINGO.compiler.Compile(PACK_NS,name,code)   // TODO note that this is a way to re-use bingo's $SCORE and $ENTITY, but cannot participate in $NTICKSLATER since all continuation callbacks were already written
             |]
-        for name,code in a do
-            MinecraftBINGO.writeFunctionToDisk(PACK_NAME, PACK_NS, name,code)
-        Utilities.writeConfigOptionsFunctions(MinecraftBINGO.FOLDER, PACK_NAME, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (n,c) -> MinecraftBINGO.compile(c,n)), sprintf "@e[%s]" MinecraftBINGO.ENTITY_TAG)
+        for ns,name,code in a do
+            MinecraftBINGO.writeFunctionToDisk(PACK_NAME, ns, name,code)
+        Utilities.writeConfigOptionsFunctions(MinecraftBINGO.FOLDER, PACK_NAME, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (ns,n,c) -> MinecraftBINGO.compiler.Compile(ns,n,c)), sprintf "@e[%s]" MinecraftBINGO.ENTITY_TAG)
 

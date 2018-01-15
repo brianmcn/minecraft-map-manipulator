@@ -177,7 +177,7 @@ let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqu
         |]
     let funcs = [|
         for name,code in funcs do
-            yield! compileF(name,code)
+            yield! compileF(ns,sprintf "%s/%s" folder name,code)
         |]
-    for name,code in funcs do
-        writeFunctionToDisk(world, pack, ns, sprintf "%s/%s" folder name, code)
+    for ns,name,code in funcs do
+        writeFunctionToDisk(world, pack, ns, name, code)
