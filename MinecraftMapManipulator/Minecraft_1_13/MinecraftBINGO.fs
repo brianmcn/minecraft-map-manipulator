@@ -189,17 +189,17 @@ let newName() =    // names are like 'cont6'... this is used as scoreboard objec
     let r = sprintf "cont%d" !continuationNum
     incr continuationNum
     r
-let gameLoopContinuationCheck() =
-    [|
+let gameLoopContinuationCheck() =  // Note: an F# function because capturing mutable globals; must be called at end of F# execution after all compile() calls are done
+    [|   // Must be called as $ENTITY
 #if DEBUG
 //        yield "say ---calling gameLoop---"
 #endif    
         // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
         for f in allCallbackShortNames do
-            yield sprintf "scoreboard players remove @e[%s,scores={%s=1..}] %s 1" ENTITY_TAG f f
+            yield sprintf "scoreboard players remove @s[scores={%s=1..}] %s 1" f f
         // then call all that need to go now
         for f in allCallbackShortNames do
-            yield sprintf "execute if entity @e[%s,scores={%s=1}] run function %s:cont/%s" ENTITY_TAG f NS f
+            yield sprintf "execute if entity @s[scores={%s=1}] run function %s:cont/%s" f NS f
     |]
 let compile(f,name) =
     let rec replaceScores(s:string) = 
@@ -1522,7 +1522,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS  // NOTE every-tick @a
             yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
-            yield! gameLoopContinuationCheck()
+            yield sprintf "execute as $ENTITY run function %s:game_loop_continuation_check" NS
             // throttling infrastructure (so some things don't run for every player every tick)
             yield "scoreboard players add $ENTITY tickNum 1"
             yield "execute if score $ENTITY tickNum >= $ENTITY numActivePlayers run scoreboard players set $ENTITY tickNum 0"
@@ -1569,7 +1569,9 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing
         else
-            writeFunctionToDisk(PACK_NAME, NS, name,code)
+            writeFunctionToDisk(PACK_NAME, NS, name, code)
+    let glcc = gameLoopContinuationCheck()  // run this after all compile() calls
+    writeFunctionToDisk(PACK_NAME, NS, "game_loop_continuation_check", glcc)
 
 //////////////////////////////////////////////////
 // Possible future/OOB features
