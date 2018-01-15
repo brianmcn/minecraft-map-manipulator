@@ -127,6 +127,7 @@ let writeFunctionToDisk(packName,packNS,name,code) = Utilities.writeFunctionToDi
 ////////////////////////////
 // hook into events from base pack
 Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", [sprintf"%s:theloop"NS])
+Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", [sprintf"%s:init"NS])
 
 ////////////////////////////
 // publish own events for child packs
@@ -172,6 +173,8 @@ let compiler = new Compiler.Compiler(84,4,4,PROFILE)
 
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
+    yield "kill @e[tag=XHguy]"
+    yield "kill @e[tag=nonuuidguy]"
     yield """summon armor_stand 4 4 84 {CustomName:"\"XH\"",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 67 4 67 {CustomName:"\"nonuuidguy\"",Tags:["nonuuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     |]
@@ -258,7 +261,6 @@ let game_objectives = [|
     |]
 let game_functions = [|
     yield "game_init", [|
-        yield sprintf "function %s:load" Compiler.NS  // TODO change so this is called from #load, and my init is called afterwards from load, hm, except then toggling datapack will kill all entities, hm, see preinit comment below
         // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
         // TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
         yield """data merge entity $ENTITY {CustomName:"\"                          \""}"""
@@ -499,6 +501,7 @@ let game_functions = [|
         "kill @e[tag=bookText]"
         |]
     yield "summon_book_text_entities",[|
+        "kill @e[tag=bookText]"
         """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText","bookTextON"],CustomName:"\"ON\"",Team:green}"""
         """summon armor_stand 37 1 37 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["bookText","bookTextOFF"],CustomName:"\"OFF\"",Team:red}"""
         |]
@@ -1261,7 +1264,7 @@ let cardgen_functions = [|
             |]
     yield "cardgen_makecard", [|
         yield sprintf "kill @e[tag=sky]"
-        yield sprintf """summon armor_stand 5 %d 3 {Tags:["sky"],NoGravity:1,Invulnerable:1,Invisible:1}""" ART_HEIGHT
+        yield sprintf """summon armor_stand 5 %d 3 {CustomName:"\"sky\"",Tags:["sky"],NoGravity:1,Invulnerable:1,Invisible:1}""" ART_HEIGHT
         yield sprintf "scoreboard players set $ENTITY squaresPlaced 0"
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
@@ -1418,12 +1421,12 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield "prng", prng
         yield "prng_init", prng_init()
         yield makeItemChests()
-        yield "preinit",[| // TODO get rid of this, or change to say don't need to always call, but keep a 'kill all' here, and change 'init' to only 'kill knowns'
+        yield "preinit",[|
             yield sprintf "execute in overworld run teleport @a %s" LOBBY
+            yield "say you only need to call preinit when things have gone awry... killing all non-player entities..."
             yield "kill @e[type=!player]"
             |]
-        yield "init",[|
-            yield "execute as @e[type=!player] run say ERROR: I should have been killed in preinit"
+        yield "init_body",[|
             yield "gamerule doDaylightCycle true"
             yield "gamerule doWeatherCycle false"
             yield "gamerule sendCommandFeedback false"
@@ -1444,6 +1447,10 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf"function %s:make_lobby"NS
             yield sprintf"function %s:choose_random_seed"NS
             yield """give @p minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32"""
+            |]
+        yield "init",[|
+            yield sprintf "function %s:load" Compiler.NS
+            yield sprintf "function %s:init_body" NS
             |]
         |]
     printfn "writing functions..."

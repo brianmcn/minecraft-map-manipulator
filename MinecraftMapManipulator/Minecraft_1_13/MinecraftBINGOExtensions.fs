@@ -54,6 +54,9 @@ module Blind =
     // hook into events from base packs
     let hookTick() =
         Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, "minecraft", "tick", [sprintf "%s:tick" PACK_NS])
+    let hookLoad() =
+        Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, "minecraft", "load", [sprintf "%s:on_load" PACK_NS])
+
 
     let hook(event) =
         Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, BINGO_NS, event, [sprintf "%s:%s" PACK_NS event])
@@ -181,6 +184,9 @@ module Blind =
             yield sprintf "fill 0 %d -1 127 %d 118 air" COVER_HEIGHT_UNDER COVER_HEIGHT_UNDER
             yield sprintf "setblock %s air" (MinecraftBINGO.CHEST_THIS_CARD_1.Offset(0,1,0).STR)
             yield sprintf "setblock %s air" (MinecraftBINGO.CHEST_THIS_CARD_2.Offset(0,1,0).STR)
+            |]
+        yield "on_load",[|
+            yield sprintf "function %s:load" Compiler.NS
             |]
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do

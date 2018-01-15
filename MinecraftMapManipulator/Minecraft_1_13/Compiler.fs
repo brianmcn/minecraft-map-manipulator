@@ -82,9 +82,9 @@ type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
             |]
     #endif    
         // try to catch common errors in post-processing
-        let okChars = [|'a'..'z'|] |> Array.append [|'_';'-'|] |> Array.append [|'0'..'9'|] |> Array.append [|'/'|]
+        let okChars = [|'a'..'z'|] |> Array.append [|'_';'-'|] |> Array.append [|'0'..'9'|] |> Array.append [|'/'|]  // '.' is also technically allowed, but I do not use it.
         // TODO add more validation, e.g. find all "function foo:bar" and ensure such a function exists, e.g. to check for spelling errors
-        for ns,name,code in r do
+        for _ns,name,code in r do
             for c in name do
                 if not(okChars |> Array.contains c) then
                     failwithf "bad function name (char '%c'): %s" c name
@@ -99,7 +99,7 @@ type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
         let r = 
             if doProfiling then
                 [|  for ns,name,code in r do
-                        yield ns, name, Array.append code [|sprintf "scoreboard players add @e[%s] LINES %d" ENTITY_TAG code.Length|]
+                        yield ns, name, Array.append code [|sprintf "scoreboard players add @e[%s] LINES %d" ENTITY_TAG code.Length|] // TODO note that tick/tick_body are un-profiled; should add that manually
                     |]
             else
                 r
@@ -107,14 +107,43 @@ type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
 
     let get_final_compiler_funcs() = [| // Note: an F# function because capturing mutable globals; must be called at end of F# execution after all compile() calls are done
         NS, "load", [|
-            // TODO could look up location of world spawn, assuming this func called from #load at spawn, and then ensure scoreAS x y z is close enough (dx and dz each <160), else warn/fail
             if doProfiling then
                 yield sprintf "scoreboard objectives add LINES dummy"
             yield sprintf "scoreboard objectives add numPendingCont dummy"
             for cbn in allCallbackShortNames do
                 yield sprintf "scoreboard objectives add %s dummy" cbn
-            yield sprintf """summon armor_stand %d %d %d {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" scoreASx scoreASy scoreASz
+            yield sprintf "execute as @p run function %s:load_entity_init" NS
             yield "scoreboard players set @e[tag=scoreAS] numPendingCont 0"
+            |]
+        // Note: I think #load-initializations must be commutative and idempotent, and must handle both first-time and already-existing world state.
+        NS, "load_entity_init", [|
+            // use numPendingCont as local temp variable, since only objective we know exists
+            
+            // look up location of world spawn, assuming this func called from #load at spawn, and then ensure scoreAS x y z is close enough (dx and dz each <160), else warn/fail
+            yield sprintf "summon area_effect_cloud ~ ~ ~ {Duration:1,Tags:[loadaec]}"
+            yield sprintf "execute store result score @s numPendingCont run data get entity @e[tag=loadaec,limit=1] Pos[0] 1.0"
+            if scoreASx >= 0 then
+                yield sprintf "scoreboard players add @s numPendingCont %d" scoreASx 
+            else
+                yield sprintf "scoreboard players remove @s numPendingCont %d" -scoreASx
+            yield """execute unless entity @s[scores={numPendingCont=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS x coordinate too far from world spawn"]"""
+            yield sprintf "execute store result score @s numPendingCont run data get entity @e[tag=loadaec,limit=1] Pos[2] 1.0"
+            if scoreASz >= 0 then
+                yield sprintf "scoreboard players add @s numPendingCont %d" scoreASz 
+            else
+                yield sprintf "scoreboard players remove @s numPendingCont %d" -scoreASz
+            yield """execute unless entity @s[scores={numPendingCont=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS z coordinate too far from world spawn"]"""
+            // TODO test bit above
+
+            // count the number of scoreAS in the world
+            yield sprintf "execute store result score @s numPendingCont if entity @e[%s]" ENTITY_TAG
+            // if was zero, summon one
+            yield sprintf """execute if entity @s[scores={numPendingCont=0}] run say summoning scoreAS for first time"""
+            yield sprintf """execute if entity @s[scores={numPendingCont=0}] run summon armor_stand %d %d %d {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" scoreASx scoreASy scoreASz
+            // if was two or more, kill them all and summon one
+            yield sprintf """execute if entity @s[scores={numPendingCont=2..}] run say found multiple scoreAS, killing them and resummoning one"""
+            yield sprintf """execute if entity @s[scores={numPendingCont=2..}] run kill @e[%s]""" ENTITY_TAG
+            yield sprintf """execute if entity @s[scores={numPendingCont=2..}] run summon armor_stand %d %d %d {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" scoreASx scoreASy scoreASz
             |]
         NS, "tick", [|  // Note: Must be called as $ENTITY
             if doProfiling then
