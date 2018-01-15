@@ -169,42 +169,16 @@ let writeExtremeHillsDetection() =
 
 ////////////////////////////
 
-let toLeastMost(uuid:System.Guid) =
-    let bytes = uuid.ToByteArray()
-    let i,j,k,a = bytes.[0..3], bytes.[4..5], bytes.[6..7], bytes.[8..15]
-    let least = System.BitConverter.ToInt64(a |> Array.rev, 0)
-    let most = System.BitConverter.ToInt64(Array.concat [i |> Array.rev; j |> Array.rev; k |> Array.rev] |> Array.rev, 0)
-    //printfn "%d    %d" least most
-    least,most
-
-#if UUID
-// TODO consider: as it stands now (and I think most ever), I don't need a uuid.  Just always park this guy at a known location.  Then you can address him as @e[tag=blah,x=,y=,z=,distance=],
-//    and run some function as him which may tp him around mid-tick, but then simply must contractually return him to known x,y,z when you're done.  No uuid needed; tagdist is almost as fast as uuid?
-// if https://bugs.mojang.com/browse/MC-122118 gets fixed, might be able to use player, rather than uuid'd entity? no, even after fix, it's choppy (client can see tp somehow)
-let ENTITY_UUID = "1-1-1-0-1"
-let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
-let least,most = toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
-#else
-let SIGN_ENTITY_TAG = "tag=signguy,x=0,y=4,z=0,distance=..1.0,limit=1"
-#endif
-
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
 // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
 // TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
     yield """summon armor_stand 84 4 4 {CustomName:"\"                          \"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 4 4 84 {CustomName:"\"XH\"",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
-    // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
-#if UUID
-    yield sprintf """summon armor_stand 64 4 64 {CustomName:"\"%s\"",UUIDMost:%dl,UUIDLeast:%dl,Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" ENTITY_UUID most least
-#else
-    yield """summon armor_stand 0 4 0 {CustomName:"\"signguy\"",Tags:["signguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
-    for x = -6 to 6 do
-        for z = -6 to 6 do
-            yield sprintf "setblock %d 4 %d minecraft:sign" x z
-#endif
+    yield """summon armor_stand 67 4 67 {CustomName:"\"nonuuidguy\"",Tags:["nonuuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     |]
 let ENTITY_TAG = "tag=scoreAS,x=84,y=4,z=4,distance=..1.0,limit=1"   // consider UUIDing it? no, because UUIDs do not accept selectors
+let NONUUID_TAG = "tag=nonuuidguy,x=67,y=4,z=67,distance=..1.0,limit=1"
 let XH_TAG = "tag=XHguy,x=4,y=4,z=84,distance=..1.0,limit=1"
 let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" ENTITY_TAG
 let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
@@ -1501,16 +1475,15 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
                     5
                so that we can display an arrow on the actionbar that points at spawn.
             *)
-#if UUID
-            // called as uuid entity
+            // called as nonuuid entity
             "teleport @s @p[tag=dirGuy]"
             // move him to spawn xz (doesn't matter if chunks loaded)
             "execute store result entity @s Pos[0] double 1.0 run scoreboard players get @p[tag=dirGuy] xspawn" 
             "execute store result entity @s Pos[2] double 1.0 run scoreboard players get @p[tag=dirGuy] zspawn" 
             // face him at player
             "execute at @s run teleport @s ~ ~ ~ facing entity @p[tag=dirGuy]"
-            // move him back now that we got our facing data
-            "execute at @p[tag=dirGuy] run teleport ~ ~ ~"
+            // move him back home now that we got our facing data
+            "execute positioned 67 4 67 run teleport @s ~ ~ ~"   // TODO factor this location
             // convert Rotation to score: TEMP = entity, x = player
             "execute store result score @s TEMP run data get entity @s Rotation[0] 1.0" 
             "execute store result score @s x run data get entity @p[tag=dirGuy] Rotation[0] 1.0" 
@@ -1530,64 +1503,15 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "scoreboard players set @s[scores={TEMP=293..337}] spawnDir 4"
             // done
             "scoreboard players operation @p[tag=dirGuy] spawnDir = @s spawnDir"
-#else
-            // called as & at each player
-            // the sign trick - can place all the signs at spawn up-front, no need to set blocks, just read the block entity data
-            let N90 = "5"    // how many away orthogonally
-            let N45 = "3.54" // how many away diagonally (ortho * sin45)
-            let common(offset) = [|
-                sprintf "execute store result score @s dx run execute as @e[%s] at @s run data get block %s x 1.0" SIGN_ENTITY_TAG offset 
-                sprintf "execute store result score @s dz run execute as @e[%s] at @s run data get block %s z 1.0" SIGN_ENTITY_TAG offset
-                "scoreboard players operation @s dx += @s x"
-                "scoreboard players operation @s dz += @s z"
-                "scoreboard players operation @s dx -= @s xspawn"
-                "scoreboard players operation @s dz -= @s zspawn"
-                "scoreboard players operation @s dx *= @s dx"
-                "scoreboard players operation @s dz *= @s dz"
-                "scoreboard players operation @s dx += @s dz"
-                |]
-            yield sprintf "teleport @e[%s] @s" SIGN_ENTITY_TAG                                 // grab player's "facing" direction
-            yield sprintf "teleport @e[tag=signguy] 0.0 4.0 0.0"                               // go back home  // TODO @e
-            yield sprintf "execute as @e[%s] at @s run teleport @s ~ ~ ~ 0 ~" SIGN_ENTITY_TAG  // remove any up-down looking, just keep xz
-            yield sprintf "execute store result score @s x run data get entity @s Pos[0] 1.0"  // get player x
-            yield sprintf "execute store result score @s z run data get entity @s Pos[2] 1.0"  // get player z
-            // 1
-            yield! common(sprintf "^ ^ ^%s" N90)
-            yield "scoreboard players set @s spawnDir 1"
-            yield "scoreboard players operation @s bestsumsq = @s dx"
-            let OFFSETS = [|
-                null
-                null
-                sprintf "^-%s ^ ^%s" N45 N45
-                sprintf "^-%s ^ ^" N90
-                sprintf "^-%s ^ ^-%s" N45 N45
-                sprintf "^ ^ ^-%s" N90
-                sprintf "^%s ^ ^-%s" N45 N45
-                sprintf "^%s ^ ^" N90
-                sprintf "^%s ^ ^%s" N45 N45
-                |]
-            for i = 2 to 8 do
-                // i
-                yield! common(OFFSETS.[i])
-                yield sprintf "execute if score @s dx < @s bestsumsq run scoreboard players set @s spawnDir %d" i
-                yield sprintf "execute if score @s dx < @s bestsumsq run scoreboard players operation @s bestsumsq = @s dx"
-#endif
             |],"find_dir_to_spawn_body")
         yield! compile([|
             "tag @s add dirGuy"
-#if UUID
-            sprintf "execute as %s run function %s:find_dir_to_spawn_body" ENTITY_UUID NS
-#else
-            // TODO
-#endif
+            sprintf "execute as @e[%s] run function %s:find_dir_to_spawn_body" NONUUID_TAG NS
             "tag @s remove dirGuy"
             |],"find_dir_to_spawn")
         yield! compile([|
             if PROFILE then
                 yield "scoreboard players set $ENTITY LINES 0"
-#if UUID
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) in overworld run teleport %s 64 4 64" ENTITY_UUID // TODO factor 64 4 64
-#endif
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS

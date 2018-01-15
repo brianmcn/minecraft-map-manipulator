@@ -57,6 +57,27 @@ let writeFunctionTagsFileWithValues(worldSaveFolder, packName, ns, funcName, val
     System.IO.File.WriteAllText(FIL,sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))
 
 //////////////////////////////////////////////////////////////
+// uuid stuff
+
+let toLeastMost(uuid:System.Guid) =
+    let bytes = uuid.ToByteArray()
+    let i,j,k,a = bytes.[0..3], bytes.[4..5], bytes.[6..7], bytes.[8..15]
+    let least = System.BitConverter.ToInt64(a |> Array.rev, 0)
+    let most = System.BitConverter.ToInt64(Array.concat [i |> Array.rev; j |> Array.rev; k |> Array.rev] |> Array.rev, 0)
+    //printfn "%d    %d" least most
+    least,most
+
+let ENTITY_UUID = "1-1-1-0-1"
+let ENTITY_UUID_AS_FULL_GUID = "00000001-0001-0001-0000-000000000001"
+let least,most = toLeastMost(new System.Guid(ENTITY_UUID_AS_FULL_GUID))
+
+(*
+let entity_init() = [|
+    // Note: cannot summon a UUID entity in same tick you killed entity with that UUID
+    yield sprintf """summon armor_stand 64 4 64 {CustomName:"\"%s\"",UUIDMost:%dl,UUIDLeast:%dl,Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" ENTITY_UUID most least
+*)
+
+//////////////////////////////////////////////////////////////
 // config options books
 
 type ConfigDescription =

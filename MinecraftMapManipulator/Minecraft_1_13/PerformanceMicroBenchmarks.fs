@@ -104,7 +104,7 @@ let SELECTORS_WITH_FAKE = [|
     |]
 let SELECTORS_WITH_UUID = [|
     yield! SELECTORS
-    yield "u", "1-1-1-0-1"
+    yield "u", "1-1-1-0-1"  // TODO reduce coupling on Utilities.ENTITY_UUID
     |]
 
 let main() =
@@ -344,7 +344,7 @@ took 1257 milliseconds to run 200000 iterations of
     let next = [|
         // Note: we summon the uuidguy here, rather than in #load, because you cannot kill and summon same uuid in same tick
         yield sprintf """execute if entity @p[scores={NF=0}] unless entity @e[tag=uuidguy] at @e[tag=scoreAS] run summon armor_stand ~ ~ ~80 {CustomName:"\"%s\"",Tags:["uuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1,UUIDMost:%dl,UUIDLeast:%dl}""" 
-            MinecraftBINGO.ENTITY_UUID MinecraftBINGO.most MinecraftBINGO.least  // ~ ~ ~80 to have him out of scoreAS's chunks but within spawn chunks
+            Utilities.ENTITY_UUID Utilities.most Utilities.least  // ~ ~ ~80 to have him out of scoreAS's chunks but within spawn chunks
 
         for i = 0 to allProfilerFunctions.Count-1 do
             let funcName = allProfilerFunctions.[i]

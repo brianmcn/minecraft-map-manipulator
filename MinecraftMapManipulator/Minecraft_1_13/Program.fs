@@ -249,7 +249,7 @@ let test_selection_execution_order() =
 
 [<EntryPoint>]
 let main argv = 
-    //MinecraftBINGO.cardgen_compile()
+    MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
@@ -263,7 +263,7 @@ let main argv =
     //igloo_replacement()
     //Recipes.test_recipe()
     //shoulder_cam()
-    test_selection_execution_order()
+    //test_selection_execution_order()
     ignore argv
     0
 
