@@ -3,8 +3,7 @@
 let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
-// TODO factor out compiler, now that can use #load and world spawn to summon permanent entities? Not that easy, because efficiently addressing them requires hardcoded location @e[x=y=z=distance=]...
-// But I guess at F# level I can factor out the XYZ and still factor the code...
+// TODO use refactored compiler in other contraptions
 
 // TODO oh yeah, nether is buggy
 // TODO arrow to spawn while in nether (remove? point to entry portal?)
@@ -259,7 +258,7 @@ let game_objectives = [|
     |]
 let game_functions = [|
     yield "game_init", [|
-        yield sprintf "function %s:load" Compiler.NS
+        yield sprintf "function %s:load" Compiler.NS  // TODO change so this is called from #load, and my init is called afterwards from load, hm, except then toggling datapack will kill all entities, hm, see preinit comment below
         // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
         // TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
         yield """data merge entity $ENTITY {CustomName:"\"                          \""}"""
@@ -1419,7 +1418,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         yield "prng", prng
         yield "prng_init", prng_init()
         yield makeItemChests()
-        yield "preinit",[|
+        yield "preinit",[| // TODO get rid of this, or change to say don't need to always call, but keep a 'kill all' here, and change 'init' to only 'kill knowns'
             yield sprintf "execute in overworld run teleport @a %s" LOBBY
             yield "kill @e[type=!player]"
             |]
