@@ -171,9 +171,6 @@ let writeExtremeHillsDetection() =
 
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
-// TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
-// TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
-    yield """summon armor_stand 84 4 4 {CustomName:"\"                          \"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 4 4 84 {CustomName:"\"XH\"",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 67 4 67 {CustomName:"\"nonuuidguy\"",Tags:["nonuuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     |]
@@ -300,8 +297,6 @@ let prng_init() = [|
     yield "scoreboard players set C Calc 12345"
     yield "scoreboard players set Two Calc 2"
     yield "scoreboard players set TwoToSixteen Calc 65536"
-    for cbn in allCallbackShortNames do
-        yield sprintf "scoreboard objectives add %s dummy" cbn
     |]
 let prng = [|
         // compute next Z value with PRNG
@@ -366,11 +361,20 @@ let game_objectives = [|
         yield sprintf "%sSpawnX" t    // a number between 1 and 999 that needs to be multipled by 10000
         yield sprintf "%sSpawnY" t    // height of surface there
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
-    if PROFILE then
-        yield "LINES"
     |]
 let game_functions = [|
+    yield "compiler_init", [|
+        if PROFILE then
+            yield sprintf "scoreboard objectives add LINES dummy"
+        for cbn in allCallbackShortNames do
+            yield sprintf "scoreboard objectives add %s dummy" cbn
+        yield """summon armor_stand 84 4 4 {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" // TODO factor location
+        |]
     yield "game_init", [|
+        yield sprintf "function %s:compiler_init" NS
+        // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
+        // TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
+        yield """data merge entity $ENTITY {CustomName:"\"                          \""}"""
         for o in game_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
         yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.INIT 
