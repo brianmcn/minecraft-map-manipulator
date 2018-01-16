@@ -175,7 +175,7 @@ let writeExtremeHillsDetection() =
 
 ////////////////////////////
 
-let compiler = new Compiler.Compiler("test",84,4,4,PROFILE)
+let compiler = new Compiler.Compiler('m','b',"test",84,4,4,PROFILE)
 
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
