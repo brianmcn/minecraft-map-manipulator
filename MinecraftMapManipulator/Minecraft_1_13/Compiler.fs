@@ -8,15 +8,6 @@
 
 // TODO test above 
 
-(*
-me: so I recall in some prior version, they changed how r= worked, and there was lots of debate and hulabaloo...
-I never really paid much attention
-does distance= work the same way in 1.13 as r= in 1.12?  if so, does someone have a decent write-up of how it actually behaves?  if not, any description of changes?
-
-(also recall how summon ~ ~ ~ versus ~0.0 ~0.0 ~0.0 works, align, 0.5s, etc)
-
-*)
-
 let FOLDER = "compiler"
 
 // a basic abstraction over a single canonical entity ($ENTITY) for scores ($SCORE), as well as execution over time ($NTICKLATER)
@@ -24,8 +15,17 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
     let objectiveSuffix = sprintf "%c%c" objChar1 objChar2
     let NUM_PENDING_CONT = sprintf "numPendingCont%s" objectiveSuffix
     let LINES = sprintf "LINES%s" objectiveSuffix 
-    // TODO why does distance=..0.1 not work?
-    let ENTITY_TAG = sprintf "tag=scoreAS,x=%d,y=%d,z=%d,distance=..1.0,limit=1" scoreASx scoreASy scoreASz   // consider UUIDing it? no, because UUIDs do not accept selectors
+    (*
+    summon 1 2 3 puts center-feet at 1.5 2 3.5 (adds .5, e.g. -2 becomes -1.5)
+    distance=0..N   - is target entity feet-center point in a sphere of radius N centerd at command origin?
+    dx/dy/dz        - does this box intersection target's hitbox?
+    *)
+    let summonLoc(x) =
+        let poin(x) = if x < 0 then x+1 else x // plus one if negative
+        match x with
+        | -1 -> "-0.5"
+        | _ -> sprintf "%d.5" (poin x)
+    let ENTITY_TAG = sprintf "tag=scoreAS,x=%s,y=%d,z=%s,distance=..0.1,limit=1" (summonLoc scoreASx) scoreASy (summonLoc scoreASz)   // consider UUIDing it? no, because UUIDs do not accept selectors
     let allCallbackShortNames = ResizeArray()
     let continuationNum = ref 1
     let newName() =    // names are like 'cont6'... this is used as scoreboard objective name, and then function full name will be compiler/cont6
