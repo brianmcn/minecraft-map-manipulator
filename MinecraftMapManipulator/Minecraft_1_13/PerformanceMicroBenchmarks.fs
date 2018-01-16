@@ -48,24 +48,6 @@ let profileThis(suffix,outer,inner,innerInner,pre,cmds,post) =
     allProfilerFunctions.Add(profName)
 
 (*
-execute pseudocode (imagined)
-
-let instr = instructions.pop_front()
-decode(instr)
-    case: "execute as @e run FOO"
-        let ents = <list of entities>
-        let ctxt = new Context(CURRENT_SENDER, CURRENT_AT)   // context actually has:  sender, x y z, yrot xrot, dimension, anchor (feet/eyes), perm., output-suppression, callback (where to 'store' results)
-        contextStack.Push(ctxt)
-        instructions.push_front(QUOTE(contextStack.Pop()))
-        instructions.push_front(QUOTE(CURRENT_AT = contextStack.Top().At))
-        instructions.push_front(QUOTE(CURRENT_SENDER = contextStack.Top().Sender))
-        for each e in ents do
-            instructions.push_front(QUOTE(FOO))
-            instructions.push_front(QUOTE(CURRENT_SENDER = e))
-            instructions.push_front(QUOTE(CURRENT_AT = ctxt.AT))
-        TODO - what is 'result' and 'success' values?
-
-
 18w02a:
 Lorgon111: I think I see.  oy.a(bm, qt, bx.c, IntFunction, boolean) is the thing that runs code.  There is code like what my decompiler calls
   int n2 = bl2 ? n : (bl3 ? 1 : 0);
@@ -77,6 +59,16 @@ Lorgon111: And oy.a(bm, Collection<string>, bni, boolean) is the helper for scor
 Lorgon111: And dh has code for selectors... and I think bs has a d field which is the "No entity was found" that is breaking some of the stuff in the bug...
 Name:"[\"Mrpingouin\"]": see dn for all the argument type defnition (but these classes should only do a parsing job)
 Lorgon111: And df is the other portion of selectors, it knows about the 4 types of sort=, and the letters a e p r s
+
+bm is the context, with functions to poke each of its fields to make a new context with slightly different values
+
+brigadier's CommandDispatcher.execute() is the runner
+
+note brigadier in classpath and in e.g.
+  AppData\Roaming\.minecraft\libraries\com\mojang\brigadier
+can decompile unobfuscated probably, or dl source
+
+check /debug start in next snapshot
 *)
 
 
@@ -206,6 +198,9 @@ let main() =
     profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute unless entity @e[type=player] run function test:fail"],[])
     profileThis("ei-a",OUTER,INNER,1,[],[sprintf "execute unless entity @a run function test:fail"],[])
 
+//    profileThis("adhoc3",OUTER,INNER,1,[],[sprintf "execute unless block 44 67 62 sand run function test:fail"],[])
+
+    
 
 (*
     profileThis("stoneairstoneif",OUTER,INNER,1,[],["execute if block ~ ~ ~ stone run setblock ~ ~ ~ air"; "setblock ~ ~ ~ stone"],[])

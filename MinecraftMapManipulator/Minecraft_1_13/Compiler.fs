@@ -1,6 +1,18 @@
 ﻿module Compiler
 
 // TODO consider if/how to author two separate datapacks that each use compiler with $NTICKSLATER
+// could maybe dump conts in userns/compiler/contNN and call them there, as well as put /userns/compiler/{load,tick,...}?
+// no, because cont4 as a score objective means two different things, one for each project...
+// we want to reuse the scoreAS entity, but firewall the functions for load/tick/contNN, as well as the objectives contNN & numPendingCont (LINES?)
+
+(*
+me: so I recall in some prior version, they changed how r= worked, and there was lots of debate and hulabaloo...
+I never really paid much attention
+does distance= work the same way in 1.13 as r= in 1.12?  if so, does someone have a decent write-up of how it actually behaves?  if not, any description of changes?
+
+(also recall how summon ~ ~ ~ versus ~0.0 ~0.0 ~0.0 works, align, 0.5s, etc)
+
+*)
 
 let NS = "compiler"
 

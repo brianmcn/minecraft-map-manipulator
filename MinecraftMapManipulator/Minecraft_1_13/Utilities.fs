@@ -56,6 +56,34 @@ let writeFunctionTagsFileWithValues(worldSaveFolder, packName, ns, funcName, val
     let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)
     System.IO.File.WriteAllText(FIL,sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))
 
+type DataPackArchive(worldSaveFolder, packName, description) =
+    let zipFileName = System.IO.Path.Combine(worldSaveFolder, "datapacks", packName+".zip")
+    let zipFileStream = new System.IO.FileStream(zipFileName, System.IO.FileMode.Create)  // will overwrite existing
+    let zipArchive = new System.IO.Compression.ZipArchive(zipFileStream, System.IO.Compression.ZipArchiveMode.Update)
+    do
+        let mcmetaEntry = zipArchive.CreateEntry("pack.mcmeta")
+        use w = new System.IO.StreamWriter(mcmetaEntry.Open())
+        let meta = sprintf """{ "pack": { "pack_format": 1, "description": "%s" } }""" description
+        w.WriteLine(meta)
+    member this.WriteFunction(ns,name,code:seq<string>) =
+        let path = System.IO.Path.Combine(sprintf """data/%s/functions""" ns, name+".mcfunction")
+        let entry = zipArchive.CreateEntry(path)
+        use w = new System.IO.StreamWriter(entry.Open())
+        for s in code do
+            w.WriteLine(s)
+    member this.WriteFunctionTagsFileWithValues(ns,name,values:seq<string>) =
+        let path = System.IO.Path.Combine(sprintf """data/%s/tags/functions""" ns, name+".json")
+        let entry = zipArchive.CreateEntry(path)
+        use w = new System.IO.StreamWriter(entry.Open())
+        let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)
+        w.WriteLine(sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))
+    member this.SaveToDisk() =
+        for e in zipArchive.Entries do
+            printfn "%s" e.FullName 
+        zipArchive.Dispose()
+        zipFileStream.Close()
+        zipFileStream.Dispose()
+
 //////////////////////////////////////////////////////////////
 // uuid stuff
 

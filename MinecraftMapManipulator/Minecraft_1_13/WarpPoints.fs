@@ -129,6 +129,9 @@ let creation_functions = [|
 let wp_c_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
     let PACK_NAME = "wp_pack"
+
+//    let pack = new Utilities.DataPackArchive(world, PACK_NAME, "warp points")
+
     Utilities.writeDatapackMeta(world,PACK_NAME,"warp points")
     let compiler = new Compiler.Compiler(1,100,1,false)
     let all = [|
@@ -137,8 +140,14 @@ let wp_c_main() =
         yield! compiler.GetCompilerLoadTick()
         |]
     for ns, name, code in all do
-        Utilities.writeFunctionToDisk(world,PACK_NAME,ns,name,code |> Array.map MC_Constants.compile)
+        let compiledCode = code |> Array.map MC_Constants.compile
+        Utilities.writeFunctionToDisk(world,PACK_NAME,ns,name,compiledCode)
+//        pack.WriteFunction(ns,name,compiledCode)
 
     Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "load", [sprintf"%s:load"Compiler.NS;"wp:init"])
     Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "tick", [sprintf"%s:tick"Compiler.NS;"wp:tick"])
+//    pack.WriteFunctionTagsFileWithValues("minecraft", "load", [sprintf"%s:load"Compiler.NS;"wp:init"])
+//    pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [sprintf"%s:tick"Compiler.NS;"wp:tick"])
+
+//    pack.SaveToDisk()
 

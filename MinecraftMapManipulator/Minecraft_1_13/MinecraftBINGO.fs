@@ -37,7 +37,13 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // TODO signs/books explaining gameplay/game modes/custom terrain/custom config
 //  - gameplay books, like lockout & 2-for-1-mode should be linked next to options, e.g. 'click for more info'
 
+// TODO config option to give teammates 'glowing' (only when away from lobby? is annoying there?)
+
 // TODO evaluate new items, other new features
+
+// TODO zip up pack (Amber-chan: The speedup from zipping a large pack can be significant, like 10x in some cases)
+// TODO also zip up in-F#-process, so only writing one file to disk (to avoid windows virus checker bottleneck writing 100k files)
+// TODO but wait for https://bugs.mojang.com/browse/MC-124122 fix to do it, see https://msdn.microsoft.com/en-us/library/hh158346(v=vs.110).aspx for some apis
 
 // TODO decide what 'loadouts' need to ship in-game (vanilla; NV; NV+start-with-boats; NV+DS; starting chest... are ones I know are used) - so long as I can 'ship' them out-of-band with separate datapack, prefer minimal
 //   - but figure how how OOB alternatives work here in terms of exclusive-selection UI from lobby...
@@ -604,7 +610,7 @@ let game_functions = [|
         sprintf """execute if entity @e[%s,scores={optsaval=0}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" ENTITY_TAG COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
         sprintf """execute if entity @e[%s,scores={optsaval=1}] run function %s:update_time_per_player_with_arrow""" ENTITY_TAG NS
         |]
-    yield "update_time_per_player_with_arrow",[|
+    yield "update_time_per_player_with_arrow",[|  // TODO "name"="*" selects 'person being displayed to' maybe? test perf of * versus execute as @a run ... @s
         sprintf "function %s:find_dir_to_spawn" NS
         sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2191"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
         sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2197"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
