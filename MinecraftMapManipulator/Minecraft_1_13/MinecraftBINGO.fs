@@ -175,7 +175,7 @@ let writeExtremeHillsDetection() =
 
 ////////////////////////////
 
-let compiler = new Compiler.Compiler(84,4,4,PROFILE)
+let compiler = new Compiler.Compiler("test",84,4,4,PROFILE)
 
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
@@ -1406,7 +1406,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "tag @s remove dirGuy"
             |]
         yield "theloop", [|
-            yield sprintf "execute as $ENTITY run function %s:tick" Compiler.NS
+            yield sprintf "execute as $ENTITY run function %s" compiler.TickFullName
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
@@ -1455,7 +1455,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield """give @p minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32"""
             |]
         yield "init",[|
-            yield sprintf "function %s:load" Compiler.NS
+            yield sprintf "function %s" compiler.LoadFullName
             yield sprintf "function %s:init_body" NS
             |]
         |]

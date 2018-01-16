@@ -14,10 +14,11 @@ does distance= work the same way in 1.13 as r= in 1.12?  if so, does someone hav
 
 *)
 
-let NS = "compiler"
+// TODO change objective names
+let FOLDER = "compiler"
 
 // a basic abstraction over a single canonical entity ($ENTITY) for scores ($SCORE), as well as execution over time ($NTICKLATER)
-type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
+type Compiler(userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
     // TODO why does distance=..0.1 not work?
     let ENTITY_TAG = sprintf "tag=scoreAS,x=%d,y=%d,z=%d,distance=..1.0,limit=1" scoreASx scoreASy scoreASz   // consider UUIDing it? no, because UUIDs do not accept selectors
     let allCallbackShortNames = ResizeArray()
@@ -79,8 +80,8 @@ type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
                     yield !curNS, !curName, cur.ToArray()
                     cur.Clear()
                     cur.Add(sprintf "scoreboard players remove @e[%s] numPendingCont 1" ENTITY_TAG)
-                    curNS := NS
-                    curName := nn
+                    curNS := userNS
+                    curName := FOLDER+"/"+nn
                 incr i
             yield !curNS, !curName, cur.ToArray()
         |]
@@ -118,17 +119,17 @@ type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
         r
 
     let get_final_compiler_funcs() = [| // Note: an F# function because capturing mutable globals; must be called at end of F# execution after all compile() calls are done
-        NS, "load", [|
+        userNS, FOLDER+"/load", [|
             if doProfiling then
                 yield sprintf "scoreboard objectives add LINES dummy"
             yield sprintf "scoreboard objectives add numPendingCont dummy"
             for cbn in allCallbackShortNames do
                 yield sprintf "scoreboard objectives add %s dummy" cbn
-            yield sprintf "execute as @p run function %s:load_entity_init" NS
+            yield sprintf "execute as @p run function %s:%s/load_entity_init" userNS FOLDER
             yield "scoreboard players set @e[tag=scoreAS] numPendingCont 0"
             |]
         // Note: I think #load-initializations must be commutative and idempotent, and must handle both first-time and already-existing world state.
-        NS, "load_entity_init", [|
+        userNS, FOLDER+"/load_entity_init", [|
             // use numPendingCont as local temp variable, since only objective we know exists
             
             // look up location of world spawn, assuming this func called from #load at spawn, and then ensure scoreAS x y z is close enough (dx and dz each <160), else warn/fail
@@ -156,28 +157,33 @@ type Compiler(scoreASx,scoreASy,scoreASz,doProfiling) =
             yield sprintf """execute if entity @s[scores={numPendingCont=2..}] run kill @e[%s]""" ENTITY_TAG
             yield sprintf """execute if entity @s[scores={numPendingCont=2..}] run summon armor_stand %d %d %d {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" scoreASx scoreASy scoreASz
             |]
-        NS, "tick", [|  // Note: Must be called as $ENTITY
-            if doProfiling then
-                yield "scoreboard players set $ENTITY LINES 0"
-            //yield "say ---calling compiler:tick---"
-            yield sprintf "execute if entity @s[scores={numPendingCont=1..}] run function %s:tick_body" NS
+        userNS, FOLDER+"/tick", [|
+            sprintf "execute as @e[%s] run function %s:%s/tick_prelude" ENTITY_TAG userNS FOLDER
             |]
-        NS, "tick_body", [|  // Note: Must be called as $ENTITY
+        userNS, FOLDER+"/tick_prelude", [|  // Note: Must be called as $ENTITY
+            if doProfiling then
+                yield "scoreboard players set @s LINES 0"
+            //yield "say ---calling compiler:tick---"
+            yield sprintf "execute if entity @s[scores={numPendingCont=1..}] run function %s:%s/tick_body" userNS FOLDER
+            |]
+        userNS, FOLDER+"/tick_body", [|  // Note: Must be called as $ENTITY
             // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
             for f in allCallbackShortNames do
                 yield sprintf "scoreboard players remove @s[scores={%s=1..}] %s 1" f f
             // then call all that need to go now
             for f in allCallbackShortNames do
-                yield sprintf "execute if entity @s[scores={%s=1}] run function %s:%s" f NS f
+                yield sprintf "execute if entity @s[scores={%s=1}] run function %s:%s/%s" f userNS FOLDER f
             |]
         |]
 
     member this.Compile(ns,name,code) = compile(code,ns,name)
-    // user should ensure NS:load called to init objectives and summon entities (e.g. during #minecraft:load)
-    // user should ensure NS:tick called as $ENTITY at start of each tick (e.g. at top of #minecraft:tick)
+    // user should ensure userNS:FOLDER/load called to init objectives and summon entities (e.g. during #minecraft:load)
+    // user should ensure userNS:FOLDER/tick called at start of each tick (e.g. at top of #minecraft:tick)
     member this.GetCompilerLoadTick() = get_final_compiler_funcs()
     // if want profiling, use e.g.
     //            if PROFILE then
     //                yield sprintf """tellraw @a [{"score":{"name":"@e[%s]","objective":"LINES"}}]""" ENTITY_TAG 
     // at end of tick
     member this.EntityTag = ENTITY_TAG
+    member this.LoadFullName = sprintf "%s:%s/load" userNS FOLDER
+    member this.TickFullName = sprintf "%s:%s/tick" userNS FOLDER

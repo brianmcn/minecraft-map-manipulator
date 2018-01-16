@@ -186,7 +186,7 @@ module Blind =
             yield sprintf "setblock %s air" (MinecraftBINGO.CHEST_THIS_CARD_2.Offset(0,1,0).STR)
             |]
         yield "on_load",[|
-            yield sprintf "function %s:load" Compiler.NS
+            yield sprintf "function %s" MinecraftBINGO.compiler.LoadFullName
             |]
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do
