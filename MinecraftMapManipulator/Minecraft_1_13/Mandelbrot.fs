@@ -35,15 +35,6 @@ let functions = [|
             yield "scoreboard players set YSCALE K 62"
             yield "scoreboard players set XMIN K -8400"
             yield "scoreboard players set YMIN K -4000"
-            // color stuff
-            yield "scoreboard objectives add AS dummy"  // armor stands
-            yield "kill @e[type=armor_stand]"  // armor stands
-            for i = 0 to 15 do
-                let y,z = 4,-2
-                yield sprintf "setblock %d %d %d %s" i y z WOOL.[i]
-                yield sprintf "summon armor_stand %d %d %d" i y z
-                yield sprintf "scoreboard players set @e[type=armor_stand,x=%d,y=%d,z=%d,sort=nearest,limit=1] AS %d" i y z i
-            yield "tag @e[type=armor_stand] add color"
             yield "summon armor_stand 0 4 0 {Tags:[Cursor],NoGravity:1}"
             |]
         "go",[|
@@ -119,14 +110,7 @@ let functions = [|
             |]
         "cps_inner_finish",[|
             "scoreboard players set $ENTITY CALL 0"
-#if COMPUTE_COLOR
-            "scoreboard players operation @e[tag=color] AS -= n A"
-            "execute at @e[tag=color,scores={AS=0}] run clone ~ ~ ~ ~ ~ ~ 0 4 0"
-            "scoreboard players operation @e[tag=color] AS += n A"
-            "execute at @e[tag=Cursor] run clone 0 4 0 0 4 0 ~ ~ ~"
-#else
             "execute at @e[tag=Cursor] run function ms:put_color"
-#endif
             "scoreboard players add J A 1"
             "execute as @e[tag=Cursor] at @s run tp @s ~ ~ ~1"
 //            "$NTICKSLATER(2)"  // TODO Yield
@@ -141,7 +125,7 @@ let functions = [|
             "scoreboard players set $ENTITY CALL 0"
             "scoreboard players add I A 1"
             "execute as @e[tag=Cursor] at @s run tp @s ~1 ~ ~"
-            "$NTICKSLATER(2)"  // TODO Yield
+            "$NTICKSLATER(1)"  // TODO Yield
             "scoreboard players operation r1 A = I A"
             "scoreboard players operation r1 A -= MAXW K"
             "scoreboard players operation $ENTITY A = r1 A"
