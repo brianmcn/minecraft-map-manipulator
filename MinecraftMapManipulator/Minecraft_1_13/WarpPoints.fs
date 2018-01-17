@@ -136,9 +136,9 @@ let wp_c_main() =
         "say ...there"
         |]
 
-//    let pack = new Utilities.DataPackArchive(world, PACK_NAME, "warp points")
+    let pack = new Utilities.DataPackArchive(world, PACK_NAME, "warp points")
 
-    Utilities.writeDatapackMeta(world,PACK_NAME,"warp points")
+//    Utilities.writeDatapackMeta(world,PACK_NAME,"warp points")
     let compiler = new Compiler.Compiler('w','p',"wp",1,100,1,false)
     let all = [|
         for name,code in [|yield! creation_functions; yield! nearby_behavior_functions; yield! lobby_functions|] do
@@ -148,13 +148,28 @@ let wp_c_main() =
         |]
     for ns, name, code in all do
         let compiledCode = code |> Array.map MC_Constants.compile  // TODO remove (should do nothing now)
-        Utilities.writeFunctionToDisk(world,PACK_NAME,ns,name,compiledCode)
-//        pack.WriteFunction(ns,name,compiledCode)
+//        Utilities.writeFunctionToDisk(world,PACK_NAME,ns,name,compiledCode)
+        pack.WriteFunction(ns,name,compiledCode)
 
-    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "load", [compiler.LoadFullName;"wp:init"])
-    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "tick", [compiler.TickFullName;"wp:tick"])
-//    pack.WriteFunctionTagsFileWithValues("minecraft", "load", [sprintf"%s:load"Compiler.NS;"wp:init"])
-//    pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [sprintf"%s:tick"Compiler.NS;"wp:tick"])
+//    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "load", [compiler.LoadFullName;"wp:init"])
+//    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "tick", [compiler.TickFullName;"wp:tick"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "load", [compiler.LoadFullName;"wp:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [compiler.TickFullName;"wp:tick"])
 
-//    pack.SaveToDisk()
+    pack.SaveToDisk()
 
+(*
+    let pack = new Utilities.DataPackArchive(world, "zip_test", "testing zips")
+    pack.WriteFunction("foo","fun1",[|"say foo:fun1 called"|])
+    pack.WriteFunction("foo","fun2",[|"say foo:fun2 called"|])
+    pack.SaveToDisk()
+*)
+
+
+// TODO is a warp egg too OP?  Kinda get-out-of-jail-free, e.g. low on hearts v enderdragon, just place it and tp home? consider if it needs more warm-up time to create, or restrictions?
+
+
+(*
+Now that we can get the length of strings in a score, function trees to look up items became better :stuck_out_tongue:(edited)
+[11:06 AM] Pepijn: Just have to get the length and than only check the items which can have that length, instead of all the items.
+*)

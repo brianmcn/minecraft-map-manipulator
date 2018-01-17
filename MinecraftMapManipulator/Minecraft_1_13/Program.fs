@@ -17,6 +17,8 @@ using the recipe system (and not e.g. using 'floor crafting' or 'dispenser craft
 I guess in the worst case I can do like 7 torches, a snowball, and a slimeball as the 9 items
 
 *)
+
+// TODO consider rather than sea_lantern, could do lava, "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears, can overlap entities (lava laser?), may be fun
 let throwable_light() =
     let objectives = [|
         // position of most recent unprocessed airborne snowball (snowy = -1 to "null out" after processing)
@@ -255,7 +257,7 @@ let main argv =
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
-    //WarpPoints.wp_c_main()
+    WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()
     //area_highlight()
@@ -264,7 +266,7 @@ let main argv =
     //Recipes.test_recipe()
     //shoulder_cam()
     //test_selection_execution_order()
-    Mandelbrot.main()
+    //Mandelbrot.main()
     ignore argv
     0
 
