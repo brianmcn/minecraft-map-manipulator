@@ -251,13 +251,13 @@ let test_selection_execution_order() =
 
 [<EntryPoint>]
 let main argv = 
-    //MinecraftBINGO.cardgen_compile()
-    //MinecraftBINGOExtensions.Blind.main()
+    MinecraftBINGO.cardgen_compile()
+    ////////MinecraftBINGOExtensions.Blind.main() // TODO my enable/disable strategy not working
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
-    WarpPoints.wp_c_main()
+    //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()
     //area_highlight()

@@ -60,30 +60,38 @@ type DataPackArchive(worldSaveFolder, packName, description) =
     let zipFileName = System.IO.Path.Combine(worldSaveFolder, "datapacks", packName+".zip")
     let zipFileStream = new System.IO.FileStream(zipFileName, System.IO.FileMode.Create)  // will overwrite existing
     let zipArchive = new System.IO.Compression.ZipArchive(zipFileStream, System.IO.Compression.ZipArchiveMode.Create) //, false, System.Text.Encoding.ASCII)
+    let mutable funcCount = 0
     do
         let mcmetaEntry = zipArchive.CreateEntry("pack.mcmeta", System.IO.Compression.CompressionLevel.NoCompression)
         use w = new System.IO.StreamWriter(mcmetaEntry.Open())
         let meta = sprintf """{ "pack": { "pack_format": 1, "description": "%s" } }""" description
         w.WriteLine(meta)
     member this.WriteFunction(ns,name,code:seq<string>) =
+        funcCount <- funcCount + 1
         // NOTE: do not use System.IO.Path.Combine(), as it uses '\' as a separator, but zip-compliance requires '/'
-        let path = (sprintf """data/%s/functions/""" ns) + name+".mcfunction"
+        let path = sprintf "data/%s/functions/%s.mcfunction" ns name
         let entry = zipArchive.CreateEntry(path, System.IO.Compression.CompressionLevel.NoCompression)
         use w = new System.IO.StreamWriter(entry.Open())
         for s in code do
             w.WriteLine(s)
     member this.WriteFunctionTagsFileWithValues(ns,name,values:seq<string>) =
-        let path = (sprintf """data/%s/tags/functions/""" ns) + name+".json"
+        let path = sprintf "data/%s/tags/functions/%s.json" ns name
         let entry = zipArchive.CreateEntry(path, System.IO.Compression.CompressionLevel.NoCompression)
         use w = new System.IO.StreamWriter(entry.Open())
         let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)
         w.WriteLine(sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))
+    member this.WriteAdvancement(ns,name,fileContents:string) =
+        let path = sprintf "data/%s/advancements/%s.json" ns name
+        let entry = zipArchive.CreateEntry(path, System.IO.Compression.CompressionLevel.NoCompression)
+        use w = new System.IO.StreamWriter(entry.Open())
+        w.WriteLine(fileContents)
     member this.SaveToDisk() =
 //        for e in zipArchive.Entries do
 //            printfn "%s" e.FullName 
         zipArchive.Dispose()
         zipFileStream.Close()
         zipFileStream.Dispose()
+//        printfn "%d functions written" funcCount
 
 //////////////////////////////////////////////////////////////
 // uuid stuff
@@ -139,7 +147,7 @@ module ConfigFunctionNames =
     let LISTEN = "listen_for_triggers"
     let GET = "on_get_configuration_books"
 // assumes existence of ON/OFF booktext entities, $ENTITY/$SCORE compilation entities
-let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqueTag,compileF,entity_selector) =
+let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:ConfigBook,uniqueTag,compileF,entity_selector) =
     let funcs = [|
         yield ConfigFunctionNames.INIT,[|
             for opt in configBook.FlatOptions do
@@ -209,4 +217,4 @@ let writeConfigOptionsFunctions(world,pack,ns,folder,configBook:ConfigBook,uniqu
             yield! compileF(ns,sprintf "%s/%s" folder name,code)
         |]
     for ns,name,code in funcs do
-        writeFunctionToDisk(world, pack, ns, name, code)
+        pack.WriteFunction(ns,name,code)

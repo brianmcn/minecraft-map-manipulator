@@ -1,6 +1,6 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = true  // turn this on to save time if you're not modifying checker code
+let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
 // TODO use refactored compiler in other contraptions
@@ -128,17 +128,17 @@ let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 
 
 let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """testing""")
-let writeFunctionToDisk(packName,packNS,name,code) = Utilities.writeFunctionToDisk(FOLDER,packName,packNS,name,code)
+let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
 
 ////////////////////////////
 // hook into events from base pack
-Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", [sprintf"%s:theloop"NS])
-Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", [sprintf"%s:init"NS])
+pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [sprintf"%s:theloop"NS])
+pack.WriteFunctionTagsFileWithValues("minecraft", "load", [sprintf"%s:init"NS])
 
 ////////////////////////////
 // publish own events for child packs
 let publishEvent(eventName) =
-    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, NS, eventName, [])
+    pack.WriteFunctionTagsFileWithValues(NS, eventName, [])
 for eventName in ["on_new_card"; "on_start_game"; "on_finish"; "on_get_configuration_books"] do
     publishEvent(eventName)
 for t in TEAMS do
@@ -147,13 +147,8 @@ for t in TEAMS do
 
 ////////////////////////////
 
-let writeExtremeHillsDetection() =
-    let DIR = System.IO.Path.Combine(FOLDER,"""datapacks\BingoPack\data\"""+NS+"""\advancements""")
-    let FIL = System.IO.Path.Combine(DIR,"xh.json")
-    let dir = System.IO.Path.GetDirectoryName(FIL)
-    if Utilities.allDirsEnsured.Add(dir) then
-        System.IO.Directory.CreateDirectory(dir) |> ignore
-    System.IO.File.WriteAllText(FIL, sprintf """{
+let writeExtremeHillsDetection(pack:Utilities.DataPackArchive) =
+    pack.WriteAdvancement(NS,"xh",sprintf """{
     "criteria": {
         "visit_xh": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:extreme_hills"}},
         "visit_sxh": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:smaller_extreme_hills"}},
@@ -168,7 +163,7 @@ let writeExtremeHillsDetection() =
         "function": "%s:on_xh_grant"
     }
 }""" NS)
-    writeFunctionToDisk(PACK_NAME, NS, "on_xh_grant",[|
+    pack.WriteFunction(NS,"on_xh_grant",[|
         "scoreboard players set @s inXH 21"  // location advancements are granted once per second (every 20 ticks), so a value just high enough to ensure it says above 0 if you stay in XH
         sprintf "advancement revoke @s only %s:xh" NS
         |])
@@ -1460,9 +1455,12 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             |]
         |]
     printfn "writing functions..."
-    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
-    writeExtremeHillsDetection()
-    Utilities.writeConfigOptionsFunctions(FOLDER, PACK_NAME, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (ns,n,c) -> compiler.Compile(ns,n,c)), sprintf "@e[%s]" ENTITY_TAG)
+    // art structures in separate pack - TODO note that NS for them is effectively hardcoded to 'test' right now
+    let artPack = """C:\Users\Admin1\Desktop\BingoArt.zip"""
+    System.IO.File.Copy(artPack, System.IO.Path.Combine(FOLDER,"""datapacks\BingoArt.zip"""), true)
+    // bingo pack
+    writeExtremeHillsDetection(pack)
+    Utilities.writeConfigOptionsFunctions(pack, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (ns,n,c) -> compiler.Compile(ns,n,c)), sprintf "@e[%s]" ENTITY_TAG)
     let r = [|
         for name,code in r do
             yield! compiler.Compile(NS, name, code)
@@ -1471,9 +1469,10 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
         if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
             () // do nothing
         else
-            writeFunctionToDisk(PACK_NAME, ns, name, code)
+            pack.WriteFunction(ns,name,code)
     for ns,name,code in compiler.GetCompilerLoadTick() do
-        writeFunctionToDisk(PACK_NAME, ns, name, code)
+        pack.WriteFunction(ns, name, code)
+    pack.SaveToDisk()
 
 //////////////////////////////////////////////////
 // Possible future/OOB features

@@ -33,6 +33,7 @@ a common sign in the lobby (part of base bingo) should broadcast #on_give_config
 module Blind =
     let PACK_NAME = "blind-bingo"
     let PACK_NS   = "blind"
+    let pack = new Utilities.DataPackArchive(MinecraftBINGO.FOLDER, PACK_NAME, "MinecraftBINGO extension pack for blind play")
 
     (*
 
@@ -53,13 +54,13 @@ module Blind =
     ///////////////////////////////
     // hook into events from base packs
     let hookTick() =
-        Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, "minecraft", "tick", [sprintf "%s:tick" PACK_NS])
+        pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [sprintf "%s:tick" PACK_NS])
     let hookLoad() =
-        Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, "minecraft", "load", [sprintf "%s:on_load" PACK_NS])
+        pack.WriteFunctionTagsFileWithValues("minecraft", "load", [sprintf "%s:on_load" PACK_NS])
 
 
     let hook(event) =
-        Utilities.writeFunctionTagsFileWithValues(MinecraftBINGO.FOLDER, PACK_NAME, BINGO_NS, event, [sprintf "%s:%s" PACK_NS event])
+        pack.WriteFunctionTagsFileWithValues(BINGO_NS, event, [sprintf "%s:%s" PACK_NS event])
 
     let hookEvents() =
         for event in ["on_new_card"; "on_start_game"; "on_finish"; "on_get_configuration_books"] do
@@ -202,7 +203,6 @@ module Blind =
     ///////////////////////////////
 
     let main() =
-        Utilities.writeDatapackMeta(MinecraftBINGO.FOLDER, PACK_NAME, "MinecraftBINGO extension pack for blind play")
         hookTick()
         hookEvents()
         let a = [|
@@ -210,6 +210,7 @@ module Blind =
                 yield! MinecraftBINGO.compiler.Compile(PACK_NS,name,code)   // TODO note that this is a way to re-use bingo's $SCORE and $ENTITY, but cannot participate in $NTICKSLATER since all continuation callbacks were already written
             |]
         for ns,name,code in a do
-            MinecraftBINGO.writeFunctionToDisk(PACK_NAME, ns, name,code)
-        Utilities.writeConfigOptionsFunctions(MinecraftBINGO.FOLDER, PACK_NAME, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (ns,n,c) -> MinecraftBINGO.compiler.Compile(ns,n,c)), sprintf "@e[%s]" MinecraftBINGO.ENTITY_TAG)
+            pack.WriteFunction(ns,name,code)
+        Utilities.writeConfigOptionsFunctions(pack, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (ns,n,c) -> MinecraftBINGO.compiler.Compile(ns,n,c)), sprintf "@e[%s]" MinecraftBINGO.ENTITY_TAG)
+        pack.SaveToDisk()
 
