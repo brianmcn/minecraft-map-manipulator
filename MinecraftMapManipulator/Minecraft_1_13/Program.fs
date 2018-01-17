@@ -249,8 +249,8 @@ let test_selection_execution_order() =
 
 [<EntryPoint>]
 let main argv = 
-    MinecraftBINGO.cardgen_compile()
-    MinecraftBINGOExtensions.Blind.main()
+    //MinecraftBINGO.cardgen_compile()
+    //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
@@ -264,6 +264,7 @@ let main argv =
     //Recipes.test_recipe()
     //shoulder_cam()
     //test_selection_execution_order()
+    Mandelbrot.main()
     ignore argv
     0
 

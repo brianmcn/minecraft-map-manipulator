@@ -147,7 +147,7 @@ let wp_c_main() =
         yield! compiler.GetCompilerLoadTick()
         |]
     for ns, name, code in all do
-        let compiledCode = code |> Array.map MC_Constants.compile
+        let compiledCode = code |> Array.map MC_Constants.compile  // TODO remove (should do nothing now)
         Utilities.writeFunctionToDisk(world,PACK_NAME,ns,name,compiledCode)
 //        pack.WriteFunction(ns,name,compiledCode)
 
