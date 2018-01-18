@@ -87,6 +87,7 @@ let throwable_light() =
         pack.WriteFunction("snow",name,code)
     pack.SaveToDisk()
 
+(*
 let area_highlight() =
     let functions = [|
         "init",[|
@@ -127,6 +128,8 @@ let area_highlight() =
     for name,code in functions do
         pack.WriteFunction("we",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
     pack.SaveToDisk()
+*)
+
 
 (*
 A single sumofsqares dispatchntable can make it so can fill arbitrary region size with dx dy dz using fill ^ ^ ^ ^ ^ ^N and a facing entity.
@@ -219,15 +222,36 @@ let shoulder_cam() =
         pack.WriteFunction("sc", name, code)
     pack.SaveToDisk()
 
+let test2compilers() =
+    let c1 = Compiler.Compiler('z','x',"zx",1,100,1,false)
+    let c2 = Compiler.Compiler('z','y',"zy",1,100,1,false)
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestCompiler""")
+    let pack1 = new Utilities.DataPackArchive(FOLDER, "pack1", "zx blah")
+    let pack2 = new Utilities.DataPackArchive(FOLDER, "pack2", "zy blah")
+    for ns,name,code in [yield! c1.Compile("zx","foo",["say hi...";"$NTICKSLATER(100)";"say ...there"])] do
+        pack1.WriteFunction(ns,name,code)
+    for ns,name,code in [yield! c2.Compile("zy","foo",["say zyhi...";"$NTICKSLATER(20)";"say zy...there"])] do
+        pack2.WriteFunction(ns,name,code)
+    for ns,name,code in c1.GetCompilerLoadTick() do
+        pack1.WriteFunction(ns,name,code)
+    for ns,name,code in c2.GetCompilerLoadTick() do
+        pack2.WriteFunction(ns,name,code)
+    pack1.WriteFunctionTagsFileWithValues("minecraft","load",[c1.LoadFullName])
+    pack2.WriteFunctionTagsFileWithValues("minecraft","load",[c2.LoadFullName])
+    pack1.WriteFunctionTagsFileWithValues("minecraft","tick",[c1.TickFullName])
+    pack2.WriteFunctionTagsFileWithValues("minecraft","tick",[c2.TickFullName])
+    pack1.SaveToDisk()
+    pack2.SaveToDisk()
+
 [<EntryPoint>]
 let main argv = 
-    MinecraftBINGO.cardgen_compile()
-    MinecraftBINGOExtensions.Blind.main()
+    //MinecraftBINGO.cardgen_compile()
+    //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
-    //WarpPoints.wp_c_main()
+    WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()
     //area_highlight()
@@ -237,6 +261,7 @@ let main argv =
     //shoulder_cam()
     //test_selection_execution_order()
     //Mandelbrot.main()
+    //test2compilers()
     ignore argv
     0
 

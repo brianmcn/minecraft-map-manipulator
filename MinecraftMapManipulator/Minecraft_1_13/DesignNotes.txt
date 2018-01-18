@@ -59,6 +59,7 @@ small program ideas:
   - performance?
   - debugging (a useful helper might be "print_the_at" which summons an entity (or tp's an existing entity ~ ~ ~) and data gets its Pos to show you what the current "at" is)
          useful strategy is to 'reduce until it works, then build back up'
+		 useful strategy is to add 'say' commands to ensure your function is running, tellraw to see what some values are
   - "Minecraft stuff" (useful pokable entity data, physics, ...?)
 
 

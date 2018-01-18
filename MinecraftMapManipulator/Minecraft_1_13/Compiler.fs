@@ -6,8 +6,6 @@
 // each compiler will generate its own scoreboard objectives suffixed with e.g. xy, two user-specified characters objChar1/objChar2
 // each compiler will share the same score entity scoreAS located near spawn
 
-// TODO test above 
-
 let FOLDER = "compiler"
 
 // a basic abstraction over a single canonical entity ($ENTITY) for scores ($SCORE), as well as execution over time ($NTICKLATER)
@@ -92,7 +90,7 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
         |]
         // try to catch common errors in post-processing
         let okChars = [|'a'..'z'|] |> Array.append [|'_';'-'|] |> Array.append [|'0'..'9'|] |> Array.append [|'/'|]  // '.' is also technically allowed, but I do not use it.
-        // TODO add more validation, e.g. find all "function foo:bar" and ensure such a function exists, e.g. to check for spelling errors
+        // todo add more validation, e.g. find all "function foo:bar" and ensure such a function exists, e.g. to check for spelling errors
         for _ns,name,code in r do
             for c in name do
                 if not(okChars |> Array.contains c) then
@@ -108,7 +106,7 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
         let r = 
             if doProfiling then
                 [|  for ns,name,code in r do
-                        yield ns, name, Array.append code [|sprintf "scoreboard players add @e[%s] %s %d" ENTITY_TAG LINES code.Length|] // TODO note that tick/tick_body are un-profiled; should add that manually
+                        yield ns, name, Array.append code [|sprintf "scoreboard players add @e[%s] %s %d" ENTITY_TAG LINES code.Length|] // todo note that tick/tick_body are un-profiled; should add that manually
                     |]
             else
                 r

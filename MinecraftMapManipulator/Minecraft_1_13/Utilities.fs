@@ -194,7 +194,7 @@ let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:Config
                 yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextOFF] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
                 yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextOFF] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
             // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
-            // TODO they could store it in a chest or item frame or something in the lobby...
+            // todo they could store it in a chest or item frame or something in the lobby...
             yield sprintf "clear @a minecraft:written_book{%s:1}" uniqueTag
             yield sprintf "%s" (makeCommandGivePlayerWrittenBook(configBook.Author,configBook.Title,[|
                 for page in configBook.Pages do

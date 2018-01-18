@@ -864,7 +864,7 @@ let partitionItemList(items) =
     after_suf.Add(1, remaining)
     Array.append (after_pre.ToArray()) (after_suf.ToArray())
 
-// TODO change this
+// TODO remove this
 let rec compile(s:string) =
     let i = s.IndexOf("$SCORE(")
     if i <> -1 then
@@ -893,9 +893,11 @@ let main() =
                 printfn "%4d = %3dx%3d = 4x%3d" a.Length n (a.Length/n) ((a.Length+3)/4)
     printfn "%d total items" SURVIVAL_OBTAINABLE_ITEM_IDS.Length 
 
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "testflattening")
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestQFE")
+    let compiler = Compiler.Compiler('q','f',"qfe",1,100,1,false)
     let pack = new Utilities.DataPackArchive(world,"QFE","qfe")
-    pack.WriteFunction("qfe","init",[|
+    let functions = ResizeArray()
+    functions.Add("init",[|
         yield sprintf "scoreboard objectives add gotAnItem dummy"
         yield sprintf "scoreboard objectives add Items dummy"
         yield sprintf "scoreboard objectives add qfeIsOn dummy"
@@ -905,17 +907,17 @@ let main() =
         yield sprintf "scoreboard players set $ENTITY qfeIsOn 0"    // clickable sign toggles
         for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
             yield sprintf "scoreboard players set $ENTITY notYet%03d 1" i
-        |] |> Array.map compile)
-    pack.WriteFunction("qfe","tick",[|
-        "execute if entity $SCORE(qfeIsOn=1) run function qfe:main"
-        |] |> Array.map compile)
-    pack.WriteFunction("qfe","main",[|
+        |])
+    functions.Add("tick",[|
+        "execute if entity $SCORE(qfeIsOn=1) run function qfe:main"  // TODO change this to not be a tick, and just activates based on a sign click or something
+        |])
+    functions.Add("main",[|
         for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
             yield sprintf "execute if entity $SCORE(notYet%03d=1) run function qfe:check%03d" i i
-        |] |> Array.map compile)
+        |])
     let itemNum = ref 1
     let check(itemName, x, y, z) =
-        pack.WriteFunction("qfe",sprintf"check%03d"!itemNum,[|
+        functions.Add(sprintf"check%03d"!itemNum,[|
             yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
             yield sprintf "execute store success score $ENTITY gotAnItem run clear @p %s 1" itemName // todo multiplayer   TODO don't take 1, take 0 (just verify have it)
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players set $ENTITY notYet%03d 0" !itemNum
@@ -923,13 +925,13 @@ let main() =
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run setblock %d %d %d emerald_block" x y z
             // TODO line above doesn't work if chunks unloaded... maybe better strategy is not to have it ever 'always running', and instead you can manually
             // 'tick' it by clicking a sign in the qfe lobby (and chunks are near you and loaded)
-        |] |> Array.map compile)
+        |])
         itemNum := !itemNum + 1
 
     let groups = r |> Array.map snd
-    let X = 250
+    let X = 20
     let Y = 120
-    let Z = 180
+    let Z = 20
     
     let data = groups |> Array.find (fun a -> a |> Array.contains "yellow_wool") |> Array.rev 
     let groups = groups |> Seq.filter (fun a -> not(a |> Array.contains "yellow_wool")) |> Seq.toArray 
@@ -1020,14 +1022,23 @@ let main() =
             y <- Y+3
             x <- x-1
 
-    pack.WriteFunction("qfe","wall1",wall1commands.ToArray())
-    pack.WriteFunction("qfe","wall2",wall2commands.ToArray())
-    pack.WriteFunction("qfe","wall3",wall3commands.ToArray())
-    pack.WriteFunction("qfe","wall4",wall4commands.ToArray())
-    pack.WriteFunction("qfe","clear",[|
+
+    functions.Add("wall1",wall1commands.ToArray())
+    functions.Add("wall2",wall2commands.ToArray())
+    functions.Add("wall3",wall3commands.ToArray())
+    functions.Add("wall4",wall4commands.ToArray())
+    functions.Add("clear",[|
         for y = Y to Y+3 do
             yield sprintf "fill %d %d %d %d %d %d air" X y (Z-2) biggest_x y (biggest_z+1)
         |])
+
+    for ns,name,code in [for name,code in functions do yield! compiler.Compile("qfe",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"qfe:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"qfe:tick"])
+
     pack.SaveToDisk()
         // TODO come up with a decent way to test it
 // invulnerable item frame can hold name item, survival player cannot break or retrieve (unless break block behind)
