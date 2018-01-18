@@ -260,6 +260,15 @@ let game_objectives = [|
         yield sprintf "%sSpawnY" t    // height of surface there
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
     |]
+let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold onlyPlaceIfMultiplayer =
+    if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
+    let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") (if isBold then "black" else "gray")
+    let c1 = if isBold && (cmd<>null) then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
+    [|
+        sprintf "setblock %d %d %d air replace" x y z
+        sprintf """%ssetblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" 
+                    (if onlyPlaceIfMultiplayer then "execute if entity $SCORE(TEMP=2..) run " else "") x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
+    |]
 let game_functions = [|
     yield "game_init", [|
         // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
@@ -285,15 +294,6 @@ let game_functions = [|
         yield sprintf "team join green @e[%s]" XH_TAG
         yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.DEFAULT 
         yield sprintf "function %s:summon_book_text_entities" NS
-        |]
-    let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold onlyPlaceIfMultiplayer =
-        if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
-        let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") (if isBold then "black" else "gray")
-        let c1 = if isBold && (cmd<>null) then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
-        [|
-            sprintf "setblock %d %d %d air replace" x y z
-            sprintf """%ssetblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" 
-                        (if onlyPlaceIfMultiplayer then "execute if entity $SCORE(TEMP=2..) run " else "") x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
         |]
     for gip in [0;1;2] do // gameInProgress
         yield sprintf"place_signs%d"gip, [|

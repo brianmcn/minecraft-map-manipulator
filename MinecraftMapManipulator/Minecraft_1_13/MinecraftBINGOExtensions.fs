@@ -4,28 +4,6 @@ let BINGO_NS = MinecraftBINGO.NS
 
 //////////////////////////////
 
-(* 
-TODO how will a player enable/disable datapacks?
-seems the only thing a player can do is interact with signs
-so probably a datapack author needs hand out a command that an OP'd player can run to get a sign to toggle the pack
-the sign, when clicked, would have to... ONLY if gameInProgress=0...
- - enable its pack (if it's not enabled)
- - see if the current state of the whole pack is ON or OFF
- - if ON, set scoreboard to OFF, run any cleanup commands, then disable pack
- - if OFF, set scoreboard to ON, and then run any startup/init for the pack
-
-so the sign has 2 commands
- - datapack enable file/pack-name
- - function packns:toggle_pack
-and its text should say toggle (so it can be fixed text; data merge Text1 does not update client)
-
-a common sign in the lobby (part of base bingo) should broadcast #on_give_config_books or something when players want your config options
-
-*)
-
-
-// TODO see if minecraft:load is useful
-
 // TODO uncover card at end game (in book? link in chat that only works in lobby? ...)
 
 //////////////////////////////
@@ -33,6 +11,47 @@ a common sign in the lobby (part of base bingo) should broadcast #on_give_config
 module Blind =
     let PACK_NAME = "blind-bingo"
     let PACK_NS   = "blind"
+
+    let theSign() =
+        // use a separate data pack (always loaded) for processing the sign to toggle the game mode
+        let functions = [|
+            yield "init",[|
+                "scoreboard objectives add blindEnabled dummy"
+                "scoreboard players add $ENTITY blindEnabled 0"
+                |]
+            yield "toggle_pack",[|
+                sprintf "execute if entity $SCORE(gameInProgress=0) run function blindsign:toggle_pack_body"
+                sprintf "execute unless entity $SCORE(gameInProgress=0) run tellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"
+                |]
+            yield "toggle_pack_body",[|
+                // prelude
+                sprintf "tellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"
+                // body
+                sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY blindEnabled"
+                sprintf "execute if entity $SCORE(blindEnabled=0) run datapack enable \"file/%s.zip\"" PACK_NAME
+                sprintf "execute if entity $SCORE(blindEnabled=0) run scoreboard players set $ENTITY blindEnabled 1"
+                sprintf "execute if entity $SCORE(TEMP=1) run function %s:teardown" PACK_NS
+                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY blindEnabled 0"
+                // coda
+                sprintf "execute if entity $SCORE(TEMP=0) run tellraw @a [\"Blind bingo has been enabled\"]"
+                sprintf "execute if entity $SCORE(TEMP=1) run tellraw @a [\"Blind bingo has been disabled\"]"
+                |]
+            yield "put_sign_in_lobby", [|
+                yield! MinecraftBINGO.placeWallSignCmds 70 26 77 "north" "toggle" "blind pack" "" "" "function blindsign:toggle_pack" true false
+                |]
+            |]
+        let signPack = new Utilities.DataPackArchive(MinecraftBINGO.FOLDER, "blind-bingo-sign", "sign to toggle blind mode on-off")
+        signPack.WriteFunctionTagsFileWithValues("minecraft","load",["blindsign:init"])
+        let a = [|
+            for name,code in functions do
+                yield! MinecraftBINGO.compiler.Compile("blindsign",name,code)
+            |]
+        for ns,name,code in a do
+            signPack.WriteFunction(ns,name,code)
+        signPack.SaveToDisk()
+
+
+
     let pack = new Utilities.DataPackArchive(MinecraftBINGO.FOLDER, PACK_NAME, "MinecraftBINGO extension pack for blind play")
 
     (*
@@ -56,12 +75,10 @@ module Blind =
     let hookTick() =
         pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [sprintf "%s:tick" PACK_NS])
     let hookLoad() =
-        pack.WriteFunctionTagsFileWithValues("minecraft", "load", [sprintf "%s:on_load" PACK_NS])
-
+        pack.WriteFunctionTagsFileWithValues("minecraft", "load", [MinecraftBINGO.compiler.LoadFullName; sprintf "%s:init" PACK_NS])
 
     let hook(event) =
         pack.WriteFunctionTagsFileWithValues(BINGO_NS, event, [sprintf "%s:%s" PACK_NS event])
-
     let hookEvents() =
         for event in ["on_new_card"; "on_start_game"; "on_finish"; "on_get_configuration_books"] do
             hook(event)
@@ -89,54 +106,21 @@ module Blind =
             ConfigOption("optunc", ConfigDescription.Toggle "Uncover card now", 1, [|sprintf "function %s:uncover" PACK_NS|])
             |])
         |])
-    let all_objectives = [|
-        yield "blindPackInited"   // has the pack ever been initialized
-        yield "blindPackEnabled"  // is the pack currently enabled
-        |]
     let all_funcs = [|
-        yield "get_sign_for_lobby", [|
-            let prefix0 = sprintf "execute if entity @e[%s,scores={gameInProgress=0}] run " MinecraftBINGO.ENTITY_TAG 
-            let prefix1 = sprintf "execute unless entity @e[%s,scores={gameInProgress=0}] run " MinecraftBINGO.ENTITY_TAG 
-            yield sprintf 
-                """give @s sign{BlockEntityTag:{Text1:"[%s]",Text2:"[%s]",Text3:"[%s]",Text4:"[%s]"}} 1"""
-                (Utilities.escape(sprintf     """{"text":"toggle","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"}}""" prefix0))
-                (Utilities.escape(sprintf """{"text":"blind pack","clickEvent":{"action":"run_command","value":"%sdatapack enable \"file/%s\""}}""" prefix0 PACK_NAME))
-                (Utilities.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%sfunction %s:toggle_pack"}}""" prefix0 PACK_NS))
-                (Utilities.escape(sprintf           """{"text":"","clickEvent":{"action":"run_command","value":"%stellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"}}""" prefix1))
-            |]
-        yield "toggle_pack", [|
-            // deal with first-time initialization
-            sprintf "execute unless entity $SCORE(blindPackInited=1) run function %s:init" PACK_NS    // TODO during development, will need to manually run init or unset this flag
-            sprintf "scoreboard players set $ENTITY blindPackInited 1"
-            // cache value
-            sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY blindPackEnabled"
-            // turn on
-            sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY blindPackEnabled 1"
-            sprintf "execute if entity $SCORE(TEMP=0) run function %s:startup" PACK_NS 
-            sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["enabled covered gameplay from %s"]""" PACK_NAME
-            // turn off
-            sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY blindPackEnabled 0"
-            sprintf "execute if entity $SCORE(TEMP=1) run function %s:teardown" PACK_NS 
-            sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["disabled covered gameplay from %s"]""" PACK_NAME
-            |]
-        yield "startup",[|
-            sprintf "function %s:cover" PACK_NS
-            |]
         yield "teardown",[|
             // clear any blocks in the world
             sprintf "function %s:uncover" PACK_NS
             // clear any inventory in the world
             sprintf "clear @a minecraft:written_book{%s:1}" blindConfigBookTag
             // clear any entities in the world
-            sprintf """datapack disable "file/%s" """ PACK_NAME
+            // disable pack
+            sprintf "datapack disable \"file/%s.zip\"" PACK_NAME
+            sprintf """tellraw @a ["%s:teardown was called"]""" PACK_NS 
             |]
         yield "init",[|
-            for o in all_objectives do
-                yield sprintf "scoreboard objectives add %s dummy" o
-            yield sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.INIT 
-            // set any default values
-            yield "scoreboard players set $ENTITY blindPackEnabled 0"
-            yield sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.DEFAULT
+            sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.INIT 
+            sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.DEFAULT
+            sprintf "function %s:cover" PACK_NS
             |]
         yield "tick",[|
             sprintf "execute if entity $SCORE(gameInProgress=0) run function %s:config_loop" PACK_NS 
@@ -186,9 +170,6 @@ module Blind =
             yield sprintf "setblock %s air" (MinecraftBINGO.CHEST_THIS_CARD_1.Offset(0,1,0).STR)
             yield sprintf "setblock %s air" (MinecraftBINGO.CHEST_THIS_CARD_2.Offset(0,1,0).STR)
             |]
-        yield "on_load",[|
-            yield sprintf "function %s" MinecraftBINGO.compiler.LoadFullName
-            |]
         for t in MinecraftBINGO.TEAMS do
             for s in MinecraftBINGO.SQUARES do
                 let x = 2 + 24*(int s.[0] - int '0' - 1)
@@ -203,6 +184,7 @@ module Blind =
     ///////////////////////////////
 
     let main() =
+        theSign()
         hookTick()
         hookEvents()
         let a = [|

@@ -221,11 +221,11 @@ let shoulder_cam() =
 
 [<EntryPoint>]
 let main argv = 
-    //MinecraftBINGO.cardgen_compile()
-    ////////MinecraftBINGOExtensions.Blind.main() // TODO my enable/disable strategy not working
+    MinecraftBINGO.cardgen_compile()
+    MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
-    PerformanceMicroBenchmarks.main()
+    //PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()

@@ -35,7 +35,10 @@ let functions = [|
             yield "scoreboard players set YSCALE K 62"
             yield "scoreboard players set XMIN K -8400"
             yield "scoreboard players set YMIN K -4000"
+            yield "scoreboard players set ROWS_PER_TICK K 4"
+            // other
             yield "summon armor_stand 0 4 0 {Tags:[Cursor],NoGravity:1}"
+            yield "gamerule maxCommandChainLength 999999"
             |]
         "go",[|
             "execute as @p run function ms:cps_i_start"
@@ -125,13 +128,20 @@ let functions = [|
             "scoreboard players set $ENTITY CALL 0"
             "scoreboard players add I A 1"
             "execute as @e[tag=Cursor] at @s run tp @s ~1 ~ ~"
-            "$NTICKSLATER(1)"  // TODO Yield
             "scoreboard players operation r1 A = I A"
             "scoreboard players operation r1 A -= MAXW K"
             "scoreboard players operation $ENTITY A = r1 A"
+            "scoreboard players operation $ENTITY B = I A"
+            "scoreboard players operation $ENTITY B %= ROWS_PER_TICK K"
             "scoreboard players set $ENTITY CALL 1"
-            "execute if entity $SCORE(A=..-1) run function ms:cps_j_start"
+            "execute if entity $SCORE(A=..-1,B=0) run function ms:wait_then_j"
+            "execute if entity $SCORE(A=..-1,B=1..) run function ms:cps_j_start"
             "execute if entity $SCORE(CALL=1) run function ms:cps_i_finish"
+            |]
+        "wait_then_j",[|
+            "scoreboard players set $ENTITY CALL 0"
+            "$NTICKSLATER(1)"  // TODO Yield
+            "function ms:cps_j_start"
             |]
         "cps_i_finish",[|
             "scoreboard players set $ENTITY CALL 0"
