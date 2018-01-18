@@ -2,6 +2,7 @@
 
 let PACK_NAME = "PerfPack"
 let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestPerf""")
+let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "Performance testing")
 
 let allProfilerFunctions = ResizeArray()
 
@@ -44,7 +45,7 @@ let profileThis(suffix,outer,inner,innerInner,pre,cmds,post) =
                 |]
         |]
     for name,code in all do
-        Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", name, code)
+        pack.WriteFunction("test", name, code)
     allProfilerFunctions.Add(profName)
 
 (*
@@ -100,12 +101,10 @@ let SELECTORS_WITH_UUID = [|
     |]
 
 let main() =
-    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "Performance testing")
+    pack.WriteFunctionTagsFileWithValues("minecraft", "load", ["test:on_load"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "tick", ["test:on_tick"])
 
-    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", ["test:on_load"])
-    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", ["test:on_tick"])
-
-    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_load", [|
+    pack.WriteFunction("test", "on_load", [|
         "kill @e[type=armor_stand]"
         """summon armor_stand ~ ~ ~ {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""  // ~ ~ ~ because #load now runs at world spawn
 
@@ -137,9 +136,9 @@ let main() =
 
     let SEED = "seed"
     let ADD = "scoreboard players add @s A 1"
-    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "call_seed", [|SEED|])
-    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "call_add", [|ADD|])
-    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "fail", [|
+    pack.WriteFunction("test", "call_seed", [|SEED|])
+    pack.WriteFunction("test", "call_add", [|ADD|])
+    pack.WriteFunction("test", "fail", [|
         "execute if entity @p[scores={FailureCount=0}] run say FIRST FAILURE!!! DEBUG THIS!!!"
         "execute if entity @p[scores={FailureCount=0}] run say FIRST FAILURE!!! DEBUG THIS!!!"
         "execute if entity @p[scores={FailureCount=0}] run say FIRST FAILURE!!! DEBUG THIS!!!"
@@ -352,7 +351,8 @@ took 1257 milliseconds to run 200000 iterations of
         yield sprintf """execute if entity @p[scores={NF=%d}] run tellraw @a ["to restart"]""" allProfilerFunctions.Count
         yield "execute if entity @p[scores={NF=0..}] run scoreboard players add @p NF 1"
         |]
-    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_tick", next)
+    pack.WriteFunction("test", "on_tick", next)
+    pack.SaveToDisk()
 
 (*
 

@@ -82,9 +82,10 @@ let throwable_light() =
             |]
         |]
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
-    Utilities.writeDatapackMeta(world,"ThrowableLightPack","snowballs place temp light sources")
+    let pack = new Utilities.DataPackArchive(world,"ThrowableLightPack","snowballs place temp light sources")
     for name,code in functions do
-        Utilities.writeFunctionToDisk(world,"ThrowableLightPack","snow",name,code)
+        pack.WriteFunction("snow",name,code)
+    pack.SaveToDisk()
 
 let area_highlight() =
     let functions = [|
@@ -122,9 +123,10 @@ let area_highlight() =
             |]
         |]
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWE")
-    Utilities.writeDatapackMeta(world,"WE","we")
+    let pack = new Utilities.DataPackArchive(world,"WE","we")
     for name,code in functions do
-        Utilities.writeFunctionToDisk(world,"WE","we",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
+        pack.WriteFunction("we",name,code |> Array.map MC_Constants.compile)  // TODO real compile, ENTITY
+    pack.SaveToDisk()
 
 (*
 A single sumofsqares dispatchntable can make it so can fill arbitrary region size with dx dy dz using fill ^ ^ ^ ^ ^ ^N and a facing entity.
@@ -147,15 +149,15 @@ See also https://www.youtube.com/watch?v=SOOvommDpUA for ideas
 let find_slime_chunks() =
     let PACK_NAME = "SlimePack"
     let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestSlime""")
-    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "Slime finder")
+    let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "Slime finder")
 
-    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", ["test:on_load"])
-    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", ["test:on_tick"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "load", ["test:on_load"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "tick", ["test:on_tick"])
 
-    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_load", [|
+    pack.WriteFunction("test", "on_load", [|
         "scoreboard objectives add Tick dummy"
         |])
-    Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", "on_tick", [|
+    pack.WriteFunction("test", "on_tick", [|
         "scoreboard players add @p Tick 1"
         "scoreboard players set @p[scores={Tick=4}] Tick 0"
         "execute if entity @p[scores={Tick=0}] run difficulty peaceful"
@@ -163,6 +165,7 @@ let find_slime_chunks() =
         //"execute if entity @p[scores={Tick=3}] at @e[type=slime] run setblock ~ 127 ~ emerald_block"
         //"execute if entity @p[scores={Tick=3}] at @e[type=zombie] run setblock ~ 127 ~ emerald_block"
         |])
+    pack.SaveToDisk()
 
 
 (*
@@ -175,19 +178,19 @@ minecraft:igloo/igloo_bottom   7x6x9
 
 datapack replaces furnace in top with a sign
 
-*)
 let igloo_replacement() =
     let PACK_NAME = "IglooPack"
     let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestIgloo""")
     Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "Replace furnace in igloo")
     // copy in the structure manually, have an example in TestIgloo world now
     // TODO bug https://bugs.mojang.com/browse/MC-124167 means disabling pack does not disable this structure override
+*)
 
 
 let shoulder_cam() =
     let PACK_NAME = "ShoulderCamPack"
     let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestCam""")
-    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "spectator watches player in F5-like mode")
+    let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "spectator watches player in F5-like mode")
     let functions = [|
         "init", [|
             "scoreboard objectives add Count dummy"
@@ -210,52 +213,19 @@ let shoulder_cam() =
         //  - if item next slot, toggles camera visibility (is pig invisible or not)
         //  - any other slot, follow mode, just stays relative position
         |]
-    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "load", ["sc:init"])
-    Utilities.writeFunctionTagsFileWithValues(FOLDER, PACK_NAME, "minecraft", "tick", ["sc:tick"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "load", ["sc:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "tick", ["sc:tick"])
     for name, code in functions do
-        Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "sc", name, code)
-
-let test_selection_execution_order() =
-//summon minecraft:armor_stand ~ ~ ~ {Tags:[A,A4],CustomName:"\"A4\""}
-// xecute as @e[sort=nearest,tag=bob] at @s run tag @e[distance=0.2..,tag=bob] remove bob 
-    let PACK_NAME = "Blah"
-    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestRepro""")
-    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "blah")
-    let functions = [|
-        "stuff", [|
-            "say I am @s"
-            "execute as @e[tag=A] run function test:coda"
-            |]
-        "coda", [|
-            "say @s got called to remove tag"
-            "tag @s remove A"
-            |]
-        |]
-    for name, code in functions do
-        Utilities.writeFunctionToDisk(FOLDER, PACK_NAME, "test", name, code)
-(*
-[A1] I am A1
-[A4] A4 got called to remove tag
-[A3] A3 got called to remove tag
-[A2] A2 got called to remove tag
-[A1] A1 got called to remove tag
-[A1: Executed 14 commands from function 'test:stuff']
-[A2] I am A2
-[A2: Executed 2 commands from function 'test:stuff']
-[A3] I am A3
-[A3: Executed 2 commands from function 'test:stuff']
-[A4] I am A4
-[A4: Executed 2 commands from function 'test:stuff']
-*)
-
+        pack.WriteFunction("sc", name, code)
+    pack.SaveToDisk()
 
 [<EntryPoint>]
 let main argv = 
-    MinecraftBINGO.cardgen_compile()
+    //MinecraftBINGO.cardgen_compile()
     ////////MinecraftBINGOExtensions.Blind.main() // TODO my enable/disable strategy not working
     //Raycast.main()
     //throwable_light()
-    //PerformanceMicroBenchmarks.main()
+    PerformanceMicroBenchmarks.main()
     //MC_Constants.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()

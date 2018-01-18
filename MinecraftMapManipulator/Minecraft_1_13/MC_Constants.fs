@@ -894,8 +894,8 @@ let main() =
     printfn "%d total items" SURVIVAL_OBTAINABLE_ITEM_IDS.Length 
 
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "testflattening")
-    Utilities.writeDatapackMeta(world,"QFE","qfe")
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","init",[|
+    let pack = new Utilities.DataPackArchive(world,"QFE","qfe")
+    pack.WriteFunction("qfe","init",[|
         yield sprintf "scoreboard objectives add gotAnItem dummy"
         yield sprintf "scoreboard objectives add Items dummy"
         yield sprintf "scoreboard objectives add qfeIsOn dummy"
@@ -906,16 +906,16 @@ let main() =
         for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
             yield sprintf "scoreboard players set $ENTITY notYet%03d 1" i
         |] |> Array.map compile)
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","tick",[|
+    pack.WriteFunction("qfe","tick",[|
         "execute if entity $SCORE(qfeIsOn=1) run function qfe:main"
         |] |> Array.map compile)
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","main",[|
+    pack.WriteFunction("qfe","main",[|
         for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
             yield sprintf "execute if entity $SCORE(notYet%03d=1) run function qfe:check%03d" i i
         |] |> Array.map compile)
     let itemNum = ref 1
     let check(itemName, x, y, z) =
-        Utilities.writeFunctionToDisk(world,"QFE","qfe",sprintf"check%03d"!itemNum,[|
+        pack.WriteFunction("qfe",sprintf"check%03d"!itemNum,[|
             yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
             yield sprintf "execute store success score $ENTITY gotAnItem run clear @p %s 1" itemName // todo multiplayer   TODO don't take 1, take 0 (just verify have it)
             yield sprintf "execute if entity $SCORE(gotAnItem=1) run scoreboard players set $ENTITY notYet%03d 0" !itemNum
@@ -1020,15 +1020,15 @@ let main() =
             y <- Y+3
             x <- x-1
 
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","wall1",wall1commands.ToArray())
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","wall2",wall2commands.ToArray())
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","wall3",wall3commands.ToArray())
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","wall4",wall4commands.ToArray())
-    Utilities.writeFunctionToDisk(world,"QFE","qfe","clear",[|
+    pack.WriteFunction("qfe","wall1",wall1commands.ToArray())
+    pack.WriteFunction("qfe","wall2",wall2commands.ToArray())
+    pack.WriteFunction("qfe","wall3",wall3commands.ToArray())
+    pack.WriteFunction("qfe","wall4",wall4commands.ToArray())
+    pack.WriteFunction("qfe","clear",[|
         for y = Y to Y+3 do
             yield sprintf "fill %d %d %d %d %d %d air" X y (Z-2) biggest_x y (biggest_z+1)
         |])
-
+    pack.SaveToDisk()
         // TODO come up with a decent way to test it
 // invulnerable item frame can hold name item, survival player cannot break or retrieve (unless break block behind)
 

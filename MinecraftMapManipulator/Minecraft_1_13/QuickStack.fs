@@ -141,11 +141,12 @@ let main() =
     // issue: for /replaceitem we need every slot * every stack size * every item, which is 27 * 64 * ~500 ~= 864000 which is probably too many commands...
     // and there's no way to encode/decode item type as scores, since one line of code (/replaceitem) needs all 3 bits explicitly specified (no variables)
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestQuickStack")
-    Utilities.writeDatapackMeta(world,"qspack","quick stack")
+    let pack = new Utilities.DataPackArchive(world,"qspack","quick stack")
     printfn "%d functions" quickstack_functions.Length 
     for name,code in quickstack_functions do
-        Utilities.writeFunctionToDisk(world,"qspack","qs",name,code |> Array.map MC_Constants.compile)
-    Utilities.writeFunctionTagsFileWithValues(world,"qspack","minecraft","tick",["qs:tick"])
+        pack.WriteFunction("qs",name,code |> Array.map MC_Constants.compile)
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",["qs:tick"])
+    pack.SaveToDisk()
 
 
 (*

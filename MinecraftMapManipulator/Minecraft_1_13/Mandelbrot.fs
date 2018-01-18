@@ -152,7 +152,7 @@ let main() =
     let PACK_NAME = "mandelbrot"
     let NS = "ms"
 
-    Utilities.writeDatapackMeta(world,PACK_NAME,"draw mandelbrot set")
+    let pack = new Utilities.DataPackArchive(world,PACK_NAME,"draw mandelbrot set")
     let compiler = new Compiler.Compiler('m','s',NS,1,100,1,false)
     let all = [|
         for name,code in functions do
@@ -160,7 +160,8 @@ let main() =
         yield! compiler.GetCompilerLoadTick()
         |]
     for ns, name, code in all do
-        Utilities.writeFunctionToDisk(world,PACK_NAME,ns,name,code)
+        pack.WriteFunction(ns,name,code)
 
-    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "load", [compiler.LoadFullName;sprintf"%s:init"NS])
-    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "tick", [compiler.TickFullName])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "load", [compiler.LoadFullName;sprintf"%s:init"NS])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [compiler.TickFullName])
+    pack.SaveToDisk()

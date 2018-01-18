@@ -328,9 +328,12 @@ let connected_mining_functions = [|
     |]
 let tc_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
-    Utilities.writeDatapackMeta(world,"multi_miner","cut down entire trees or mine entire ore veins")
+    let pack = new Utilities.DataPackArchive(world,"multi_miner","cut down entire trees or mine entire ore veins")
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",["tc:init_tc";"tc:init_vm"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",["tc:tick_tc";"tc:tick_vm"])
     for name,code in connected_mining_functions do
-        Utilities.writeFunctionToDisk(world,"multi_miner","tc",name,code)
+        pack.WriteFunction("tc",name,code)
+    pack.SaveToDisk()
 
 
 // TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find?)

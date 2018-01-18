@@ -30,7 +30,7 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT
 let ensureDirOfFile(filename) = System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore
 
 let allDirsEnsured = new System.Collections.Generic.HashSet<_>()
-let writeFunctionToDisk(worldSaveFolder, packName, packNS, name, code) =
+let private writeFunctionToDisk(worldSaveFolder, packName, packNS, name, code) =
     let DIR = System.IO.Path.Combine(worldSaveFolder, sprintf """datapacks\%s\data\%s\functions""" packName packNS)
     let FIL = System.IO.Path.Combine(DIR,sprintf "%s.mcfunction" name)
     let dir = System.IO.Path.GetDirectoryName(FIL)
@@ -38,7 +38,7 @@ let writeFunctionToDisk(worldSaveFolder, packName, packNS, name, code) =
         System.IO.Directory.CreateDirectory(dir) |> ignore
     System.IO.File.WriteAllLines(FIL, code)
 
-let writeDatapackMeta(worldSaveFolder, packName,description) =
+let private writeDatapackMeta(worldSaveFolder, packName,description) =
     let FOLDER = packName
     let meta = sprintf """{
                "pack": {
@@ -50,7 +50,7 @@ let writeDatapackMeta(worldSaveFolder, packName,description) =
     ensureDirOfFile(mcmetaFilename)
     System.IO.File.WriteAllText(mcmetaFilename, meta)
 
-let writeFunctionTagsFileWithValues(worldSaveFolder, packName, ns, funcName, values) =     
+let private writeFunctionTagsFileWithValues(worldSaveFolder, packName, ns, funcName, values) =     
     let FIL = System.IO.Path.Combine(worldSaveFolder, "datapacks", packName, "data", ns, sprintf """tags\functions\%s.json""" funcName)
     System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FIL)) |> ignore
     let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)

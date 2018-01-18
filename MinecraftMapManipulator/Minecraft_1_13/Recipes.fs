@@ -60,6 +60,6 @@ let writeRecipes(recipes, worldSaveFolder, datapackName, ns) =
 let test_recipe() =
     let PACK_NAME = "Recipes"
     let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestIgloo""")
-    Utilities.writeDatapackMeta(FOLDER, PACK_NAME, "custom recipes")
+    let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "custom recipes")
     writeRecipes([|"foo", ShapelessCrafting([|MC"stick";MC"stone"|],MC"bone_meal",2)|],
         FOLDER, PACK_NAME, "blah")
