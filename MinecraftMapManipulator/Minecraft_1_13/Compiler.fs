@@ -182,3 +182,18 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
 //    member this.Lines = LINES
     member this.LoadFullName = sprintf "%s:%s/load" userNS FOLDER
     member this.TickFullName = sprintf "%s:%s/tick" userNS FOLDER
+
+(*
+cheap-o version for singleplayer without NTICKSLATER:
+
+let rec compile(s:string) =
+    let i = s.IndexOf("$SCORE(")
+    if i <> -1 then
+        let j = s.IndexOf(')',i)
+        let info = s.Substring(i+7,j-i-7)
+        let s = s.Remove(i,j-i+1)
+        let s = s.Insert(i,sprintf "@p[scores={%s}]" info)
+        compile(s)
+    else
+        s.Replace("$ENTITY","@p")
+*)

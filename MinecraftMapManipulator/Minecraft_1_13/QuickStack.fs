@@ -52,12 +52,10 @@ let quickstack_functions = [|
             for i in range do
                 yield sprintf "execute if entity $SCORE(succ=1,slot=%d) run scoreboard players operation $ENTITY %sslot%d = $ENTITY count" i name i
             |]
-        (*
         yield sprintf "debug_%s" name, [|
             for i in range do
                 yield sprintf """tellraw @a ["slot %d has ",{"score":{"name":"$ENTITY","objective":"%sslot%d"}}," items"]""" i name i
             |]
-        *)
         for itemType in STACKABLES do
             yield sprintf "check_%s" itemType, [|
                     sprintf """execute if entity @p[nbt={EnderItems:[{id:"minecraft:%s"}]}] run function qs:check_%s_body""" itemType itemType
@@ -124,8 +122,8 @@ let quickstack_functions = [|
                 yield sprintf "function qs:check_%s" itemType
             |]
         yield "tick", [|
-            """execute unless entity @p[scores={enderInTopRight=1}] if entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run function qs:just_moved_to_top_right"""
-            """execute if entity @p[scores={enderInTopRight=1}] unless entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run scoreboard players set $ENTITY enderInTopRight 0"""
+            """execute unless entity $SCORE(enderInTopRight=1) if entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run function qs:just_moved_to_top_right"""
+            """execute if entity $SCORE(enderInTopRight=1) unless entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run scoreboard players set $ENTITY enderInTopRight 0"""
             |]
         yield "just_moved_to_top_right", [|
             "scoreboard players set $ENTITY enderInTopRight 1"
@@ -142,10 +140,14 @@ let main() =
     // and there's no way to encode/decode item type as scores, since one line of code (/replaceitem) needs all 3 bits explicitly specified (no variables)
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestQuickStack")
     let pack = new Utilities.DataPackArchive(world,"qspack","quick stack")
+    let compiler = Compiler.Compiler('q','s',"qs",1,100,1,false)
     printfn "%d functions" quickstack_functions.Length 
-    for name,code in quickstack_functions do
-        pack.WriteFunction("qs",name,code |> Array.map MC_Constants.compile)
-    pack.WriteFunctionTagsFileWithValues("minecraft","tick",["qs:tick"])
+    for ns,name,code in [for name,code in quickstack_functions do yield! compiler.Compile("qs",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"qs:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"qs:tick"])
     pack.SaveToDisk()
 
 

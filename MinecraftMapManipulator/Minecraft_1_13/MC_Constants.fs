@@ -864,18 +864,6 @@ let partitionItemList(items) =
     after_suf.Add(1, remaining)
     Array.append (after_pre.ToArray()) (after_suf.ToArray())
 
-// TODO remove this
-let rec compile(s:string) =
-    let i = s.IndexOf("$SCORE(")
-    if i <> -1 then
-        let j = s.IndexOf(')',i)
-        let info = s.Substring(i+7,j-i-7)
-        let s = s.Remove(i,j-i+1)
-        let s = s.Insert(i,sprintf "@p[scores={%s}]" info)
-        compile(s)
-    else
-        s.Replace("$ENTITY","@p")
-
 let main() =
     let r = partitionItemList(SURVIVAL_OBTAINABLE_ITEM_IDS)
     let show = true

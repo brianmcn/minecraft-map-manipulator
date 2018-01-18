@@ -14,6 +14,7 @@ E&T ideas
 
  is this interesting? https://www.reddit.com/r/Minecraft/comments/7npasa/set_a_waypoint_on_the_map_17w50a_snapshot/ 
 
+fun: two wall signs back to back can support one another - place one on wall, then replace wall with sign via commands
 
 
 Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
