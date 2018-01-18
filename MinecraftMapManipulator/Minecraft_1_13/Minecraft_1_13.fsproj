@@ -66,6 +66,7 @@
     <Compile Include="EandT_S11.fs" />
     <Compile Include="Raycast.fs" />
     <Compile Include="WarpPoints.fs" />
+    <Compile Include="QFE.fs" />
     <Compile Include="MinecraftBINGO.fs" />
     <Compile Include="MinecraftBINGOExtensions.fs" />
     <Compile Include="PerformanceMicroBenchmarks.fs" />

@@ -25,6 +25,18 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT
     sprintf "give @s minecraft:written_book%s 1" (writtenBookNBTString(author, title, pages, extraItemNBT))
 
 //////////////////////////////
+// signs
+let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold executePrefix =
+    if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
+    let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") (if isBold then "black" else "gray")
+    let c1 = if isBold && (cmd<>null) then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
+    [|
+        sprintf "setblock %d %d %d air replace" x y z
+        sprintf """%ssetblock %d %d %d wall_sign[facing=%s]{Text1:"{\"text\":\"%s\"%s%s}",Text2:"{\"text\":\"%s\"%s}",Text3:"{\"text\":\"%s\"%s}",Text4:"{\"text\":\"%s\"%s}"}""" 
+                    executePrefix x y z facing txt1 bc c1 txt2 bc txt3 bc txt4 bc
+    |]
+
+//////////////////////////////
 // disk utils
 
 let ensureDirOfFile(filename) = System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore
