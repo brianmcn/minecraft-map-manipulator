@@ -60,7 +60,7 @@ let partitionItemList(items) =
 
 let main() =
     let r = partitionItemList(SURVIVAL_OBTAINABLE_ITEM_IDS)
-    let show = true
+    let show = false
     for i = 0 to r.Length-1 do
         let n,a = r.[i]
         if i = r.Length-1 then
@@ -79,7 +79,7 @@ let main() =
     let compiler = Compiler.Compiler('q','f',"qfe",1,100,1,false)
     let pack = new Utilities.DataPackArchive(world,"QFE","qfe")
     let functions = ResizeArray()
-    functions.Add("init",[|
+    functions.Add("init_objectives_and_scores",[|
         yield sprintf "scoreboard objectives add gotAnItem dummy"
         yield sprintf "scoreboard objectives add Items dummy"
         for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
@@ -94,6 +94,8 @@ let main() =
         |])
     let itemNum = ref 1
     let check(itemName, x, y, z, ix, iy, iz) =
+//        if ((string)itemName).StartsWith("dia") then
+//            printfn "%3d: %s" !itemNum itemName
         functions.Add(sprintf"check/check%03d"!itemNum,[|
             sprintf "scoreboard players set $ENTITY gotAnItem 0"
             sprintf "execute store success score $ENTITY gotAnItem run clear @p %s 0" itemName // todo multiplayer @p thruout
@@ -103,7 +105,7 @@ let main() =
             sprintf "scoreboard players set $ENTITY notYet%03d 0" !itemNum
             sprintf "scoreboard players add @p Items 1"
             sprintf "setblock %d %d %d emerald_block" x y z
-            // TODO consider /particle minecraft:dust 1.0 0.5 0.5 1 ^ ^2 ^2 0 0 0 0 20 force as it's more 'confineable' (r g b 1 x y z dx dy dz spd ct)
+            // todo consider /particle minecraft:dust 1.0 0.5 0.5 1 ^ ^2 ^2 0 0 0 0 20 force as it's more 'confineable' (r g b 1 x y z dx dy dz spd ct)
             sprintf "particle minecraft:firework %d %d.8 %d 1.0 1.0 1.0 0.01 20" ix iy iz
             sprintf "particle minecraft:firework %d %d.8 %d 0.1 0.1 0.1 0.01 20" ix iy iz
             sprintf "execute at @p run playsound entity.firework.launch ambient @p ~ ~ ~"
@@ -203,7 +205,7 @@ let main() =
     while i < data.Length do
         let item = data.[i]
         wall4commands.Add(sprintf "setblock %d %d %d redstone_block" x y z)
-        wall4commands.Add(sprintf """summon item_frame %d %d %d {Invulnerable:1b,Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"%s"}}}}""" x y (z-1) FACING item item)
+        wall4commands.Add(sprintf """summon item_frame %d %d %d {Invulnerable:1b,Facing:%db,Item:{id:"minecraft:%s",Count:1b,tag:{display:{Name:"\"%s\""}}}}""" x y (z-1) FACING item item)
         check(item,x,y,z,x,y,z-1)
         i <- i + 1
         y <- y - 1
@@ -227,12 +229,21 @@ let main() =
         for y = Y-2 to Y+3 do
             yield sprintf "fill %d %d %d %d %d %d air" X y (Z-2) biggest_x y (biggest_z+1)
         |])
+    functions.Add("init_all",[|
+        "function qfe:init_objectives_and_scores"
+        "function qfe:clear"
+        "function qfe:wall1"
+        "function qfe:wall2"
+        "function qfe:wall3"
+        "function qfe:wall4"
+        "function qfe:floor"
+        |])
 
     for ns,name,code in [for name,code in functions do yield! compiler.Compile("qfe",name,code)] do
         pack.WriteFunction(ns,name,code)
     for ns,name,code in compiler.GetCompilerLoadTick() do
         pack.WriteFunction(ns,name,code)
-    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"qfe:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName])
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName])
 
     pack.SaveToDisk()
