@@ -12,6 +12,11 @@
  - spectator over-shoulder-cam?
 
 
+ How to implement fast scrabble check in functions? https://www.youtube.com/watch?v=0Z9QW-6vr2Y can't 'jump table' in funcs same way as entity in 3d array world of blocks...
+    (other than e.g. the 'obvious' assign a number to every internal trie node, and then binary search to that trie node as the first step when you type a letter... 
+	 probably on the order of like a million nodes, so like 40 function calls to get to the node, which is not awful, but not as fast as already having an entity 
+	 sitting at an array location that already is the trie node!)
+
 
 =======================
 command tutorial series
@@ -82,7 +87,7 @@ https://github.com/skylinerw/guides
 can we get arrays now by reading/writing? no because paths (e.g. Pos[2]) are still hardcoded...
 can have arrays using e.g. array of structure blocks in the world and poking their PosX nbt data or something.
 
-'the carets' give us easy sin/cos/tan, 'facing' gives arcsin/arccos/arctan...
+'the carets' give us easy sin/cos/tan, 'facing' gives arcsin/arccos/arctan... but we still don't have sqrt (or distance from x to y)
 
 should I always have a long-lived entity tagged temp & uuid'd, for various debugging etc? D-E-B-0-6?
 

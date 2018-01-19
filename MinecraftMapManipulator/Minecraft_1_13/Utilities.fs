@@ -73,12 +73,16 @@ type DataPackArchive(worldSaveFolder, packName, description) =
     let zipFileStream = new System.IO.FileStream(zipFileName, System.IO.FileMode.Create)  // will overwrite existing
     let zipArchive = new System.IO.Compression.ZipArchive(zipFileStream, System.IO.Compression.ZipArchiveMode.Create) //, false, System.Text.Encoding.ASCII)
     let mutable funcCount = 0
+    let validate(ns:string,name:string) =
+        if ns.ToLowerInvariant() <> ns then failwithf "bad ns: %s" ns
+        if name.ToLowerInvariant() <> name then failwithf "bad name: %s" name
     do
         let mcmetaEntry = zipArchive.CreateEntry("pack.mcmeta", System.IO.Compression.CompressionLevel.NoCompression)
         use w = new System.IO.StreamWriter(mcmetaEntry.Open())
         let meta = sprintf """{ "pack": { "pack_format": 1, "description": "%s" } }""" description
         w.WriteLine(meta)
     member this.WriteFunction(ns,name,code:seq<string>) =
+        validate(ns,name)
         funcCount <- funcCount + 1
         // NOTE: do not use System.IO.Path.Combine(), as it uses '\' as a separator, but zip-compliance requires '/'
         let path = sprintf "data/%s/functions/%s.mcfunction" ns name
@@ -87,13 +91,21 @@ type DataPackArchive(worldSaveFolder, packName, description) =
         for s in code do
             w.WriteLine(s)
     member this.WriteFunctionTagsFileWithValues(ns,name,values:seq<string>) =
+        validate(ns,name)
         let path = sprintf "data/%s/tags/functions/%s.json" ns name
         let entry = zipArchive.CreateEntry(path, System.IO.Compression.CompressionLevel.NoCompression)
         use w = new System.IO.StreamWriter(entry.Open())
         let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)
         w.WriteLine(sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))
     member this.WriteAdvancement(ns,name,fileContents:string) =
+        validate(ns,name)
         let path = sprintf "data/%s/advancements/%s.json" ns name
+        let entry = zipArchive.CreateEntry(path, System.IO.Compression.CompressionLevel.NoCompression)
+        use w = new System.IO.StreamWriter(entry.Open())
+        w.WriteLine(fileContents)
+    member this.WriteRecipe(ns,name,fileContents:string) =
+        validate(ns,name)
+        let path = sprintf "data/%s/recipes/%s.json" ns name
         let entry = zipArchive.CreateEntry(path, System.IO.Compression.CompressionLevel.NoCompression)
         use w = new System.IO.StreamWriter(entry.Open())
         w.WriteLine(fileContents)
@@ -103,7 +115,7 @@ type DataPackArchive(worldSaveFolder, packName, description) =
         zipArchive.Dispose()
         zipFileStream.Close()
         zipFileStream.Dispose()
-//        printfn "%d functions written" funcCount
+        printfn "%d functions written" funcCount
 
 //////////////////////////////////////////////////////////////
 // uuid stuff

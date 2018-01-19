@@ -12,9 +12,9 @@
 //  - quick stack to nearby chests (particle animations) - how to invoke? clickable sign?
 // algorithms are complicated and may be expensive, work them out
 
-let STACKABLES = [|"cobblestone";"diorite"|]  // TODO run out of RAM with more, test when launcher works to allocate RAM
+//let STACKABLES = [|"cobblestone";"diorite"|]  // TODO run out of RAM with more, test when launcher works to allocate RAM
 //let STACKABLES = MC_Constants.STACKABLE_TO_64_ITEM_IDS
-//let STACKABLES = MC_Constants.PRAGMATIC_64_STACKABLES
+let STACKABLES = MC_Constants.PRAGMATIC_64_STACKABLES
 (*
      Total Files Listed:
             8201 File(s)     46,004,791 bytes

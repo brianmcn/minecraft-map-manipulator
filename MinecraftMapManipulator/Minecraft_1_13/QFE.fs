@@ -103,6 +103,7 @@ let main() =
             sprintf "scoreboard players set $ENTITY notYet%03d 0" !itemNum
             sprintf "scoreboard players add @p Items 1"
             sprintf "setblock %d %d %d emerald_block" x y z
+            // TODO consider /particle minecraft:dust 1.0 0.5 0.5 1 ^ ^2 ^2 0 0 0 0 20 force as it's more 'confineable' (r g b 1 x y z dx dy dz spd ct)
             sprintf "particle minecraft:firework %d %d.8 %d 1.0 1.0 1.0 0.01 20" ix iy iz
             sprintf "particle minecraft:firework %d %d.8 %d 0.1 0.1 0.1 0.01 20" ix iy iz
             sprintf "execute at @p run playsound entity.firework.launch ambient @p ~ ~ ~"

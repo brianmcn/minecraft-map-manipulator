@@ -17,6 +17,19 @@ E&T ideas
 fun: two wall signs back to back can support one another - place one on wall, then replace wall with sign via commands
 
 
+// game mechanics
+new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs with 'processed', and run some function on unprocessed ones (event from base pack)
+ - then e.g. client pack can make e.g. 'prospector', if player y < 50 and on(in) rails, a newly spawned zombie at some range might hold a pickaxe and wear special armor and get a name
+ - underground slimes could place/update a structure block under bedrock that counts slimes, used for finding slime chunks somehow in survival? (sound when in those chunks? only creative players see structure outlines)
+ - a rare bat spawns 10 more bats - bat-cave? (ambiance)
+
+potion of echolocation? gives 'glowing' to all nearby mobs (see what you hear)
+
+increase leather drops from cows (early game armor?)
+
+
+
+
 Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
     gamerule doLimitedCrafting true      recipe take @p <name>     then later 'give' it back or have a knowledge book gift it
 Like previous season, but with choice rather than linear (craft a knowledge book to 'choose', nametag with custom nbt found in loot chests could be good 'fragment' that gets crafted into knowledge_book? 'command block' is another 'inert material item' for survival players (cannot place/use))

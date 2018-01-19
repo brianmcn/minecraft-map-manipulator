@@ -23,7 +23,8 @@ type PatternKey =
 type Recipe =
     | ShapedCrafting of PatternKey * (*result*)MS * int
     | ShapelessCrafting of (*ingredients*)MS[] * (*result*)MS * int
-    member this.Write(w:System.IO.TextWriter) =
+    member this.AsJsonString() =
+        use w = new System.IO.StringWriter()
         let ICH s = s |> Seq.toArray |> (fun a -> Array.init a.Length (fun i -> a.[i], if i<>a.Length-1 then "," else "")) // interspersed comma helper
         w.WriteLine("""{""")
         match this with
@@ -46,20 +47,11 @@ type Recipe =
             w.WriteLine("""    },""")
             w.WriteLine("""    "result": { "item": """+quote(result.ToString())+""", "count": """+resultCount.ToString()+""" }""")
         w.WriteLine("""}""")
-
-let writeRecipes(recipes, worldSaveFolder, datapackName, ns) =
-    let RECIPE_DIR = System.IO.Path.Combine(worldSaveFolder, "datapacks", datapackName, "data", ns, "recipes")
-    for name,(recipe:Recipe) in recipes do
-        let FIL = System.IO.Path.Combine(RECIPE_DIR, name+".json")
-        if name.ToLowerInvariant() <> name then failwithf "bad recipe name: %s" name
-        use w = new System.IO.StringWriter()
-        recipe.Write(w)
-        Utilities.ensureDirOfFile(FIL)
-        System.IO.File.WriteAllText(FIL, w.GetStringBuilder().ToString())
+        w.GetStringBuilder().ToString()
 
 let test_recipe() =
     let PACK_NAME = "Recipes"
-    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestIgloo""")
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestWarpPoints""")
     let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "custom recipes")
-    writeRecipes([|"foo", ShapelessCrafting([|MC"stick";MC"stone"|],MC"bone_meal",2)|],
-        FOLDER, PACK_NAME, "blah")
+    pack.WriteRecipe("blah","foo",ShapelessCrafting([|MC"stick";MC"stone"|],MC"bone_meal",2).AsJsonString())
+    pack.SaveToDisk()
