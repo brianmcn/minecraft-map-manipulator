@@ -350,7 +350,7 @@ let connected_mining_functions = [|
                 sprintf "execute if entity @s[scores={remain%s=1..}] run function tc:chop_body_%s_%s" suffixS suffixF bi
                 |]
             yield sprintf "chop_body_%s_%s" suffixF bi,[|
-                yield sprintf "setblock ~ ~ ~ air" // destroy"
+                yield sprintf "setblock ~ ~ ~ air"
                 yield sprintf "scoreboard players remove @s remain%s 1" suffixS
                 for dir in dirs do
                     yield sprintf "execute positioned %s if block ~ ~ ~ %s run function tc:chop_check_%s_%s" dir b suffixF bi

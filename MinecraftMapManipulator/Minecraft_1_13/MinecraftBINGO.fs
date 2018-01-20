@@ -3,8 +3,6 @@
 let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
-// TODO use refactored compiler in other contraptions
-
 // TODO oh yeah, nether is buggy
 // TODO arrow to spawn while in nether (remove? point to entry portal?)
 // TODO experiment with nether teleports, can I add nether items?
@@ -22,6 +20,7 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // versus those who enjoy the item or those who will happily skip to another card if this card isn't to their liking.  It is also maybe a shame that there are so
 // few unique probabilities; if enderpearl were 5/6 and slimeball were 1/6 in the bin, for example... hm, I could make each bin have 6 items and futz with probabilities more...
 // and then have e.g. 3 enderpearl, 2 rabbit hide, 1 slimeball; double-chests still enable the bin-visualization... ench book and maybe cake could be less, lime could be 50%...
+// LATER: if add nether items, will need a way to select item-subsets-to-use, so that will address
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/ (prob not until 1.14)
 
@@ -40,10 +39,6 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // TODO config option to give teammates 'glowing' (only when away from lobby? is annoying there?)
 
 // TODO evaluate new items, other new features
-
-// TODO zip up pack (Amber-chan: The speedup from zipping a large pack can be significant, like 10x in some cases)
-// TODO also zip up in-F#-process, so only writing one file to disk (to avoid windows virus checker bottleneck writing 100k files)
-// TODO but wait for https://bugs.mojang.com/browse/MC-124122 fix to do it, see https://msdn.microsoft.com/en-us/library/hh158346(v=vs.110).aspx for some apis
 
 // TODO decide what 'loadouts' need to ship in-game (vanilla; NV; NV+start-with-boats; NV+DS; starting chest... are ones I know are used) - so long as I can 'ship' them out-of-band with separate datapack, prefer minimal
 //   - but figure how how OOB alternatives work here in terms of exclusive-selection UI from lobby...
@@ -187,7 +182,7 @@ let FAKE = compiler.FakePlayerName
 let NONUUID_TAG = "tag=nonuuidguy,x=67,y=4,z=67,distance=..1.0,limit=1"
 let XH_TAG = "tag=XHguy,x=4,y=4,z=84,distance=..1.0,limit=1"
 let LW_TAG = "tag=LWguy,x=84,y=4,z=84,distance=..1.0,limit=1"
-let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" LW_TAG  // TODO score not on this entity
+let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" LW_TAG
 let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
 
 ///////////////////////////////////////////////////////
@@ -228,7 +223,6 @@ let game_objectives = [|
     yield "TEMP"  // a temporary variable anyone can use locally
     // bingo main game logic
     yield "Score"
-    yield "teamNum"            // on players, 1=red, 2=blue, 3=green, 4=yellow; useful for finding all teammates
     yield "fakeStart"
     yield "lockoutGoal"
     yield "numActiveTeams"
@@ -443,7 +437,6 @@ let game_functions = [|
     yield "assign_1_team",[|
         yield "team join red @a"
         yield "scoreboard players add @a Score 0"
-        yield "scoreboard players set @a[team=red] teamNum 1"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "assign_2_team",[|
@@ -452,8 +445,6 @@ let game_functions = [|
             yield "team join red @r[team=]"
             yield "team join blue @r[team=]"
         yield "scoreboard players add @a Score 0"
-        yield "scoreboard players set @a[team=red] teamNum 1"
-        yield "scoreboard players set @a[team=blue] teamNum 2"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "assign_3_team",[|
@@ -463,9 +454,6 @@ let game_functions = [|
             yield "team join blue @r[team=]"
             yield "team join green @r[team=]"
         yield "scoreboard players add @a Score 0"
-        yield "scoreboard players set @a[team=red] teamNum 1"
-        yield "scoreboard players set @a[team=blue] teamNum 2"
-        yield "scoreboard players set @a[team=green] teamNum 3"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     yield "assign_4_team",[|
@@ -476,20 +464,12 @@ let game_functions = [|
             yield "team join green @r[team=]"
             yield "team join yellow @r[team=]"
         yield "scoreboard players add @a Score 0"
-        yield "scoreboard players set @a[team=red] teamNum 1"
-        yield "scoreboard players set @a[team=blue] teamNum 2"
-        yield "scoreboard players set @a[team=green] teamNum 3"
-        yield "scoreboard players set @a[team=yellow] teamNum 4"
         yield sprintf "function %s:compute_lockout_goal" NS
         |]
     for t in TEAMS do
         yield sprintf"%s_team_join"t, [|
             sprintf "team join %s" t
             "scoreboard players add @s Score 0"
-            "scoreboard players set @a[team=red] teamNum 1"
-            "scoreboard players set @a[team=blue] teamNum 2"
-            "scoreboard players set @a[team=green] teamNum 3"
-            "scoreboard players set @a[team=yellow] teamNum 4"
             sprintf "function %s:compute_lockout_goal" NS
             |]
     // Note: the book_text_entities are shared by child packs as well
@@ -533,7 +513,7 @@ let game_functions = [|
         yield sprintf "function %s:new_card_coda" NS
         |]
     yield "choose_random_seed",[|
-        // interject actual randomness, rather than deterministic pseudo  // TODO can summon a single entity and "data get" read its uuidleast to get some truly random bits? test if that actually works, with scale factor 1/2^32 can get most signif bits, not least
+        // interject actual randomness, rather than deterministic pseudo
         yield "kill @e[tag=aec]"
         for _i = 1 to 10 do
             yield """summon area_effect_cloud 4 4 4 {Duration:2,Tags:["aec"]}"""
@@ -1015,10 +995,8 @@ let checker_functions = [|
                 if s <> "33" then
                     yield sprintf "execute if $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
             yield sprintf """execute if $SCORE(gotItems=1,hasAnyoneUpdated=0,optaival=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
-            // Note teamNum set in root check call; TODO remove teamNum if unused
-            yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
             yield sprintf "execute if $SCORE(gotItems=1,optfival=1,optaotval=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
-            yield sprintf "execute if $SCORE(gotItems=1,optfival=1,optaotval=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf "execute if $SCORE(gotItems=1,optfival=1,optaotval=1) as @a[team=%s] at @s run playsound entity.firework.launch ambient @s ~ ~ ~" t
             yield sprintf "execute if $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
@@ -1145,7 +1123,6 @@ let checker_functions = [|
             |]
         yield! binary_dispatch(0,127)
         yield sprintf "inv/check%s" s, [|
-            "scoreboard players operation $ENTITY teamNum = @s teamNum"
             sprintf "function %s:inv/check%s_0_127" NS s
         |]
     |]

@@ -6,13 +6,15 @@
 // each compiler will generate its own scoreboard objectives suffixed with e.g. xy, two user-specified characters objChar1/objChar2
 #if USE_ENTITY_FOR_SCORES
 // each compiler will share the same score entity scoreAS located near spawn
+#else
+// each compiler will share the same fake player named FAKE for scores
 #endif
 
-// TODO it seems like fake-player scores are better than entity scores now, any reason not to switch to fake players? no, do it. (tellraw works with fake players, execute-store to fake players works, ...)
+// TODO clean up this code
 
 let FOLDER = "compiler"
 
-// a basic abstraction over a single canonical entity ($ENTITY) for scores ($SCORE), as well as execution over time ($NTICKLATER)
+// a basic abstraction over a single canonical entity or fake-player for scoreboards ($ENTITY) and for score conditions (if $SCORE/unless $SCORE), as well as execution over time ($NTICKLATER)
 type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
     let objectiveSuffix = sprintf "%c%c" objChar1 objChar2
     let NUM_PENDING_CONT = sprintf "numPendingCont%s" objectiveSuffix
@@ -34,7 +36,7 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
 #endif
     let allCallbackShortNames = ResizeArray()
     let continuationNum = ref 1
-    let newName() =    // names are like 'cont6'... this is used as scoreboard objective name, and then function full name will be compiler/cont6
+    let newName() =    // names are like 'cont6xy'... this is used as scoreboard objective name, and then function full name will be compiler/cont6xy
         let r = sprintf "cont%d%s" !continuationNum objectiveSuffix
         incr continuationNum
         r
@@ -180,6 +182,7 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
         userNS, FOLDER+"/one_time_init", [|
             for cbn in allCallbackShortNames do
                 yield sprintf "scoreboard players set %s %s 0" FAKE cbn
+            yield sprintf "scoreboard players set %s %s 0" FAKE NUM_PENDING_CONT
             |]
         userNS, FOLDER+"/load", [|
             if doProfiling then
@@ -191,11 +194,11 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
 #if USE_ENTITY_FOR_SCORES
             yield sprintf "scoreboard players set @e[tag=scoreAS] %s 0" NUM_PENDING_CONT  // TODO setting this at /reload time means in-flight continuations are lost at save&exit, this should be a one-time init
 #else
-            yield sprintf "scoreboard players set %s %s 0" FAKE NUM_PENDING_CONT  // TODO setting this at /reload time means in-flight continuations are lost at save&exit, this should be a one-time init
 #endif
             |]
         // Note: I think #load-initializations must be commutative and idempotent, and must handle both first-time and already-existing world state.
         userNS, FOLDER+"/load_entity_init", [|
+#if USE_ENTITY_FOR_SCORES
             // use NUM_PENDING_CONT as local temp variable, since only objective we know exists  // TODO no, this stomps world state at save&exit
             
             // look up location of world spawn, assuming this func called from #load at spawn, and then ensure scoreAS x y z is close enough (dx and dz each <160), else warn/fail
@@ -213,7 +216,6 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
                 yield sprintf "scoreboard players remove @s %s %d" NUM_PENDING_CONT -scoreASz
             yield sprintf """execute unless entity @s[scores={%s=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS z coordinate too far from world spawn, dz:",{"score":{"name":"@s","objective":"%s"}}]""" NUM_PENDING_CONT NUM_PENDING_CONT
 
-#if USE_ENTITY_FOR_SCORES
             // count the number of scoreAS in the world
             yield sprintf "execute store result score @s %s if entity @e[%s]" NUM_PENDING_CONT ENTITY_TAG
             // if was zero, summon one
