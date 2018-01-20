@@ -308,7 +308,7 @@ let ORE_DIRS = [|
     "~-1 ~00 ~00"
     "~00 ~-1 ~00"
     |]
-let MAX = 150  // TODO appropriate limit?
+let MAX = 150
 let connected_mining_functions = [|
     for suffixF,suffixS,tag,blocks,dirs in ["tc","TC","TC",LOGS,TREE_DIRS;
                                             "vm","VM","VM",ORES,ORE_DIRS] do
@@ -319,7 +319,6 @@ let connected_mining_functions = [|
             for b,_ in blocks do
                 yield sprintf "scoreboard objectives add %s%s minecraft.mined:minecraft.%s" b suffixS b
             |]
-        // TODO condier having treecapitator 1: move mined blocks to you and 2: increase randomTickSpeed for a few seconds, so leaves decay quick (grows crops too?)
         yield sprintf"tick_%s"suffixF,[|
             sprintf "scoreboard players set @a isHolding%s 0" suffixS
             sprintf "scoreboard players set @a[nbt={SelectedItem:{tag:{%s:1}}}] isHolding%s 1" tag suffixS  // TODO pick a real item tag
@@ -331,14 +330,15 @@ let connected_mining_functions = [|
             for b,_ in blocks do
                 yield sprintf "scoreboard players set @s %s%s 0" b suffixS
             |]
+        let ITEMSEL(bi) = sprintf """@e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"},PickupDelay:10s}]""" bi
         yield sprintf"check_mined_%s"suffixF,[|
             for b,bi in blocks do
-                yield sprintf """execute if entity @s[scores={%s%s=1..}] at @s at @e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"}}] run function tc:chop_start_%s_%s""" b suffixS bi suffixF bi
-                // TODO consider PickupDelay:10s as a filter on item-just-broken maybe
+                yield sprintf "execute if entity @s[scores={%s%s=1..}] at @s at %s run function tc:chop_start_%s_%s" b suffixS (ITEMSEL bi) suffixF bi
             |]
         for b,bi in blocks do
             yield sprintf "chop_start_%s_%s" suffixF bi,[|
-                sprintf "scoreboard players set @s remain%s %d" suffixS MAX 
+                sprintf "scoreboard players set @s remain%s %d" suffixS (MAX+1)  // MAX+1 because we decrement 'remain' at start when found item entity (which will get tp'd to player), even though not breaking a block
+                sprintf "execute at @s run tp %s ~ ~ ~" (ITEMSEL bi)
                 sprintf "function tc:chop_check_%s_%s" suffixF bi
                 sprintf "function tc:give_%s_%s" suffixF bi
                 sprintf "function tc:reset_stats_%s" suffixF
@@ -356,7 +356,7 @@ let connected_mining_functions = [|
                     yield sprintf "execute positioned %s if block ~ ~ ~ %s run function tc:chop_check_%s_%s" dir b suffixF bi
                 |]
             yield sprintf "give_%s_%s" suffixF bi,[|
-                sprintf "execute if entity @s[scores={remain%s=..%d}] run give @s %s 1" suffixS (MAX-1) bi
+                sprintf "execute if entity @s[scores={remain%s=..%d}] run give @s %s 1" suffixS (MAX-1) bi // MAX-1 because we want to test <MAX
                 sprintf "scoreboard players add @s remain%s 1" suffixS 
                 sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:give_%s_%s" suffixS (MAX-1) suffixF bi
                 |]
