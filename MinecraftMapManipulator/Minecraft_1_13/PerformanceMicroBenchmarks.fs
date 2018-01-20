@@ -126,6 +126,7 @@ let main() =
 
         // convenience for various tests to use:
         "scoreboard objectives add TEMP_OBJ dummy"
+        "scoreboard objectives add TMP2_OBJ dummy"
 
         "say datapack loaded, initialization complete"
         "say after terrain all loaded and settled, run"
@@ -194,6 +195,26 @@ let main() =
     // selector score literals versus 'matches'
     profileThis("scorelitsel",OUTER,INNER,1,["scoreboard players set @s TEMP_OBJ 1"],["execute unless entity @s[scores={TEMP_OBJ=1}] run function test:fail"],[])
     profileThis("scorelitmat",OUTER,INNER,1,["scoreboard players set @s TEMP_OBJ 1"],["execute unless score @s TEMP_OBJ matches 1 run function test:fail"],[])
+
+    // fake player versus known-location entity versus @s
+    for k,v in SELECTORS_WITH_FAKE do
+        if k = "s" then
+            let s = v+"["
+            profileThis("fake_v_ent_0_s"  ,OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v;sprintf "scoreboard players set %s TMP2_OBJ 2" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=1,TMP2_OBJ=2}] run function test:fail" s],[])
+            profileThis("fake_v_ent_1_s"  ,OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=1}] run function test:fail" s],[])
+            profileThis("fake_v_ent_2_s"  ,OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=1..}] run function test:fail" s],[])
+            profileThis("fake_v_ent_3_s"  ,OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 0" v],[sprintf "scoreboard players add %s TEMP_OBJ 1" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=%d}] run function test:fail" s (OUTER*INNER)])
+        if k = "tagdist" then
+            let s = v.Substring(0,v.Length-1)+","
+            profileThis("fake_v_ent_0_ent",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v;sprintf "scoreboard players set %s TMP2_OBJ 2" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=1,TMP2_OBJ=2}] run function test:fail" s],[])
+            profileThis("fake_v_ent_1_ent",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=1}] run function test:fail" s],[])
+            profileThis("fake_v_ent_2_ent",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=1..}] run function test:fail" s],[])
+            profileThis("fake_v_ent_3_ent",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 0" v],[sprintf "scoreboard players add %s TEMP_OBJ 1" v],[sprintf "execute unless entity %sscores={TEMP_OBJ=%d}] run function test:fail" s (OUTER*INNER)])
+        if k = "fake" then
+            profileThis("fake_v_ent_0_fak",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v;sprintf "scoreboard players set %s TMP2_OBJ 2" v],[sprintf "execute unless score %s TEMP_OBJ matches 1 unless score %s TMP2_OBJ matches 2 run function test:fail" v v],[])
+            profileThis("fake_v_ent_1_fak",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v],[sprintf "execute unless score %s TEMP_OBJ matches 1 run function test:fail" v],[])
+            profileThis("fake_v_ent_2_fak",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 1" v],[sprintf "execute unless score %s TEMP_OBJ matches 1.. run function test:fail" v],[])
+            profileThis("fake_v_ent_3_fak",OUTER,INNER,1,[sprintf "scoreboard players set %s TEMP_OBJ 0" v],[sprintf "scoreboard players add %s TEMP_OBJ 1" v],[sprintf "execute unless score %s TEMP_OBJ matches %d run function test:fail" v (OUTER*INNER)])
 
     // type=player versus @a
     profileThis("ei-ep",OUTER,INNER,1,[],[sprintf "execute unless entity @e[type=player] run function test:fail"],[])

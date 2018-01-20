@@ -29,10 +29,15 @@ let WP_MAX = 40
 let WP_LOBBY_LENGTH = WP_MAX/2 + 4
 let WP_LOBBY_WIDTH = 5
 let WP_LOBBY_HEIGHT = 4
+let bookNBT = Utilities.writtenBookNBTString("Lorgon111","Welcome to Warp Zone!",[|
+    "\"You can place a Warp Point anywhere in the world to create a two-way teleporter to/from here.\\n\\nThe signs in this lobby allow you to teleport to any Warp Point.\\n\\nAlso...\""
+    "\"Check the sign at the end of the room for an extra challenge.\""
+    |], null)
 let lobby_functions = [|
     yield "init_stone_lobby", [|
         sprintf "fill %d %d %d %d %d %d air" (WP_X-1) (WP_Y-1) (WP_Z-1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+WP_LOBBY_HEIGHT) (WP_Z+WP_LOBBY_WIDTH)
         sprintf "fill %d %d %d %d %d %d stone hollow" (WP_X-1) (WP_Y-1) (WP_Z-1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+WP_LOBBY_HEIGHT) (WP_Z+WP_LOBBY_WIDTH)
+        sprintf """summon item_frame %d %d %d {Facing:5b,Item:{id:"minecraft:written_book",Count:1b,tag:%s}}""" (WP_X) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2) bookNBT 
         |]
     yield "recreate_lobby_essentials", [|
         yield sprintf "fill %d %d %d %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z-1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z-1)
@@ -44,9 +49,8 @@ let lobby_functions = [|
         yield sprintf "fill %d %d %d %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH+1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH)
         yield sprintf "setblock %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2)
         yield sprintf "setblock %d %d %d sea_lantern" (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2)
-        // TODO clickable function
+        // TODO clickable function, qfe and wp lobby can be nearby each other in a The Void biome far in the world
         yield! placeWallSignCmds "" (WP_X+WP_LOBBY_LENGTH) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2) "west" "WARP TO" "Quest for" "Everything" "Lobby" "say click" true
-        // TODO item frame with written book explaining it
         |]
     for i = 1 to WP_MAX do
         yield sprintf "warp_to_wp%d" i,[|
@@ -95,7 +99,7 @@ let creation_functions = [|
             yield sprintf "scoreboard objectives add wp%dz dummy" i
             yield sprintf "scoreboard objectives add wp%dd dummy" i     // dimension: 0 overworld, -1 nether, 1 end
             yield sprintf "scoreboard players set $ENTITY wp%dy -1" i
-        yield """give @p bat_spawn_egg{EntityTag:{Tags:["cwpBat"]}} 1"""  // TODO remove
+        yield """give @p bat_spawn_egg{EntityTag:{Tags:["cwpBat"]},display:{Name:"\"Create Warp Point\"",Lore:["\"test\""]}} 1"""  // TODO add lore   TODO make this a recipe or whatnot
         // nearby_behavior
         yield "scoreboard objectives add countdown dummy"
         |]
@@ -112,15 +116,19 @@ let creation_functions = [|
         for i = 1 to WP_MAX do
             yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"\"Warp %d\"",Tags:["wp","wp%d"]}""" i i i
             yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
-        yield "kill @s"
+        yield "tp @s ~ 250 ~"
+        yield "$NTICKSLATER(2)"
+        yield "kill @e[tag=cwpBat]" // note: bat is no longer @s!
         |]
     for i = 1 to WP_MAX do
         yield sprintf "create_new_warp_point_coda%d" i, [|
+            "say hi"
             "execute align xyz positioned ~0.5 ~0.0 ~0.5 run teleport @s ~ ~ ~"
             sprintf "execute store result score $ENTITY wp%dx run data get entity @s Pos[0] 1.0" i
             sprintf "execute store result score $ENTITY wp%dy run data get entity @s Pos[1] 1.0" i
             sprintf "execute store result score $ENTITY wp%dz run data get entity @s Pos[2] 1.0" i
             sprintf "execute store result score $ENTITY wp%dd run data get entity @s Dimension 1.0" i
+            "execute at @s run playsound minecraft:block.anvil.land block @a ~ ~ ~ 0.2 1.0"
             "execute at @s run playsound minecraft:block.portal.trigger block @a ~ ~ ~ 0.2 1.0"
             """scoreboard players set $ENTITY found 1"""
             |]
@@ -153,7 +161,7 @@ let wp_c_main() =
 
 //    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "load", [compiler.LoadFullName;"wp:init"])
 //    Utilities.writeFunctionTagsFileWithValues(world, PACK_NAME, "minecraft", "tick", [compiler.TickFullName;"wp:tick"])
-    pack.WriteFunctionTagsFileWithValues("minecraft", "load", [compiler.LoadFullName;"wp:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft", "load", [compiler.LoadFullName;"wp:init"])  // TODO move init
     pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [compiler.TickFullName;"wp:tick"])
 
     pack.SaveToDisk()

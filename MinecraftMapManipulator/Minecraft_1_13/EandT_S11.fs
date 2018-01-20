@@ -20,10 +20,20 @@ fun: two wall signs back to back can support one another - place one on wall, th
 // game mechanics
 new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs with 'processed', and run some function on unprocessed ones (event from base pack)
  - then e.g. client pack can make e.g. 'prospector', if player y < 50 and on(in) rails, a newly spawned zombie at some range might hold a pickaxe and wear special armor and get a name
+ - rare mob could bring book lore to progression?  (time based? time query stuff?  progression based tech tree?)
+ - deep mob, e.g. special zombie, or skeleton with special arrow, that spawns rarely below y=20 or something
  - underground slimes could place/update a structure block under bedrock that counts slimes, used for finding slime chunks somehow in survival? (sound when in those chunks? only creative players see structure outlines)
  - a rare bat spawns 10 more bats - bat-cave? (ambiance)
 
+use /locate to build some kind of homing/structure-finding thingy
+    /execute store result score @p dist positioned ^ ^ ^20 run locate Mansion   // store distance to it from the context origin
+
+remote redstone, e.g. quark's 'ender watcher', a block that emits redstone signal when player looks at it
+
 potion of echolocation? gives 'glowing' to all nearby mobs (see what you hear)
+
+come up with some kind of 'reward' for building mob farm (e.g. cool thing costs lost of glowstone/redstone/bone/slimeball/... structure locators above?)
+    /give Lorgon111 minecraft:villager_spawn_egg{EntityTag:{Profession:1,Career:1,CareerLevel:999,Willing:1b,Offers:{Recipes:[{uses:0,maxUses:999,buy:{id:"minecraft:coal",Count:33b},sell:{id:"minecraft:stone",Count:2b}}]}}} 1
 
 increase leather drops from cows (early game armor?)
 
@@ -298,6 +308,7 @@ let ORE_DIRS = [|
     "~-1 ~00 ~00"
     "~00 ~-1 ~00"
     |]
+let MAX = 150  // TODO appropriate limit?
 let connected_mining_functions = [|
     for suffixF,suffixS,tag,blocks,dirs in ["tc","TC","TC",LOGS,TREE_DIRS;
                                             "vm","VM","VM",ORES,ORE_DIRS] do
@@ -308,6 +319,7 @@ let connected_mining_functions = [|
             for b,_ in blocks do
                 yield sprintf "scoreboard objectives add %s%s minecraft.mined:minecraft.%s" b suffixS b
             |]
+        // TODO condier having treecapitator 1: move mined blocks to you and 2: increase randomTickSpeed for a few seconds, so leaves decay quick (grows crops too?)
         yield sprintf"tick_%s"suffixF,[|
             sprintf "scoreboard players set @a isHolding%s 0" suffixS
             sprintf "scoreboard players set @a[nbt={SelectedItem:{tag:{%s:1}}}] isHolding%s 1" tag suffixS  // TODO pick a real item tag
@@ -326,27 +338,39 @@ let connected_mining_functions = [|
             |]
         for b,bi in blocks do
             yield sprintf "chop_start_%s_%s" suffixF bi,[|
-                sprintf "scoreboard players set @s remain%s 500" suffixS  // TODO appropriate limit?
+                sprintf "scoreboard players set @s remain%s %d" suffixS MAX 
                 sprintf "function tc:chop_check_%s_%s" suffixF bi
+                sprintf "function tc:give_%s_%s" suffixF bi
                 sprintf "function tc:reset_stats_%s" suffixF
+                "gamerule randomTickSpeed 100"
+                "$NTICKSLATER(80)"
+                "gamerule randomTickSpeed 3"
                 |]
             yield sprintf "chop_check_%s_%s" suffixF bi,[|
                 sprintf "execute if entity @s[scores={remain%s=1..}] run function tc:chop_body_%s_%s" suffixS suffixF bi
                 |]
             yield sprintf "chop_body_%s_%s" suffixF bi,[|
-                yield sprintf "setblock ~ ~ ~ air destroy"
+                yield sprintf "setblock ~ ~ ~ air" // destroy"
                 yield sprintf "scoreboard players remove @s remain%s 1" suffixS
                 for dir in dirs do
                     yield sprintf "execute positioned %s if block ~ ~ ~ %s run function tc:chop_check_%s_%s" dir b suffixF bi
+                |]
+            yield sprintf "give_%s_%s" suffixF bi,[|
+                sprintf "execute if entity @s[scores={remain%s=..%d}] run give @s %s 1" suffixS (MAX-1) bi
+                sprintf "scoreboard players add @s remain%s 1" suffixS 
+                sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:give_%s_%s" suffixS (MAX-1) suffixF bi
                 |]
     |]
 let tc_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
     let pack = new Utilities.DataPackArchive(world,"multi_miner","cut down entire trees or mine entire ore veins")
-    pack.WriteFunctionTagsFileWithValues("minecraft","load",["tc:init_tc";"tc:init_vm"])
-    pack.WriteFunctionTagsFileWithValues("minecraft","tick",["tc:tick_tc";"tc:tick_vm"])
-    for name,code in connected_mining_functions do
-        pack.WriteFunction("tc",name,code)
+    let compiler = new Compiler.Compiler('v','m',"tc",1,100,1,false)
+    for ns,name,code in [for name,code in connected_mining_functions do yield! compiler.Compile("tc",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"tc:init_tc";"tc:init_vm"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"tc:tick_tc";"tc:tick_vm"])
     pack.SaveToDisk()
 
 

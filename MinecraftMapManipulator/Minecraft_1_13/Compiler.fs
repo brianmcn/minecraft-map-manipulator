@@ -6,6 +6,8 @@
 // each compiler will generate its own scoreboard objectives suffixed with e.g. xy, two user-specified characters objChar1/objChar2
 // each compiler will share the same score entity scoreAS located near spawn
 
+// TODO it seems like fake-player scores are better than entity scores now, any reason not to switch to fake players? no, do it. (tellraw works with fake players, execute-store to fake players works, ...)
+
 let FOLDER = "compiler"
 
 // a basic abstraction over a single canonical entity ($ENTITY) for scores ($SCORE), as well as execution over time ($NTICKLATER)
@@ -120,11 +122,11 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
             for cbn in allCallbackShortNames do
                 yield sprintf "scoreboard objectives add %s dummy" cbn
             yield sprintf "execute as @p run function %s:%s/load_entity_init" userNS FOLDER
-            yield sprintf "scoreboard players set @e[tag=scoreAS] %s 0" NUM_PENDING_CONT
+            yield sprintf "scoreboard players set @e[tag=scoreAS] %s 0" NUM_PENDING_CONT  // TODO setting this at /reload time means in-flight continuations are lost at save&exit, this should be a one-time init
             |]
         // Note: I think #load-initializations must be commutative and idempotent, and must handle both first-time and already-existing world state.
         userNS, FOLDER+"/load_entity_init", [|
-            // use NUM_PENDING_CONT as local temp variable, since only objective we know exists
+            // use NUM_PENDING_CONT as local temp variable, since only objective we know exists  // TODO no, this stomps world state at save&exit
             
             // look up location of world spawn, assuming this func called from #load at spawn, and then ensure scoreAS x y z is close enough (dx and dz each <160), else warn/fail
             yield sprintf "summon area_effect_cloud ~ ~ ~ {Duration:1,Tags:[loadaec]}"

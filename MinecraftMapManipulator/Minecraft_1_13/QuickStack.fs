@@ -12,7 +12,7 @@
 //  - quick stack to nearby chests (particle animations) - how to invoke? clickable sign?
 // algorithms are complicated and may be expensive, work them out
 
-//let STACKABLES = [|"cobblestone";"diorite"|]  // TODO run out of RAM with more, test when launcher works to allocate RAM
+//let STACKABLES = [|"cobblestone";"diorite"|]
 //let STACKABLES = MC_Constants.STACKABLE_TO_64_ITEM_IDS
 let STACKABLES = MC_Constants.PRAGMATIC_64_STACKABLES
 (*
@@ -61,7 +61,7 @@ let quickstack_functions = [|
                     sprintf """execute if entity @p[nbt={EnderItems:[{id:"minecraft:%s"}]}] run function qs:check_%s_body""" itemType itemType
                 |]
             yield sprintf "check_%s_body" itemType, [|
-                // TODO this won't stack X into empty spaces before the first X - bug or feature?
+                // this won't stack X into empty spaces before the first X - bug or feature? feature.
                 yield "scoreboard players set $ENTITY hasItem 0"
                 for i = 0 to 26 do
                     yield "scoreboard players set $ENTITY space 0"
