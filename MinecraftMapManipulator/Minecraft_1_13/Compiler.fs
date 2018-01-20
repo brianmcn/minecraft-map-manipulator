@@ -39,7 +39,7 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
                 let j = s.IndexOf(')',i)
                 let info = s.Substring(i+7,j-i-7)
                 let s = s.Remove(i,j-i+1)
-                let s = s.Insert(i,sprintf "@e[%s,scores={%s}]" ENTITY_TAG info)
+                let s = s.Insert(i,sprintf "entity @e[%s,scores={%s}]" ENTITY_TAG info)
                 replaceScores(s)
             else
                 s
@@ -69,9 +69,9 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
             else
                 [|s|], null
         let a = f |> Seq.toArray 
-        // $SCORE(...) is maybe e.g. "@e[tag=scoreAS,scores={...}]"
+        // $SCORE(...) is maybe e.g. "entity @e[tag=scoreAS,scores={...}]" or "score FAKE OBJ matches ..."
         let a = a |> Array.map replaceScores
-        // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]")
+        // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]") or fake player ("FAKE")
         let a = a |> Array.map (fun s -> s.Replace("$ENTITY",sprintf"@e[%s]"ENTITY_TAG))
         let r = [|
             let cur = ResizeArray()
@@ -194,7 +194,7 @@ let rec compile(s:string) =
         let j = s.IndexOf(')',i)
         let info = s.Substring(i+7,j-i-7)
         let s = s.Remove(i,j-i+1)
-        let s = s.Insert(i,sprintf "@p[scores={%s}]" info)
+        let s = s.Insert(i,sprintf "entity @p[scores={%s}]" info)
         compile(s)
     else
         s.Replace("$ENTITY","@p")

@@ -50,7 +50,7 @@ let quickstack_functions = [|
             |]
         yield sprintf "%s_helper" name,[|
             for i in range do
-                yield sprintf "execute if entity $SCORE(succ=1,slot=%d) run scoreboard players operation $ENTITY %sslot%d = $ENTITY count" i name i
+                yield sprintf "execute if $SCORE(succ=1,slot=%d) run scoreboard players operation $ENTITY %sslot%d = $ENTITY count" i name i
             |]
         yield sprintf "debug_%s" name, [|
             for i in range do
@@ -68,14 +68,14 @@ let quickstack_functions = [|
                     yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:%s"}]}] run scoreboard players set $ENTITY hasItem 1""" i itemType
                     yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:%s"}]}] run scoreboard players set $ENTITY space 64""" i itemType
                     yield sprintf """execute if entity @p[nbt={EnderItems:[{Slot:%db,id:"minecraft:%s"}]}] run scoreboard players operation $ENTITY space -= $ENTITY enderslot%d""" i itemType i
-                    yield sprintf """execute if entity $SCORE(hasItem=1,enderslot%d=0) run scoreboard players set $ENTITY space 64""" i
-                    yield sprintf """execute if entity $SCORE(space=1..) run scoreboard players set $ENTITY toFill %d""" i
-                    yield sprintf """execute if entity $SCORE(space=1..) run function qs:move_%s""" itemType
+                    yield sprintf """execute if $SCORE(hasItem=1,enderslot%d=0) run scoreboard players set $ENTITY space 64""" i
+                    yield sprintf """execute if $SCORE(space=1..) run scoreboard players set $ENTITY toFill %d""" i
+                    yield sprintf """execute if $SCORE(space=1..) run function qs:move_%s""" itemType
 
                 |]
             yield sprintf "move_%s" itemType, [|  // given a <toFill> (EC slot #) and a <space> (max count that can fit there yet, 64-current), finds some itemType in non-hotbar inv to move to EC slot ToFill
                 for i = 9 to 35 do
-                    yield sprintf """execute if entity $SCORE(space=1..) if entity @p[nbt={Inventory:[{Slot:%db,id:"minecraft:%s"}]}] run function qs:mv/move_%s_from_%d""" i itemType itemType i
+                    yield sprintf """execute if $SCORE(space=1..) if entity @p[nbt={Inventory:[{Slot:%db,id:"minecraft:%s"}]}] run function qs:mv/move_%s_from_%d""" i itemType itemType i
                 |]
             for i = 9 to 35 do
                 yield sprintf "mv/move_%s_from_%d" itemType i, [|
@@ -95,25 +95,25 @@ let quickstack_functions = [|
                     |]
             yield sprintf "incr_enderslot_%s" itemType, [| // sets ES[toFill] <- ES[toFill] + numMoved
                 for n = 0 to 64 do
-                    yield sprintf "execute if entity $SCORE(numMoved=%d) run function qs:incr/incr_enderslot_%s_by_%d" n itemType n
+                    yield sprintf "execute if $SCORE(numMoved=%d) run function qs:incr/incr_enderslot_%s_by_%d" n itemType n
                 |]
             for n = 1 to 64 do
                 yield sprintf "incr/incr_enderslot_%s_by_%d" itemType n, [| // sets ES[toFill] <- ES[toFill] + %d
                     for i = 0 to 26 do
-                        yield sprintf "execute if entity $SCORE(toFill=%d) run scoreboard players add $ENTITY enderslot%d %d" i i n
-                        yield sprintf "execute if entity $SCORE(toFill=%d) run scoreboard players operation $ENTITY toSet = $ENTITY enderslot%d" i i
-                        yield sprintf "execute if entity $SCORE(toFill=%d) run function qs:end/set_end%d_%s" i i itemType
+                        yield sprintf "execute if $SCORE(toFill=%d) run scoreboard players add $ENTITY enderslot%d %d" i i n
+                        yield sprintf "execute if $SCORE(toFill=%d) run scoreboard players operation $ENTITY toSet = $ENTITY enderslot%d" i i
+                        yield sprintf "execute if $SCORE(toFill=%d) run function qs:end/set_end%d_%s" i i itemType
                     |]
             for i = 9 to 35 do
                 yield sprintf "inv/set_inv%d_%s" i itemType, [| // inv[%d] <- toSet
-                    yield sprintf "execute if entity $SCORE(toSet=0) run replaceitem entity @p inventory.%d air 1" (i-9)
+                    yield sprintf "execute if $SCORE(toSet=0) run replaceitem entity @p inventory.%d air 1" (i-9)
                     for n = 1 to 63 do
-                        yield sprintf "execute if entity $SCORE(toSet=%d) run replaceitem entity @p inventory.%d %s %d" n (i-9) itemType n
+                        yield sprintf "execute if $SCORE(toSet=%d) run replaceitem entity @p inventory.%d %s %d" n (i-9) itemType n
                     |]
             for i = 0 to 26 do
                 yield sprintf "end/set_end%d_%s" i itemType, [| // end[%d] <- toSet
                     for n = 1 to 64 do
-                        yield sprintf "execute if entity $SCORE(toSet=%d) run replaceitem entity @p enderchest.%d %s %d" n i itemType n
+                        yield sprintf "execute if $SCORE(toSet=%d) run replaceitem entity @p enderchest.%d %s %d" n i itemType n
                     |]
         yield "quick_stack", [|
             yield "function qs:compute_ender_counts"
@@ -122,8 +122,8 @@ let quickstack_functions = [|
                 yield sprintf "function qs:check_%s" itemType
             |]
         yield "tick", [|
-            """execute unless entity $SCORE(enderInTopRight=1) if entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run function qs:just_moved_to_top_right"""
-            """execute if entity $SCORE(enderInTopRight=1) unless entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run scoreboard players set $ENTITY enderInTopRight 0"""
+            """execute unless $SCORE(enderInTopRight=1) if entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run function qs:just_moved_to_top_right"""
+            """execute if $SCORE(enderInTopRight=1) unless entity @p[nbt={Inventory:[{Slot:17b,id:"minecraft:ender_chest"}]}] run scoreboard players set $ENTITY enderInTopRight 0"""
             |]
         yield "just_moved_to_top_right", [|
             "scoreboard players set $ENTITY enderInTopRight 1"

@@ -20,21 +20,21 @@ module Blind =
                 "scoreboard players add $ENTITY blindEnabled 0"
                 |]
             yield "toggle_pack",[|
-                sprintf "execute if entity $SCORE(gameInProgress=0) run function blindsign:toggle_pack_body"
-                sprintf "execute unless entity $SCORE(gameInProgress=0) run tellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"
+                sprintf "execute if $SCORE(gameInProgress=0) run function blindsign:toggle_pack_body"
+                sprintf "execute unless $SCORE(gameInProgress=0) run tellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"
                 |]
             yield "toggle_pack_body",[|
                 // prelude
                 sprintf "tellraw @a [\"(game will lag as datapack is toggled, please wait)\"]"
                 // body
                 sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY blindEnabled"
-                sprintf "execute if entity $SCORE(blindEnabled=0) run datapack enable \"file/%s.zip\"" PACK_NAME
-                sprintf "execute if entity $SCORE(blindEnabled=0) run scoreboard players set $ENTITY blindEnabled 1"
-                sprintf "execute if entity $SCORE(TEMP=1) run function %s:teardown" PACK_NS
-                sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY blindEnabled 0"
+                sprintf "execute if $SCORE(blindEnabled=0) run datapack enable \"file/%s.zip\"" PACK_NAME
+                sprintf "execute if $SCORE(blindEnabled=0) run scoreboard players set $ENTITY blindEnabled 1"
+                sprintf "execute if $SCORE(TEMP=1) run function %s:teardown" PACK_NS
+                sprintf "execute if $SCORE(TEMP=1) run scoreboard players set $ENTITY blindEnabled 0"
                 // coda
-                sprintf "execute if entity $SCORE(TEMP=0) run tellraw @a [\"Blind bingo has been enabled\"]"
-                sprintf "execute if entity $SCORE(TEMP=1) run tellraw @a [\"Blind bingo has been disabled\"]"
+                sprintf "execute if $SCORE(TEMP=0) run tellraw @a [\"Blind bingo has been enabled\"]"
+                sprintf "execute if $SCORE(TEMP=1) run tellraw @a [\"Blind bingo has been disabled\"]"
                 |]
             yield "put_sign_in_lobby", [|
                 yield! MinecraftBINGO.placeWallSignCmds 70 26 77 "north" "toggle" "blind pack" "" "" "function blindsign:toggle_pack" true false
@@ -123,7 +123,7 @@ module Blind =
             sprintf "function %s:cover" PACK_NS
             |]
         yield "tick",[|
-            sprintf "execute if entity $SCORE(gameInProgress=0) run function %s:config_loop" PACK_NS 
+            sprintf "execute if $SCORE(gameInProgress=0) run function %s:config_loop" PACK_NS 
             |]
         yield "config_loop",[|
             yield sprintf "function %s:%s/%s" PACK_NS CFG Utilities.ConfigFunctionNames.LISTEN

@@ -192,16 +192,16 @@ let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:Config
                 | Toggle(desc) ->
                     yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY %sval" opt.ScoreboardPrefix 
                     // turn off
-                    yield sprintf "execute if entity $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix 
-                    yield sprintf """execute if entity $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" desc
+                    yield sprintf "execute if $SCORE(TEMP=1) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix 
+                    yield sprintf """execute if $SCORE(TEMP=1) run tellraw @a ["turning off: %s"]""" desc
                     // turn on
-                    yield sprintf "execute if entity $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt.ScoreboardPrefix
-                    yield sprintf """execute if entity $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" desc
+                    yield sprintf "execute if $SCORE(TEMP=0) run scoreboard players set $ENTITY %sval 1" opt.ScoreboardPrefix
+                    yield sprintf """execute if $SCORE(TEMP=0) run tellraw @a ["turning on: %s"]""" desc
                 | Radio(descs) ->
                     yield sprintf "scoreboard players add $ENTITY %sval 1" opt.ScoreboardPrefix 
-                    yield sprintf "execute if entity $SCORE(%sval=%d..) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix descs.Length opt.ScoreboardPrefix 
+                    yield sprintf "execute if $SCORE(%sval=%d..) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix descs.Length opt.ScoreboardPrefix 
                     for i = 0 to descs.Length-1 do
-                        yield sprintf """execute if entity $SCORE(%sval=%d) run tellraw @a ["turning on: %s"]""" opt.ScoreboardPrefix i descs.[i]
+                        yield sprintf """execute if $SCORE(%sval=%d) run tellraw @a ["turning on: %s"]""" opt.ScoreboardPrefix i descs.[i]
                 // boilerplate
                 yield sprintf "scoreboard players set @s %strig 0" opt.ScoreboardPrefix 
                 yield sprintf "scoreboard players enable @s %strig" opt.ScoreboardPrefix 
@@ -213,10 +213,10 @@ let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:Config
         yield ConfigFunctionNames.GET,[|
             for opt in configBook.FlatOptions do
                 yield sprintf "scoreboard players enable @s %strig" opt.ScoreboardPrefix 
-                yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextON] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
-                yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextON] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
-                yield sprintf "execute if entity $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextOFF] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
-                yield sprintf "execute if entity $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextOFF] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                yield sprintf "execute if $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextON] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                yield sprintf "execute if $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextON] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                yield sprintf "execute if $SCORE(%sval=1) run scoreboard players set @e[tag=bookTextOFF] %sval 0" opt.ScoreboardPrefix opt.ScoreboardPrefix 
+                yield sprintf "execute if $SCORE(%sval=0) run scoreboard players set @e[tag=bookTextOFF] %sval 1" opt.ScoreboardPrefix opt.ScoreboardPrefix 
             // Note: only one person in the world can have the config book, as we cannot keep multiple copies 'in sync'
             // todo they could store it in a chest or item frame or something in the lobby...
             yield sprintf "clear @a minecraft:written_book{%s:1}" uniqueTag

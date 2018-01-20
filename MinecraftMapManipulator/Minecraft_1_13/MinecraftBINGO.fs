@@ -261,7 +261,7 @@ let game_objectives = [|
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
     |]
 let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold onlyPlaceIfMultiplayer =
-    Utilities.placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold (if onlyPlaceIfMultiplayer then "execute if entity $SCORE(TEMP=2..) run " else "")
+    Utilities.placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold (if onlyPlaceIfMultiplayer then "execute if $SCORE(TEMP=2..) run " else "")
 let game_functions = [|
     yield "game_init", [|
         // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
@@ -293,7 +293,7 @@ let game_functions = [|
             let seedSignsEnabled = gip<>1
             let otherSignsEnabled = gip=0
             // sanity check
-            yield sprintf """execute unless entity $SCORE(gameInProgress=%d) run tellraw @a ["ERROR: place_signs%d was called but gameInProgress is ",{"score":{"name":"@e[%s]","objective":"gameInProgress"}}]""" gip gip ENTITY_TAG
+            yield sprintf """execute unless $SCORE(gameInProgress=%d) run tellraw @a ["ERROR: place_signs%d was called but gameInProgress is ",{"score":{"name":"@e[%s]","objective":"gameInProgress"}}]""" gip gip ENTITY_TAG
             // count the number of players, store in TEMP
             yield "scoreboard players set $ENTITY TEMP 0"
             yield "execute as @a run scoreboard players add $ENTITY TEMP 1"
@@ -553,9 +553,9 @@ let game_functions = [|
         |]
     yield "new_card_coda",[|
         yield "scoreboard players set $ENTITY fakeStart 0"
-        yield sprintf "execute unless entity $SCORE(gameInProgress=2) run function %s:reset_player_scores" NS
-        yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:finish1" NS
-        yield sprintf "execute if entity $SCORE(gameInProgress=0) run function %s:place_signs0" NS
+        yield sprintf "execute unless $SCORE(gameInProgress=2) run function %s:reset_player_scores" NS
+        yield sprintf "execute if $SCORE(gameInProgress=2) run function %s:finish1" NS
+        yield sprintf "execute if $SCORE(gameInProgress=0) run function %s:place_signs0" NS
         yield sprintf "function %s:cardgen_makecard" NS
         yield sprintf "function %s:compute_lockout_goal" NS
         yield sprintf "function #%s:on_new_card" NS
@@ -572,13 +572,13 @@ let game_functions = [|
         "scoreboard players operation $ENTITY minutes -= $ENTITY TWENTY_MIL"
         "scoreboard players operation Time Score = $ENTITY minutes"  // the reason to keep this is that chat text from getting items covers the actionbar, so want a way its visible
         // while 'minutes' objective has 'total seconds', do this
-        sprintf """execute if entity $SCORE(said25mins=0,minutes=1500) as @a run function %s:at25mins""" NS
+        sprintf """execute if $SCORE(said25mins=0,minutes=1500) as @a run function %s:at25mins""" NS
         // compute actual MM:SS and display
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
         "scoreboard players set $ENTITY preseconds -1"                                                 // briefly store an atypical value to copy
-        "execute if entity $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
+        "execute if $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
         sprintf "execute as @a run function %s:update_time_per_player" NS  // NOTE every-tick @a
         sprintf "scoreboard players reset @e[%s,scores={preseconds=-1}] preseconds" ENTITY_TAG         // restore typical value
         |]
@@ -683,15 +683,15 @@ let game_functions = [|
             yield sprintf "scoreboard players set $ENTITY %sRightHalf 0" t
         yield "scoreboard players set $ENTITY TEMP 0"   // has 'Left' been taken yet?
         for t in TEAMS do
-            yield sprintf "execute if entity $SCORE(numActiveTeams=2,TEMP=1) if entity @a[team=%s] run scoreboard players set $ENTITY %sRightHalf 1" t t
-            yield sprintf "execute if entity $SCORE(numActiveTeams=2,TEMP=0) if entity @a[team=%s] run scoreboard players set $ENTITY %sLeftHalf 1" t t
-            yield sprintf "execute if entity $SCORE(numActiveTeams=2,TEMP=0) if entity @a[team=%s] run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf "execute if $SCORE(numActiveTeams=2,TEMP=1) if entity @a[team=%s] run scoreboard players set $ENTITY %sRightHalf 1" t t
+            yield sprintf "execute if $SCORE(numActiveTeams=2,TEMP=0) if entity @a[team=%s] run scoreboard players set $ENTITY %sLeftHalf 1" t t
+            yield sprintf "execute if $SCORE(numActiveTeams=2,TEMP=0) if entity @a[team=%s] run scoreboard players set $ENTITY TEMP 1" t
         |]
     yield "start1", [|
         // ensure folks have joined teams
         yield sprintf "function %s:compute_active_teams" NS
-        yield """execute if entity $SCORE(numActiveTeams=0) run tellraw @a ["No one has joined a team - join a team color to play!"]"""
-        yield sprintf "execute if entity $SCORE(numActiveTeams=1..) run function %s:start2" NS
+        yield """execute if $SCORE(numActiveTeams=0) run tellraw @a ["No one has joined a team - join a team color to play!"]"""
+        yield sprintf "execute if $SCORE(numActiveTeams=1..) run function %s:start2" NS
         |]
     yield "reset_player_scores",[|
         yield "scoreboard players operation $ENTITY Seed = Seed Score"  // save seed
@@ -704,12 +704,12 @@ let game_functions = [|
     yield "compute_lockout_goal", [|
         // set up lockout goal if lockout mode selected (teamCount 2/3/4 -> goal 13/9/7)
         yield sprintf "function %s:compute_active_teams" NS
-        yield "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY lockoutGoal 25"
-        yield "execute if entity $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY lockoutGoal 13"
-        yield "execute if entity $SCORE(numActiveTeams=3) run scoreboard players set $ENTITY lockoutGoal 9"
-        yield "execute if entity $SCORE(numActiveTeams=4) run scoreboard players set $ENTITY lockoutGoal 7"
-        yield "execute if entity $SCORE(optloval=1) run scoreboard players operation LockoutGoal Score = $ENTITY lockoutGoal"
-        yield "execute unless entity $SCORE(optloval=1) run scoreboard players reset LockoutGoal Score"
+        yield "execute if $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY lockoutGoal 25"
+        yield "execute if $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY lockoutGoal 13"
+        yield "execute if $SCORE(numActiveTeams=3) run scoreboard players set $ENTITY lockoutGoal 9"
+        yield "execute if $SCORE(numActiveTeams=4) run scoreboard players set $ENTITY lockoutGoal 7"
+        yield "execute if $SCORE(optloval=1) run scoreboard players operation LockoutGoal Score = $ENTITY lockoutGoal"
+        yield "execute unless $SCORE(optloval=1) run scoreboard players reset LockoutGoal Score"
         |]
     yield "compute_player_numbers", [|
         yield "execute store result score $ENTITY numActivePlayers if entity @a"
@@ -759,8 +759,8 @@ let game_functions = [|
         yield "time set 0"
         // set to peaceful so that hostiles don't spawn and are not available to interact with for players who cheat-move-in-multiplayer-startup
         yield "difficulty peaceful"
-        yield sprintf "execute if entity $SCORE(fakeStart=1) run function %s:start5" NS
-        yield sprintf "execute if entity $SCORE(fakeStart=0) run function %s:do_spawn_sequence" NS
+        yield sprintf "execute if $SCORE(fakeStart=1) run function %s:start5" NS
+        yield sprintf "execute if $SCORE(fakeStart=0) run function %s:do_spawn_sequence" NS
         |]
     yield "do_spawn_sequence", [|
         // tp all to waiting room
@@ -801,24 +801,24 @@ let game_functions = [|
         yield "time set 0"
         yield "effect clear @a"
         // custom game modes
-        yield "execute if entity $SCORE(optnvval=1) run effect give @a minecraft:night_vision 99999 1 true"
-        yield "execute if entity $SCORE(optdsval=1) run replaceitem entity @a armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
-        yield "execute if entity $SCORE(optboatval=1) run give @a minecraft:oak_boat 1"
+        yield "execute if $SCORE(optnvval=1) run effect give @a minecraft:night_vision 99999 1 true"
+        yield "execute if $SCORE(optdsval=1) run replaceitem entity @a armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
+        yield "execute if $SCORE(optboatval=1) run give @a minecraft:oak_boat 1"
         yield sprintf """tellraw @a [%s,"Start! Go!!!"]""" LEADING_WHITESPACE
         yield "execute as @a at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 1.2"
         // enable triggers (for click-in-chat-to-tp-home stuff)
         yield "scoreboard players set @a home 0"
         yield "scoreboard players enable @a home"
         // option to get back
-        yield """execute if entity $SCORE(opthhval=1) run tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
-        yield """execute if entity $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
-        yield sprintf """execute if entity $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
+        yield """execute if $SCORE(opthhval=1) run tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
+        yield """execute if $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield sprintf """execute if $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         yield "worldborder set 20000000"          // 20 million wide is 10 million from spawn
         yield "worldborder add 10000000 10000000" // 10 million per 10 million seconds is one per second
         yield "scoreboard players set $ENTITY gameInProgress 2"
         yield sprintf "function %s:place_signs2" NS
         yield "scoreboard players set $ENTITY hasAnyoneUpdated 0"
-        yield "execute if entity $SCORE(opthhval=0) run scoreboard players set $ENTITY hasAnyoneUpdated 1"
+        yield "execute if $SCORE(opthhval=0) run scoreboard players set $ENTITY hasAnyoneUpdated 1"
         |]
     yield "go_home", [|
         sprintf "execute in overworld run teleport @s %s" LOBBY
@@ -1006,16 +1006,16 @@ let checker_functions = [|
             yield sprintf "scoreboard players set $ENTITY gotItems 0"
             for s in SQUARES do
                 yield sprintf "scoreboard players set $ENTITY gotAnItem 0"
-                yield sprintf "execute if entity $SCORE(%sCanGet%s=1) run function %s:inv/check%s" t s NS s
-                yield sprintf "execute if entity $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
+                yield sprintf "execute if $SCORE(%sCanGet%s=1) run function %s:inv/check%s" t s NS s
+                yield sprintf "execute if $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
                 if s <> "33" then
-                    yield sprintf "execute if entity $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
-            yield sprintf """execute if entity $SCORE(gotItems=1,hasAnyoneUpdated=0,optaival=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
+                    yield sprintf "execute if $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
+            yield sprintf """execute if $SCORE(gotItems=1,hasAnyoneUpdated=0,optaival=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
             // Note teamNum set in root check call; TODO remove teamNum if unused
             yield "scoreboard players operation $ENTITY teamNum = @s teamNum"
-            yield sprintf "execute if entity $SCORE(gotItems=1,optfival=1,optaotval=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
-            yield sprintf "execute if entity $SCORE(gotItems=1,optfival=1,optaotval=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
-            yield sprintf "execute if entity $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
+            yield sprintf "execute if $SCORE(gotItems=1,optfival=1,optaotval=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf "execute if $SCORE(gotItems=1,optfival=1,optaotval=1) as @a if score @s teamNum = $ENTITY teamNum at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
+            yield sprintf "execute if $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
             yield sprintf "got/%s_got_square_%s" t s, [|       // called when player @s got square s and he is on team t
@@ -1025,28 +1025,28 @@ let checker_functions = [|
                 yield sprintf "scoreboard players set $ENTITY %sCanGet%s 0" t s
                 for ot in TEAMS do
                     if ot <> t then
-                        yield sprintf "execute if entity $SCORE(optloval=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
+                        yield sprintf "execute if $SCORE(optloval=1) run scoreboard players set $ENTITY %sCanGet%s 0" ot s
                 let x = 2 + 24*(int s.[0] - int '0' - 1)
                 let y = ART_HEIGHT
                 let z = 0 + 24*(int s.[1] - int '0' - 1)
                 // determine if we should fill the whole square
                 yield sprintf "scoreboard players set $ENTITY TEMP 0"
-                yield sprintf "execute if entity $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY TEMP 1"
-                yield sprintf "execute if entity $SCORE(optloval=1) run scoreboard players set $ENTITY TEMP 1"
-                yield sprintf "execute if entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" x y z (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                yield sprintf "execute if $SCORE(numActiveTeams=1) run scoreboard players set $ENTITY TEMP 1"
+                yield sprintf "execute if $SCORE(optloval=1) run scoreboard players set $ENTITY TEMP 1"
+                yield sprintf "execute if $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" x y z (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
                 // else if 2 active teams, fill the half
-                yield sprintf "execute if entity $SCORE(numActiveTeams=2,%sLeftHalf=1) run fill %d %d %d %d %d %d %s replace clay" t (x+00) y (z+00) (x+11) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
-                yield sprintf "execute if entity $SCORE(numActiveTeams=2,%sRightHalf=1) run fill %d %d %d %d %d %d %s replace clay" t (x+12) y (z+00) (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
-                yield sprintf "execute if entity $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY TEMP 1"
+                yield sprintf "execute if $SCORE(numActiveTeams=2,%sLeftHalf=1) run fill %d %d %d %d %d %d %s replace clay" t (x+00) y (z+00) (x+11) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                yield sprintf "execute if $SCORE(numActiveTeams=2,%sRightHalf=1) run fill %d %d %d %d %d %d %s replace clay" t (x+12) y (z+00) (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                yield sprintf "execute if $SCORE(numActiveTeams=2) run scoreboard players set $ENTITY TEMP 1"
                 // else fill the corner
                 if t = "red" then
-                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+00) y (z+00) (x+11) y (z+11) (if t="green" then "emerald_block" else t+"_wool")
+                    yield sprintf "execute unless $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+00) y (z+00) (x+11) y (z+11) (if t="green" then "emerald_block" else t+"_wool")
                 if t = "blue" then
-                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+12) y (z+00) (x+22) y (z+11) (if t="green" then "emerald_block" else t+"_wool")
+                    yield sprintf "execute unless $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+12) y (z+00) (x+22) y (z+11) (if t="green" then "emerald_block" else t+"_wool")
                 if t = "green" then
-                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+00) y (z+12) (x+11) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                    yield sprintf "execute unless $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+00) y (z+12) (x+11) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
                 if t = "yellow" then
-                    yield sprintf "execute unless entity $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+12) y (z+12) (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
+                    yield sprintf "execute unless $SCORE(TEMP=1) run fill %d %d %d %d %d %d %s replace clay" (x+12) y (z+12) (x+22) y (z+22) (if t="green" then "emerald_block" else t+"_wool")
                 // update win conditions (add to team score of row/col/diag)
                 yield sprintf "scoreboard players add $ENTITY %sWinRow%c 1" t s.[1]
                 yield sprintf "scoreboard players add $ENTITY %sWinCol%c 1" t s.[0]
@@ -1060,34 +1060,34 @@ let checker_functions = [|
             // check for bingo
             yield sprintf "scoreboard players set $ENTITY TEMP 0"
             for i = 1 to 5 do
-                yield sprintf "execute if entity $SCORE(%sWinRow%d=5) run scoreboard players set $ENTITY TEMP 1" t i
+                yield sprintf "execute if $SCORE(%sWinRow%d=5) run scoreboard players set $ENTITY TEMP 1" t i
             for i = 1 to 5 do
-                yield sprintf "execute if entity $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
-            yield sprintf "execute if entity $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
-            yield sprintf "execute if entity $SCORE(%sWinBkSlh=5) run scoreboard players set $ENTITY TEMP 1" t
-            yield sprintf """execute if entity $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got BINGO!"]""" t LEADING_WHITESPACE t
-            yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run function %s:got_a_win_common_logic" t NS
-            yield sprintf "execute if entity $SCORE(TEMP=1,%sGotBingo=0) run scoreboard players set $ENTITY %sGotBingo 1" t t
+                yield sprintf "execute if $SCORE(%sWinCol%d=5) run scoreboard players set $ENTITY TEMP 1" t i
+            yield sprintf "execute if $SCORE(%sWinSlash=5) run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf "execute if $SCORE(%sWinBkSlh=5) run scoreboard players set $ENTITY TEMP 1" t
+            yield sprintf """execute if $SCORE(TEMP=1,%sGotBingo=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got BINGO!"]""" t LEADING_WHITESPACE t
+            yield sprintf "execute if $SCORE(TEMP=1,%sGotBingo=0) run function %s:got_a_win_common_logic" t NS
+            yield sprintf "execute if $SCORE(TEMP=1,%sGotBingo=0) run scoreboard players set $ENTITY %sGotBingo 1" t t
             // check for twenty-no-bingo
-            yield sprintf """execute if entity $SCORE(%sScore=20,%sGotBingo=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got TWENTY-NO-BINGO!"]""" t t LEADING_WHITESPACE t
-            yield sprintf "execute if entity $SCORE(%sScore=20,%sGotBingo=0) run function %s:got_a_win_common_logic" t t NS
+            yield sprintf """execute if $SCORE(%sScore=20,%sGotBingo=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got TWENTY-NO-BINGO!"]""" t t LEADING_WHITESPACE t
+            yield sprintf "execute if $SCORE(%sScore=20,%sGotBingo=0) run function %s:got_a_win_common_logic" t t NS
             // check for blackout
-            yield sprintf """execute if entity $SCORE(%sScore=25) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t LEADING_WHITESPACE t
-            yield sprintf "execute if entity $SCORE(%sScore=25) run function %s:got_a_win_common_logic" t NS
+            yield sprintf """execute if $SCORE(%sScore=25) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got MEGA-BINGO!"]""" t LEADING_WHITESPACE t
+            yield sprintf "execute if $SCORE(%sScore=25) run function %s:got_a_win_common_logic" t NS
             // check for lockout
             yield sprintf "scoreboard players operation $ENTITY TEMP = $ENTITY lockoutGoal"
             yield sprintf "scoreboard players operation $ENTITY TEMP -= $ENTITY %sScore" t
-            yield sprintf """execute if entity $SCORE(optloval=1,TEMP=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got the lockout goal!"]""" LEADING_WHITESPACE t
-            yield sprintf "execute if entity $SCORE(optloval=1,TEMP=0) run function %s:got_a_win_common_logic" NS
+            yield sprintf """execute if $SCORE(optloval=1,TEMP=0) run tellraw @a [%s,{"selector":"@a[team=%s]"}," got the lockout goal!"]""" LEADING_WHITESPACE t
+            yield sprintf "execute if $SCORE(optloval=1,TEMP=0) run function %s:got_a_win_common_logic" NS
             |]
     yield "got_a_win_common_logic", [|
         // put time on scoreboard
         yield "scoreboard players operation Minutes Score = $ENTITY minutes"
         yield "scoreboard players operation Seconds Score = $ENTITY seconds"
         // option to return to lobby
-        yield """execute if entity $SCORE(opthhval=1) run tellraw @a ["You can keep playing, or"]"""
-        yield """execute if entity $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
-        yield sprintf """execute if entity $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
+        yield """execute if $SCORE(opthhval=1) run tellraw @a ["You can keep playing, or"]"""
+        yield """execute if $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield sprintf """execute if $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         // fireworks
         yield """execute as @a at @s run summon fireworks_rocket ~3 ~0 ~0 {LifeTime:20}"""
         yield "$NTICKSLATER(8)"    // TODO note that this could be a re-entrant callback, e.g. you get bingo, and two ticks later you get the lockout goal, and so there are two schedulings of the same callback active
@@ -1106,21 +1106,21 @@ let checker_functions = [|
             let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE item ENTITY_TAG ENTITY_TAG ENTITY_TAG
             let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
             let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG item
-            yield sprintf """execute if entity $SCORE(optaival=2,optaotval=0,optlwval=1) run tellraw @a %s""" itemdatum_time_playername
-            yield sprintf """execute if entity $SCORE(optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" time_playername_gotthe_datum
-            yield sprintf """execute if entity $SCORE(optaival=1,optaotval=0) run tellraw @a %s""" time_playername_gotanitem
+            yield sprintf """execute if $SCORE(optaival=2,optaotval=0,optlwval=1) run tellraw @a %s""" itemdatum_time_playername
+            yield sprintf """execute if $SCORE(optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" time_playername_gotthe_datum
+            yield sprintf """execute if $SCORE(optaival=1,optaotval=0) run tellraw @a %s""" time_playername_gotanitem
             for t in TEAMS do
-                yield sprintf """execute if entity $SCORE(optaival=2,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t itemdatum_time_playername
-                yield sprintf """execute if entity $SCORE(optaival=2,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotthe_datum
-                yield sprintf """execute if entity $SCORE(optaival=1,optaotval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotanitem
+                yield sprintf """execute if $SCORE(optaival=2,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t itemdatum_time_playername
+                yield sprintf """execute if $SCORE(optaival=2,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotthe_datum
+                yield sprintf """execute if $SCORE(optaival=1,optaotval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotanitem
             |]
     for s in SQUARES do
         if flatBingoItems.Length >= 128 then
             failwith "bad binary search"
         let check_and_display(prefix, n, name) = [|
             // Note - profiling suggests this guard does not help before 'clear': if entity @s[nbt={Inventory:[{id:"minecraft:%s"}]}] 
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" prefix s n name
-            yield sprintf """%sexecute if entity $SCORE(square%s=%d,gotAnItem=1) run function %s:inv/got_%s""" prefix s n NS name
+            yield sprintf """%sexecute if $SCORE(square%s=%d) store success score $ENTITY gotAnItem run clear @s %s 1""" prefix s n name
+            yield sprintf """%sexecute if $SCORE(square%s=%d,gotAnItem=1) run function %s:inv/got_%s""" prefix s n NS name
             |]
         let rec binary_dispatch(lo,hi) = [|
             if lo=hi-1 then
@@ -1133,8 +1133,8 @@ let checker_functions = [|
             else
                 let mid = (hi-lo)/2 + lo
                 yield sprintf "inv/check%s_%d_%d" s lo hi, [|
-                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:inv/check%s_%d_%d""" s lo mid NS s lo mid
-                    sprintf """execute if entity $SCORE(square%s=%d..%d) run function %s:inv/check%s_%d_%d""" s (mid+1) hi NS s (mid+1) hi
+                    sprintf """execute if $SCORE(square%s=%d..%d) run function %s:inv/check%s_%d_%d""" s lo mid NS s lo mid
+                    sprintf """execute if $SCORE(square%s=%d..%d) run function %s:inv/check%s_%d_%d""" s (mid+1) hi NS s (mid+1) hi
                 |]
                 yield! binary_dispatch(lo,mid)
                 yield! binary_dispatch(mid+1,hi)
@@ -1228,13 +1228,13 @@ let cardgen_functions = [|
         // ensure exactly one call
         yield sprintf "scoreboard players set $ENTITY CALL 1"
         for i = 0 to bingoItems.Length-1 do
-            yield sprintf "execute if entity $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cg/cardgen_bin%02d" i NS i
+            yield sprintf "execute if $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cg/cardgen_bin%02d" i NS i
     |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cg/cardgen_bin%02d" i, [|
             sprintf "scoreboard players set $ENTITY CALL 0" // every exclusive-callable func needs this as first line of code
-            sprintf "execute if entity $SCORE(bin%02d=1) run function %s:cardgen_choose1" i NS
-            sprintf "execute unless entity $SCORE(bin%02d=1) run function %s:cg/cardgen_binbody%02d" i NS i
+            sprintf "execute if $SCORE(bin%02d=1) run function %s:cardgen_choose1" i NS
+            sprintf "execute unless $SCORE(bin%02d=1) run function %s:cg/cardgen_binbody%02d" i NS i
             |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cg/cardgen_binbody%02d" i, [|
@@ -1242,19 +1242,19 @@ let cardgen_functions = [|
             yield sprintf "function %s:prng" NS
             for j = 0 to 2 do
                 let index = flatBingoItems |> Array.findIndex(fun x -> x = bingoItems.[i].[j])
-                yield sprintf """execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" index j bingoItems.[i].[j]
-                yield sprintf """execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" index j
+                yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" index j bingoItems.[i].[j]
+                yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" index j
                 for x = 1 to 5 do
                     for y = 1 to 5 do
-                        yield sprintf "execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" index j (5*(y-1)+x-1) x y index
+                        yield sprintf "execute if $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" index j (5*(y-1)+x-1) x y index
                         let chest = if y < 4 then CHEST_THIS_CARD_2.STR else CHEST_THIS_CARD_1.STR
                         let slot = if y < 4 then (y-1)*9+x-1 else (y-4)*9+x-1
-                        yield sprintf """execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run replaceitem block %s container.%d %s""" index j (5*(y-1)+x-1) chest slot bingoItems.[i].[j]
+                        yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run replaceitem block %s container.%d %s""" index j (5*(y-1)+x-1) chest slot bingoItems.[i].[j]
                 // if we didn't pick it because not choosable, re-choose
-                yield sprintf "execute if entity $SCORE(okItem%03d=0,PRNG_OUT=%d) run function %s:cardgen_choose1" index j NS
+                yield sprintf "execute if $SCORE(okItem%03d=0,PRNG_OUT=%d) run function %s:cardgen_choose1" index j NS
                 // if we did pick it, note it
-                yield sprintf "execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players add $ENTITY squaresPlaced 1" index j
-                yield sprintf "execute if entity $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players set $ENTITY bin%02d 1" index j i
+                yield sprintf "execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players add $ENTITY squaresPlaced 1" index j
+                yield sprintf "execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players set $ENTITY bin%02d 1" index j i
             |]
     yield "cardgen_makecard", [|
         yield sprintf "kill @e[tag=sky]"
@@ -1328,9 +1328,9 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             // players may dead
             "execute store result score @s TEMP run data get entity @s Health 100.0"
             // custom respawn equipment
-            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optnvval=1) run effect give @s minecraft:night_vision 99999 1 true"
-            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optdsval=1) run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
-            "execute if entity @s[scores={TEMP=1..}] if entity $SCORE(optboatval=1) run give @s minecraft:oak_boat 1"
+            "execute if entity @s[scores={TEMP=1..}] if $SCORE(optnvval=1) run effect give @s minecraft:night_vision 99999 1 true"
+            "execute if entity @s[scores={TEMP=1..}] if $SCORE(optdsval=1) run replaceitem entity @s armor.feet minecraft:leather_boots{Unbreakable:1,ench:[{lvl:3s,id:8s},{lvl:1s,id:10s},{lvl:1s,id:71s}]} 1"
+            "execute if entity @s[scores={TEMP=1..}] if $SCORE(optboatval=1) run give @s minecraft:oak_boat 1"
             """execute if entity @s[scores={TEMP=1..}] run replaceitem entity @s weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
             "execute if entity @s[scores={TEMP=1..}] run scoreboard players set @s Deaths 0"
             |]
@@ -1395,16 +1395,16 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             |]
         yield "theloop", [|
             yield sprintf "execute as $ENTITY run function %s" compiler.TickFullName
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:update_time" NS
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
+            yield sprintf "execute if $SCORE(gameInProgress=2) run function %s:update_time" NS
+            yield sprintf "execute if $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
             yield sprintf "execute as @a[tag=!playerHasBeenSeen] run function %s:first_time_player" NS
-            yield sprintf "execute if entity $SCORE(gameInProgress=0) as @p[scores={PlayerSeed=0..}] run function %s:set_seed" NS
-            yield sprintf "execute unless entity $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
-            yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
-            yield sprintf "execute if entity $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS  // NOTE every-tick @a
-            yield sprintf "execute if entity $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
+            yield sprintf "execute if $SCORE(gameInProgress=0) as @p[scores={PlayerSeed=0..}] run function %s:set_seed" NS
+            yield sprintf "execute unless $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
+            yield sprintf "execute if $SCORE(gameInProgress=2) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
+            yield sprintf "execute if $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
+            yield sprintf "execute if $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS  // NOTE every-tick @a
+            yield sprintf "execute if $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
             // throttling infrastructure (so some things don't run for every player every tick)
             yield "scoreboard players add $ENTITY tickNum 1"
             yield "execute if score $ENTITY tickNum >= $ENTITY numActivePlayers run scoreboard players set $ENTITY tickNum 0"

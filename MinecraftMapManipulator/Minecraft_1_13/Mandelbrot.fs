@@ -89,8 +89,8 @@ let functions = [|
             "scoreboard players operation $ENTITY A = r1 A"
             "scoreboard players operation $ENTITY B = n A"
             "scoreboard players set $ENTITY CALL 1"
-            "execute if entity $SCORE(A=..-1,B=..15) run function ms:cps_inner_inner"
-            "execute if entity $SCORE(CALL=1) run function ms:cps_inner_finish"
+            "execute if $SCORE(A=..-1,B=..15) run function ms:cps_inner_inner"
+            "execute if $SCORE(CALL=1) run function ms:cps_inner_finish"
             |]
         "cps_inner_inner",[|
             "scoreboard players set $ENTITY CALL 0"
@@ -109,7 +109,7 @@ let functions = [|
         "put_color",[|
             yield "scoreboard players operation $ENTITY B = n A"
             for i = 0 to 15 do
-                yield sprintf "execute if entity $SCORE(B=%d) run setblock ~ ~ ~ %s" (i+1) WOOL.[i]
+                yield sprintf "execute if $SCORE(B=%d) run setblock ~ ~ ~ %s" (i+1) WOOL.[i]
             |]
         "cps_inner_finish",[|
             "scoreboard players set $ENTITY CALL 0"
@@ -121,8 +121,8 @@ let functions = [|
             "scoreboard players operation r1 A -= MAXH K"
             "scoreboard players operation $ENTITY A = r1 A"
             "scoreboard players set $ENTITY CALL 1"
-            "execute if entity $SCORE(A=..-1) run function ms:cps_inner_start"
-            "execute if entity $SCORE(CALL=1) run function ms:cps_j_finish"
+            "execute if $SCORE(A=..-1) run function ms:cps_inner_start"
+            "execute if $SCORE(CALL=1) run function ms:cps_j_finish"
             |]
         "cps_j_finish",[|
             "scoreboard players set $ENTITY CALL 0"
@@ -134,9 +134,9 @@ let functions = [|
             "scoreboard players operation $ENTITY B = I A"
             "scoreboard players operation $ENTITY B %= ROWS_PER_TICK K"
             "scoreboard players set $ENTITY CALL 1"
-            "execute if entity $SCORE(A=..-1,B=0) run function ms:wait_then_j"
-            "execute if entity $SCORE(A=..-1,B=1..) run function ms:cps_j_start"
-            "execute if entity $SCORE(CALL=1) run function ms:cps_i_finish"
+            "execute if $SCORE(A=..-1,B=0) run function ms:wait_then_j"
+            "execute if $SCORE(A=..-1,B=1..) run function ms:cps_j_start"
+            "execute if $SCORE(CALL=1) run function ms:cps_i_finish"
             |]
         "wait_then_j",[|
             "scoreboard players set $ENTITY CALL 0"

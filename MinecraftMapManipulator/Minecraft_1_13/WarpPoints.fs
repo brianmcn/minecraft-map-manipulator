@@ -42,10 +42,10 @@ let lobby_functions = [|
     yield "recreate_lobby_essentials", [|
         yield sprintf "fill %d %d %d %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z-1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z-1)
         for i = 0 to (WP_MAX-1)/2 do
-            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=0..) run "(i+1)) (WP_X+4+i) (WP_Y+1) (WP_Z) "south" "WARP TO" "" "Warp Point" (sprintf"%d"(i+1)) (sprintf"function wp:warp_to_wp%d"(i+1)) true
-            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=0..) run "(WP_MAX-i)) (WP_X+4+i) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH-1) "north" "WARP TO" "" "Warp Point" (sprintf"%d"(WP_MAX-i)) (sprintf"function wp:warp_to_wp%d"(WP_MAX-i)) true
-            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=-1) run "(i+1)) (WP_X+4+i) (WP_Y+1) (WP_Z) "south" "(not yet made)" "" "Warp Point" (sprintf"%d"(i+1)) (sprintf"function wp:warp_to_wp%d"(i+1)) false
-            yield! placeWallSignCmds (sprintf"execute if entity $SCORE(wp%dy=-1) run "(WP_MAX-i)) (WP_X+4+i) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH-1) "north" "(not yet made)" "" "Warp Point" (sprintf"%d"(WP_MAX-i)) (sprintf"function wp:warp_to_wp%d"(WP_MAX-i)) false
+            yield! placeWallSignCmds (sprintf"execute if $SCORE(wp%dy=0..) run "(i+1)) (WP_X+4+i) (WP_Y+1) (WP_Z) "south" "WARP TO" "" "Warp Point" (sprintf"%d"(i+1)) (sprintf"function wp:warp_to_wp%d"(i+1)) true
+            yield! placeWallSignCmds (sprintf"execute if $SCORE(wp%dy=0..) run "(WP_MAX-i)) (WP_X+4+i) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH-1) "north" "WARP TO" "" "Warp Point" (sprintf"%d"(WP_MAX-i)) (sprintf"function wp:warp_to_wp%d"(WP_MAX-i)) true
+            yield! placeWallSignCmds (sprintf"execute if $SCORE(wp%dy=-1) run "(i+1)) (WP_X+4+i) (WP_Y+1) (WP_Z) "south" "(not yet made)" "" "Warp Point" (sprintf"%d"(i+1)) (sprintf"function wp:warp_to_wp%d"(i+1)) false
+            yield! placeWallSignCmds (sprintf"execute if $SCORE(wp%dy=-1) run "(WP_MAX-i)) (WP_X+4+i) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH-1) "north" "(not yet made)" "" "Warp Point" (sprintf"%d"(WP_MAX-i)) (sprintf"function wp:warp_to_wp%d"(WP_MAX-i)) false
         yield sprintf "fill %d %d %d %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH+1) (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH)
         yield sprintf "setblock %d %d %d sea_lantern" (WP_X-1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2)
         yield sprintf "setblock %d %d %d sea_lantern" (WP_X+WP_LOBBY_LENGTH+1) (WP_Y+1) (WP_Z+WP_LOBBY_WIDTH/2)
@@ -59,9 +59,9 @@ let lobby_functions = [|
             sprintf "execute store result entity @e[tag=tempaec,limit=1] Pos[1] double 1.0 run scoreboard players get $ENTITY wp%dy" i
             sprintf "execute store result entity @e[tag=tempaec,limit=1] Pos[2] double 1.0 run scoreboard players get $ENTITY wp%dz" i
             "teleport @s @e[tag=tempaec,limit=1]"
-            sprintf "execute if entity $SCORE(wp%dd=-1) at @s in the_nether run tp @s ~ ~ ~" i
-            sprintf "execute if entity $SCORE(wp%dd=0) at @s in overworld run tp @s ~ ~ ~" i
-            sprintf "execute if entity $SCORE(wp%dd=1) at @s in the_end run tp @s ~ ~ ~" i
+            sprintf "execute if $SCORE(wp%dd=-1) at @s in the_nether run tp @s ~ ~ ~" i
+            sprintf "execute if $SCORE(wp%dd=0) at @s in overworld run tp @s ~ ~ ~" i
+            sprintf "execute if $SCORE(wp%dd=1) at @s in the_end run tp @s ~ ~ ~" i
             |]
     |]
 
@@ -114,8 +114,8 @@ let creation_functions = [|
         yield "scoreboard players set @a spawnBat 0"
         yield "scoreboard players set $ENTITY found 0"
         for i = 1 to WP_MAX do
-            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"\"Warp %d\"",Tags:["wp","wp%d"]}""" i i i
-            yield sprintf """execute unless entity $SCORE(found=1) if entity $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
+            yield sprintf """execute unless $SCORE(found=1) if $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"\"Warp %d\"",Tags:["wp","wp%d"]}""" i i i
+            yield sprintf """execute unless $SCORE(found=1) if $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
         yield "tp @s ~ 250 ~"
         yield "$NTICKSLATER(2)"
         yield "kill @e[tag=cwpBat]" // note: bat is no longer @s!

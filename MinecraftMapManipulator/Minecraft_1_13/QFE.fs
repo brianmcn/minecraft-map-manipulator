@@ -90,7 +90,7 @@ let main() =
         |])
     functions.Add("main",[|
         for i = 1 to SURVIVAL_OBTAINABLE_ITEM_IDS.Length do
-            yield sprintf "execute if entity $SCORE(notYet%03d=1) run function qfe:check/check%03d" i i
+            yield sprintf "execute if $SCORE(notYet%03d=1) run function qfe:check/check%03d" i i
         |])
     let itemNum = ref 1
     let check(itemName, x, y, z, ix, iy, iz) =
@@ -99,7 +99,7 @@ let main() =
         functions.Add(sprintf"check/check%03d"!itemNum,[|
             sprintf "scoreboard players set $ENTITY gotAnItem 0"
             sprintf "execute store success score $ENTITY gotAnItem run clear @p %s 0" itemName // todo multiplayer @p thruout
-            sprintf "execute if entity $SCORE(gotAnItem=1) run function qfe:check/got%03d" !itemNum
+            sprintf "execute if $SCORE(gotAnItem=1) run function qfe:check/got%03d" !itemNum
         |])
         functions.Add(sprintf"check/got%03d"!itemNum,[|
             sprintf "scoreboard players set $ENTITY notYet%03d 0" !itemNum
