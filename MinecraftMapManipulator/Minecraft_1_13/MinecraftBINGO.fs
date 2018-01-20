@@ -20,7 +20,7 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // versus those who enjoy the item or those who will happily skip to another card if this card isn't to their liking.  It is also maybe a shame that there are so
 // few unique probabilities; if enderpearl were 5/6 and slimeball were 1/6 in the bin, for example... hm, I could make each bin have 6 items and futz with probabilities more...
 // and then have e.g. 3 enderpearl, 2 rabbit hide, 1 slimeball; double-chests still enable the bin-visualization... ench book and maybe cake could be less, lime could be 50%...
-// LATER: if add nether items, will need a way to select item-subsets-to-use, so that will address
+// LATER: if add nether items, will need a way to select item-subsets-to-use (okItem%03d), so that will address
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/ (prob not until 1.14)
 
@@ -86,8 +86,8 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
         |])
     ConfigPage("Got-an-item effects",[|
         ConfigOption("optai", ConfigDescription.Radio [|"<nothing> in chat"; "'got an item' in chat"; "'got bone' in chat"|], 2, [||])
-        ConfigOption("optfi",ConfigDescription.Toggle "Play firework sound", 1, [||]) // TODO goth etc may want global sound, or other teams see 'got item' but you see 'got bone'
-        ConfigOption("optaot",ConfigDescription.Toggle "Announce only to teammates", 0, [||]) // TODO refine this (ever a reason not to give teammates fullest info?)
+        ConfigOption("optfi",ConfigDescription.Toggle "Play firework sound", 1, [||])
+        ConfigOption("optaot",ConfigDescription.Toggle "Announce only to teammates", 0, [||])
         |])
     |])
 
@@ -1092,9 +1092,12 @@ let checker_functions = [|
             yield sprintf """execute if $SCORE(optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" time_playername_gotthe_datum
             yield sprintf """execute if $SCORE(optaival=1,optaotval=0) run tellraw @a %s""" time_playername_gotanitem
             for t in TEAMS do
-                yield sprintf """execute if $SCORE(optaival=2,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t itemdatum_time_playername
-                yield sprintf """execute if $SCORE(optaival=2,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotthe_datum
-                yield sprintf """execute if $SCORE(optaival=1,optaotval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotanitem
+                // if announcing only to teammates, always say item name, even if 'got an item' is config'd as "optai"
+                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t itemdatum_time_playername
+                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotthe_datum
+                // if announcing only to teammates, always tell other teams just 'got an item'
+                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=!%s] %s""" t t time_playername_gotanitem
+                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=!%s] %s""" t t time_playername_gotanitem
             |]
     for s in SQUARES do
         if flatBingoItems.Length >= 128 then
@@ -1193,7 +1196,7 @@ let cardgen_functions = [|
         for o in cardgen_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
         for i = 0 to flatBingoItems.Length-1 do
-            yield sprintf "scoreboard objectives add okItem%03d dummy" i
+            yield sprintf "scoreboard objectives add okItem%03d dummy" i   // is this item choosable? (way to enable only a subset of items to appear on card)
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
         |]
