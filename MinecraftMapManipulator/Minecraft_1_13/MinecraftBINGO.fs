@@ -84,10 +84,13 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
         ConfigOption("optsa", ConfigDescription.Toggle "Arrow points to spawn", 1, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
         ConfigOption("optxh", ConfigDescription.Toggle "Show when extreme hills", 1, [||])                               // if add 'XH' on player actionbar when in extreme hills
         |])
-    ConfigPage("Got-an-item effects",[|
-        ConfigOption("optai", ConfigDescription.Radio [|"<nothing> in chat"; "'got an item' in chat"; "'got bone' in chat"|], 2, [||])
-        ConfigOption("optfi",ConfigDescription.Toggle "Play firework sound", 1, [||])
-        ConfigOption("optaot",ConfigDescription.Toggle "Announce only to teammates", 0, [||])
+    ConfigPage("Got-an-item effects for your team",[|
+        ConfigOption("optyai", ConfigDescription.Radio [|"your teammates see <nothing> in chat"; "your teammates see 'got an item' in chat"; "your teammates see 'got bone' in chat"|], 2, [||])
+        ConfigOption("optyfi",ConfigDescription.Toggle "your teammates hear firework sound", 1, [||])
+        |])
+    ConfigPage("Got-an-item effects for other teams",[|
+        ConfigOption("optoai", ConfigDescription.Radio [|"other teams see <nothing> in chat"; "other teams see 'got an item' in chat"; "other teams see 'got bone' in chat"|], 1, [||])
+        ConfigOption("optofi",ConfigDescription.Toggle "other teams hear firework sound", 1, [||])
         |])
     |])
 
@@ -994,9 +997,9 @@ let checker_functions = [|
                 yield sprintf "execute if $SCORE(gotAnItem=1) run function %s:got/%s_got_square_%s" NS t s
                 if s <> "33" then
                     yield sprintf "execute if $SCORE(gotAnItem=1,opttfoval=1) run function %s:got/%s_got_square_%s" NS t (sprintf "%d%d" (int '6' - int s.[0]) (int '6' - int s.[1]))
-            yield sprintf """execute if $SCORE(gotItems=1,hasAnyoneUpdated=0,optaival=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
-            yield sprintf "execute if $SCORE(gotItems=1,optfival=1,optaotval=0) as @a at @s run playsound entity.firework.launch ambient @s ~ ~ ~"
-            yield sprintf "execute if $SCORE(gotItems=1,optfival=1,optaotval=1) as @a[team=%s] at @s run playsound entity.firework.launch ambient @s ~ ~ ~" t
+            yield sprintf """execute if $SCORE(gotItems=1,hasAnyoneUpdated=0,optyaival=1..) run tellraw @s ["To update the BINGO map, drop one copy on the ground"]"""
+            yield sprintf "execute if $SCORE(gotItems=1,optyfival=1) as @a[team=%s] at @s run playsound entity.firework.launch ambient @s ~ ~ ~" t
+            yield sprintf "execute if $SCORE(gotItems=1,optofival=1) as @a[team=!%s] at @s run playsound entity.firework.launch ambient @s ~ ~ ~" t
             yield sprintf "execute if $SCORE(gotItems=1) run function %s:%s_check_for_win" NS t
             |]
         for s in SQUARES do
@@ -1088,16 +1091,15 @@ let checker_functions = [|
             let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"%s","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"%s","objective":"preseconds"}},{"color":"gray","score":{"name":"%s","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE item FAKE FAKE FAKE
             let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"%s","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"%s","objective":"preseconds"}},{"color":"gray","score":{"name":"%s","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE FAKE FAKE FAKE
             let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"%s","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"%s","objective":"preseconds"}},{"color":"gray","score":{"name":"%s","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE FAKE FAKE FAKE item
-            yield sprintf """execute if $SCORE(optaival=2,optaotval=0,optlwval=1) run tellraw @a %s""" itemdatum_time_playername
-            yield sprintf """execute if $SCORE(optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" time_playername_gotthe_datum
-            yield sprintf """execute if $SCORE(optaival=1,optaotval=0) run tellraw @a %s""" time_playername_gotanitem
             for t in TEAMS do
-                // if announcing only to teammates, always say item name, even if 'got an item' is config'd as "optai"
-                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t itemdatum_time_playername
-                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotthe_datum
-                // if announcing only to teammates, always tell other teams just 'got an item'
-                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=1) if entity @s[team=%s] run tellraw @a[team=!%s] %s""" t t time_playername_gotanitem
-                yield sprintf """execute if $SCORE(optaival=1..,optaotval=1,optlwval=0) if entity @s[team=%s] run tellraw @a[team=!%s] %s""" t t time_playername_gotanitem
+                // teammates
+                yield sprintf """execute if $SCORE(optyaival=2,optlwval=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t itemdatum_time_playername
+                yield sprintf """execute if $SCORE(optyaival=2,optlwval=0) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotthe_datum
+                yield sprintf """execute if $SCORE(optyaival=1) if entity @s[team=%s] run tellraw @a[team=%s] %s""" t t time_playername_gotanitem
+                // other teams
+                yield sprintf """execute if $SCORE(optoaival=2,optlwval=1) if entity @s[team=%s] run tellraw @a[team=!%s] %s""" t t itemdatum_time_playername
+                yield sprintf """execute if $SCORE(optoaival=2,optlwval=0) if entity @s[team=%s] run tellraw @a[team=!%s] %s""" t t time_playername_gotthe_datum
+                yield sprintf """execute if $SCORE(optoaival=1) if entity @s[team=%s] run tellraw @a[team=!%s] %s""" t t time_playername_gotanitem
             |]
     for s in SQUARES do
         if flatBingoItems.Length >= 128 then
