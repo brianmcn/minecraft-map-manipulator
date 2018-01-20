@@ -171,7 +171,7 @@ module ConfigFunctionNames =
     let LISTEN = "listen_for_triggers"
     let GET = "on_get_configuration_books"
 // assumes existence of ON/OFF booktext entities, $ENTITY/$SCORE compilation entities
-let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:ConfigBook,uniqueTag,compileF,entity_selector) =
+let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:ConfigBook,uniqueTag,compileF,tellrawScoreName) =
     let funcs = [|
         yield ConfigFunctionNames.INIT,[|
             for opt in configBook.FlatOptions do
@@ -228,7 +228,7 @@ let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:Config
                                     | Toggle(desc) ->
                                         yield sprintf """,{"text":"\n\n%s...","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}},{"selector":"@e[tag=bookText,scores={%sval=1}]"}""" desc opt.ScoreboardPrefix opt.ScoreboardPrefix 
                                     | Radio(descs) ->
-                                        yield sprintf """,{"text":"\n\n#"},{"score":{"name":"%s","objective":"%sval"}},{"text":" below "},{"text":"(click here)","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}}""" entity_selector opt.ScoreboardPrefix opt.ScoreboardPrefix
+                                        yield sprintf """,{"text":"\n\n#"},{"score":{"name":"%s","objective":"%sval"}},{"text":" below "},{"text":"(click here)","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}}""" tellrawScoreName opt.ScoreboardPrefix opt.ScoreboardPrefix
                                         for i = 0 to descs.Length-1 do
                                             yield sprintf """,{"text":"\n%d...%s"}""" i descs.[i]
                                         |]

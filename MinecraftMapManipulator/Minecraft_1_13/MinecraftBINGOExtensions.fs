@@ -193,6 +193,6 @@ module Blind =
             |]
         for ns,name,code in a do
             pack.WriteFunction(ns,name,code)
-        Utilities.writeConfigOptionsFunctions(pack, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (ns,n,c) -> MinecraftBINGO.compiler.Compile(ns,n,c)), sprintf "@e[%s]" MinecraftBINGO.ENTITY_TAG)
+        Utilities.writeConfigOptionsFunctions(pack, PACK_NS, CFG, blindConfigBook, blindConfigBookTag, (fun (ns,n,c) -> MinecraftBINGO.compiler.Compile(ns,n,c)), sprintf "%s" MinecraftBINGO.FAKE)
         pack.SaveToDisk()
 

@@ -129,11 +129,12 @@ let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 
 let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """testing""")
 let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
+let compiler = new Compiler.Compiler('m','b',"test",84,4,4,PROFILE)
 
 ////////////////////////////
 // hook into events from base pack
-pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [sprintf"%s:theloop"NS])
-pack.WriteFunctionTagsFileWithValues("minecraft", "load", [sprintf"%s:init"NS])
+pack.WriteFunctionTagsFileWithValues("minecraft", "load", [compiler.LoadFullName;sprintf"%s:init"NS])
+pack.WriteFunctionTagsFileWithValues("minecraft", "tick", [compiler.TickFullName;sprintf"%s:theloop"NS])
 
 ////////////////////////////
 // publish own events for child packs
@@ -170,19 +171,23 @@ let writeExtremeHillsDetection(pack:Utilities.DataPackArchive) =
 
 ////////////////////////////
 
-let compiler = new Compiler.Compiler('m','b',"test",84,4,4,PROFILE)
-
 let entity_init() = [|
     yield "setworldspawn 64 64 64"
     yield "kill @e[tag=XHguy]"
     yield "kill @e[tag=nonuuidguy]"
+    yield "kill @e[tag=LWguy]"
+    // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
+    // TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
+    yield """summon armor_stand 84 4 84 {CustomName:"\"                          \"",Tags:["LWguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 4 4 84 {CustomName:"\"XH\"",Tags:["XHguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     yield """summon armor_stand 67 4 67 {CustomName:"\"nonuuidguy\"",Tags:["nonuuidguy"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}"""
     |]
-let ENTITY_TAG = compiler.EntityTag 
+//let ENTITY_TAG = compiler.EntityTag 
+let FAKE = compiler.FakePlayerName 
 let NONUUID_TAG = "tag=nonuuidguy,x=67,y=4,z=67,distance=..1.0,limit=1"
 let XH_TAG = "tag=XHguy,x=4,y=4,z=84,distance=..1.0,limit=1"
-let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" ENTITY_TAG
+let LW_TAG = "tag=LWguy,x=84,y=4,z=84,distance=..1.0,limit=1"
+let LEADING_WHITESPACE = sprintf """{"selector":"@e[%s,scores={optlwval=1}]"}""" LW_TAG  // TODO score not on this entity
 let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
 
 ///////////////////////////////////////////////////////
@@ -264,9 +269,6 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold onlyPlaceIfMul
     Utilities.placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold (if onlyPlaceIfMultiplayer then "execute if $SCORE(TEMP=2..) run " else "")
 let game_functions = [|
     yield "game_init", [|
-        // TODO idea, for i = 1 to 50 print N spaces followed by 'click', and have folks click the line with the best alignment, and that sets the customname to that many spaces
-        // TODO this unicode char '⁚' (8282, \u205A) is apparently one pixel thick, and in light grey fades to nothing? try it?
-        yield """data merge entity $ENTITY {CustomName:"\"                          \""}"""
         for o in game_objectives do
             yield sprintf "scoreboard objectives add %s dummy" o
         yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.INIT 
@@ -293,7 +295,7 @@ let game_functions = [|
             let seedSignsEnabled = gip<>1
             let otherSignsEnabled = gip=0
             // sanity check
-            yield sprintf """execute unless $SCORE(gameInProgress=%d) run tellraw @a ["ERROR: place_signs%d was called but gameInProgress is ",{"score":{"name":"@e[%s]","objective":"gameInProgress"}}]""" gip gip ENTITY_TAG
+            yield sprintf """execute unless $SCORE(gameInProgress=%d) run tellraw @a ["ERROR: place_signs%d was called but gameInProgress is ",{"score":{"name":"%s","objective":"gameInProgress"}}]""" gip gip FAKE
             // count the number of players, store in TEMP
             yield "scoreboard players set $ENTITY TEMP 0"
             yield "execute as @a run scoreboard players add $ENTITY TEMP 1"
@@ -577,26 +579,25 @@ let game_functions = [|
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
-        "scoreboard players set $ENTITY preseconds -1"                                                 // briefly store an atypical value to copy
-        "execute if $SCORE(seconds=0..9) run scoreboard players set $ENTITY preseconds 0"
+        "scoreboard players set $ENTITY preseconds 0"
+        "execute if $SCORE(seconds=10..) run scoreboard players reset $ENTITY preseconds"
         sprintf "execute as @a run function %s:update_time_per_player" NS  // NOTE every-tick @a
-        sprintf "scoreboard players reset @e[%s,scores={preseconds=-1}] preseconds" ENTITY_TAG         // restore typical value
         |]
     yield "update_time_per_player",[|
         // pretty timer
         "scoreboard players operation @s minutes = $ENTITY minutes"
-        "scoreboard players operation @s preseconds = $ENTITY preseconds"
-        "scoreboard players reset @s[scores={preseconds=-1}] preseconds"
         "scoreboard players operation @s seconds = $ENTITY seconds"
+        "scoreboard players set @s preseconds 0"
+        "scoreboard players reset @s[scores={seconds=10..}] preseconds"
         // extreme hills detection
         "scoreboard players remove @s[scores={inXH=1..}] inXH 1"
         sprintf "scoreboard players set @e[%s] inXH 0" XH_TAG 
-        sprintf "execute if entity @e[%s,scores={optxhval=1}] if entity @s[scores={inXH=1..}] run scoreboard players set @e[%s] inXH 1" ENTITY_TAG XH_TAG 
+        sprintf "execute if $SCORE(optxhval=1) if entity @s[scores={inXH=1..}] run scoreboard players set @e[%s] inXH 1" XH_TAG 
         // y coordinate
         "execute store result score @s TEMP run data get entity @s Pos[1] 1.0"
         // display
-        sprintf """execute if entity @e[%s,scores={optsaval=0}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" ENTITY_TAG COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
-        sprintf """execute if entity @e[%s,scores={optsaval=1}] run function %s:update_time_per_player_with_arrow""" ENTITY_TAG NS
+        sprintf """execute if $SCORE(optsaval=0) run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
+        sprintf """execute if $SCORE(optsaval=1) run function %s:update_time_per_player_with_arrow""" NS
         |]
     yield "update_time_per_player_with_arrow",[|  // TODO "name"="*" selects 'person being displayed to' maybe? test perf of * versus execute as @a run ... @s
         sprintf "function %s:find_dir_to_spawn" NS
@@ -746,6 +747,9 @@ let game_functions = [|
         yield sprintf "function %s:start3" NS
         |]
     yield "start3", [|
+        // copy LW info to its entity
+        yield sprintf "execute unless $SCORE(optlwval=1) run scoreboard players set @e[%s] optlwval 0" LW_TAG 
+        yield sprintf "execute if $SCORE(optlwval=1) run scoreboard players set @e[%s] optlwval 1" LW_TAG 
         // give maps in offhand for start of game
         yield """replaceitem entity @a weapon.offhand minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32""" // unused: way to test offhand non-empty - scoreboard players set @p[nbt={Inventory:[{Slot:-106b}]}] offhandFull 1
         // give player all the effects
@@ -1103,9 +1107,9 @@ let checker_functions = [|
     |]
     for item in flatBingoItems do
         yield sprintf "inv/got_%s" item, [|
-            let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE item ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG
-            let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"@e[%s]","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"@e[%s]","objective":"preseconds"}},{"color":"gray","score":{"name":"@e[%s]","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE ENTITY_TAG ENTITY_TAG ENTITY_TAG item
+            let itemdatum_time_playername    = sprintf """[%s,"%s ",{"color":"gray","score":{"name":"%s","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"%s","objective":"preseconds"}},{"color":"gray","score":{"name":"%s","objective":"seconds"}}," ",{"selector":"@s"}]""" LEADING_WHITESPACE item FAKE FAKE FAKE
+            let time_playername_gotanitem    = sprintf """[%s,{"color":"gray","score":{"name":"%s","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"%s","objective":"preseconds"}},{"color":"gray","score":{"name":"%s","objective":"seconds"}}," ",{"selector":"@s"}," got an item!"]""" LEADING_WHITESPACE FAKE FAKE FAKE
+            let time_playername_gotthe_datum = sprintf """[%s,{"color":"gray","score":{"name":"%s","objective":"minutes"}},{"color":"gray","text":":"},{"color":"gray","score":{"name":"%s","objective":"preseconds"}},{"color":"gray","score":{"name":"%s","objective":"seconds"}}," ",{"selector":"@s"}," got the %s"]""" LEADING_WHITESPACE FAKE FAKE FAKE item
             yield sprintf """execute if $SCORE(optaival=2,optaotval=0,optlwval=1) run tellraw @a %s""" itemdatum_time_playername
             yield sprintf """execute if $SCORE(optaival=2,optaotval=0,optlwval=0) run tellraw @a %s""" time_playername_gotthe_datum
             yield sprintf """execute if $SCORE(optaival=1,optaotval=0) run tellraw @a %s""" time_playername_gotanitem
@@ -1394,7 +1398,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             "tag @s remove dirGuy"
             |]
         yield "theloop", [|
-            yield sprintf "execute as $ENTITY run function %s" compiler.TickFullName
             yield sprintf "execute if $SCORE(gameInProgress=2) run function %s:update_time" NS
             yield sprintf "execute if $SCORE(gameInProgress=2) run function %s:map_update_tick" NS
             yield sprintf "execute as @a[scores={home=1}] run function %s:go_home" NS
@@ -1443,7 +1446,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield """give @p minecraft:filled_map{display:{Name:"\"BINGO Card\""},map:0} 32"""
             |]
         yield "init",[|
-            yield sprintf "function %s" compiler.LoadFullName
             yield sprintf "function %s:init_body" NS
             |]
         |]
@@ -1453,7 +1455,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
     System.IO.File.Copy(artPack, System.IO.Path.Combine(FOLDER,"""datapacks\BingoArt.zip"""), true)
     // bingo pack
     writeExtremeHillsDetection(pack)
-    Utilities.writeConfigOptionsFunctions(pack, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (ns,n,c) -> compiler.Compile(ns,n,c)), sprintf "@e[%s]" ENTITY_TAG)
+    Utilities.writeConfigOptionsFunctions(pack, NS, CFG, bingoConfigBook, bingoConfigBookTag, (fun (ns,n,c) -> compiler.Compile(ns,n,c)), sprintf "%s" FAKE)
     let r = [|
         for name,code in r do
             yield! compiler.Compile(NS, name, code)
