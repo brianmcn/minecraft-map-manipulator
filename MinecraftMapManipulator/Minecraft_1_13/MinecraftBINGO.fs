@@ -21,15 +21,16 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // few unique probabilities; if enderpearl were 5/6 and slimeball were 1/6 in the bin, for example... hm, I could make each bin have 6 items and futz with probabilities more...
 // and then have e.g. 3 enderpearl, 2 rabbit hide, 1 slimeball; double-chests still enable the bin-visualization... ench book and maybe cake could be less, lime could be 50%...
 // LATER: if add nether items, will need a way to select item-subsets-to-use (okItem%03d), so that will address
+// Interface for okItem selection...
+//  - in separate room of lobby (gip=0, sign to tp to/from), a panel of signs to toggle each, perhaps in an item frame (invuln. item frame created when enter, destroy when leave) on emerald/redstone?
+//  - anyone can tp in solo, but tp out takes everyone back to lobby? tp out sign at one end of hall
+//  - also signs to restore to default set, and maybe other 'canned' sets (e.g. 'all' if I add nether stuff) at other end of hall
+//  - folks suggest that, rather than signs to toggle, just right click item frame (and detect rotation, reset {ItemRotation:0b})... if the room is stateful (so detectors only run when gip=0 and folks there), could be doable?
+//  - need a way to validate at least 25 items on (and ensure algorithm terminates in maxChainCommandLength in time when few items)
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/ (prob not until 1.14)
 
 // TODO test non-playing players who just want to hang out in lobby (ideally they should not be on a team color, so they have no perf impact with inventory checking - 'leave team' sign in multiplayer lobby?)
-
-// TODO 'utility sign' hidden option?
-// Note: replay-same-card sign + fake start gives 'plan marker' for 20-no-bingo... - can do now via "seed 0" to replay easily
-// TODO next seed (seed+1) is a good utility sign for gothfaerie
-// yeah I should just have a function you can explicitly invoke that adds a number of utility signs
 
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
@@ -91,6 +92,9 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
     ConfigPage("Got-an-item effects for other teams",[|
         ConfigOption("optoai", ConfigDescription.Radio [|"other teams see <nothing> in chat"; "other teams see 'got an item' in chat"; "other teams see 'got bone' in chat"|], 1, [||])
         ConfigOption("optofi",ConfigDescription.Toggle "other teams hear firework sound", 1, [||])
+        |])
+    ConfigPage("Other options",[|
+        ConfigOption("optus",ConfigDescription.Toggle "Turn on utility signs", 0, [||])
         |])
     |])
 
@@ -307,13 +311,16 @@ let game_functions = [|
             yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" (sprintf "function %s:yellow_team_join" NS) otherSignsEnabled false
             //
             yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) otherSignsEnabled false
-            yield! placeWallSignCmds 62 27 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled false
             yield! placeWallSignCmds 63 27 61 "south" "get" "CONFIGURATION" "book(s)" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
             //
             yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 67 27 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) otherSignsEnabled true
+            //
+            yield! Utilities.placeWallSignCmds 61 28 61 "south" "previous" "SEED" "" "" (sprintf"function %s:prev_seed"NS) seedSignsEnabled "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 62 28 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 63 28 61 "south" "next" "SEED" "" "" (sprintf"function %s:next_seed"NS) seedSignsEnabled "execute if $SCORE(optusval=1) run "
             //
             yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
             |]
@@ -435,7 +442,7 @@ let game_functions = [|
         // make area for players who respawn without valid spawn point
         yield sprintf "fill 60 %d 60 70 %d 70 minecraft:light_gray_stained_glass" (ART_HEIGHT+10) (ART_HEIGHT+10)
         yield sprintf "setblock 65 %d 60 light_gray_stained_glass" (ART_HEIGHT+12)
-        yield! placeWallSignCmds 65  (ART_HEIGHT+12) 61 "south" "teleport" "to" "LOBBY" "" (sprintf "teleport @s %s" LOBBY) true false
+        yield! placeWallSignCmds 65  (ART_HEIGHT+12) 61 "south" "right click me" "to teleport" "to" "LOBBY" (sprintf "teleport @s %s" LOBBY) true false
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
@@ -533,6 +540,16 @@ let game_functions = [|
         yield sprintf "function %s:prng" NS
         yield "scoreboard players operation Seed Score += $ENTITY PRNG_OUT"
         // re-seed the PRNG with that seed number
+        yield "scoreboard players operation Z Calc = Seed Score"
+        yield sprintf "function %s:new_card_coda" NS
+        |]
+    yield "prev_seed",[|
+        yield "scoreboard players remove Seed Score 1"
+        yield "scoreboard players operation Z Calc = Seed Score"
+        yield sprintf "function %s:new_card_coda" NS
+        |]
+    yield "next_seed",[|
+        yield "scoreboard players add Seed Score 1"
         yield "scoreboard players operation Z Calc = Seed Score"
         yield sprintf "function %s:new_card_coda" NS
         |]
