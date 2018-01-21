@@ -243,10 +243,44 @@ let test2compilers() =
     pack1.SaveToDisk()
     pack2.SaveToDisk()
 
+let temple_locator() =
+    let code = [|
+        yield "scoreboard objectives add Dir dummy"
+        yield "scoreboard objectives add Best dummy"
+        yield "scoreboard objectives add TEMP dummy"
+        yield "scoreboard players set @p Dir 1"
+        yield "execute as @p at @s rotated ~ 0 positioned ^ ^ ^20 store result score @s Best run locate Temple"
+        for rel,dir in ["^-14 ^ ^14",2
+                        "^-20 ^ ^",3
+                        "^-14 ^ ^-14",4
+                        "^ ^ ^-20",5
+                        "^14 ^ ^-14",6
+                        "^20 ^ ^",7
+                        "^14 ^ ^14",8
+                       ] do
+            yield sprintf "execute as @p at @s rotated ~ 0 positioned %s store result score @s TEMP run locate Temple" rel
+            yield sprintf "execute if score @p TEMP < @p Best run scoreboard players set @p Dir %d" dir
+            yield sprintf "execute if score @p TEMP < @p Best run scoreboard players operation @p Best = @p TEMP"
+        yield """execute if entity @p[scores={Dir=1}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2191"}]"""
+        yield """execute if entity @p[scores={Dir=2}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2197"}]"""
+        yield """execute if entity @p[scores={Dir=3}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2192"}]"""
+        yield """execute if entity @p[scores={Dir=4}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2198"}]"""
+        yield """execute if entity @p[scores={Dir=5}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2193"}]"""
+        yield """execute if entity @p[scores={Dir=6}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2199"}]"""
+        yield """execute if entity @p[scores={Dir=7}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2190"}]"""
+        yield """execute if entity @p[scores={Dir=8}] run title @p actionbar [{"color":"gold","score":{"name":"@p","objective":"Best"}},{"color":"gold","text":"\u2196"}]"""
+        |]
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestLocate""")
+    let pack = Utilities.DataPackArchive(FOLDER,"locator","find structures")
+    pack.WriteFunction("loc","tick",code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",["loc:tick"])
+    pack.SaveToDisk()
+
+
 [<EntryPoint>]
 let main argv = 
-    MinecraftBINGO.cardgen_compile()
-    MinecraftBINGOExtensions.Blind.main()
+    //MinecraftBINGO.cardgen_compile()
+    //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
@@ -262,6 +296,7 @@ let main argv =
     //test_selection_execution_order()
     //Mandelbrot.main()
     //test2compilers()
+    temple_locator()
     ignore argv
     0
 
