@@ -1,7 +1,9 @@
 ﻿module MinecraftBINGO
 
-let SKIP_WRITING_CHECK = false  // turn this on to save time if you're not modifying checker code
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
+
+// TODO decide lobby interface regarding choosable items (item frame wall), have sign to 'default'/all, etc (maybe wall appears when gip=0 and disappears when start game?)
+// TODO deal with too few items
 
 // TODO oh yeah, nether is buggy
 // TODO arrow to spawn while in nether (remove? point to entry portal?)
@@ -14,19 +16,6 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 //  - nether brick (item)
 
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
-
-// TODO remove slimeball?  what else could go there alt enderpearl?  rabbit hide?  I think yes, but sleep on it.
-// Next day: it's nice to give people options.  Trade-off between people who will be frustrated by competitive or 'truly random' cards with this very hard item, 
-// versus those who enjoy the item or those who will happily skip to another card if this card isn't to their liking.  It is also maybe a shame that there are so
-// few unique probabilities; if enderpearl were 5/6 and slimeball were 1/6 in the bin, for example... hm, I could make each bin have 6 items and futz with probabilities more...
-// and then have e.g. 3 enderpearl, 2 rabbit hide, 1 slimeball; double-chests still enable the bin-visualization... ench book and maybe cake could be less, lime could be 50%...
-// LATER: if add nether items, will need a way to select item-subsets-to-use (okItem%03d), so that will address
-// Interface for okItem selection...
-//  - in separate room of lobby (gip=0, sign to tp to/from), a panel of signs to toggle each, perhaps in an item frame (invuln. item frame created when enter, destroy when leave) on emerald/redstone?
-//  - anyone can tp in solo, but tp out takes everyone back to lobby? tp out sign at one end of hall
-//  - also signs to restore to default set, and maybe other 'canned' sets (e.g. 'all' if I add nether stuff) at other end of hall
-//  - folks suggest that, rather than signs to toggle, just right click item frame (and detect rotation, reset {ItemRotation:0b})... if the room is stateful (so detectors only run when gip=0 and folks there), could be doable?
-//  - need a way to validate at least 25 items on (and ensure algorithm terminates in maxChainCommandLength in time when few items)
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/ (prob not until 1.14)
 
@@ -226,6 +215,7 @@ let game_objectives = [|
     // GLOBALS
     yield "CALL"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
     yield "TEMP"  // a temporary variable anyone can use locally
+    yield "TEMP2"  // a temporary variable anyone can use locally
     // bingo main game logic
     yield "Score"
     yield "fakeStart"
@@ -288,6 +278,7 @@ let game_functions = [|
         yield sprintf "team join green @e[%s]" XH_TAG
         yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.DEFAULT 
         yield sprintf "function %s:summon_book_text_entities" NS
+        yield sprintf "function %s:cardgen_init_chooseable" NS
         |]
     for gip in [0;1;2] do // gameInProgress
         yield sprintf"place_signs%d"gip, [|
@@ -456,7 +447,7 @@ let game_functions = [|
         |]
     yield "latest_version",[|
         let downloadUrl = "https://twitter.com/MinecraftBINGO"
-        yield sprintf """tellraw @a {"text":"Press 't' (chat), then click line below to visit the official download page for MinecraftBINGO"}"""
+        yield sprintf """tellraw @a {"text":"Press 't' (chat), then click line below to visit the official download page for MinecraftBINGO"}"""  // TODO /tellraw @a {"keybind":"key.chat"}
         yield sprintf """tellraw @a {"text":"%s","underlined":"true","clickEvent":{"action":"open_url","value":"%s"}}""" downloadUrl downloadUrl
         |]
     yield "assign_1_team",[|
@@ -527,7 +518,7 @@ let game_functions = [|
     yield "choose_seed",[|
         yield "scoreboard players set @a PlayerSeed -1"
         yield "scoreboard players enable @a PlayerSeed"
-        yield """tellraw @a {"text":"Press 't' (chat), click below, then replace NNN with a seed number in chat"}"""
+        yield """tellraw @a {"text":"Press 't' (chat), click below, then replace NNN with a seed number in chat"}"""   // TODO /tellraw @a {"keybind":"key.chat"}
         yield """tellraw @a {"text":"CLICK HERE","clickEvent":{"action":"suggest_command","value":"/trigger PlayerSeed set NNN"}}"""
         |]
     yield "set_seed",[| // theloop listens for changes to PlayerSeed to call this as the player
@@ -830,7 +821,7 @@ let game_functions = [|
         yield "scoreboard players enable @a home"
         // option to get back
         yield """execute if $SCORE(opthhval=1) run tellraw @a ["(If you need to quit before getting BINGO, you can"]"""
-        yield """execute if $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield """execute if $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby)","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""   // TODO /tellraw @a {"keybind":"key.chat"}
         yield sprintf """execute if $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         yield "worldborder set 20000000"          // 20 million wide is 10 million from spawn
         yield "worldborder add 10000000 10000000" // 10 million per 10 million seconds is one per second
@@ -973,6 +964,58 @@ let flatBingoItems =
         r
     trim.ToArray()
 
+let itemIndex(name) = flatBingoItems |> Array.findIndex(fun x -> x = name)
+
+///////////////////////////////////////////////////////////////////////////////
+
+let CHOOSE_X = 80
+let CHOOSE_Y = 25
+let CHOOSE_Z = 60
+
+let choosable_functions = [|
+    yield "make_item_wall_colors", [|
+        for i = 0 to bingoItems.Length-1 do
+            for j = 0 to 2 do
+                let item = bingoItems.[i].[j]
+                let index = itemIndex(item)
+                yield sprintf "execute if $SCORE(okItem%03d=1) run setblock %d %d %d emerald_block"  index CHOOSE_X (CHOOSE_Y+3-j) (CHOOSE_Z+1+i)
+                yield sprintf "execute if $SCORE(okItem%03d=0) run setblock %d %d %d redstone_block" index CHOOSE_X (CHOOSE_Y+3-j) (CHOOSE_Z+1+i)
+        |]
+    yield "make_item_wall", [|
+        yield sprintf "fill %d %d %d %d %d %d stone" CHOOSE_X CHOOSE_Y CHOOSE_Z CHOOSE_X (CHOOSE_Y+4) (CHOOSE_Z + bingoItems.Length + 1)
+        yield sprintf "function %s:make_item_wall_colors" NS
+        for i = 0 to bingoItems.Length-1 do
+            for j = 0 to 2 do
+                let item = bingoItems.[i].[j]
+                let index = itemIndex(item)
+                yield sprintf """summon item_frame %d %d %d {Tags:[tempIF,tempIF%02d%02d],Invulnerable:1b,Facing:4b,ItemRotation:0b,Item:{id:"minecraft:%s",Count:1b}}""" (CHOOSE_X-1) (CHOOSE_Y+3-j) (CHOOSE_Z+1+i) i j item
+        |]
+    yield "clear_item_wall", [|
+        "kill @e[tag=tempIF]"
+        sprintf "fill %d %d %d %d %d %d air" CHOOSE_X CHOOSE_Y CHOOSE_Z CHOOSE_X (CHOOSE_Y+4) (CHOOSE_Z + bingoItems.Length + 1)
+        |]
+    yield "item_chooser_tick", [|
+        yield "scoreboard players set $ENTITY TEMP 0"  // any changes?
+        for i = 0 to bingoItems.Length-1 do
+            for j = 0 to 2 do
+                let item = bingoItems.[i].[j]
+                let index = itemIndex(item)
+                yield sprintf """execute positioned %d %d %d as @e[distance=..1,tag=tempIF%02d%02d] unless entity @s[nbt={ItemRotation:0b}] run function %s:toggle_choosable%03d""" (CHOOSE_X-1) (CHOOSE_Y+3-j) (CHOOSE_Z+1+i) i j NS index 
+        yield sprintf "execute if $SCORE(TEMP=1) run function %s:make_item_wall_colors" NS
+        |]
+    for i = 0 to flatBingoItems.Length-1 do
+        yield sprintf "toggle_choosable%03d" i, [|
+            // change 1->0 and 0->1
+            sprintf "scoreboard players operation $ENTITY TEMP2 = $ENTITY okItem%03d" i
+            sprintf "execute if $SCORE(TEMP2=1) run scoreboard players set $ENTITY okItem%03d 0" i
+            sprintf "execute if $SCORE(TEMP2=0) run scoreboard players set $ENTITY okItem%03d 1" i
+            // fix rotation
+            "data merge entity @s {ItemRotation:0b}"
+            // note that a change was made
+            "scoreboard players set $ENTITY TEMP 1"
+            |]
+    |]
+
 ///////////////////////////////////////////////////////////////////////////////
 
 let checker_objectives = [|
@@ -1103,7 +1146,7 @@ let checker_functions = [|
         yield "scoreboard players operation Seconds Score = $ENTITY seconds"
         // option to return to lobby
         yield """execute if $SCORE(opthhval=1) run tellraw @a ["You can keep playing, or"]"""
-        yield """execute if $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""
+        yield """execute if $SCORE(opthhval=1) run tellraw @a [{"underlined":"true","text":"press 't' (chat), then click this line to return to the lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]"""   // TODO /tellraw @a {"keybind":"key.chat"}
         yield sprintf """execute if $SCORE(opthhval=0) run tellraw @a [%s,{"underlined":"true","text":"click to go to lobby","clickEvent":{"action":"run_command","value":"/trigger home set 1"}}]""" LEADING_WHITESPACE
         // fireworks
         yield """execute as @a at @s run summon fireworks_rocket ~3 ~0 ~0 {LifeTime:20}"""
@@ -1234,7 +1277,7 @@ let cardgen_functions = [|
         for i = 0 to bingoItems.Length-1 do
             yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
         |]
-    yield "cardgen_chooseable", [|
+    yield "cardgen_init_chooseable", [|
         for i = 0 to flatBingoItems.Length-1 do
             yield sprintf "# %03d %s" i flatBingoItems.[i]
             yield sprintf "scoreboard players set $ENTITY okItem%03d 1" i
@@ -1259,7 +1302,7 @@ let cardgen_functions = [|
             yield sprintf "scoreboard players set $ENTITY PRNG_MOD 3"
             yield sprintf "function %s:prng" NS
             for j = 0 to 2 do
-                let index = flatBingoItems |> Array.findIndex(fun x -> x = bingoItems.[i].[j])
+                let index = itemIndex(bingoItems.[i].[j])
                 yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" index j bingoItems.[i].[j]
                 yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" index j
                 for x = 1 to 5 do
@@ -1301,8 +1344,6 @@ let cardgen_functions = [|
         yield sprintf "setblock %s air" CHEST_THIS_CARD_2.STR
         yield sprintf "setblock %s chest[facing=east,type=left]" CHEST_THIS_CARD_1.STR
         yield sprintf "setblock %s chest[facing=east,type=right]" CHEST_THIS_CARD_2.STR
-        // init choosables
-        yield sprintf "function %s:cardgen_chooseable" NS
         // pick items and place structure art
         for _x = 1 to 5 do
             yield sprintf "function %s:cardgen_choose1" NS
@@ -1326,6 +1367,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
     let r = [|
         yield! cardgen_functions
         yield! checker_functions
+        yield! choosable_functions
         yield! game_functions
         yield! map_update_functions
         yield "on_lobby_respawn", [|
@@ -1475,10 +1517,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield! compiler.Compile(NS, name, code)
         |]
     for ns,name,code in r do
-        if SKIP_WRITING_CHECK && System.Text.RegularExpressions.Regex.IsMatch(name,"""check\d\d_.*""") then
-            () // do nothing
-        else
-            pack.WriteFunction(ns,name,code)
+        pack.WriteFunction(ns,name,code)
     for ns,name,code in compiler.GetCompilerLoadTick() do
         pack.WriteFunction(ns, name, code)
     pack.SaveToDisk()
