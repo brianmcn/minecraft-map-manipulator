@@ -223,7 +223,7 @@ let main() =
         yield sprintf "fill %d %d %d %d %d %d barrier" X (Y-2) (Z-2) biggest_x (Y-2) (biggest_z+1)
         let midx,midz = (X+(biggest_x-X)/2), (Z+(biggest_z-Z-2)/2)
         yield sprintf "setblock %d %d %d barrier" midx Y (midz-1)
-        yield! Utilities.placeWallSignCmds midx Y midz "south" "click to" "CHECK" "inventory" "for items" "function qfe:main" true ""
+        yield! Utilities.placeWallSignCmds midx Y midz "south" "click to" "CHECK" "inventory" "for items" "function qfe:main" true "black" ""
         |])
     functions.Add("clear",[|
         for y = Y-2 to Y+3 do

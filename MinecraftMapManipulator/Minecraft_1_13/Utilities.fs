@@ -26,9 +26,9 @@ let makeCommandGivePlayerWrittenBook(author, title, pages:string[], extraItemNBT
 
 //////////////////////////////
 // signs
-let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold executePrefix =
+let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color executePrefix =
     if facing<>"north" && facing<>"south" && facing<>"east" && facing<>"west" then failwith "bad facing wall_sign"
-    let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") (if isBold then "black" else "gray")
+    let bc = sprintf """,\"bold\":\"%s\",\"color\":\"%s\" """ (if isBold then "true" else "false") color
     let c1 = if isBold && (cmd<>null) then sprintf """,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"%s\"} """ cmd else ""
     [|
         sprintf "setblock %d %d %d air replace" x y z

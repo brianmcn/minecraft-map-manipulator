@@ -53,8 +53,6 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 //   - OR just clickable text in chat, and something displays options, and you can click to toggle
 // /give @p sign{BlockEntityTag:{Text1:"[\"foo\",{\"score\":{\"name\":\"@p\",\"objective\":\"Score\"}}]",Text2:"[{\"score\":{\"name\":\"@p\",\"objective\":\"Score\"}}]",Text3:"[{\"selector\":\"@p\"}]",Text4:"[]",id:"minecraft:sign"}} 1
 
-// TODO first time loading up map signs? (see HasTheMapEverBeenLoadedBefore) enable command blocks, disable spawn protection?
-
 // TODO command block customization, for people on server without access to files (yeah, e.g. just an on-start and on-respawn ICB outside lobby that get triggered for each player given a tag)
 
 // TODO refactor utility modules into a separate datapack? prng, arrow to X, warp-home/back, ...?
@@ -94,7 +92,7 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
         ConfigOption("optofi",ConfigDescription.Toggle "other teams hear firework sound", 1, [||])
         |])
     ConfigPage("Other options",[|
-        ConfigOption("optus",ConfigDescription.Toggle "Turn on utility signs", 0, [||])
+        ConfigOption("optus",ConfigDescription.Toggle "Turn on utility signs", 1, [||])  // TODO make this default 0 in release version
         |])
     |])
 
@@ -267,7 +265,7 @@ let game_objectives = [|
         yield sprintf "%sSpawnZ" t    // a number between 1 and 999 that needs to be multipled by 10000
     |]
 let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold onlyPlaceIfMultiplayer =
-    Utilities.placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold (if onlyPlaceIfMultiplayer then "execute if $SCORE(TEMP=2..) run " else "")
+    Utilities.placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold (if isBold then "black" else "gray") (if onlyPlaceIfMultiplayer then "execute if $SCORE(TEMP=2..) run " else "")
 let game_functions = [|
     yield "game_init", [|
         for o in game_objectives do
@@ -318,9 +316,9 @@ let game_functions = [|
             yield! placeWallSignCmds 67 27 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) otherSignsEnabled true
             //
-            yield! Utilities.placeWallSignCmds 61 28 61 "south" "previous" "SEED" "" "" (sprintf"function %s:prev_seed"NS) seedSignsEnabled "execute if $SCORE(optusval=1) run "
-            yield! Utilities.placeWallSignCmds 62 28 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled "execute if $SCORE(optusval=1) run "
-            yield! Utilities.placeWallSignCmds 63 28 61 "south" "next" "SEED" "" "" (sprintf"function %s:next_seed"NS) seedSignsEnabled "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 61 28 61 "south" "previous" "SEED" "" "" (sprintf"function %s:prev_seed"NS) seedSignsEnabled "black" "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 62 28 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled (if otherSignsEnabled then "black" else "gray") "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 63 28 61 "south" "next" "SEED" "" "" (sprintf"function %s:next_seed"NS) seedSignsEnabled "black" "execute if $SCORE(optusval=1) run "
             //
             yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
             |]
@@ -442,7 +440,24 @@ let game_functions = [|
         // make area for players who respawn without valid spawn point
         yield sprintf "fill 60 %d 60 70 %d 70 minecraft:light_gray_stained_glass" (ART_HEIGHT+10) (ART_HEIGHT+10)
         yield sprintf "setblock 65 %d 60 light_gray_stained_glass" (ART_HEIGHT+12)
-        yield! placeWallSignCmds 65  (ART_HEIGHT+12) 61 "south" "right click me" "to teleport" "to" "LOBBY" (sprintf "teleport @s %s" LOBBY) true false
+        yield! placeWallSignCmds 65 (ART_HEIGHT+12) 61 "south" "right click me" "to teleport" "to" "LOBBY" (sprintf "teleport @s %s" LOBBY) true false
+        yield sprintf "setblock 69 %d 70 light_gray_stained_glass" (ART_HEIGHT+12)
+        yield! placeWallSignCmds 69 (ART_HEIGHT+12) 69 "north" "Welcome to" "MinecraftBINGO" "by Dr. Brian" "Lorgon111" null true false
+        yield sprintf "setblock 67 %d 70 light_gray_stained_glass" (ART_HEIGHT+12)
+        yield! placeWallSignCmds 67 (ART_HEIGHT+12) 69 "north" "This is" "Version 4.0" "of the map." "(for MC 1.13)" null true false
+        yield sprintf "setblock 66 %d 70 light_gray_stained_glass" (ART_HEIGHT+12)
+        yield! placeWallSignCmds 66 (ART_HEIGHT+12) 69 "north" "Right click me" "to discover" "the latest" "version." (sprintf "function %s:latest_version" NS) true false
+        yield sprintf "setblock 64 %d 70 light_gray_stained_glass" (ART_HEIGHT+12)
+        yield! placeWallSignCmds 64 (ART_HEIGHT+12) 69 "north" "Turn around" "to find sign" "to go to" "the lobby." null true false
+        yield sprintf "setblock 62 %d 70 light_gray_stained_glass" (ART_HEIGHT+12)
+        yield! Utilities.placeWallSignCmds 62 (ART_HEIGHT+12) 69 "north" "server" "properties" "enable-command-" "block = true" null false "black" ""
+        yield sprintf "setblock 61 %d 70 light_gray_stained_glass" (ART_HEIGHT+12)
+        yield! Utilities.placeWallSignCmds 61 (ART_HEIGHT+12) 69 "north" "server" "properties" "spawn-" "protection=0" null false "black" ""
+        |]
+    yield "latest_version",[|
+        let downloadUrl = "https://twitter.com/MinecraftBINGO"
+        yield sprintf """tellraw @a {"text":"Press 't' (chat), then click line below to visit the official download page for MinecraftBINGO"}"""
+        yield sprintf """tellraw @a {"text":"%s","underlined":"true","clickEvent":{"action":"open_url","value":"%s"}}""" downloadUrl downloadUrl
         |]
     yield "assign_1_team",[|
         yield "team join red @a"
