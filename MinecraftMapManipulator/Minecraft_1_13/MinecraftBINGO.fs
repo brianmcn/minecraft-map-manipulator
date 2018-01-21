@@ -3,7 +3,7 @@
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
 // TODO decide lobby interface regarding choosable items (item frame wall), have sign to 'default'/all, etc (maybe wall appears when gip=0 and disappears when start game?)
-// TODO deal with too few items
+// TODO deal with too few items (can keep own counter and 'give up' after n, so ensure consistent game state?)
 
 // TODO oh yeah, nether is buggy
 // TODO arrow to spawn while in nether (remove? point to entry portal?)
@@ -18,8 +18,6 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 // TODO possibly-expensive things could be moved to datapacks, so turning them off will remove all the machinery (e.g. XH advancement)
 
 // TODO may need to re-art everything? https://www.reddit.com/r/Minecraft/comments/7jr4tp/try_the_new_minecraft_java_textures/ (prob not until 1.14)
-
-// TODO test non-playing players who just want to hang out in lobby (ideally they should not be on a team color, so they have no perf impact with inventory checking - 'leave team' sign in multiplayer lobby?)
 
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
@@ -306,6 +304,7 @@ let game_functions = [|
             yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 67 27 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) otherSignsEnabled true
             yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) otherSignsEnabled true
+            yield! placeWallSignCmds 69 26 61 "south" "LEAVE" "team" "(to sit out" "a game)" "team leave @s" otherSignsEnabled true
             //
             yield! Utilities.placeWallSignCmds 61 28 61 "south" "previous" "SEED" "" "" (sprintf"function %s:prev_seed"NS) seedSignsEnabled "black" "execute if $SCORE(optusval=1) run "
             yield! Utilities.placeWallSignCmds 62 28 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled (if otherSignsEnabled then "black" else "gray") "execute if $SCORE(optusval=1) run "
@@ -580,14 +579,14 @@ let game_functions = [|
         "scoreboard players operation $ENTITY minutes -= $ENTITY TWENTY_MIL"
         "scoreboard players operation Time Score = $ENTITY minutes"  // the reason to keep this is that chat text from getting items covers the actionbar, so want a way its visible
         // while 'minutes' objective has 'total seconds', do this
-        sprintf """execute if $SCORE(said25mins=0,minutes=1500) as @a run function %s:at25mins""" NS
+        sprintf """execute if $SCORE(said25mins=0,minutes=1500) as @a unless entity @s[team=] run function %s:at25mins""" NS
         // compute actual MM:SS and display
         "scoreboard players operation $ENTITY seconds = $ENTITY minutes"
         "scoreboard players operation $ENTITY minutes /= $ENTITY SIXTY"
         "scoreboard players operation $ENTITY seconds %= $ENTITY SIXTY"
         "scoreboard players set $ENTITY preseconds 0"
         "execute if $SCORE(seconds=10..) run scoreboard players reset $ENTITY preseconds"
-        sprintf "execute as @a run function %s:update_time_per_player" NS  // NOTE every-tick @a
+        sprintf "execute as @a unless entity @s[team=] run function %s:update_time_per_player" NS
         |]
     yield "update_time_per_player",[|
         // pretty timer
@@ -774,7 +773,7 @@ let game_functions = [|
         |]
     yield "do_spawn_sequence", [|
         // tp all to waiting room
-        yield sprintf "execute in overworld run teleport @a %s 180 0" WAITING_ROOM.TPSTR
+        yield sprintf "execute in overworld as @a unless entity @s[team=] run teleport @s %s 180 0" WAITING_ROOM.TPSTR
         // set up spawn points
         yield "scoreboard players set $ENTITY PRNG_MOD 998"
         yield sprintf "execute if entity @a[team=red] run function %s:do_red_spawn" NS
@@ -873,7 +872,7 @@ let map_update_functions = [|
         |]
     yield "map_update_tick", [| // called every tick
         // find maps near players (for efficiency, rather than looking for all items in world, only look near players)
-        sprintf """execute at @a as @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}},distance=..3] run function %s:map_near_player""" NS  // TODO serializing nbt per player, lag?
+        sprintf """execute as @a unless entity @s[team=] at @s as @e[limit=1,type=item,nbt={Item:{id:"minecraft:filled_map",tag:{map:0}}},distance=..3] run function %s:map_near_player""" NS  // TODO serializing nbt per player, lag?
         // run progress for anyone in the update room
         sprintf "execute as @a[scores={ticksLeftMU=1}] run function %s:warp_back" NS
         "scoreboard players remove @a[scores={ticksLeftMU=1..}] ticksLeftMU 1"
@@ -948,6 +947,7 @@ let bingoItems = [|
         [|  "golden_sword"     ; "clock"            ; "powered_rail"        |]
         [|  "hopper"           ; "hopper"           ; "hopper_minecart"     |]
         [|  "redstone_torch"   ; "repeater"         ; "repeater"            |]
+        [|  "glowstone_dust"   ; "glowstone_dust"   ; "glowstone_dust"      |]
     |]
 
 let flatBingoItems = 
@@ -1462,12 +1462,12 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute unless $SCORE(gameInProgress=1) as @a run function %s:have_no_map" NS
             yield sprintf "execute if $SCORE(gameInProgress=2) as @a[scores={Deaths=1..}] run function %s:on_respawn" NS
             yield sprintf "execute if $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
-            yield sprintf "execute if $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS  // NOTE every-tick @a
+            yield sprintf "execute if $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS 
             yield sprintf "execute if $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
+            yield "scoreboard players add @a ticksSinceGotMap 1"
             // throttling infrastructure (so some things don't run for every player every tick)
             yield "scoreboard players add $ENTITY tickNum 1"
             yield "execute if score $ENTITY tickNum >= $ENTITY numActivePlayers run scoreboard players set $ENTITY tickNum 0"
-            yield "scoreboard players add @a ticksSinceGotMap 1"
 //            if PROFILE then
 //                yield sprintf """tellraw @a [{"score":{"name":"@e[%s]","objective":"LINES"}}]""" ENTITY_TAG 
             |]
