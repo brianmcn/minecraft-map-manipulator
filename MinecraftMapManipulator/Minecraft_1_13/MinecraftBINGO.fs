@@ -7,8 +7,14 @@ new feature list
  - 20 no bingo                     (20-no-bingo-else-blackout could be good for weekly)
  - 2-for-1 mode                    (241-blackout could be good for weekly)
  - various config options
+    - actionbar: arrow to spawn, compass, Y, XH
+    - leading whitespace, novice mode
+    - multiplayer announcements/sounds
  - blind
-
+ - better 2-team viz
+ - faster cardgen, better perf
+ - fall from skybox to keep oriented
+ - new items (arrow, detector rail, activator rail, lava bucket, redstone torch, glowstone dust)  // TODO evaluate these for play/balance
 *)
 
 
@@ -64,7 +70,7 @@ type ConfigOption = Utilities.ConfigOption
 let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
     ConfigPage("Starting items and effects",[|
         ConfigOption("optnv",  ConfigDescription.Toggle "Night Vision", 1, [||])
-        ConfigOption("optds",  ConfigDescription.Toggle "Depth Strider boots", 0, [||])
+        ConfigOption("optds",  ConfigDescription.Toggle "Depth Strider boots", 0, [||])   // TODO keep this? or just have command-block customizable?
         ConfigOption("optboat",ConfigDescription.Toggle "Starting boat", 1, [||])
         // TODO team chest
         // TODO, OOB elytra
@@ -72,10 +78,6 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
     ConfigPage("Optional game modes",[|
         ConfigOption("optlo", ConfigDescription.Toggle "Lockout mode", 0, [|sprintf "function %s:compute_lockout_goal" NS|])
         ConfigOption("opttfo",ConfigDescription.Toggle "Two-for-one mode", 0, [||])
-        |])
-    ConfigPage("Chat text options",[|
-        ConfigOption("opthh", ConfigDescription.Toggle "Novice mode (various extra help text)", 1, [||])                 // if we need to explain how to update the card, how to click the chat, etc.
-        ConfigOption("optlw", ConfigDescription.Toggle "Leading whitespace", 0, [||])                                    // if we want leading whitespace to keep most chat away from left side
         |])
     ConfigPage("Actionbar options",[|
         ConfigOption("optsa", ConfigDescription.Toggle "Arrow points to spawn", 1, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
@@ -90,6 +92,10 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
         ConfigOption("optoai", ConfigDescription.Radio [|"other teams see <nothing> in chat"; "other teams see 'got an item' in chat"; "other teams see 'got bone' in chat"|], 1, [||])
         ConfigOption("optofi",ConfigDescription.Toggle "other teams hear firework sound", 1, [||])
         |])
+    ConfigPage("Chat text options",[|
+        ConfigOption("opthh", ConfigDescription.Toggle "Novice mode (various extra help text)", 1, [||])                 // if we need to explain how to update the card, how to click the chat, etc.
+        ConfigOption("optlw", ConfigDescription.Toggle "Leading whitespace", 0, [||])                                    // if we want leading whitespace to keep most chat away from left side
+        |])
     ConfigPage("Other options",[|
         ConfigOption("optus",ConfigDescription.Toggle "Turn on utility signs", 1, [||])  // TODO make this default 0 in release version
         |])
@@ -98,9 +104,19 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
 // TODO Maybe put the card's seed on the right margin, so a screenshot of the card without the rest of the UI includes the seed number for that card?﻿ 
 // TODO display config options on card sidebar? or swap sidebar and logo (logo on side, extra on bottom?)
 
-// TODO consider https://www.reddit.com/r/minecraftbingo/comments/7j1afe/some_ideas_for_40/
+(*
+I'll use "time points" to refer to the number of total accumulated seconds you have before the time runs out.
+There would be two configurable values: initial time points, and bonus time points per item. As the start of the game, you get the initial time points value. Each time you get an item, your time points increases by the bonus value.
+During the game, the timer on the actionbar would be replaced by the remaining time, which is your accumulated time points minus the number of seconds that has passed since the start of the game. If your remaining time dips below some threshold (15s?) a warning beep starts sounding. If your remaining time dips below zero, you lose (and some sound plays).
 
-// TODO non-default option to enable another 'arrow' that points to your prior death location
+Time points could be stored per-team, so you could do it in multiplayer. A game could be played until either the card is blacked out, or one team loses. Lockout mode becomes even more intense. (It is unclear to me if you could/should see other teams' remaining time; it would clutter the scoreboard to add it.)
+(In non-blind play, there is little reason not to craft each item as soon as possible, but if a 'blind' mode is added (where items are only revealed on the card after they're gotten), there's a new strategic aspect - you can wait and not craft the item yet (to now reveal to other team if on the card), but waiting risks running out of remaining time.)
+One could imagine an extra multiplayer option, where each time your team gets an item, you gain time points, and the other team LOSES time points.
+
+Or another multiplayer mode is a "global countdown". Everyone shares the same clock. It starts at a higher initial time points value (like 20 minutes), but each time an item is gotten, the time subtracts. The game ends when the global remaining time goes to zero, or some team gets bingo. Your team needs to strategize if they want to get lots of items (to end the game sooner, and win based on 'points') or go for a sniper-bingo (to win based on bingo, but have time to get the one hard item in the row you're going for). Hmm, unclear if that's interesting.
+*)
+
+// TODO consider changing enderpearl/enderpearl/slimeball to rabbit_hide/enderpearl/slimeball
 
 /////////////////////////////////////////////////////////////
 
@@ -415,6 +431,10 @@ let game_functions = [|
         yield "fill 60 24 60 70 24 70 stone"
         yield "fill 60 24 60 70 28 60 stone"
         yield "setblock 64 25 60 sea_lantern"
+        yield "setblock 65 26 60 redstone_block"
+        yield "setblock 66 26 60 lapis_block"
+        yield "setblock 67 26 60 emerald_block"
+        yield "setblock 68 26 60 gold_block"
         yield sprintf "function %s:place_signs0" NS
         // thanks/donations/versions books
         yield! placeWallSignCmds 62 26 77 "north" "THANKS" "" "" "" (sprintf "function %s:thanks_book" NS) true false
@@ -1633,5 +1653,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
 
 // invisibility could be a fun option for an OOB game mode
 
-// what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and point), they can steal back?
+// what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and lose point), they can steal back?
+
+// non-default option to enable another 'arrow' that points to your prior death location
 
