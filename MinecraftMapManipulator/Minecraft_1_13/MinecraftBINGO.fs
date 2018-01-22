@@ -1262,11 +1262,15 @@ let makeItemChests() =
 
 ///////////////////////////////////////////////////////////////////////////////
 
+let TEMPLOC = "24 24 24"
+let TEMPLOCSEL = "x=24,y=24,z=24,distance=..1"
 let cardgen_objectives = [|
     yield "CARDGENTEMP"
-    yield "squaresPlaced"
-    for i = 0 to bingoItems.Length-1 do
-        yield sprintf "bin%02d" i
+    yield "squaresPlaced"                              // how many squares have we already completed filling on the card?
+    yield "numRemainingBins"                           // how many available bins remain to choose from?
+    yield "arrayIndex"                                 // for a collection of cgAEC entities, they have values [0..numRemainingBins-1]
+    yield "binNumber"                                  // for a collection of cgAEC entities, they refer to a bin number [0..bingoItems.Length-1]
+    yield "numItemsInBin"                              // for a collection of cgAEC entities, says how many choosables in the bin (1, 2, or 3)
     |]
 let cardgen_functions = [|
     yield "cardgen_init", [|
@@ -1274,48 +1278,84 @@ let cardgen_functions = [|
             yield sprintf "scoreboard objectives add %s dummy" o
         for i = 0 to flatBingoItems.Length-1 do
             yield sprintf "scoreboard objectives add okItem%03d dummy" i   // is this item choosable? (way to enable only a subset of items to appear on card)
-        for i = 0 to bingoItems.Length-1 do
-            yield sprintf "scoreboard players set $ENTITY bin%02d 0" i
         |]
     yield "cardgen_init_chooseable", [|
         for i = 0 to flatBingoItems.Length-1 do
             yield sprintf "# %03d %s" i flatBingoItems.[i]
             yield sprintf "scoreboard players set $ENTITY okItem%03d 1" i
         |]
+    yield "cardgen_prepare_bins",[|
+        yield "scoreboard players set $ENTITY numRemainingBins 0"
+        for i = 0 to bingoItems.Length-1 do
+            // how many of the items in this bin are choosable?
+            yield sprintf "scoreboard players set $ENTITY TEMP 0"  
+            yield sprintf "execute if $SCORE(okItem%03d=1) run scoreboard players add $ENTITY TEMP 1" (itemIndex(bingoItems.[i].[0]))
+            yield sprintf "execute if $SCORE(okItem%03d=1) run scoreboard players add $ENTITY TEMP 1" (itemIndex(bingoItems.[i].[1]))
+            yield sprintf "execute if $SCORE(okItem%03d=1) run scoreboard players add $ENTITY TEMP 1" (itemIndex(bingoItems.[i].[2]))
+            // if any, add the bin
+            yield sprintf "execute if $SCORE(TEMP=1..) run summon area_effect_cloud %s {Duration:1,Tags:[newAEC,cgAEC]}" TEMPLOC
+            yield sprintf "execute if $SCORE(TEMP=1..) run scoreboard players operation @e[%s,tag=newAEC] arrayIndex = $ENTITY numRemainingBins" TEMPLOCSEL
+            yield sprintf "execute if $SCORE(TEMP=1..) run scoreboard players operation @e[%s,tag=newAEC] numItemsInBin = $ENTITY TEMP" TEMPLOCSEL
+            yield sprintf "execute if $SCORE(TEMP=1..) run scoreboard players set @e[%s,tag=newAEC] binNumber %d" TEMPLOCSEL i
+            yield sprintf "execute if $SCORE(TEMP=1..) run tag @e[%s,tag=newAEC] remove newAEC" TEMPLOCSEL
+            yield sprintf "execute if $SCORE(TEMP=1..) run scoreboard players add $ENTITY numRemainingBins 1"
+        |]
+    yield "cardgen_do_it",[|
+        for _x = 1 to 5 do
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
+            yield sprintf "function %s:cardgen_choose1" NS
+            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~-96 ~ ~24"
+        |]
     yield "cardgen_choose1", [|
-        yield sprintf "scoreboard players set $ENTITY PRNG_MOD %d" bingoItems.Length 
+        //yield sprintf """tellraw @a ["in choose1, numRemainingBins=",%s]""" (Utilities.tellrawScoreSelectorENTITY("numRemainingBins"))
+        // pick a number [0..numRemainingBins-1]
+        yield sprintf "scoreboard players operation $ENTITY PRNG_MOD = $ENTITY numRemainingBins"
         yield sprintf "function %s:prng" NS
         yield sprintf "scoreboard players operation $ENTITY CARDGENTEMP = $ENTITY PRNG_OUT"
-        // ensure exactly one call
-        yield sprintf "scoreboard players set $ENTITY CALL 1"
+        // find that entity to execute as, run body
+        yield sprintf "execute as @e[%s,tag=cgAEC] if score @s arrayIndex = $ENTITY CARDGENTEMP run function %s:cg/cardgen_choose1_body" TEMPLOCSEL NS
+        // used a bin, one fewer to choose among
+        yield sprintf "scoreboard players remove $ENTITY numRemainingBins 1"
+        |]
+    yield "cg/cardgen_choose1_body", [|
+        //yield sprintf """tellraw @a ["in choose1_body, binNumber=",%s]""" (Utilities.tellrawScoreSelector("@s","binNumber"))
+        // call the bin that corresponds to @s
         for i = 0 to bingoItems.Length-1 do
-            yield sprintf "execute if $SCORE(CARDGENTEMP=%d,CALL=1) run function %s:cg/cardgen_bin%02d" i NS i
-    |]
+            yield sprintf "execute if score @s binNumber matches %d run function %s:cg/cardgen_bin%02d" i NS i
+        // now that this bin is used, shift the rest of the array down
+        yield sprintf "scoreboard players operation $ENTITY CARDGENTEMP = @s arrayIndex"
+        yield sprintf "execute as @e[%s,tag=cgAEC] if score @s arrayIndex > $ENTITY CARDGENTEMP run scoreboard players remove @s arrayIndex 1" TEMPLOCSEL
+        yield sprintf "scoreboard players set @s arrayIndex -1"  // -1 is moral equivalent of 'killing' this entity now that it's been used
+        |]
     for i = 0 to bingoItems.Length-1 do
         yield sprintf "cg/cardgen_bin%02d" i, [|
-            sprintf "scoreboard players set $ENTITY CALL 0" // every exclusive-callable func needs this as first line of code
-            sprintf "execute if $SCORE(bin%02d=1) run function %s:cardgen_choose1" i NS
-            sprintf "execute unless $SCORE(bin%02d=1) run function %s:cg/cardgen_binbody%02d" i NS i
-            |]
-    for i = 0 to bingoItems.Length-1 do
-        yield sprintf "cg/cardgen_binbody%02d" i, [|
-            yield sprintf "scoreboard players set $ENTITY PRNG_MOD 3"
+            // pick a number [0..numItemsInBin-1]
+            yield sprintf "scoreboard players operation $ENTITY PRNG_MOD = @s numItemsInBin"
             yield sprintf "function %s:prng" NS
+            yield sprintf "scoreboard players operation $ENTITY CARDGENTEMP = $ENTITY PRNG_OUT"
+            //yield sprintf """tellraw @a ["in cg...bin, choosing ",%s," of ",%s]""" (Utilities.tellrawScoreSelectorENTITY("CARDGENTEMP")) (Utilities.tellrawScoreSelector("@s","numItemsInBin"))
+            // walk down the items in this bin... for each
+            //  - if okItem && CARDGENTEMP==0 then pick it and CARDGENTEMP--
+            //  - if okItem && CARDGENTEMP<>0 then CARDGENTEMP--
             for j = 0 to 2 do
                 let index = itemIndex(bingoItems.[i].[j])
-                yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" index j bingoItems.[i].[j]
-                yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" index j
+                yield sprintf """execute if $SCORE(okItem%03d=1,CARDGENTEMP=0) at @e[tag=sky] run setblock ~ ~ ~ minecraft:structure_block{posX:0,posY:0,posZ:0,sizeX:17,sizeY:2,sizeZ:17,mode:"LOAD",name:"test:%s"}""" index bingoItems.[i].[j]
+                yield sprintf """execute if $SCORE(okItem%03d=1,CARDGENTEMP=0) at @e[tag=sky] run setblock ~ ~1 ~ minecraft:redstone_block""" index
                 for x = 1 to 5 do
                     for y = 1 to 5 do
-                        yield sprintf "execute if $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" index j (5*(y-1)+x-1) x y index
+                        yield sprintf "execute if $SCORE(okItem%03d=1,CARDGENTEMP=0,squaresPlaced=%d) run scoreboard players set $ENTITY square%d%d %d" index (5*(y-1)+x-1) x y index
                         let chest = if y < 4 then CHEST_THIS_CARD_2.STR else CHEST_THIS_CARD_1.STR
                         let slot = if y < 4 then (y-1)*9+x-1 else (y-4)*9+x-1
-                        yield sprintf """execute if $SCORE(okItem%03d=1,PRNG_OUT=%d,squaresPlaced=%d) run replaceitem block %s container.%d %s""" index j (5*(y-1)+x-1) chest slot bingoItems.[i].[j]
-                // if we didn't pick it because not choosable, re-choose
-                yield sprintf "execute if $SCORE(okItem%03d=0,PRNG_OUT=%d) run function %s:cardgen_choose1" index j NS
-                // if we did pick it, note it
-                yield sprintf "execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players add $ENTITY squaresPlaced 1" index j
-                yield sprintf "execute if $SCORE(okItem%03d=1,PRNG_OUT=%d) run scoreboard players set $ENTITY bin%02d 1" index j i
+                        yield sprintf """execute if $SCORE(okItem%03d=1,CARDGENTEMP=0,squaresPlaced=%d) run replaceitem block %s container.%d %s""" index (5*(y-1)+x-1) chest slot bingoItems.[i].[j]
+                yield sprintf """execute if $SCORE(okItem%03d=1) run scoreboard players remove $ENTITY CARDGENTEMP 1""" index
+            yield sprintf "scoreboard players add $ENTITY squaresPlaced 1"
             |]
     yield "cardgen_makecard", [|
         yield sprintf "kill @e[tag=sky]"
@@ -1345,17 +1385,9 @@ let cardgen_functions = [|
         yield sprintf "setblock %s chest[facing=east,type=left]" CHEST_THIS_CARD_1.STR
         yield sprintf "setblock %s chest[facing=east,type=right]" CHEST_THIS_CARD_2.STR
         // pick items and place structure art
-        for _x = 1 to 5 do
-            yield sprintf "function %s:cardgen_choose1" NS
-            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "function %s:cardgen_choose1" NS
-            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "function %s:cardgen_choose1" NS
-            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "function %s:cardgen_choose1" NS
-            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~24 ~ ~"
-            yield sprintf "function %s:cardgen_choose1" NS
-            yield sprintf "execute at @e[tag=sky] run teleport @e[tag=sky] ~-96 ~ ~24"
+        yield sprintf "function %s:cardgen_prepare_bins" NS
+        yield sprintf """execute unless $SCORE(numRemainingBins=25..) run tellraw @a ["There are not enough bins of items to populate a full card; enable more items"]"""
+        yield sprintf "execute if $SCORE(numRemainingBins=25..) run function %s:cardgen_do_it" NS
         // make a 'pretty' under-side for lobby ceiling
         yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0" ART_HEIGHT ART_HEIGHT ART_HEIGHT_UNDER
         yield sprintf "clone 0 %d 0 127 %d 118 0 %d 0 masked" (ART_HEIGHT+1) (ART_HEIGHT+1) ART_HEIGHT_UNDER

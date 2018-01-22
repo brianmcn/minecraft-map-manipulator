@@ -37,6 +37,12 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color executeP
     |]
 
 //////////////////////////////
+// tellraw
+
+let tellrawScoreSelectorENTITY(objective) = sprintf """{"score":{"name":"FAKE","objective":"%s"}}""" objective           // todo factor FAKE constant from compiler
+let tellrawScoreSelector(name,objective) = sprintf """{"score":{"name":"%s","objective":"%s"}}""" name objective
+
+//////////////////////////////
 // disk utils
 
 let ensureDirOfFile(filename) = System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename)) |> ignore

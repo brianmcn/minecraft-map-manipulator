@@ -46,6 +46,7 @@ small program ideas:
 	   talk abut the concepts, while showing un-as-yet-explained commands on the screen
   - coordinates (F3 debug screen, xyz, facing rotations, absolute 1 2 3, relative ~~~, local ^^^, /setblock, /teleport)
        make thingy to fly in direction looking with tp ^ ^ ^0.05 or whatever; maybe cycle difficulty and put block in sky at y=100 above slimes (slow) or zombies (faster) or minecart chests or something, as simple examples? 
+	   show temple locator? can at least show ideas and how coords work to make circle in 8 dirs around player
   - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)
        aside: should I always have a long-lived entity tagged temp, for various debugging etc?
 	   fake player nbt like SelectedItem/SelectedItemSlot
