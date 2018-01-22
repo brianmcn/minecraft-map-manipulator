@@ -2,9 +2,6 @@
 
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
-// TODO decide lobby interface regarding choosable items (item frame wall), have sign to 'default'/all, etc (maybe wall appears when gip=0 and disappears when start game?)
-// TODO deal with too few items (can keep own counter and 'give up' after n, so ensure consistent game state?)
-
 // TODO oh yeah, nether is buggy
 // TODO arrow to spawn while in nether (remove? point to entry portal?)
 // TODO experiment with nether teleports, can I add nether items?
@@ -276,7 +273,9 @@ let game_functions = [|
         yield sprintf "team join green @e[%s]" XH_TAG
         yield sprintf "function %s:%s/%s" NS CFG Utilities.ConfigFunctionNames.DEFAULT 
         yield sprintf "function %s:summon_book_text_entities" NS
-        yield sprintf "function %s:cardgen_init_chooseable" NS
+        yield sprintf "function %s:set_overworld_choosables" NS
+        yield sprintf "function %s:clear_item_wall" NS
+        yield sprintf "function %s:make_item_wall" NS
         |]
     for gip in [0;1;2] do // gameInProgress
         yield sprintf"place_signs%d"gip, [|
@@ -732,6 +731,7 @@ let game_functions = [|
         // note game in progress
         yield "scoreboard players set $ENTITY gameInProgress 1"
         yield sprintf "function %s:kill_book_text_entities" NS
+        yield sprintf "function %s:clear_item_wall" NS
         yield sprintf "function #%s:on_start_game" NS
         yield sprintf "function %s:place_signs1" NS
         yield "scoreboard players set $ENTITY said25mins 0"
@@ -845,7 +845,9 @@ let game_functions = [|
         // feed & heal, as people get concerned in lobby about this
         "effect give @a minecraft:saturation 10 4 true"
         "effect give @a minecraft:regeneration 10 4 true"
+        // re-establish lobby entities only present when gameInProgress=0
         sprintf "function %s:summon_book_text_entities" NS
+        sprintf "function %s:make_item_wall" NS
         sprintf "function #%s:on_finish" NS
         |]
     |]
@@ -973,6 +975,28 @@ let CHOOSE_Y = 25
 let CHOOSE_Z = 60
 
 let choosable_functions = [|
+    yield "set_overworld_choosables", [|
+        for i = 0 to flatBingoItems.Length-1 do
+            if flatBingoItems.[i] <> "glowstone_dust" then    // TODO factoring
+                yield sprintf "# %03d %s" i flatBingoItems.[i]
+                yield sprintf "scoreboard players set $ENTITY okItem%03d 1" i
+            else
+                yield sprintf "# %03d %s" i flatBingoItems.[i]
+                yield sprintf "scoreboard players set $ENTITY okItem%03d 0" i
+        |]
+    yield "set_all_choosables", [|
+        for i = 0 to flatBingoItems.Length-1 do
+            yield sprintf "# %03d %s" i flatBingoItems.[i]
+            yield sprintf "scoreboard players set $ENTITY okItem%03d 1" i
+        |]
+    yield "update_to_overworld_choosables", [|
+        sprintf "function %s:set_overworld_choosables" NS
+        sprintf "function %s:make_item_wall_colors" NS
+        |]
+    yield "update_to_all_choosables", [|
+        sprintf "function %s:set_all_choosables" NS
+        sprintf "function %s:make_item_wall_colors" NS
+        |]
     yield "make_item_wall_colors", [|
         for i = 0 to bingoItems.Length-1 do
             for j = 0 to 2 do
@@ -982,7 +1006,9 @@ let choosable_functions = [|
                 yield sprintf "execute if $SCORE(okItem%03d=0) run setblock %d %d %d redstone_block" index CHOOSE_X (CHOOSE_Y+3-j) (CHOOSE_Z+1+i)
         |]
     yield "make_item_wall", [|
-        yield sprintf "fill %d %d %d %d %d %d stone" CHOOSE_X CHOOSE_Y CHOOSE_Z CHOOSE_X (CHOOSE_Y+4) (CHOOSE_Z + bingoItems.Length + 1)
+        yield sprintf "fill %d %d %d %d %d %d stone" CHOOSE_X CHOOSE_Y (CHOOSE_Z-2) CHOOSE_X (CHOOSE_Y+4) (CHOOSE_Z + bingoItems.Length + 1)
+        yield! Utilities.placeWallSignCmds (CHOOSE_X-1) (CHOOSE_Y+3) (CHOOSE_Z-1) "west" "default" "ITEMS" "(overworld" "only)" (sprintf"function %s:update_to_overworld_choosables"NS) true "black" null
+        yield! Utilities.placeWallSignCmds (CHOOSE_X-1) (CHOOSE_Y+2) (CHOOSE_Z-1) "west" "all" "ITEMS" "(includes" "nether)" (sprintf"function %s:update_to_all_choosables"NS) true "black" null
         yield sprintf "function %s:make_item_wall_colors" NS
         for i = 0 to bingoItems.Length-1 do
             for j = 0 to 2 do
@@ -992,7 +1018,7 @@ let choosable_functions = [|
         |]
     yield "clear_item_wall", [|
         "kill @e[tag=tempIF]"
-        sprintf "fill %d %d %d %d %d %d air" CHOOSE_X CHOOSE_Y CHOOSE_Z CHOOSE_X (CHOOSE_Y+4) (CHOOSE_Z + bingoItems.Length + 1)
+        sprintf "fill %d %d %d %d %d %d air" CHOOSE_X CHOOSE_Y (CHOOSE_Z-2) CHOOSE_X (CHOOSE_Y+4) (CHOOSE_Z + bingoItems.Length + 1)
         |]
     yield "item_chooser_tick", [|
         yield "scoreboard players set $ENTITY TEMP 0"  // any changes?
@@ -1279,11 +1305,6 @@ let cardgen_functions = [|
         for i = 0 to flatBingoItems.Length-1 do
             yield sprintf "scoreboard objectives add okItem%03d dummy" i   // is this item choosable? (way to enable only a subset of items to appear on card)
         |]
-    yield "cardgen_init_chooseable", [|
-        for i = 0 to flatBingoItems.Length-1 do
-            yield sprintf "# %03d %s" i flatBingoItems.[i]
-            yield sprintf "scoreboard players set $ENTITY okItem%03d 1" i
-        |]
     yield "cardgen_prepare_bins",[|
         yield "scoreboard players set $ENTITY numRemainingBins 0"
         for i = 0 to bingoItems.Length-1 do
@@ -1496,6 +1517,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield sprintf "execute if $SCORE(gameInProgress=0) as @a[scores={Deaths=1..}] run function %s:on_lobby_respawn" NS
             yield sprintf "execute if $SCORE(gameInProgress=2) as @a run function %s:check_inventory" NS 
             yield sprintf "execute if $SCORE(gameInProgress=0) as @a run function %s:config_loop" NS
+            yield sprintf "execute if $SCORE(gameInProgress=0) run function %s:item_chooser_tick" NS
             yield "scoreboard players add @a ticksSinceGotMap 1"
             // throttling infrastructure (so some things don't run for every player every tick)
             yield "scoreboard players add $ENTITY tickNum 1"
