@@ -1,5 +1,17 @@
 ﻿module MinecraftBINGO
 
+(*
+new feature list
+ - subset choosable items
+ - ability to go to/from nether
+ - 20 no bingo                     (20-no-bingo-else-blackout could be good for weekly)
+ - 2-for-1 mode                    (241-blackout could be good for weekly)
+ - various config options
+ - blind
+
+*)
+
+
 let PROFILE = false            // turn on to log how many commands (lines) run each tick
 
 // TODO oh yeah, nether is buggy
@@ -61,10 +73,13 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
         ConfigOption("optlo", ConfigDescription.Toggle "Lockout mode", 0, [|sprintf "function %s:compute_lockout_goal" NS|])
         ConfigOption("opttfo",ConfigDescription.Toggle "Two-for-one mode", 0, [||])
         |])
-    ConfigPage("Other options",[|
+    ConfigPage("Chat text options",[|
         ConfigOption("opthh", ConfigDescription.Toggle "Novice mode (various extra help text)", 1, [||])                 // if we need to explain how to update the card, how to click the chat, etc.
         ConfigOption("optlw", ConfigDescription.Toggle "Leading whitespace", 0, [||])                                    // if we want leading whitespace to keep most chat away from left side
+        |])
+    ConfigPage("Actionbar options",[|
         ConfigOption("optsa", ConfigDescription.Toggle "Arrow points to spawn", 1, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
+        ConfigOption("optcd", ConfigDescription.Toggle "Cardinal directions", 1, [||])                                   // if add N/NE/E/SE/S/SW/W/NW text to actionbar
         ConfigOption("optxh", ConfigDescription.Toggle "Show when extreme hills", 1, [||])                               // if add 'XH' on player actionbar when in extreme hills
         |])
     ConfigPage("Got-an-item effects for your team",[|
@@ -568,6 +583,17 @@ let game_functions = [|
         |]
     let COLOR = """"color":"yellow","""
     let YCOLOR = """"color":"aqua","""
+    let CARDINALS = [|
+        "@s[y_rotation=-157..-112]","ne"
+        "@s[y_rotation=-112..-67]","e"
+        "@s[y_rotation=-67..-22]","se"
+        "@s[y_rotation=-22..22]","s"
+        "@s[y_rotation=22..67]","sw"
+        "@s[y_rotation=67..112]","w"
+        "@s[y_rotation=112..157]","nw"
+        "@s[y_rotation=157..179]","n"
+        "@s[y_rotation=-180..-157]","n"
+        |]
     yield "at25mins",[|
         """execute at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
         sprintf """tellraw @a [%s,{"selector":"@s"}," got ",{"score":{"name":"@s","objective":"Score"}}," in 25 mins"]""" LEADING_WHITESPACE 
@@ -600,20 +626,37 @@ let game_functions = [|
         // y coordinate
         "execute store result score @s TEMP run data get entity @s Pos[1] 1.0"
         // display
-        sprintf """execute if $SCORE(optsaval=0) run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
-        sprintf """execute if $SCORE(optsaval=1) run function %s:update_time_per_player_with_arrow""" NS
+        sprintf "execute if $SCORE(optsaval=0) run function %s:update_time_per_player_sans_arrow" NS
+        sprintf "execute if $SCORE(optsaval=1) run function %s:update_time_per_player_with_arrow" NS
         |]
+    yield "update_time_per_player_sans_arrow",[|
+        yield sprintf "execute if $SCORE(optcdval=0) run function %s:update_time_per_player_sans_arrow_none" NS
+        for sel,card in CARDINALS do
+            yield sprintf "execute if $SCORE(optcdval=1) if entity %s run function %s:update_time_per_player_sans_arrow_%s" sel NS card
+        |]
+    for cardinal in ["none";"n";"ne";"e";"se";"s";"sw";"w";"nw"] do
+        let textDir = if cardinal = "none" then "" else cardinal.ToUpperInvariant()
+        yield sprintf "update_time_per_player_sans_arrow_%s" cardinal,[|
+            sprintf """execute run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT
+            |]
     yield "update_time_per_player_with_arrow",[|  // TODO "name"="*" selects 'person being displayed to' maybe? test perf of * versus execute as @a run ... @s
-        sprintf "function %s:find_dir_to_spawn" NS
-        sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2191"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
-        sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2197"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
-        sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2192"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
-        sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2198"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
-        sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2193"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
-        sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2199"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
-        sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2190"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
-        sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2196"}]""" COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+        yield sprintf "function %s:find_dir_to_spawn" NS
+        yield sprintf "execute if $SCORE(optcdval=0) run function %s:update_time_per_player_with_arrow_none" NS
+        for sel,card in CARDINALS do
+            yield sprintf "execute if $SCORE(optcdval=1) if entity %s run function %s:update_time_per_player_with_arrow_%s" sel NS card
         |]
+    for cardinal in ["none";"n";"ne";"e";"se";"s";"sw";"w";"nw"] do
+        let textDir = if cardinal = "none" then "" else cardinal.ToUpperInvariant()
+        yield sprintf "update_time_per_player_with_arrow_%s" cardinal,[|  // TODO "name"="*" selects 'person being displayed to' maybe? test perf of * versus execute as @a run ... @s
+            sprintf """execute if entity @s[scores={spawnDir=1}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2191"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            sprintf """execute if entity @s[scores={spawnDir=2}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2197"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            sprintf """execute if entity @s[scores={spawnDir=3}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2192"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            sprintf """execute if entity @s[scores={spawnDir=4}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2198"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            sprintf """execute if entity @s[scores={spawnDir=5}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2193"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            sprintf """execute if entity @s[scores={spawnDir=6}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2199"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            sprintf """execute if entity @s[scores={spawnDir=7}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2190"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            sprintf """execute if entity @s[scores={spawnDir=8}] run title @s actionbar [{%s"text":"%s "},{%s"score":{"name":"@s","objective":"minutes"}},{%s"text":":"},{%s"score":{"name":"@s","objective":"preseconds"}},{%s"score":{"name":"@s","objective":"seconds"}},{%s"text":" Y:"},{%s"score":{"name":"@s","objective":"TEMP"}}," ",%s,{%s"text":" \u2196"}]""" COLOR textDir COLOR COLOR COLOR COLOR YCOLOR YCOLOR XH_TEXT COLOR
+            |]
     let SKYBOX = 150 // height of skybox floor
     yield "compute_height", [|
         yield sprintf "execute as @e[tag=CurrentSpawn] at @s run teleport @s ~ %d ~" (SKYBOX-3)
