@@ -10,7 +10,9 @@
  - world pre-generator
  - shoot arrow replaces air with torch temporarily where it lands? (remote lighting)
  - spectator over-shoulder-cam?
-
+ - photo safari? (like laser to shoot mobs, except instead you just collect list of mobs you've looked at)
+ - something like 'frost trap' from Ragecraft is basically just an AEC now, right? see E&T notes
+ - TODO my sonic music, using a machine like: one repeating cmd block that calls func1, and func1 body is playsound followed by data merge a new command into RCB (that calls func2 of the melody, ...)
 
  How to implement fast scrabble check in functions? https://www.youtube.com/watch?v=0Z9QW-6vr2Y can't 'jump table' in funcs same way as entity in 3d array world of blocks...
     (other than e.g. the 'obvious' assign a number to every internal trie node, and then binary search to that trie node as the first step when you type a letter... 
@@ -45,7 +47,8 @@ small program ideas:
        yeah, imagining in first episode typing commands to summon a NoAI pig, a NoAI horse with a different rotation, and then running commands like function say_health as them or setblock at them
 	   talk abut the concepts, while showing un-as-yet-explained commands on the screen
   - coordinates (F3 debug screen, xyz, facing rotations, absolute 1 2 3, relative ~~~, local ^^^, /setblock, /teleport)
-       make thingy to fly in direction looking with tp ^ ^ ^0.05 or whatever; maybe cycle difficulty and put block in sky at y=100 above slimes (slow) or zombies (faster) or minecart chests or something, as simple examples? 
+       i have a nice screenshot and Program.fs:local_v_relative() has nice code   ('anchored eyes' may be too advanced for first pass?)
+	   make thingy to fly in direction looking with tp ^ ^ ^0.05 or whatever; maybe cycle difficulty and put block in sky at y=100 above slimes (slow) or zombies (faster) or minecart chests or something, as simple examples? 
 	   show temple locator? can at least show ideas and how coords work to make circle in 8 dirs around player
   - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)
        aside: should I always have a long-lived entity tagged temp, for various debugging etc?
@@ -58,7 +61,7 @@ small program ideas:
        something with e.g. 'transitions', e.g. someone mayes a repeating command block to say 'entering town' when @p[x,y,z,distance=..30], but it spams chat, how to notice when enter and store scores to only chat transitions
   - /execute (sender&location; if, unless, as, at, offset, align, store-result)
   - functions (datapack mechanics, subroutine call control flow behavior and sender-location behavior)
-  - repeating command block
+  - repeating command block (spawn chunks)
   - minecraft:tick loop, time delays
   - JSON text, /tellraw, clickable signs
   - advancements (e.g. test biome)

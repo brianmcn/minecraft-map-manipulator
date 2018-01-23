@@ -39,7 +39,7 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color executeP
 //////////////////////////////
 // tellraw
 
-let tellrawScoreSelectorENTITY(objective) = sprintf """{"score":{"name":"FAKE","objective":"%s"}}""" objective           // todo factor FAKE constant from compiler
+let tellrawScoreSelectorENTITY(objective) = sprintf """{"score":{"name":"FAKE","objective":"%s"}}""" objective           // TODO factor FAKE constant from compiler
 let tellrawScoreSelector(name,objective) = sprintf """{"score":{"name":"%s","objective":"%s"}}""" name objective
 
 //////////////////////////////
@@ -150,6 +150,7 @@ let entity_init() = [|
 type ConfigDescription =
     | Toggle of string     // on-off toggleable option (value = 1 if on, 0 if off)
     | Radio of string[]    // radio button group where one choice is selected (value = index of one active)
+    | Clickable of string  // not a stateful option, just clickable ConfigOption text that runs ExtraCommands
 
 type ConfigOption(scoreboardPrefix:string, description:ConfigDescription, defaultValue:int, extraCommandsWhenSwitched:string[]) =
     member this.ScoreboardPrefix = scoreboardPrefix
@@ -208,6 +209,7 @@ let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:Config
                     yield sprintf "execute if $SCORE(%sval=%d..) run scoreboard players set $ENTITY %sval 0" opt.ScoreboardPrefix descs.Length opt.ScoreboardPrefix 
                     for i = 0 to descs.Length-1 do
                         yield sprintf """execute if $SCORE(%sval=%d) run tellraw @a ["turning on: %s"]""" opt.ScoreboardPrefix i descs.[i]
+                | Clickable(_desc) -> ()
                 // boilerplate
                 yield sprintf "scoreboard players set @s %strig 0" opt.ScoreboardPrefix 
                 yield sprintf "scoreboard players enable @s %strig" opt.ScoreboardPrefix 
@@ -237,6 +239,8 @@ let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:Config
                                         yield sprintf """,{"text":"\n\n#"},{"score":{"name":"%s","objective":"%sval"}},{"text":" below "},{"text":"(click here)","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}}""" tellrawScoreName opt.ScoreboardPrefix opt.ScoreboardPrefix
                                         for i = 0 to descs.Length-1 do
                                             yield sprintf """,{"text":"\n%d...%s"}""" i descs.[i]
+                                    | Clickable(desc) ->
+                                        yield sprintf """,{"text":"\n\n%s","underlined":true,"clickEvent":{"action":"run_command","value":"/trigger %strig set 1"}}""" desc opt.ScoreboardPrefix
                                         |]
                             + "]"
                 |], sprintf "%s:1" uniqueTag))

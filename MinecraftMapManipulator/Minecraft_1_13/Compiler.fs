@@ -32,7 +32,7 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
         | _ -> sprintf "%d.5" (poin x)
     let ENTITY_TAG = sprintf "tag=scoreAS,x=%s,y=%d,z=%s,distance=..0.1,limit=1" (summonLoc scoreASx) scoreASy (summonLoc scoreASz)   // consider UUIDing it? no, because UUIDs do not accept selectors
 #else
-    let FAKE = "FAKE"  // the name of the 'fake' player on the scoreboard
+    let FAKE = "FAKE"  // the name of the 'fake' player on the scoreboard    // TODO consider changing to #FAKE, so can't conflict with a player name
 #endif
     let allCallbackShortNames = ResizeArray()
     let continuationNum = ref 1

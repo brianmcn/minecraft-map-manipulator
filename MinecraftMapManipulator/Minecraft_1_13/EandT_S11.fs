@@ -25,14 +25,17 @@ new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs 
  - underground slimes could place/update a structure block under bedrock that counts slimes, used for finding slime chunks somehow in survival? (sound when in those chunks? only creative players see structure outlines)
  - a rare bat spawns 10 more bats - bat-cave? (ambiance)
 
-use /locate to build some kind of homing/structure-finding thingy
-    /execute store result score @p dist positioned ^ ^ ^20 run locate Mansion   // store distance to it from the context origin
+use /locate to build some kind of homing/structure-finding thingy (temple_locator() in Program.fs)
 
 remote redstone, e.g. quark's 'ender watcher', a block that emits redstone signal when player looks at it
 
-potion of echolocation? gives 'glowing' to all nearby mobs (see what you hear)
+potion of echolocation? gives 'glowing' to all nearby mobs, or maybe 5 nearest mobs - could be useful for building grinders to find unlit caves (modulo Glowing bugs I know about)
+ - or rather than use 'glowing', can do facing math to somehow particles-point in direction of mob... can you make anything 'hud like' that tracks with player, like pumpkinblur?
+      I guess e.g. a nearby AEC with a name of '.' or something kinda draws a pixel in a location, could maybe do that 16 blocks away and avoid parallax from being a tick behind player movement?
+      names only render up to N blocks away radially (32?) and are subject to lighting, probably would not work well
 
 come up with some kind of 'reward' for building mob farm (e.g. cool thing costs lost of glowstone/redstone/bone/slimeball/... structure locators above?)
+    villager trade, e.g. 64 bone blocks and 64 redstone blocks -> thingy?
     /give Lorgon111 minecraft:villager_spawn_egg{EntityTag:{Profession:1,Career:1,CareerLevel:999,Willing:1b,Offers:{Recipes:[{uses:0,maxUses:999,buy:{id:"minecraft:coal",Count:33b},sell:{id:"minecraft:stone",Count:2b}}]}}} 1
 
 increase leather drops from cows (early game armor?)
@@ -266,6 +269,10 @@ abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_templ
 
  could basically do a search&replace in the file, and add one more to 'pools' for the rare extra
 
+// TODO Lore below
+/give @p minecraft:iron_pickaxe{VM:1,RepairCost:999999,display:{Name:"{\"color\":\"blue\",\"text\":\"Vein Miner\"}"}}
+/give @p minecraft:gold_axe{TC:1,RepairCost:999999,display:{Name:"{\"color\":\"blue\",\"text\":\"Tree Feller\"}"}}
+
 *)
 
 
@@ -374,11 +381,22 @@ let tc_main() =
     pack.SaveToDisk()
 
 
-// TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find?)
+// TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find? or make mansion-finder?)
 
 // TODO vanilla swirl all-seeing eye (FSE that grants night vision and attributes big slowness when held) and enderchest+unrepairable-silk-touch-wooden-pickaxe; fortune hoe could also be good?
+// TODO alphabet banners are fun loot (craftable?)... player heads of the mjoang-mob-heads could be fun loot... stacks of blocks (rare like ice/packed/mycelium/podzol, or colorful like everything) are also fun loot to build with
+
 
 // TODO desire lines?
+
+// TODO craftable Ragecraft-like frost trap, 
+//    just e.g. lingering potion of long-slowness (vanilla item) is decent, but make it craftable/findable to use pre-dragon... 
+//    hm, but RC one makes thrower immune, players get hit by own potion, hm... guess could detect when player is near AEC and cancel it with /effect...
+//    yeah and RC one was like slowness 4, for 1s, re-applied every second, or something, and also damaged for 0 (so mobs make hit sound), can I conjure that?
+//    no on the damage sound, but e.g. could make glowing for 10 ticks
+// here's a cloud for flash-glowing and slowness 6:   (Radius:1 means 2x2 square of blocks)
+// /summon area_effect_cloud ~ ~ ~ {Duration:600,Radius:1.5,ReapplicationDelay:20,Effects:[{Id:24b,Amplifier:0b,Duration:10,Ambient:1b,ShowParticles:0b},{Id:2b,Amplifier:5b,Duration:20,Ambient:1b,ShowParticles:0b}],Particle:"falling_dust ice"}
+// don't think i can /give a lingering potion that does that, but could have a custom unique pot for duration 2 or something, detect that, and summon my own AEC?
 
 // TODO how to communicate initial (and permanent, e.g. furnace craft) limitations to player at start or along way?  
 // what is right way to communicate deviations from vanilla without giving eveything away and taking away mystery?

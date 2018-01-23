@@ -36,8 +36,7 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 
 // TODO tall lobby for building? open ceiling? figure out aesthetic, maybe something that allows others to build-out? if signs are movable, pretty open-ended?
 
-// TODO signs/books explaining gameplay/game modes/custom terrain/custom config
-//  - gameplay books, like lockout & 2-for-1-mode should be linked next to options, e.g. 'click for more info'
+// TODO signs/books explaining custom terrain/custom config
 
 // TODO config option to give teammates 'glowing' (only when away from lobby? is annoying there?)
 
@@ -59,6 +58,8 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 
 // TODO refactor utility modules into a separate datapack? prng, arrow to X, warp-home/back, ...?
 
+
+
 let NS = "test"
 let PACK_NAME = "BingoPack"
 let CFG = "cfg"
@@ -78,6 +79,7 @@ let bingoConfigBook = ConfigBook("Lorgon111","Standard options",[|
     ConfigPage("Optional game modes",[|
         ConfigOption("optlo", ConfigDescription.Toggle "Lockout mode", 0, [|sprintf "function %s:compute_lockout_goal" NS|])
         ConfigOption("opttfo",ConfigDescription.Toggle "Two-for-one mode", 0, [||])
+        ConfigOption("optgms",ConfigDescription.Clickable "Click here to read more about game modes", 0, [|sprintf "function %s:give_gamemodes_book" NS|])
         |])
     ConfigPage("Actionbar options",[|
         ConfigOption("optsa", ConfigDescription.Toggle "Arrow points to spawn", 1, [||])                                 // if add an 'arrow' pointing at spawn on player actionbar (may be resource-intensive?)
@@ -342,6 +344,17 @@ let game_functions = [|
             //
             yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
             |]
+    yield "give_gamemodes_book", [| 
+        Utilities.makeCommandGivePlayerWrittenBook("Lorgon111","Game modes", [|
+            sprintf """{"text":"MinecraftBINGO has a number of default features for a variety of game-types, as well as some custom modes ('lockout' and 'two-for-one') which can be selectively enabled. This book explains game modes."}"""
+            sprintf """{"text":"In the default game, there are four potential end-game conditions that MinecraftBINGO will automatically recognize.\n\nIf a player or team gets a bingo (five in a row, column, or diagonal), then a win is announced..."}"""
+            sprintf """{"text":"If a player or team gets the blackout (all 25 items), then a win is announced.\n\nIf a player or team gets 20 items without a bingo (\"twenty-no-bingo\"), then a win is announced.  Finally..."}"""
+            sprintf """{"text":"After 25 minutes has passed, a tone plays and your score is displayed on the screen - this can be used for timed games.\n\nContinue reading for other optional game modes..."}"""
+            sprintf """{"text":"Lockout Mode\n\nIf this option is enabled in configuration, then in a multi-player game, once one team color gets a square, no other team color can get that square.  Each square is a race! ..."}"""
+            sprintf """{"text":"Two-for-one Mode\n\nIf this option is enabled in configuration, then each time a player or team gets an item, they are also automatically granted the diagonally opposite square.  So for instance..."}"""
+            sprintf """{"text":"If you get the upper-left item, you'll also be granted the bottom-right square. Or if you get the item right-of-center, you also get the left-of-center square. This mode makes for faster games and blackouts."}"""
+            |], null)
+        |]
     let bingo40testers = [|
         "Ekiph"
         "brtw"

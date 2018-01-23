@@ -276,11 +276,53 @@ let temple_locator() =
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",["loc:tick"])
     pack.SaveToDisk()
 
+let local_v_relative() =
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestLocate""")
+    let pack = Utilities.DataPackArchive(FOLDER,"explain","explain local v relative coords")
+    let show(block,name,color) =
+        if name = null then
+            sprintf """summon minecraft:armor_stand ~ ~-0.9 ~ {Small:1b,Invisible:1b,NoGravity:1b,ArmorItems:[{},{},{},{id:"minecraft:%s",Count:1b}]}""" block
+        else
+            sprintf """summon minecraft:armor_stand ~ ~-0.9 ~ {Small:1b,Invisible:1b,NoGravity:1b,CustomNameVisible:1b,CustomName:"{\"color\":\"%s\",\"text\":\"%s\"}",ArmorItems:[{},{},{},{id:"minecraft:%s",Count:1b}]}""" color name block 
+    let functions = [|
+        "local", [|
+            let block, color = "blue_stained_glass", "blue"
+            for i = 1 to 4 do
+                yield sprintf """execute as @p at @s positioned ^ ^ ^%d run %s""" i (show(block,null,null))
+            yield sprintf """execute as @p at @s positioned ^ ^ ^%d run %s""" 5 (show(block,"^ ^ ^5",color))
+            for i = 1 to 4 do
+                yield sprintf """execute as @p at @s positioned ^ ^%d ^ run %s""" i (show(block,null,null))
+            yield sprintf """execute as @p at @s positioned ^ ^%d ^ run %s""" 5 (show(block,"^ ^5 ^",color))
+            for i = 1 to 4 do
+                yield sprintf """execute as @p at @s positioned ^%d ^ ^ run %s""" i (show(block,null,null))
+            yield sprintf """execute as @p at @s positioned ^%d ^ ^ run %s""" 5 (show(block,"^5 ^ ^",color))
+            |]
+        "relative", [|
+            let block, color = "red_stained_glass", "red"
+            for i = 1 to 4 do
+                yield sprintf """execute as @p at @s positioned ~ ~ ~%d run %s""" i (show(block,null,null))
+            yield sprintf """execute as @p at @s positioned ~ ~ ~%d run %s""" 5 (show(block,"~ ~ ~5",color))
+            for i = 1 to 4 do
+                yield sprintf """execute as @p at @s positioned ~ ~%d ~ run %s""" i (show(block,null,null))
+            yield sprintf """execute as @p at @s positioned ~ ~%d ~ run %s""" 5 (show(block,"~ ~5 ~",color))
+            for i = 1 to 4 do
+                yield sprintf """execute as @p at @s positioned ~%d ~ ~ run %s""" i (show(block,null,null))
+            yield sprintf """execute as @p at @s positioned ~%d ~ ~ run %s""" 5 (show(block,"~5 ~ ~",color))
+            |]
+        "killall", [|
+            "kill @e[type=armor_stand]"
+            |]
+        |]
+    for name, code in functions do
+        pack.WriteFunction("show", name, code)
+    pack.SaveToDisk()
+    
+
 
 [<EntryPoint>]
 let main argv = 
     MinecraftBINGO.cardgen_compile()
-    MinecraftBINGOExtensions.Blind.main()
+    //MinecraftBINGOExtensions.Blind.main()
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
@@ -297,6 +339,7 @@ let main argv =
     //Mandelbrot.main()
     //test2compilers()
     //temple_locator()
+    //local_v_relative()
     ignore argv
     0
 
