@@ -5,17 +5,14 @@
 E&T ideas
 =========
  - QFE is in MC_Constants
- - most recipe work is in Recipes
+ - most recipe work is here or in Recipes
  - QuickStack
  - WarpPoints
- - Treecapitator & Vein Miner in EandT_S11
+ - Treecapitator & Vein Miner end of this file
  - throwable_light in Program
 
 
- is this interesting? https://www.reddit.com/r/Minecraft/comments/7npasa/set_a_waypoint_on_the_map_17w50a_snapshot/ 
-
 fun: two wall signs back to back can support one another - place one on wall, then replace wall with sign via commands
-
 
 // game mechanics
 new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs with 'processed', and run some function on unprocessed ones (event from base pack)
@@ -27,12 +24,8 @@ new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs 
 
 use /locate to build some kind of homing/structure-finding thingy (temple_locator() in Program.fs)
 
-remote redstone, e.g. quark's 'ender watcher', a block that emits redstone signal when player looks at it
-
-potion of echolocation? gives 'glowing' to all nearby mobs, or maybe 5 nearest mobs - could be useful for building grinders to find unlit caves (modulo Glowing bugs I know about)
- - or rather than use 'glowing', can do facing math to somehow particles-point in direction of mob... can you make anything 'hud like' that tracks with player, like pumpkinblur?
-      I guess e.g. a nearby AEC with a name of '.' or something kinda draws a pixel in a location, could maybe do that 16 blocks away and avoid parallax from being a tick behind player movement?
-      names only render up to N blocks away radially (32?) and are subject to lighting, probably would not work well
+map-filler-outer?  some mechanic that breifly tps you across a region in the sky (looking up), while you hold a map, to fill it out?  no way to know the map bounds, (not in nbt), but could just tp across -512..512 in steps of 128 and then return you to start.
+ - a knowledge book is a nice consumable for this perhaps
 
 come up with some kind of 'reward' for building mob farm (e.g. cool thing costs lost of glowstone/redstone/bone/slimeball/... structure locators above?)
     villager trade, e.g. 64 bone blocks and 64 redstone blocks -> thingy?
@@ -40,20 +33,9 @@ come up with some kind of 'reward' for building mob farm (e.g. cool thing costs 
 
 increase leather drops from cows (early game armor?)
 
+something with moon phase (midnight full moon, all mobs look up, you look up, and, something?)
 
 
-
-Unlocking recipes, maybe make a tech tree, and finding dungeons give ingredients to unlock portions of tree?
-    gamerule doLimitedCrafting true      recipe take @p <name>     then later 'give' it back or have a knowledge book gift it
-Like previous season, but with choice rather than linear (craft a knowledge book to 'choose', nametag with custom nbt found in loot chests could be good 'fragment' that gets crafted into knowledge_book? 'command block' is another 'inert material item' for survival players (cannot place/use))
-possible things to need to learn (from previous) include: Furnace, Bed, Anvil, I. Armor, Bow, D. Armor, Bucket, Shield, D. Pick
-others: enchant table, brewing stand (nether chest item to get recipe?), iron pick, all hoes, stone tools, chest, (certain foods? no because can't limit furnace, but see * below), charcoal, fishing_rod
-others: various arbitrary ones (like colored glass, daylight sensor, rabbit stew) could be gated to 'slow down' the QFE process maybe, piston (for automated farms), firework_rocket (for flying), bone meal
-maybe certain ones only in certain chests (igloo, jungle temple, stronghold, mansion) to force finding those things? need decent loot table to make probability high
-
-no recipe for furnace, chest, hoe all make game more interesting until find a village... maybe i choose a seed without a village near spawn?
-chest: also dispenser/dropper/hopper (and maybe item frame) for storage
-*i also could make furnaces unobtainable until very late, and use crafting recipes, e.g. 8 pork chops around a coal yields 8 cooked pork? 8 iron ore + coal only yields a couple ingots, need furnace for full effect?
 
 food: without hoe/farmland, only renewables are mushroom stew, apples, zombie flesh, fish; hoe/farmland leads to bread, breeding animals for raw meat, carrot, raw potato/beetrot; then cooking recipes lead to better
 so maybe cooked fish is early game food, others unlock much later?
@@ -64,69 +46,7 @@ could also have QFE thresholds or achievements gift you 'knowledge fragements' (
  - check old E&T to see pace of getting QFE items (31, 61, 95, 174, 238, (nether) 273, 303, 313 (stronghold), 325, 10 more episodes to get dragon...470, )
  - try to overlay those with right 'pace' of recipe progression
 
-recipes to unlock
------------------
-furnace
-bed
-anvil
-iron armor
-bow
-diamond armor
-bucket
-shield
-diamond pick
-enchant table
-brewing stand
-iron pick
-hoes
-stone tools?
-xxx chest
-charcoal?
-fishing rod
-various arbitrary ones (like colored glass, other colored stuff, slow down qfe? daylight sensor, rabbit stew)
-piston
-fireworks rocket
-bone meal (from bone)
-xxx dispenser
-xxx dropper
-xxx hopper
-maybe extra furnace-less food/smelt recipes separately
-throwable light
-warp points
 (could have different 'knowledge fragment' costs for unlocking certain knowledge books)
-
-on order of 26 recipes there... enough to tree?  try...   hmm, is there kinda tools/combat area, food area, other game mechanics area?
-
-tools/combat                                       food                                           game mechanics
-
-                                                   fishing rod
-stone tools?
-                                                                                                  warp points (each find creates 1, so this is like 16 unlocks)
-                                                                                                  throwable light
-                                                   cooked fish without furnace (6 from 8?)
-                                                                                                  bed
-                                                                                                  anvil
-bow
-                                                   hoes
-iron ingot without furnace (1 from 8?)
-//shield
-iron pick
-                                                                                                  piston
-                                                   bone meal (from bone)
-gold ingot without furnace (4 from 8?)
-                                                   //cooked meats without furnace (4 from 8?)
-furnace                                            furnace
-iron armor
-diamond pick
-                                                                                                  enchant table
-																								  book
-                                                                                                  colored glass, other colored stuff?
-                                                                                                  bucket
-                                                                                                  brewing stand
-												   rabbit stew
-                                                                                                  fireworks rocket
-																								  daylight sensor?
-diamond armor
 
 maybe villages off, to prevent furnace/book?  i guess books also in stronghold/mansion, though, and furnace also in igloo?
 aha, villages off forever.  igloo structure could be replaced in datapack, to not have furnace/brewing until such time as I unlock them; could be uncraftable, but eventually becomes findable?
@@ -134,35 +54,7 @@ aha, villages off forever.  igloo structure could be replaced in datapack, to no
 will need to fix all loot tables, to get rid of things like 'buckets'... change iron/gold ingots to nuggets in loot tables, other things need to prevent, maybe give glass instead? or see below
  - could also have some completely random drops, like rather than having to use a fragment to get the recipe for a daylight sensor, just have the knowledge book randomly appear in loot chests sometimes, yeah
 
-also consider somehow gifting/getting shulker box early, to cope with inventory management horror festival... (shulker drops could be knowledge fragments rather than nametags?)
-
-if e.g. a nametag is a 'knowledge fragment', then e.g. "nametag + string" could be a recipe that unlocks the "fishing_rod knowledge book", 
-    and using that book takes the prior nametag recipe and gives the next food one
-
 possibly start the game with one nametag to see all starting recipes, or e.g. picking it up grants the initial recipes
-
-recipes for   - nametag + ___
-stone tools   - cobblestone
-iron ingot    - iron nugget
-iron tools    - iron ingot
-gold ingot    - gold nugget
-iron armor    - iron block
-diamond armor - diamond block
-diamond tools - diamond
-bow           - stick
-fishing rod   - string
-cook fish     - cod
-hoes          - cobble, iron ingot, gold ingot
-bone meal     - bone
-throwable light-slimeball
-bed           - wool
-anvil         - 3 ingot?
-piston        - redstone
-enchant table - book
-bucket        - glass bottle (kill witch?)
-consumables:
-warp point    - purple dye
-shulker box   - chest
 
 In order to make these recipes discoverable, give all same prefix in name, so player can search recipe book for prefix to find all new recipes (maybe '111', is easy to type)
 
@@ -193,20 +85,20 @@ let PK_Clock(outsideItem,insideItem) =
 let PK_Dispenser(outsideItem,insideItem,bottomItem) =
     PatternKey([|"XXX";"XOX";"X$X"|],[|'X',MC(outsideItem); 'O',MC(insideItem); '$',MC(bottomItem)|])
 
-let FRAGMENT = "nametag"  // todo consider command block, maybe even 3 colors for different currencies, or structure block (cannot use these blocks in survival)
+let FRAGMENT = MC"nametag"  // TODO consider command block, maybe even 3 colors for different currencies, or structure block (cannot use these blocks in survival)
 
 // TODO parent-prerequisites
 let custom_survival_recipes = [|
     // recipes to unlock once, name-of-knowledge-book-and-lore 
     "iron_ingot",ShapedCrafting(PK_Enderchest("iron_ore","coal"),MC"iron_ingot",1),["Furnace-less iron";"A way to turn";"iron ore into";"ingots without";"a furnace"]
     "gold_ingot",ShapedCrafting(PK_Clock("gold_ore","coal"),MC"gold_ingot",2),["Furnace-less gold";"A way to turn";"gold ore into";"ingots without";"a furnace"]
-    "cook_cod",ShapedCrafting(PK_Enderchest("cod","coal"),MC"cooked_cod",6),["Furnace-less cod";"A way to cook";"cod without";"a furnace"]
+    "cook_cod",ShapedCrafting(PK_Enderchest("cod","coal"),MC"cooked_cod",6),["Furnace-less cooked cod";"A way to cook";"cod without";"a furnace"]
     //"cook_salmon",ShapedCrafting(PK_Enderchest("salmon","coal"),MC"cooked_salmon",6)
     //"throwable_torch",ShapedCrafting(PK_Dispenser("torch","slimeball","snowball"),MC"snowball",7) // TODO nbt
 
     // consumables to craft at any time
-    //"warp_point",ShapelessCrafting([|MC(FRAGMENT);MC"purple_dye"|],MC"shulker_spawn_egg",1) // TODO nbt (name, loot table)
-    "shulker_box",ShapelessCrafting([|MC(FRAGMENT);MC"chest"|],MC"purple_shulker_box",1),["Shulker box";"Inventory";"management";"is hard even";"in early game"]
+    //"warp_point",ShapelessCrafting([|FRAGMENT;MC"purple_dye"|],MC"shulker_spawn_egg",1) // TODO nbt (name, loot table)
+    "shulker_box",ShapelessCrafting([|FRAGMENT;MC"chest"|],MC"purple_shulker_box",1),["Shulker box";"Inventory";"management";"is hard even";"in early game"] // TODO want this? or prefer enderchest and quickstack?
     |]
 
 let lootable_recipes = [|
@@ -216,7 +108,7 @@ let lootable_recipes = [|
     // rabbit stew
     // maybe some others where the knowledge books themselves can randomly be found in loot chests
     |] // init: takes these recipes; loot tables for dungeons etc have rare chance to give KB with the set
-// TODO parent-prerequisites
+
 let custom_unlocking_recipes = [|
     // pre-req, recipe name, ingredients in addition to fragment, recipes granted, name-of-knowledge-book-and-lore 
     null,                 "unlock_stone_tools",     [MC"cobblestone"], [MC"stone_pickaxe";MC"stone_axe";MC"stone_shovel";MC"stone_sword"],["Stone tools"]
@@ -236,28 +128,63 @@ let custom_unlocking_recipes = [|
     null,                 "unlock_enchanting_table",[MC"book"], [MC"enchanting_table"],["Enchanting Table"]
     null,                 "unlock_bucket",          [MC"glass_bottle"], [MC"bucket"],["Bucket"]
     |]
-//for recipe_name, _ingredients, knowledge_grants in custom_unlocking_recipes do
-    // init: for r in knowledge_grants do /recipe take @p r
-    // author advancement: trigger: recipe_unlocked, recipes: knowledge_grants.[0], rewards: function that "/recipe take @p recipe_name" and also "/recipe give @p child_recipe"
-    // author recipe, once knowledge_book nbt is possible
-let blah() = 
+let childrenOf(recipeName) = [|
+    for prereq,r,_,_,_ in custom_unlocking_recipes do
+        if prereq = recipeName then
+            yield r
+    |]
+let NS = "TODO" // TODO
+let author_tech_tree_logic(pack:Utilities.DataPackArchive) = 
     let initCommands = ResizeArray()
-    for _prereq, recipeName, _ingredients, knowledgeGrants, kbName in custom_unlocking_recipes do
+    for _prereq, recipeName, ingredients, knowledgeGrants, kbName in custom_unlocking_recipes do
+        // init
         for kg in knowledgeGrants do
             initCommands.Add(sprintf "recipe @a take %s" (kg.ToString()))
-            // TODO unlocking stuff 
-            // can maybe fudge it sans nbt, e.g.
-            // rather than craft a KB, craft N chain_command_blocks
-            // a listener tries to clear 64->0 chain_command_blocks, and when succeeds at N, behaves as though KB consumed and
-            //  - "recipe take @s %s" recipeName
-            //  - "recipe give @s %s" kg
-            //  - TODO "recipe give @s %s" <unlocked children KB recipes>
+        // recipe
+        pack.WriteRecipe(NS,recipeName,ShapelessCrafting([|yield FRAGMENT;yield! ingredients|],MC"knowledge_book",  // TODO KB needs name, lore, and recipes attached via NBT
+                            1).AsJsonString())
+        // advancement
+        pack.WriteAdvancement(NS,recipeName,sprintf """{
+            "criteria": { "xxx": {"trigger": "minecraft:recipe_unlocked","conditions": {"recipe": "%s"}} },
+            "requirements": [ ["xxx"] ],
+            "rewards": { "function": "%s:on_%s" } }""" knowledgeGrants.[0].STR NS recipeName)
+        // reward function
+        pack.WriteFunction(NS,sprintf"on_%s"recipeName,[|
+            yield sprintf "recipe take @s %s" recipeName
+            for child in childrenOf(recipeName) do
+                yield sprintf "recipe give @s %s" child
+            |])
+    pack.WriteFunction(NS,"init_player_recipes",[|
+        yield "gamerule doLimitedCrafting true"
+        yield "recipe give @p *"
+        yield! initCommands
+        |])
 
 
-// TODO parent-prerequisites logic
-// init: grant all with no parents (elsewhere advancement unlocks children)
+// TODO datapack that replaces igloo, and then datapack disables once igloo pre-reqs met, except https://bugs.mojang.com/browse/MC-124167
 
-// TODO datapack that replaces igloo, and then daapack disables once igloo pre-reqs met, except https://bugs.mojang.com/browse/MC-124167
+// TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find? or make mansion-finder?)
+
+// TODO vanilla swirl all-seeing eye (FSE that grants night vision and attributes big slowness when held) and enderchest+unrepairable-silk-touch-wooden-pickaxe; fortune hoe could also be good?
+// TODO alphabet banners are fun loot (craftable?)... player heads of the mjoang-mob-heads could be fun loot... stacks of blocks (rare like ice/packed/mycelium/podzol, or colorful like everything) are also fun loot to build with
+
+
+// TODO craftable Ragecraft-like frost trap, 
+//    just e.g. lingering potion of long-slowness (vanilla item) is decent, but make it craftable/findable to use pre-dragon... 
+//    hm, but RC one makes thrower immune, players get hit by own potion, hm... guess could detect when player is near AEC and cancel it with /effect...
+//    yeah and RC one was like slowness 4, for 1s, re-applied every second, or something, and also damaged for 0 (so mobs make hit sound), can I conjure that?
+//    no on the damage sound, but e.g. could make glowing for 10 ticks
+// here's a cloud for flash-glowing and slowness 6:   (Radius:1 means 2x2 square of blocks)
+// /summon area_effect_cloud ~ ~ ~ {Duration:600,Radius:1.5,ReapplicationDelay:20,Effects:[{Id:24b,Amplifier:0b,Duration:10,Ambient:1b,ShowParticles:0b},{Id:2b,Amplifier:5b,Duration:20,Ambient:1b,ShowParticles:0b}],Particle:"falling_dust ice"}
+// don't think i can /give a lingering potion that does that, but could have a custom unique pot for duration 2 or something, detect that, and summon my own AEC?
+
+// TODO how to communicate initial (and permanent, e.g. furnace craft) limitations to player at start or along way?  
+// what is right way to communicate deviations from vanilla without giving eveything away and taking away mystery?
+//  - is there a good way to have mobs deliver books of lore as loot drops after some time-amount/progression-gate?
+
+// TODO do I want to make it so falling into void in The End teleports the player back to y=255 in the overworld?
+
+
 
 (*
 loot table design changes:
@@ -267,13 +194,29 @@ abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_templ
  - gold_ingots -> gold_nuggets
  - bucket -> glass or maybe one of the random lootable_recipes?
 
- could basically do a search&replace in the file, and add one more to 'pools' for the rare extra
+could basically do a search&replace in the file, and add one more to 'pools' for the rare extra
 
 // TODO Lore below
 /give @p minecraft:iron_pickaxe{VM:1,RepairCost:999999,display:{Name:"{\"color\":\"blue\",\"text\":\"Vein Miner\"}"}}
 /give @p minecraft:gold_axe{TC:1,RepairCost:999999,display:{Name:"{\"color\":\"blue\",\"text\":\"Tree Feller\"}"}}
 
 *)
+
+
+(*
+discarded ideas
+
+remote redstone, e.g. quark's 'ender watcher', a block that emits redstone signal when player looks at it
+
+potion of echolocation? gives 'glowing' to all nearby mobs, or maybe 5 nearest mobs - could be useful for building grinders to find unlit caves (modulo Glowing bugs I know about)
+ - or rather than use 'glowing', can do facing math to somehow particles-point in direction of mob... can you make anything 'hud like' that tracks with player, like pumpkinblur?
+      I guess e.g. a nearby AEC with a name of '.' or something kinda draws a pixel in a location, could maybe do that 16 blocks away and avoid parallax from being a tick behind player movement?
+      names only render up to N blocks away radially (32?) and are subject to lighting, probably would not work well
+
+
+*)
+
+
 
 
 // TODO tree auto-chopper thingy? gold axe plus 3 diamonds = special unrepairable : {Item:{tag:{RepairCost:2147483647}}} gold axe?  or ought it be findable rare item rather than a recipe? or require a fragment?
@@ -379,28 +322,5 @@ let tc_main() =
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"tc:init_tc";"tc:init_vm"])
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"tc:tick_tc";"tc:tick_vm"])
     pack.SaveToDisk()
-
-
-// TODO some recipe in woodland mansion (need to heal zombie villager to get carto to find? or make mansion-finder?)
-
-// TODO vanilla swirl all-seeing eye (FSE that grants night vision and attributes big slowness when held) and enderchest+unrepairable-silk-touch-wooden-pickaxe; fortune hoe could also be good?
-// TODO alphabet banners are fun loot (craftable?)... player heads of the mjoang-mob-heads could be fun loot... stacks of blocks (rare like ice/packed/mycelium/podzol, or colorful like everything) are also fun loot to build with
-
-
-// TODO desire lines?
-
-// TODO craftable Ragecraft-like frost trap, 
-//    just e.g. lingering potion of long-slowness (vanilla item) is decent, but make it craftable/findable to use pre-dragon... 
-//    hm, but RC one makes thrower immune, players get hit by own potion, hm... guess could detect when player is near AEC and cancel it with /effect...
-//    yeah and RC one was like slowness 4, for 1s, re-applied every second, or something, and also damaged for 0 (so mobs make hit sound), can I conjure that?
-//    no on the damage sound, but e.g. could make glowing for 10 ticks
-// here's a cloud for flash-glowing and slowness 6:   (Radius:1 means 2x2 square of blocks)
-// /summon area_effect_cloud ~ ~ ~ {Duration:600,Radius:1.5,ReapplicationDelay:20,Effects:[{Id:24b,Amplifier:0b,Duration:10,Ambient:1b,ShowParticles:0b},{Id:2b,Amplifier:5b,Duration:20,Ambient:1b,ShowParticles:0b}],Particle:"falling_dust ice"}
-// don't think i can /give a lingering potion that does that, but could have a custom unique pot for duration 2 or something, detect that, and summon my own AEC?
-
-// TODO how to communicate initial (and permanent, e.g. furnace craft) limitations to player at start or along way?  
-// what is right way to communicate deviations from vanilla without giving eveything away and taking away mystery?
-
-// TODO do I want to make it so falling into void in The End teleports the player back to y=255 in the overworld?
 
 
