@@ -12,15 +12,18 @@ module Blind =
     let PACK_NAME = "blind-bingo"
     let PACK_NS   = "blind"
 
+    let SIGN_NS = "blindsign"
+
     let theSign() =
         // use a separate data pack (always loaded) for processing the sign to toggle the game mode
         let functions = [|
             yield "init",[|
                 "scoreboard objectives add blindEnabled dummy"
                 "scoreboard players add $ENTITY blindEnabled 0"
+                sprintf "function %s:put_sign_in_lobby" SIGN_NS
                 |]
             yield "toggle_pack",[|
-                sprintf "execute if $SCORE(gameInProgress=0) run function blindsign:toggle_pack_body"
+                sprintf "execute if $SCORE(gameInProgress=0) run function %s:toggle_pack_body" SIGN_NS
                 sprintf "execute unless $SCORE(gameInProgress=0) run tellraw @a [\"(this sign cannot be run while there is a game in progress)\"]"
                 |]
             yield "toggle_pack_body",[|
@@ -37,14 +40,14 @@ module Blind =
                 sprintf "execute if $SCORE(TEMP=1) run tellraw @a [\"Blind bingo has been disabled\"]"
                 |]
             yield "put_sign_in_lobby", [|
-                yield! MinecraftBINGO.placeWallSignCmds 70 26 77 "north" "toggle" "blind pack" "" "" "function blindsign:toggle_pack" true false
+                yield! MinecraftBINGO.placeWallSignCmds 70 MinecraftBINGO.LOW_SIGN_Y 97 "north" "toggle" "blind pack" "" "" (sprintf "function %s:toggle_pack" SIGN_NS) true false 
                 |]
             |]
         let signPack = new Utilities.DataPackArchive(MinecraftBINGO.FOLDER, "blind-bingo-sign", "sign to toggle blind mode on-off")
-        signPack.WriteFunctionTagsFileWithValues("minecraft","load",["blindsign:init"])
+        signPack.WriteFunctionTagsFileWithValues("minecraft","load",[sprintf"%s:init"SIGN_NS])
         let a = [|
             for name,code in functions do
-                yield! MinecraftBINGO.compiler.Compile("blindsign",name,code)
+                yield! MinecraftBINGO.compiler.Compile(SIGN_NS,name,code)
             |]
         for ns,name,code in a do
             signPack.WriteFunction(ns,name,code)

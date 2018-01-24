@@ -131,14 +131,19 @@ type Coords(x:int,y:int,z:int) =
     member this.TPSTR = sprintf "%d %d.0 %d" x y z   // not specifying a decimal adds 0.5 to each value; when tp'ing, we typically want y to be floor-flush and xz to be centered, hence this
     member this.Offset(dx,dy,dz) = new Coords(x+dx, y+dy, z+dz)
 
-let MAP_UPDATE_ROOM = Coords(62,10,72)
-let WAITING_ROOM = Coords(71,10,72)
+let MAP_UPDATE_ROOM = Coords(62,3,72)
+let WAITING_ROOM = Coords(71,3,72)
 let ART_HEIGHT = 40 // TODO
 let ART_HEIGHT_DAYLIGHT_BLOCKER = ART_HEIGHT-1
 let ART_HEIGHT_UNDER = ART_HEIGHT-2
 
-let CHEST_THIS_CARD_1 = Coords(59,25,62)
-let CHEST_THIS_CARD_2 = Coords(59,25,63)
+let LOBBY = "62 18.0 63 180 0"
+let LOBBY_Y_FLOOR = 17
+let LOW_SIGN_Y = LOBBY_Y_FLOOR + 2
+let TICKS_TO_UPDATE_MAP = 30
+
+let CHEST_THIS_CARD_1 = Coords(59,LOBBY_Y_FLOOR+1,62)
+let CHEST_THIS_CARD_2 = Coords(59,LOBBY_Y_FLOOR+1,63)
 
 let SQUARES = [| for i = 1 to 5 do for j = 1 to 5 do yield sprintf "%d%d" i j |]
 let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
@@ -237,8 +242,6 @@ let prng = [|
 
 ///////////////////////////////////////////////////////
 
-let LOBBY = "62 25.0 63 180 0"
-let TICKS_TO_UPDATE_MAP = 30
 let game_objectives = [|
     // GLOBALS
     yield "CALL"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
@@ -320,27 +323,27 @@ let game_functions = [|
             yield "scoreboard players set $ENTITY TEMP 0"
             yield "execute as @a run scoreboard players add $ENTITY TEMP 1"
             // unbold signs while gameInProgress == 1
-            yield! placeWallSignCmds 61 26 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) seedSignsEnabled false
-            yield! placeWallSignCmds 62 26 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) seedSignsEnabled false
+            yield! placeWallSignCmds 61 LOW_SIGN_Y 61 "south" "Make RANDOM" "card" "" "" (sprintf"function %s:choose_random_seed"NS) seedSignsEnabled false
+            yield! placeWallSignCmds 62 LOW_SIGN_Y 61 "south" "Choose SEED" "for card" "" "" (sprintf"function %s:choose_seed"NS) seedSignsEnabled false
             // unbold signs while gameInProgress <> 0
-            yield! placeWallSignCmds 63 26 61 "south" "START game" "" "" "" (sprintf"function %s:start1"NS) otherSignsEnabled false
-            yield! placeWallSignCmds 65 26 61 "south" "Join team" "RED"    "" "" (sprintf "function %s:red_team_join" NS) otherSignsEnabled false
-            yield! placeWallSignCmds 66 26 61 "south" "Join team" "BLUE"   "" "" (sprintf "function %s:blue_team_join" NS) otherSignsEnabled false
-            yield! placeWallSignCmds 67 26 61 "south" "Join team" "GREEN"  "" "" (sprintf "function %s:green_team_join" NS) otherSignsEnabled false
-            yield! placeWallSignCmds 68 26 61 "south" "Join team" "YELLOW" "" "" (sprintf "function %s:yellow_team_join" NS) otherSignsEnabled false
+            yield! placeWallSignCmds 63 LOW_SIGN_Y 61 "south" "START game" "" "" "" (sprintf"function %s:start1"NS) otherSignsEnabled false
+            yield! placeWallSignCmds 65 LOW_SIGN_Y 61 "south" "Join team" "RED"    "" "" (sprintf "function %s:red_team_join" NS) otherSignsEnabled false
+            yield! placeWallSignCmds 66 LOW_SIGN_Y 61 "south" "Join team" "BLUE"   "" "" (sprintf "function %s:blue_team_join" NS) otherSignsEnabled false
+            yield! placeWallSignCmds 67 LOW_SIGN_Y 61 "south" "Join team" "GREEN"  "" "" (sprintf "function %s:green_team_join" NS) otherSignsEnabled false
+            yield! placeWallSignCmds 68 LOW_SIGN_Y 61 "south" "Join team" "YELLOW" "" "" (sprintf "function %s:yellow_team_join" NS) otherSignsEnabled false
             //
-            yield! placeWallSignCmds 61 27 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) otherSignsEnabled false
-            yield! placeWallSignCmds 63 27 61 "south" "get" "CONFIGURATION" "book(s)" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
+            yield! placeWallSignCmds 61 (LOW_SIGN_Y+1) 61 "south" "Show all" "possible" "items" "" (sprintf"function %s:make_item_chests"NS) otherSignsEnabled false
+            yield! placeWallSignCmds 63 (LOW_SIGN_Y+1) 61 "south" "get" "CONFIGURATION" "book(s)" "" (sprintf"function %s:get_configuration_books"NS) otherSignsEnabled false 
             //
-            yield! placeWallSignCmds 65 27 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled true
-            yield! placeWallSignCmds 66 27 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
-            yield! placeWallSignCmds 67 27 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) otherSignsEnabled true
-            yield! placeWallSignCmds 68 27 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) otherSignsEnabled true
-            yield! placeWallSignCmds 69 26 61 "south" "LEAVE" "team" "(to sit out" "a game)" "team leave @s" otherSignsEnabled true
+            yield! placeWallSignCmds 65 (LOW_SIGN_Y+1) 61 "south" "put all on" "ONE team" "" "" (sprintf"function %s:assign_1_team"NS) otherSignsEnabled true
+            yield! placeWallSignCmds 66 (LOW_SIGN_Y+1) 61 "south" "divide into" "TWO teams" "" "" (sprintf"function %s:assign_2_team"NS) otherSignsEnabled true
+            yield! placeWallSignCmds 67 (LOW_SIGN_Y+1) 61 "south" "divide into" "THREE teams" "" "" (sprintf"function %s:assign_3_team"NS) otherSignsEnabled true
+            yield! placeWallSignCmds 68 (LOW_SIGN_Y+1) 61 "south" "divide into" "FOUR teams" "" "" (sprintf"function %s:assign_4_team"NS) otherSignsEnabled true
+            yield! placeWallSignCmds 69 LOW_SIGN_Y 61 "south" "LEAVE" "team" "(to sit out" "a game)" "team leave @s" otherSignsEnabled true
             //
-            yield! Utilities.placeWallSignCmds 61 28 61 "south" "previous" "SEED" "" "" (sprintf"function %s:prev_seed"NS) seedSignsEnabled "black" "execute if $SCORE(optusval=1) run "
-            yield! Utilities.placeWallSignCmds 62 28 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled (if otherSignsEnabled then "black" else "gray") "execute if $SCORE(optusval=1) run "
-            yield! Utilities.placeWallSignCmds 63 28 61 "south" "next" "SEED" "" "" (sprintf"function %s:next_seed"NS) seedSignsEnabled "black" "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 61 (LOW_SIGN_Y+2) 61 "south" "previous" "SEED" "" "" (sprintf"function %s:prev_seed"NS) seedSignsEnabled "black" "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 62 (LOW_SIGN_Y+2) 61 "south" "fake START" "" "" "" (sprintf"function %s:fake_start"NS) otherSignsEnabled (if otherSignsEnabled then "black" else "gray") "execute if $SCORE(optusval=1) run "
+            yield! Utilities.placeWallSignCmds 63 (LOW_SIGN_Y+2) 61 "south" "next" "SEED" "" "" (sprintf"function %s:next_seed"NS) seedSignsEnabled "black" "execute if $SCORE(optusval=1) run "
             //
             yield """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]""" // dunno why old signs popping off when replaced by air
             |]
@@ -439,20 +442,22 @@ let game_functions = [|
             It's hard to design a lobby without first knowing the interface (set of activation signs) to all the features.  Get features working first.
         *)
         yield sprintf "execute in overworld run teleport @a %s" LOBBY
-        yield "effect give @a minecraft:night_vision 99999 1 true"
-        yield "fill 60 24 60 70 28 70 air"
-        yield "fill 60 24 60 70 24 70 stone"
-        yield "fill 60 24 60 70 28 60 stone"
-        yield "setblock 64 25 60 sea_lantern"
-        yield "setblock 65 26 60 redstone_block"
-        yield "setblock 66 26 60 lapis_block"
-        yield "setblock 67 26 60 emerald_block"
-        yield "setblock 68 26 60 gold_block"
+        yield sprintf "effect give @a minecraft:night_vision 99999 1 true"
+        yield sprintf "fill 59 %d 60 71 %d 98 air" LOBBY_Y_FLOOR (LOBBY_Y_FLOOR+4)
+        yield sprintf "fill 59 %d 60 71 %d 98 stone" LOBBY_Y_FLOOR LOBBY_Y_FLOOR
+        yield sprintf "fill 59 %d 60 71 %d 60 stone" LOBBY_Y_FLOOR (LOBBY_Y_FLOOR+4)
+        yield sprintf "fill 59 %d 98 71 %d 98 stone" LOBBY_Y_FLOOR (LOBBY_Y_FLOOR+4)
+        yield sprintf "setblock 64 %d 60 sea_lantern" (LOBBY_Y_FLOOR+1)
+        yield sprintf "setblock 65 %d 60 redstone_block" LOW_SIGN_Y
+        yield sprintf "setblock 66 %d 60 lapis_block" LOW_SIGN_Y
+        yield sprintf "setblock 67 %d 60 emerald_block" LOW_SIGN_Y
+        yield sprintf "setblock 68 %d 60 gold_block" LOW_SIGN_Y
         yield sprintf "function %s:place_signs0" NS
-        // thanks/donations/versions books
-        yield! placeWallSignCmds 62 26 77 "north" "THANKS" "" "" "" (sprintf "function %s:thanks_book" NS) true false
-        yield! placeWallSignCmds 61 26 77 "north" "DONATE" "" "" "" (sprintf "function %s:donation_book" NS) true false  // TODO update paypal button text
-        yield! placeWallSignCmds 60 26 77 "north" "HISTORY" "" "" "" (sprintf "function %s:version_book" NS) true false
+        // gamemodes/thanks/donations/versions books
+        yield! placeWallSignCmds 63 LOW_SIGN_Y 97 "north" "GAME MODES" "" "" "" (sprintf "function %s:give_gamemodes_book" NS) true false
+        yield! placeWallSignCmds 62 LOW_SIGN_Y 97 "north" "THANKS" "" "" "" (sprintf "function %s:thanks_book" NS) true false
+        yield! placeWallSignCmds 61 LOW_SIGN_Y 97 "north" "DONATE" "" "" "" (sprintf "function %s:donation_book" NS) true false  // TODO update paypal button text
+        yield! placeWallSignCmds 60 LOW_SIGN_Y 97 "north" "HISTORY" "" "" "" (sprintf "function %s:version_book" NS) true false
         // make map-update-room
         yield sprintf "fill %s %s sea_lantern hollow" (MAP_UPDATE_ROOM.Offset(-3,-2,-3).STR) (MAP_UPDATE_ROOM.Offset(3,3,3).STR)
         yield sprintf "fill %s %s barrier hollow" (MAP_UPDATE_ROOM.Offset(-1,-1,-1).STR) (MAP_UPDATE_ROOM.Offset(1,2,1).STR)
@@ -1046,9 +1051,9 @@ let itemIndex(name) = flatBingoItems |> Array.findIndex(fun x -> x = name)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-let CHOOSE_X = 80
-let CHOOSE_Y = 25
-let CHOOSE_Z = 60
+let CHOOSE_X = 72
+let CHOOSE_Y = 17
+let CHOOSE_Z = 63
 
 let choosable_functions = [|
     yield "set_overworld_choosables", [|
@@ -1089,12 +1094,12 @@ let choosable_functions = [|
         for i = 0 to bingoItems.Length-1 do
             for j = 0 to 2 do
                 let item = bingoItems.[i].[j]
-                let index = itemIndex(item)
                 yield sprintf """summon item_frame %d %d %d {Tags:[tempIF,tempIF%02d%02d],Invulnerable:1b,Facing:4b,ItemRotation:0b,Item:{id:"minecraft:%s",Count:1b}}""" (CHOOSE_X-1) (CHOOSE_Y+3-j) (CHOOSE_Z+1+i) i j item
         |]
     yield "clear_item_wall", [|
         "kill @e[tag=tempIF]"
         sprintf "fill %d %d %d %d %d %d air" CHOOSE_X CHOOSE_Y (CHOOSE_Z-2) CHOOSE_X (CHOOSE_Y+4) (CHOOSE_Z + bingoItems.Length + 1)
+        """kill @e[type=item,nbt={Item:{id:"minecraft:sign"}}]"""        
         |]
     yield "item_chooser_tick", [|
         yield "scoreboard players set $ENTITY TEMP 0"  // any changes?
@@ -1347,7 +1352,7 @@ let makeItemChests() =
         s.Substring(0, s.Length-1) + "]}"
     "make_item_chests",[|
         let x = 61
-        let y = 25
+        let y = LOBBY_Y_FLOOR+1
         let z = 66
         yield sprintf "setblock %d %d %d chest" x y z
         yield sprintf "data merge block %d %d %d %s" x y z otherChest1

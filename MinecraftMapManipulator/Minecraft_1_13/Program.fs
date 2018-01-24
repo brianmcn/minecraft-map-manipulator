@@ -322,7 +322,7 @@ let local_v_relative() =
 [<EntryPoint>]
 let main argv = 
     MinecraftBINGO.cardgen_compile()
-    //MinecraftBINGOExtensions.Blind.main()
+    //MinecraftBINGOExtensions.Blind.main()   // TODO was crashing the game on reload (something with its sign, or looking at items frames, or who knows)
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
