@@ -43,23 +43,46 @@ small program ideas:
   - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
   - a sense of the bounds; some things are possible, and some things are not (e.g. coords of block last mined)... the bounds are kinda arbitrary and must be learned through experience
   - setup (see prev series; stuff like f3, keyboard shortcuts, gamemodes, F3+N, how to make rr world, ...)
-  - sender (who) and location (where) and facing/anchoring (?how?which-way?) and function/command (what).... execute as pig say hi; execute at cow setblock stone (is there a good something other than 'say' that differs by 'who'? yes, facing ^ ^ ^1, maybe also 'read my health' or something)
+  - sender (who) and location (where) and facing/anchoring (?how?which-way?) and function/command (what)... 
+       the same command can have different outcomes based on the 'context' (who: entity      where: x, y, z, Dimension    how: yrot, xrot, anchor)
+	   execute as pig say hi; execute at cow setblock stone 
+       - is there a good something other than 'say' that differs by 'who'? yes, facing ^ ^ ^1, maybe also 'read my health' or something
+	   - I should make some helper functions like 'say my health' which I can call without showing/explaining code, if it helps explain concept-at-hand
+	   - actually, dump_context is a great function: Program.fs:dump_context()
        yeah, imagining in first episode typing commands to summon a NoAI pig, a NoAI horse with a different rotation, and then running commands like function say_health as them or setblock at them
 	   talk abut the concepts, while showing un-as-yet-explained commands on the screen
   - coordinates (F3 debug screen, xyz, facing rotations, absolute 1 2 3, relative ~~~, local ^^^, /setblock, /teleport)
        i have a nice screenshot and Program.fs:local_v_relative() has nice code   ('anchored eyes' may be too advanced for first pass?)
 	   make thingy to fly in direction looking with tp ^ ^ ^0.05 or whatever; maybe cycle difficulty and put block in sky at y=100 above slimes (slow) or zombies (faster) or minecart chests or something, as simple examples? 
 	   show temple locator? can at least show ideas and how coords work to make circle in 8 dirs around player
+	   setblock example of coord autocomplete
+	   maybe show setblock back-to-back signs (can make sign loops)
   - entities (/summon, /kill, Tags:[], /tag, /data get entity, /data merge entity, wiki)
        aside: should I always have a long-lived entity tagged temp, for various debugging etc?
 	   fake player nbt like SelectedItem/SelectedItemSlot
 			 - shops (via villagers, e.g. https://www.reddit.com/r/MinecraftCommands/comments/7rvsdr/elytra_shop_question/ )
-  - blocks (name[properties]{blockentitynbt}) and items (name{nbt})
-  - selectors
+  - blocks (name[properties]{blockentitynbt}) and items (name{nbt})    // what are good/common examples?
+  - selectors (s, e, a, p, skip r)
+     - type=cow
+	 - tag=Blah
+	 - x=1.1,y=2.2,z=3.3 (override context)
+	 - distance=..4.5 (spherical from context or x,y,z)
+	 - dx/dy/dz (hitbox intersection?)
+	 - y_rotation=0..90, x_rotation
+	 - sort=nearest/furthest/random (default arbitrary)
+	 - limit=1
+	 - scores={obj1=4..8,obj2=5..9}
+	 - team=name
+	 - team/tag/type can have multiples, team/tag can have empty and not(!)s (tag=!foo, team=)
+	 just briefly mention
+	   - name=Fred
+       - advancements=...
+	   - gamemode=creative
+	   - level=10..12  // xp level
   - scoreboard (ent-value pairs, sidebar display, selector test) 
        prefer fake players for 'global variables', entities for instancing or data related to the entity
        something with e.g. 'transitions', e.g. someone mayes a repeating command block to say 'entering town' when @p[x,y,z,distance=..30], but it spams chat, how to notice when enter and store scores to only chat transitions
-  - /execute (sender&location; if, unless, as, at, offset, align, store-result)
+  - /execute (if, unless, as, at, positioned(as), rotated(as), align, store, in, anchored), how the 'as' and 'at' do looping, ...
   - functions (datapack mechanics, subroutine call control flow behavior and sender-location behavior)
   - repeating command block (spawn chunks)
   - minecraft:tick loop, time delays
@@ -100,6 +123,10 @@ how to do moral equivalent of 'testfor' results now: execute store result score 
 
 cool trick to see if you're in the top-half of an oak_slab block (note that dx,dy,dz selectors test against entity hitbox, not your exact coords)
   /execute at @s if block ~ ~ ~ minecraft:oak_slab[type=bottom] align y positioned ~ ~0.75 ~ run say @s[distance=..0.25]
+
+fun: two wall signs back to back can support one another - place one on wall, then replace wall with sign via commands
+
+how to falling_block nowadays: /summon minecraft:falling_block ~ ~8 ~ {BlockState:{Name:"minecraft:oak_stairs",Properties:{half:"bottom"}},Time:201s}
 
 
 ==============

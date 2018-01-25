@@ -318,10 +318,49 @@ let local_v_relative() =
     pack.SaveToDisk()
     
 
+let dump_context() =
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestLocate""")
+    let pack = Utilities.DataPackArchive(FOLDER,"dump","dump context info to chat")
+    let NS = "context"
+    let functions =[|
+        "init", [|
+            "scoreboard objectives add X dummy"
+            "scoreboard objectives add Y dummy"
+            "scoreboard objectives add Z dummy"
+            "scoreboard objectives add Dim dummy"
+            "scoreboard objectives add XRot dummy"
+            "scoreboard objectives add YRot dummy"
+            |]
+        "dump", [|
+            sprintf """execute if entity @e[tag=DEBUG] run function %s:dump_body""" NS
+            sprintf """execute unless entity @e[tag=DEBUG] run tellraw @a ["DEBUG entity was not present, summoning a new one now so future invocations work"]"""
+            sprintf """execute unless entity @e[tag=DEBUG] run summon area_effect_cloud ~ ~ ~ {Duration:9999999,Tags:[DEBUG]}"""
+            |]
+        "dump_body", [|
+            sprintf "tp @e[tag=DEBUG] ~ ~ ~ ~ ~"
+            sprintf """tellraw @a ["WHO: @s is '",{"selector":"@s"},"'"]"""
+            sprintf "execute store result score FAKE X run data get entity @e[tag=DEBUG,limit=1] Pos[0]"
+            sprintf "execute store result score FAKE Y run data get entity @e[tag=DEBUG,limit=1] Pos[1]"
+            sprintf "execute store result score FAKE Z run data get entity @e[tag=DEBUG,limit=1] Pos[2]"
+            sprintf "execute store result score FAKE Dim run data get entity @e[tag=DEBUG,limit=1] Dimension"
+            sprintf """tellraw @a ["WHERE: (x,y,z,dim) is (",%s,", ",%s,", ",%s,", ",%s,")"]""" (Utilities.tellrawScoreSelector("FAKE","X")) (Utilities.tellrawScoreSelector("FAKE","Y")) (Utilities.tellrawScoreSelector("FAKE","Z")) (Utilities.tellrawScoreSelector("FAKE","Dim"))
+            sprintf "execute store result score FAKE YRot run data get entity @e[tag=DEBUG,limit=1] Rotation[0]"
+            sprintf "execute store result score FAKE XRot run data get entity @e[tag=DEBUG,limit=1] Rotation[1]"
+            sprintf "kill @e[tag=TEMPAEC]"  // even with Duration:1, it won't die if e.g. it was tp'd to spawn chunks where no players are, because entities away from players don't get ticked
+            sprintf "summon area_effect_cloud ^ ^ ^ {Duration:1,Tags:[TEMPAEC]}"
+            sprintf """execute if entity @e[tag=TEMPAEC,distance=..0.0001] run tellraw @a ["HOW: (yrot,xrot,anchor) is (",%s,", ",%s,", feet)"]""" (Utilities.tellrawScoreSelector("FAKE","YRot")) (Utilities.tellrawScoreSelector("FAKE","XRot")) 
+            sprintf """execute unless entity @e[tag=TEMPAEC,distance=..0.0001] run tellraw @a ["HOW: (yrot,xrot,anchor) is (",%s,", ",%s,", not feet)"]""" (Utilities.tellrawScoreSelector("FAKE","YRot")) (Utilities.tellrawScoreSelector("FAKE","XRot")) 
+            |]
+        |]
+    for name, code in functions do
+        pack.WriteFunction(NS, name, code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[sprintf"%s:init"NS])
+    pack.SaveToDisk()
+
 
 [<EntryPoint>]
 let main argv = 
-    MinecraftBINGO.cardgen_compile()
+    //MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()   // TODO was crashing the game on reload (something with its sign, or looking at items frames, or who knows)
     //Raycast.main()
     //throwable_light()
@@ -329,7 +368,7 @@ let main argv =
     //QFE.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
-    //QuickStack.main()
+    QuickStack.main()
     //area_highlight()
     //find_slime_chunks()
     //igloo_replacement()
@@ -340,6 +379,7 @@ let main argv =
     //test2compilers()
     //temple_locator()
     //local_v_relative()
+    //dump_context()
     ignore argv
     0
 

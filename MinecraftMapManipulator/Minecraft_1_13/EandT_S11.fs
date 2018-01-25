@@ -12,8 +12,6 @@ E&T ideas
  - throwable_light in Program
 
 
-fun: two wall signs back to back can support one another - place one on wall, then replace wall with sign via commands
-
 // game mechanics
 new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs with 'processed', and run some function on unprocessed ones (event from base pack)
  - then e.g. client pack can make e.g. 'prospector', if player y < 50 and on(in) rails, a newly spawned zombie at some range might hold a pickaxe and wear special armor and get a name
@@ -22,12 +20,12 @@ new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs 
  - underground slimes could place/update a structure block under bedrock that counts slimes, used for finding slime chunks somehow in survival? (sound when in those chunks? only creative players see structure outlines)
  - a rare bat spawns 10 more bats - bat-cave? (ambiance)
 
-use /locate to build some kind of homing/structure-finding thingy (temple_locator() in Program.fs)
+use /locate to build some kind of homing/structure-finding thingy (temple_locator() in Program.fs) (Temple, or Mansion/EndCity/Fortress depending on dimension?)
 
 map-filler-outer?  some mechanic that breifly tps you across a region in the sky (looking up), while you hold a map, to fill it out?  no way to know the map bounds, (not in nbt), but could just tp across -512..512 in steps of 128 and then return you to start.
- - a knowledge book is a nice consumable for this perhaps
+ - a knowledge book is a nice consumable for this perhaps   - might take too long to run given how maps update?
 
-come up with some kind of 'reward' for building mob farm (e.g. cool thing costs lost of glowstone/redstone/bone/slimeball/... structure locators above?)
+come up with some kind of 'reward' for building mob farm (e.g. cool thing costs lots of glowstone/redstone/bone/slimeball/gunpowder... structure locators above?)
     villager trade, e.g. 64 bone blocks and 64 redstone blocks -> thingy?
     /give Lorgon111 minecraft:villager_spawn_egg{EntityTag:{Profession:1,Career:1,CareerLevel:999,Willing:1b,Offers:{Recipes:[{uses:0,maxUses:999,buy:{id:"minecraft:coal",Count:33b},sell:{id:"minecraft:stone",Count:2b}}]}}} 1
 
@@ -54,13 +52,15 @@ aha, villages off forever.  igloo structure could be replaced in datapack, to no
 will need to fix all loot tables, to get rid of things like 'buckets'... change iron/gold ingots to nuggets in loot tables, other things need to prevent, maybe give glass instead? or see below
  - could also have some completely random drops, like rather than having to use a fragment to get the recipe for a daylight sensor, just have the knowledge book randomly appear in loot chests sometimes, yeah
 
-possibly start the game with one nametag to see all starting recipes, or e.g. picking it up grants the initial recipes
+possibly start the game with one fragment to see all starting recipes, or e.g. picking it up grants the initial recipes
 
 In order to make these recipes discoverable, give all same prefix in name, so player can search recipe book for prefix to find all new recipes (maybe '111', is easy to type)
 
 maybe, in addition to having structures gen rare loot recipes, also maybe husks/strays could rarely drop? incentivize fighting them? (can base spawner spawn them if exposed to sunlight? no)
 
 todo recipe for throwable light, like torch + snowball + slimeball?
+
+could e.g. start with 'heavy shield' (slowness) and need to upgrade to learn to build light shield recipe?
 
 from old swirl notes:
 	tech tree: no early pickaxe? f&s rather than sword/axe? no torch recipe? villagers sell 3 choice of recipe? late bow/shield? early tnt? what foods? armor logic?
@@ -141,7 +141,7 @@ let author_tech_tree_logic(pack:Utilities.DataPackArchive) =
         for kg in knowledgeGrants do
             initCommands.Add(sprintf "recipe @a take %s" (kg.ToString()))
         // recipe
-        pack.WriteRecipe(NS,recipeName,ShapelessCrafting([|yield FRAGMENT;yield! ingredients|],MC"knowledge_book",  // TODO KB needs name, lore, and recipes attached via NBT
+        pack.WriteRecipe(NS,recipeName,ShapelessCrafting([|yield FRAGMENT;yield! ingredients|],MC"knowledge_book",  // TODO KB needs name, lore, and recipes attached via NBT; name must be searchable (see https://bugs.mojang.com/browse/MC-124553 )
                             1).AsJsonString())
         // advancement
         pack.WriteAdvancement(NS,recipeName,sprintf """{
@@ -180,7 +180,7 @@ let author_tech_tree_logic(pack:Utilities.DataPackArchive) =
 
 // TODO how to communicate initial (and permanent, e.g. furnace craft) limitations to player at start or along way?  
 // what is right way to communicate deviations from vanilla without giving eveything away and taking away mystery?
-//  - is there a good way to have mobs deliver books of lore as loot drops after some time-amount/progression-gate?
+//  - is there a good way to have mobs deliver books of lore as loot drops after some time-amount/progression-gate? or consuming a knowledge book (detect by advancement) could /give the player extra lore when needed?
 
 // TODO do I want to make it so falling into void in The End teleports the player back to y=255 in the overworld?
 
