@@ -280,7 +280,7 @@ let connected_mining_functions = [|
             for b,_ in blocks do
                 yield sprintf "scoreboard players set @s %s%s 0" b suffixS
             |]
-        let ITEMSEL(bi) = sprintf """@e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"},PickupDelay:10s}]""" bi
+        let ITEMSEL(bi) = sprintf """@e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"},PickupDelay:10s}]""" bi  // todo could also look for Age:0s in addition to PickupDelay
         yield sprintf"check_mined_%s"suffixF,[|
             for b,bi in blocks do
                 yield sprintf "execute if entity @s[scores={%s%s=1..}] at @s at %s run function tc:chop_start_%s_%s" b suffixS (ITEMSEL bi) suffixF bi

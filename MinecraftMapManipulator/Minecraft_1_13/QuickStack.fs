@@ -15,10 +15,6 @@
 //let STACKABLES = [|"cobblestone";"diorite"|]
 //let STACKABLES = MC_Constants.STACKABLE_TO_64_ITEM_IDS
 let STACKABLES = MC_Constants.PRAGMATIC_64_STACKABLES
-(*
-     Total Files Listed:
-            8201 File(s)     46,004,791 bytes
-*)
 
 let quickstack_functions = [|
     yield "init", [|

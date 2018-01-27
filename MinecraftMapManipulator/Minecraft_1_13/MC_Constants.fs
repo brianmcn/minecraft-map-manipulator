@@ -799,7 +799,6 @@ let SURVIVAL_UNOBTAINABLE_ITEM_IDS = [|
     "zombie_horse_spawn_egg"
     "zombie_pigman_spawn_egg"
     "zombie_villager_spawn_egg"
-    "experience_bottle"
     "player_head"
     "command_block_minecart"
     "knowledge_book"

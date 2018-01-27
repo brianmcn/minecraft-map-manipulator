@@ -129,6 +129,13 @@ fun: two wall signs back to back can support one another - place one on wall, th
 how to falling_block nowadays: /summon minecraft:falling_block ~ ~8 ~ {BlockState:{Name:"minecraft:oak_stairs",Properties:{half:"bottom"}},Time:201s}
 
 
+ah, ok, so the defining characteristic of a property is that it is the 'state lost when converted to item form'
+NBT state can be preserved (e.g. command block + NBT).  and of course block identity can be preserved.  but 'blockstate properties' refer to some 
+ephemeral data that only exists when the block is in the world.  That still doesn't explain a rationale for choosing how blocks are designed to be 
+one way or another, but at least it operationalizes the difference in my brain... 
+note that some states (e.g. fence connected only northward) typically 'depend on world environment' (e.g. block to the north, air others)
+also pistons can't push tile entities (given how they are stored based on coords)
+
 ==============
 MinecraftBINGO
 ==============
