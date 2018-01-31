@@ -83,7 +83,7 @@ small program ideas:
        prefer fake players for 'global variables', entities for instancing or data related to the entity
        something with e.g. 'transitions', e.g. someone mayes a repeating command block to say 'entering town' when @p[x,y,z,distance=..30], but it spams chat, how to notice when enter and store scores to only chat transitions
   - /execute (if, unless, as, at, positioned(as), rotated(as), align, store, in, anchored), how the 'as' and 'at' do looping, ...
-  - functions (datapack mechanics, subroutine call control flow behavior and sender-location behavior)
+  - functions (datapack mechanics, subroutine call control flow behavior and sender-location behavior, ticks and timing)
   - repeating command block (spawn chunks)
   - minecraft:tick loop, time delays
   - JSON text, /tellraw, clickable signs

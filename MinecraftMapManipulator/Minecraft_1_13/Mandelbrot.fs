@@ -32,16 +32,60 @@ let functions = [|
             yield "scoreboard players set MAXH K 128"
             yield "scoreboard players set MAXW K 128"
             yield "scoreboard players set XSCALE K 96"
-            yield "scoreboard players set YSCALE K 62"
+            yield "scoreboard players set YSCALE K 64"
             yield "scoreboard players set XMIN K -8400"
             yield "scoreboard players set YMIN K -4000"
             yield "scoreboard players set ROWS_PER_TICK K 4"
+            yield "scoreboard players set TWO K 2"
+            yield "scoreboard players set SIXTEEN K 16"
             // other
+            yield "kill @e[tag=Cursor]"
             yield "summon armor_stand 0 4 0 {Tags:[Cursor],NoGravity:1}"
             yield "gamerule maxCommandChainLength 999999"
             |]
         "go",[|
             "execute as @p run function ms:cps_i_start"
+            |]
+        "move_up",[|
+            "scoreboard players operation TEMP A = YSCALE K"
+            "scoreboard players operation TEMP A *= MAXH K"
+            "scoreboard players operation TEMP A /= SIXTEEN K"
+            "scoreboard players operation YMIN K -= TEMP A"
+            "function ms:go"
+            |]
+        "move_down",[|
+            "scoreboard players operation TEMP A = YSCALE K"
+            "scoreboard players operation TEMP A *= MAXH K"
+            "scoreboard players operation TEMP A /= SIXTEEN K"
+            "scoreboard players operation YMIN K += TEMP A"
+            "function ms:go"
+            |]
+        "move_left",[|
+            "scoreboard players operation TEMP A = XSCALE K"
+            "scoreboard players operation TEMP A *= MAXW K"
+            "scoreboard players operation TEMP A /= SIXTEEN K"
+            "scoreboard players operation XMIN K -= TEMP A"
+            "function ms:go"
+            |]
+        "move_right",[|
+            "scoreboard players operation TEMP A = XSCALE K"
+            "scoreboard players operation TEMP A *= MAXW K"
+            "scoreboard players operation TEMP A /= SIXTEEN K"
+            "scoreboard players operation XMIN K += TEMP A"
+            "function ms:go"
+            |]
+        "zoom",[|
+            "scoreboard players operation XSCALE K /= TWO K"
+            "scoreboard players operation YSCALE K /= TWO K"
+            "scoreboard players operation TEMP A = XSCALE K"
+            "scoreboard players operation TEMP A *= MAXW K"
+            "scoreboard players operation TEMP A /= TWO K"
+            "scoreboard players operation XMIN K += TEMP A"
+            "scoreboard players operation TEMP A = YSCALE K"
+            "scoreboard players operation TEMP A *= MAXH K"
+            "scoreboard players operation TEMP A /= TWO K"
+            "scoreboard players operation YMIN K += TEMP A"
+            "function ms:go"
             |]
         "cps_i_start",[|
             "scoreboard players set $ENTITY CALL 0"
@@ -54,6 +98,7 @@ let functions = [|
             // actual code
             "scoreboard players set I A 0"
             "tp @e[tag=Cursor] 0 14 0"
+            "fill 32 15 32 96 15 96 light_gray_stained_glass"
             "fill 0 14 0 127 14 127 air"
             "fill 0 13 0 127 13 127 white_wool"
             "function ms:cps_j_start"
