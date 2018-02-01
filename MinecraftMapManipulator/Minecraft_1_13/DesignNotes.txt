@@ -6,7 +6,6 @@
  - 'aim-bot', e.g. turn player to face a specific target entity (or entity closest to his cursor)
  - drawing circles (e.g. using ^5 ^ ^ and rotating)
  - does anything change with mandelbrot? yes, no longer need cps (can just call forward, recurse forever? may be useful to test perf... surely final stack-unwind will lag? depth will add memory pressure?)
- - portal gun (or even not gun part, just spawn egg for orange/blue portal, can stay 'alive' even when you travel far away)
  - world pre-generator
  - shoot arrow replaces air with torch temporarily where it lands? (remote lighting)
  - spectator over-shoulder-cam?
@@ -31,10 +30,22 @@ could do stuff like OnGround:0b/1b, sheep Sheared:0b,Color:0b ... Pos[x,y,z], ..
 /execute if entity @e[type=sheep,nbt={Color:8b}] run say hi
 small program ideas:
  - eventually quick-and-dirty version of look-teleporter
- - arrow to death point
+ - arrow to death point (or wherever, closest temple, blah)
  - can pose armor stand angles dynamically now, e.g. 3 player axes control 3 pose angles could be fun...
 		/data merge entity @e[type=armor_stand,limit=1] {ShowArms:1b,Pose:{LeftArm:[0.0f,0.0f,0.0f]}}
 		execute store result entity @e[type=armor_stand,limit=1] Pose.LeftArm[0] float 8.0 run data get entity @p Pos[0] 1.0
+ - Sierpinski triangle (maybe with armor stand, and also without, just context?)
+ - random mazes
+ - time delays (cont countdown structure?)
+ - portal gun (or even not gun part, just spawn egg for orange/blue portal, can stay 'alive' even when you travel far away)
+ - break open chest of items and watch them float to you, e.g. with
+		execute as @e[type=item] run data merge entity @s {NoGravity:1b}
+		execute as @e[type=item] at @s facing entity @p eyes run teleport @s ^ ^ ^0.1
+		or use motion, e.g. watch what happens from "execute as @e[type=item,sort=nearest,limit=1] store result entity @s Motion[0] double 0.02 run scoreboard players get Count A", can compute motion in a direction and store it
+ - veinminer/treecapitator?
+ - my picture to show absolute/local coords
+ - (some toy ideas along lines of fun_whip() in Program.fs)
+ - bow that shoots explosive arrows a la https://www.youtube.com/watch?v=jXiTge-Z6bk
 
 
 

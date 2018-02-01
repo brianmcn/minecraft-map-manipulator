@@ -16,6 +16,8 @@ using the recipe system (and not e.g. using 'floor crafting' or 'dispenser craft
 
 I guess in the worst case I can do like 7 torches, a snowball, and a slimeball as the 9 items
 
+(Also, could change snowball entity to NoGravity and constantly teleport it if I wanted it to have 'laser' rather than 'gravity' behavior)
+
 *)
 
 // TODO consider rather than sea_lantern, could do lava, "flowing_lava 7" does not seem to catch flammable things on fire, gives light for 1s and drops/disappears, can overlap entities (lava laser?), may be fun
@@ -357,6 +359,48 @@ let dump_context() =
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[sprintf"%s:init"NS])
     pack.SaveToDisk()
 
+let fun_whip() =
+    // attempt something like https://gfycat.com/EvergreenFoolhardyHeterodontosaurus
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestLocate""")
+    let pack = Utilities.DataPackArchive(FOLDER,"fun","fun misc")
+    let NS = "fun"
+    let functions =[|
+        "init", [|
+            "scoreboard objectives add This dummy"
+            "scoreboard objectives add Next dummy"
+            "scoreboard objectives add A dummy"
+            |]
+        "summon", [|
+            "kill @e[tag=AS]"
+            "scoreboard players set Count A 0"
+            "function fun:summon_body"
+            |]
+        "summon_body", [|
+            "tag @e[tag=new] remove new"
+            "summon armor_stand ~ ~ ~ {Tags:[AS,new],NoGravity:1b}"
+            "scoreboard players operation @e[tag=new] This = Count A"
+            "scoreboard players add Count A 1"
+            "scoreboard players operation @e[tag=new] Next = Count A"
+            "execute as @e[tag=new] at @s rotated ~10 ~ positioned ^ ^ ^1 if score Count A matches ..10 run function fun:summon_body"
+            |]
+        "turn", [|
+            "scoreboard players set Count A 0"
+            "execute as @e[tag=AS] if score @s This = Count A at @s run function fun:turn_body"
+            |]
+        "turn_body", [|
+//            "teleport @s ~ ~ ~ ~ ~"  // TODO https://bugs.mojang.com/browse/MC-124686
+            "teleport @s ~ ~ ~"
+            "execute as @e[tag=AS] if score @s This > Count A at @s run teleport @s ~ ~ ~ ~10 ~"
+            "scoreboard players add Count A 1"
+//            "execute rotated ~-30 ~ positioned ^ ^ ^1 as @e[tag=AS] if score @s This = Count A run function fun:turn_body"
+            "execute rotated as @s positioned ^ ^ ^1 as @e[tag=AS] if score @s This = Count A run function fun:turn_body"
+            |]
+        |]
+    for name, code in functions do
+        pack.WriteFunction(NS, name, code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[sprintf"%s:init"NS])
+    pack.SaveToDisk()
+
 
 [<EntryPoint>]
 let main argv = 
@@ -375,11 +419,12 @@ let main argv =
     //Recipes.test_recipe()
     //shoulder_cam()
     //test_selection_execution_order()
-    Mandelbrot.main()
+    //Mandelbrot.main()
     //test2compilers()
     //temple_locator()
     //local_v_relative()
     //dump_context()
+    fun_whip()
     ignore argv
     0
 

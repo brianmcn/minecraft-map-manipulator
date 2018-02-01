@@ -126,6 +126,41 @@ and NBT =
         match this.TryGetFromCompound(s) with
         | Some x -> x
         | None -> failwithf "tag %s not found" s
+    member this.ToNbtString() =
+        match this with
+        | End -> ""
+        | Byte(n,x) -> n + ":" + (x.ToString()) + "b"
+        | Short(n,x) -> n + ":" + (x.ToString()) + "s"
+        | Int(n,x) -> n + ":" + (x.ToString())
+        | Long(n,x) -> n + ":" + (x.ToString()) + "L"
+        | Float(n,x) -> n + ":" + (x.ToString()) + "f"
+        | Double(n,x) -> n + ":" + (x.ToString()) + "d"
+        | ByteArray(n,a) -> failwith "unimplemented"
+        | String(n,s) -> n + ":\"" + s + "\""
+        | List(n,pay) -> 
+            let sb = new System.Text.StringBuilder(n + ":[")
+            match pay with
+            | Bytes(a) -> failwith "unimplemented"
+            | Shorts(a) -> failwith "unimplemented"
+            | Ints(a) -> failwith "unimplemented"
+            | Longs(a) -> failwith "unimplemented"
+            | Floats(a) -> failwith "unimplemented"
+            | Doubles(a) -> failwith "unimplemented"
+            | Strings(a) -> sb.Append(String.concat "," (a |> Seq.map (fun x -> "\"" + x + "\""))) |> ignore
+            | Compounds(a) -> 
+                let mutable first = true
+                for c in a do 
+                    if first then
+                        first <- false
+                    else
+                        sb.Append(",") |> ignore
+                    sb.Append("{"+String.concat "," (c |> Seq.filter (fun x -> x <> End) |> Seq.map (fun x -> x.ToNbtString()))+"}") |> ignore
+            | IntArrays(a) -> failwith "unimplemented"
+            sb.Append("]") |> ignore
+            sb.ToString()
+        | Compound(n,a) -> 
+            n + ":{" + String.concat "," (a |> Seq.filter (fun x -> x <> End) |> Seq.map (fun x -> x.ToNbtString())) + "}"
+        | IntArray(n,a) -> failwith "unimplemented"
     member this.ToString(prefix) =
         match this with
         | End -> ""

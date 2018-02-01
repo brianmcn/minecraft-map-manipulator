@@ -1428,8 +1428,7 @@ open LootTables
 open Recipes
 open Advancements
 
-[<System.STAThread()>]  
-do   
+let main() =
     let user = "Admin1"
 
     let tmp3LevelDat = sprintf """C:\Users\%s\AppData\Roaming\.minecraft\saves\testing\level.dat""" user
@@ -2083,13 +2082,20 @@ automatic game start configs (night vision, starting items), customizable
 #endif
 
 
-    printfn "press a key to end"
-    System.Console.Beep()
-    System.Console.ReadKey() |> ignore
-
     
 
 #if FUN
     placeCommandBlocksInTheWorldTemp("""C:\Users\"""+user+"""\AppData\Roaming\.minecraft\saves\fun with clone\region\r.0.0.mca""")
 #endif
     ()
+
+[<System.STAThread()>]  
+do   
+    printfn "ok..."
+    //main()
+    let nbt = Compound("tag", [Compound("BlockEntityTag", [List("Items",Compounds LootTables.alphabetBannersChestItems );End] |> ResizeArray); End] |> ResizeArray)
+    printfn "%s" (nbt.ToNbtString())
+
+    printfn "press a key to end"
+    System.Console.Beep()
+    System.Console.ReadKey() |> ignore
