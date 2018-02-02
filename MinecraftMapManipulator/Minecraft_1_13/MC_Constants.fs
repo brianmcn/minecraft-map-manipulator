@@ -1099,3 +1099,80 @@ let PRAGMATIC_64_STACKABLES = [|
     "bone"
     "spider_eye"
     |]
+
+let BIOMES_AND_CORE = [|
+    "ocean", null
+    "plains", null
+    "desert", null
+    "extreme_hills", null
+    "forest", null
+    "taiga", null
+    "swampland", null
+    "river", null
+    "hell", null
+    "sky", null
+    "frozen_ocean", "ocean"
+    "frozen_river", "river"
+    "ice_flats", null
+    "ice_mountains", null
+    "mushroom_island", null
+    "mushroom_island_shore", "mushroom_island"
+    "beaches", null
+    "desert_hills", "desert"
+    "forest_hills", "forest"
+    "taiga_hills", "taiga"
+    "smaller_extreme_hills", "extreme_hills"
+    "jungle", null
+    "jungle_hills", "jungle"
+    "jungle_edge", "jungle"
+    "deep_ocean", "ocean"
+    "stone_beach", null
+    "cold_beach", null
+    "birch_forest", null
+    "birch_forest_hills", "birch_forest"
+    "roofed_forest", null
+    "taiga_cold", null
+    "taiga_cold_hills", "taiga_cold"
+    "redwood_taiga", null
+    "redwood_taiga_hills", "redwood_taiga"
+    "extreme_hills_with_trees", "extreme_hills"
+    "savanna", null
+    "savanna_rock", "savanna"
+    "mesa", null
+    "mesa_rock", "mesa"
+    "mesa_clear_rock", "mesa"
+    "void", null
+    "mutated_plains", "plains"
+    "mutated_desert", "desert"
+    "mutated_extreme_hills", "extreme_hills"
+    "mutated_forest", "forest"
+    "mutated_taiga", "taiga"
+    "mutated_swampland", "swampland"
+    "mutated_ice_flats", "ice_flats"
+    "mutated_jungle", "jungle"
+    "mutated_jungle_edge", "jungle"
+    "mutated_birch_forest", "birch_forest"
+    "mutated_birch_forest_hills", "birch_forest"
+    "mutated_roofed_forest", "roofed_forest"
+    "mutated_taiga_cold", "taiga_cold"
+    "mutated_redwood_taiga", "redwood_taiga"
+    "mutated_redwood_taiga_hills", "redwood_taiga"
+    "mutated_extreme_hills_with_trees", "extreme_hills"
+    "mutated_savanna", "savanna"
+    "mutated_savanna_rock", "savanna"
+    "mutated_mesa", "mesa"
+    "mutated_mesa_rock", "mesa"
+    "mutated_mesa_clear_rock", "mesa"
+    |]
+
+let BIOMES = BIOMES_AND_CORE |> Array.map fst
+
+let BIOME_COLLECTIONS =
+    let r = ResizeArray()
+    for biome,core in BIOMES_AND_CORE do
+        if core = null then
+            r.Add(ResizeArray[|biome|])
+        else
+            let i = r.FindIndex(fun a -> a.[0] = core)
+            r.[i].Add(biome)
+    r

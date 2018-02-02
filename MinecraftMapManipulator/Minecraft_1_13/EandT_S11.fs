@@ -20,6 +20,7 @@ new mobs?  a not-too-expensive spawn-finder is at 1Hz tag all un-processed mobs 
  - underground slimes could place/update a structure block under bedrock that counts slimes, used for finding slime chunks somehow in survival? (sound when in those chunks? only creative players see structure outlines)
       - actually, simpler thing is e.g. slime on stone/-ite/coal has chance to convert stone to mossy cobble, or slimeblock, or something visible, so slimes leave a trail which helps you find slime chunks (maybe only during original spawning tick)
  - a rare bat spawns 10 more bats - bat-cave? (ambiance)
+ - biome specific spawns (e.g. turn 50% zombies to spiders in a forest or something? ...)
 
 use /locate to build some kind of homing/structure-finding thingy (temple_locator() in Program.fs) (Temple, or Mansion/EndCity/Fortress depending on dimension?)
 
@@ -208,6 +209,8 @@ abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_templ
  - bucket -> glass or maybe one of the random lootable_recipes?
 
 could basically do a search&replace in the file, and add one more to 'pools' for the rare extra
+
+seems like mechanically, it's easier to spec the changes I want to make and then just make them by hand
 
 // TODO Lore below
 /give @p minecraft:iron_pickaxe{VM:1,RepairCost:999999,display:{Name:"{\"color\":\"blue\",\"text\":\"Vein Miner\"}"}}

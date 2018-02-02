@@ -402,10 +402,71 @@ let fun_whip() =
     pack.SaveToDisk()
 
 
+let mob_replacement() =
+    // TODO maybe also biome tracker, keep player's most recent biome in scoreboard, use it to do stuff
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """New World""")
+    let pack = Utilities.DataPackArchive(FOLDER,"mob","mob replacement")
+    let NS = "mob"
+    let functions =[|
+        "tick",[|
+            // regardless of whether run in command block or in tick, can still see the spider on the screen for a tick when it spawns
+            "execute at @e[type=spider] run summon creeper"
+            "execute as @e[type=spider] at @s run teleport @s ~ ~-250 ~"
+            |]
+        |]
+    for name, code in functions do
+        pack.WriteFunction(NS, name, code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[sprintf"%s:tick"NS])
+    pack.SaveToDisk()
+
+let track_general_biome(NS:string,pack:Utilities.DataPackArchive) =
+    let sample_display_commands = ResizeArray()
+    printfn "%d biomes" MC_Constants.BIOMES.Length 
+    let mutable kind,count = 0,0
+    for a in MC_Constants.BIOME_COLLECTIONS do
+        printfn "%s" (String.concat "," a)
+        count <- count + a.Count
+        kind <- kind + 1
+        // track via scoreboard in pack
+        let general_biome_name = a.[0]
+        let sb = System.Text.StringBuilder()
+        sb.Append("""{"criteria":{""") |> ignore
+        for i = 0 to a.Count-1 do
+            let comma = if i=a.Count-1 then "\r\n" else ",\r\n"
+            sb.Append(sprintf """ "visit_%s": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:%s"}}%s""" a.[i] a.[i] comma) |> ignore
+        sb.Append("""},"requirements": [[""" + (String.concat ", " [for i = 0 to a.Count-1 do yield sprintf "\"visit_%s\"" a.[i]]) + sprintf """]],
+            "rewards": { "function": "%s:on_%s_grant" } }""" NS general_biome_name) |> ignore
+        pack.WriteAdvancement(NS,general_biome_name,sb.ToString())
+        pack.WriteFunction(NS,sprintf "on_%s_grant" general_biome_name,[|
+            sprintf "scoreboard players set @s BIOME %d" kind
+            sprintf "advancement revoke @s only %s:%s" NS general_biome_name
+            |])
+        sample_display_commands.Add(sprintf """execute if score @s BIOME matches %d run tellraw @s ["You are now in a %s biome"]""" kind general_biome_name)
+    printfn "%d   %d" kind count
+    // sample tracking
+    pack.WriteFunction(NS,"init",[|
+        "scoreboard objectives add BIOME dummy"
+        "scoreboard objectives add OLD_BIOME dummy"
+        |])
+    pack.WriteFunction(NS,"tick",[|
+        sprintf "execute as @a unless score @s OLD_BIOME = @s BIOME run function %s:announce_biome" NS
+        sprintf "execute as @a run scoreboard players operation @s OLD_BIOME = @s BIOME"
+        |])
+    pack.WriteFunction(NS,"announce_biome",sample_display_commands)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[sprintf"%s:init"NS])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[sprintf"%s:tick"NS])
+
+let show_biomes() =
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """New World""")
+    let pack = Utilities.DataPackArchive(FOLDER,"biome","biome tracker")
+    let NS = "biome"
+    track_general_biome(NS,pack)
+    pack.SaveToDisk()
+
 [<EntryPoint>]
 let main argv = 
     //MinecraftBINGO.cardgen_compile()
-    //MinecraftBINGOExtensions.Blind.main()   // TODO was crashing the game on reload (something with its sign, or looking at items frames, or who knows)
+    //MinecraftBINGOExtensions.Blind.main()   // TODO was crashing the game on reload (something with its sign, or looking at items frames, or who knows) maybe https://bugs.mojang.com/browse/MC-123363
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
@@ -424,7 +485,9 @@ let main argv =
     //temple_locator()
     //local_v_relative()
     //dump_context()
-    fun_whip()
+    //fun_whip()
+    //mob_replacement()
+    show_biomes()
     ignore argv
     0
 
