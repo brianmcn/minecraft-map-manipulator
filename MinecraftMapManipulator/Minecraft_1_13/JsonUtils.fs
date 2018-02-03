@@ -87,7 +87,12 @@ type JsonValue =
             | c::_ -> failwithf "unexpected character '%c'" c
         parse(s |> Seq.toList)
     member this.ToPrettyString(spacesPerIndent,width) =
-        let escape(s:string) = s.Replace("\\","\\\\").Replace("\"","\\\"")
+        let escape(s:string) = 
+            if s.StartsWith("minecraft:") && s <> "minecraft:set_count" then  // a hack to make more loot tables 'line up'
+                let r = s.Replace("\\","\\\\").Replace("\"","\\\"")
+                if r.Length < 32 then r + String.replicate (32 - r.Length) " " else r
+            else
+                s.Replace("\\","\\\\").Replace("\"","\\\"")
         let rec maxWidth(v) =
             match v with
             | JsonString(s) -> escape(s).Length+2

@@ -465,9 +465,20 @@ let show_biomes() =
     pack.SaveToDisk()
 
 let test_json() =
-    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\abandoned_mineshaft.json.txt""")
-    let jv, r = JsonUtils.JsonValue.Parse(text)
-    printfn "%s" (jv.ToPrettyString(3,150))
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\abandoned_mineshaft.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\desert_pyramid.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\end_city_treasure.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\igloo_chest.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\jungle_temple.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\nether_bridge.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\simple_dungeon.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\stronghold_corridor.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\stronghold_crossing.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\stronghold_library.json""")
+//    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\village_blacksmith.json""")
+    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\chests\woodland_mansion.json""")
+    let jv, _r = JsonUtils.JsonValue.Parse(text)
+    printfn "%s" (jv.ToPrettyString(2,210))
 
 [<EntryPoint>]
 let main argv = 
