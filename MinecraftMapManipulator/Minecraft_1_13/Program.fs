@@ -430,7 +430,7 @@ let track_general_biome(NS:string,pack:Utilities.DataPackArchive) =
         // track via scoreboard in pack
         let general_biome_name = a.[0]
         let sb = System.Text.StringBuilder()
-        sb.Append("""{"criteria":{""") |> ignore
+        sb.Append("""{"criteria":{""") |> ignore  // NOTE: criteria names must be unique across (advancements in a namespace?)
         for i = 0 to a.Count-1 do
             let comma = if i=a.Count-1 then "\r\n" else ",\r\n"
             sb.Append(sprintf """ "visit_%s": {"trigger": "minecraft:location","conditions": {"biome": "minecraft:%s"}}%s""" a.[i] a.[i] comma) |> ignore
@@ -440,6 +440,7 @@ let track_general_biome(NS:string,pack:Utilities.DataPackArchive) =
         pack.WriteFunction(NS,sprintf "on_%s_grant" general_biome_name,[|
             sprintf "scoreboard players set @s BIOME %d" kind
             sprintf "advancement revoke @s only %s:%s" NS general_biome_name
+            // TODO could call e.g. location_tick here, and move my announce code from tick to location_tick so it only runs once per second (per player)
             |])
         sample_display_commands.Add(sprintf """execute if score @s BIOME matches %d run tellraw @s ["You are now in a %s biome"]""" kind general_biome_name)
     printfn "%d   %d" kind count
@@ -462,6 +463,11 @@ let show_biomes() =
     let NS = "biome"
     track_general_biome(NS,pack)
     pack.SaveToDisk()
+
+let test_json() =
+    let text = System.IO.File.ReadAllText("""C:\Users\Admin1\Desktop\abandoned_mineshaft.json.txt""")
+    let jv, r = JsonUtils.JsonValue.Parse(text)
+    printfn "%s" (jv.ToPrettyString(3,150))
 
 [<EntryPoint>]
 let main argv = 
@@ -487,7 +493,8 @@ let main argv =
     //dump_context()
     //fun_whip()
     //mob_replacement()
-    show_biomes()
+    //show_biomes()
+    test_json()
     ignore argv
     0
 

@@ -71,6 +71,7 @@
     <Compile Include="MinecraftBINGOExtensions.fs" />
     <Compile Include="PerformanceMicroBenchmarks.fs" />
     <Compile Include="Mandelbrot.fs" />
+    <Compile Include="JsonUtils.fs" />
     <Compile Include="Program.fs" />
     <Content Include="DesignNotes.txt" />
   </ItemGroup>

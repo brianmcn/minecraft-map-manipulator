@@ -209,8 +209,8 @@ abandoned_mineshaft_chest and simple_dungeon and desert_pyramid and jungle_templ
  - bucket -> glass or maybe one of the random lootable_recipes?
 
 could basically do a search&replace in the file, and add one more to 'pools' for the rare extra
-
 seems like mechanically, it's easier to spec the changes I want to make and then just make them by hand
+see also test_json() in Program.fs
 
 // TODO Lore below
 /give @p minecraft:iron_pickaxe{VM:1,RepairCost:999999,display:{Name:"{\"color\":\"blue\",\"text\":\"Vein Miner\"}"}}
