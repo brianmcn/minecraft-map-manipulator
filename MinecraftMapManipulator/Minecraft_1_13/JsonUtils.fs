@@ -89,22 +89,22 @@ type JsonValue =
     member this.ToPrettyString(spacesPerIndent,width) =
         let escape(s:string) = 
             if s.StartsWith("minecraft:") && s <> "minecraft:set_count" then  // a hack to make more loot tables 'line up'
-                let r = s.Replace("\\","\\\\").Replace("\"","\\\"")
-                if r.Length < 32 then r + String.replicate (32 - r.Length) " " else r
+                let r = "\""+s.Replace("\\","\\\\").Replace("\"","\\\"")+"\""
+                if r.Length < 34 then r + String.replicate (34 - r.Length) " " else r
             else
-                s.Replace("\\","\\\\").Replace("\"","\\\"")
+                "\""+s.Replace("\\","\\\\").Replace("\"","\\\"")+"\""
         let rec maxWidth(v) =
             match v with
-            | JsonString(s) -> escape(s).Length+2
+            | JsonString(s) -> escape(s).Length
             | JsonNumber(s) -> s.Length 
             | JsonObject(pairs) ->
                 match pairs with
                 | [||] -> 2
-                | [|k,v|] -> 2 + escape(k).Length+2 + 3 + maxWidth(v) + 2
+                | [|k,v|] -> 2 + escape(k).Length + 3 + maxWidth(v) + 2
                 | _ -> 
                     let mutable r = 4
                     for k,v in pairs do
-                        r <- r + escape(k).Length+2 + 3 + maxWidth(v)
+                        r <- r + escape(k).Length + 3 + maxWidth(v)
                     r <- r + (pairs.Length-1)*2
                     r
             | JsonArray(values) ->
@@ -135,8 +135,8 @@ type JsonValue =
                 sb.Append(s) |> ignore
                 curCol+s.Length
             | JsonString(s) ->
-                sb.Append("\""+escape(s)+"\"") |> ignore
-                curCol+escape(s).Length+2
+                sb.Append(escape(s)) |> ignore
+                curCol+escape(s).Length
             | JsonArray(values) ->
                 match values with
                 | [||] -> 
@@ -222,4 +222,20 @@ type JsonValue =
         let sb = System.Text.StringBuilder()
         print(this, sb, 0, 0) |> ignore
         sb.ToString()
+    member this.FailOnDiff(other)  =
+        match this,other with
+        | JsonString(s), JsonString(t) -> if s <> t then failwithf "string diff '%s' versus '%s'" s t
+        | JsonNumber(s), JsonNumber(t) -> if s <> t then failwithf "number diff '%s' versus '%s'" s t
+        | JsonObject(pairs), JsonObject(otherPairs) ->
+            if pairs.Length <> otherPairs.Length then failwith "object diff lengths"
+            for i = 0 to pairs.Length-1 do
+                if fst pairs.[i] <> fst otherPairs.[i] then failwith "object diff keys"
+                (snd pairs.[i]).FailOnDiff(snd otherPairs.[i])
+        | JsonArray(vals), JsonArray(otherVals) ->
+            if vals.Length <> otherVals.Length then failwith "array diff lengths"
+            for i = 0 to vals.Length-1 do
+                vals.[i].FailOnDiff(otherVals.[i])
+        | JsonBool(s), JsonBool(t) -> failwith "diff bools"
+        | JsonNull, JsonNull -> ()
+        | _, _ -> failwith "different kinds"
 

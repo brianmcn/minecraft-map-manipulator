@@ -480,6 +480,28 @@ let test_json() =
     let jv, _r = JsonUtils.JsonValue.Parse(text)
     printfn "%s" (jv.ToPrettyString(2,210))
 
+let see_if_loot_tables_changed() =
+    let version = "18w05a"
+    let jar = """C:\Users\Admin1\AppData\Roaming\.minecraft\versions\"""+version+"""\"""+version+""".jar"""
+    let zipFileStream = new System.IO.FileStream(jar, System.IO.FileMode.Open)
+    let zipArchive = new System.IO.Compression.ZipArchive(zipFileStream, System.IO.Compression.ZipArchiveMode.Read)
+    for entry in zipArchive.Entries do
+        for chestName,prevContents in MC_Default_Loot.chest_loot_tables do
+            if entry.FullName = """data/minecraft/loot_tables/"""+chestName then
+                let sr = new System.IO.StreamReader(entry.Open())
+                let allText = sr.ReadToEnd()
+                let newJson,_ = JsonUtils.JsonValue.Parse(allText)
+                let oldJson,_ = JsonUtils.JsonValue.Parse(prevContents)
+                if newJson = oldJson then
+                    printfn "unchanged: %s" chestName
+                else
+                    printfn "CHANGE DETECTED!!! : %s" chestName
+                    printfn "old:"
+                    printfn "%s" (oldJson.ToPrettyString(2,210))
+                    printfn "new:"
+                    printfn "%s" (newJson.ToPrettyString(2,210))
+                    newJson.FailOnDiff(oldJson)
+
 [<EntryPoint>]
 let main argv = 
     //MinecraftBINGO.cardgen_compile()
@@ -505,7 +527,8 @@ let main argv =
     //fun_whip()
     //mob_replacement()
     //show_biomes()
-    test_json()
+    //test_json()
+    see_if_loot_tables_changed()
     ignore argv
     0
 
