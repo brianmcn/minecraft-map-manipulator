@@ -136,7 +136,7 @@ let main() =
     // and there's no way to encode/decode item type as scores, since one line of code (/replaceitem) needs all 3 bits explicitly specified (no variables)
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestQuickStack")
     let pack = new Utilities.DataPackArchive(world,"qspack","quick stack")
-    let compiler = Compiler.Compiler('q','s',"qs",1,100,1,false)
+    let compiler = Compiler.Compiler('q','s',"qs",false)
     printfn "%d functions" quickstack_functions.Length 
     for ns,name,code in [for name,code in quickstack_functions do yield! compiler.Compile("qs",name,code)] do
         pack.WriteFunction(ns,name,code)

@@ -208,7 +208,7 @@ let main() =
     let NS = "ms"
 
     let pack = new Utilities.DataPackArchive(world,PACK_NAME,"draw mandelbrot set")
-    let compiler = new Compiler.Compiler('m','s',NS,1,100,1,false)
+    let compiler = new Compiler.Compiler('m','s',NS,false)
     let all = [|
         for name,code in functions do
             yield! compiler.Compile(NS, name, code)

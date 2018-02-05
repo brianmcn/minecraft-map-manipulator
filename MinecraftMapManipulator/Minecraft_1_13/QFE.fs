@@ -76,7 +76,7 @@ let main() =
     printfn "%d total items" SURVIVAL_OBTAINABLE_ITEM_IDS.Length 
 
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestQFE")
-    let compiler = Compiler.Compiler('q','f',"qfe",1,100,1,false)
+    let compiler = Compiler.Compiler('q','f',"qfe",false)
     let pack = new Utilities.DataPackArchive(world,"QFE","qfe")
     let functions = ResizeArray()
     functions.Add("init_objectives_and_scores",[|

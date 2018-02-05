@@ -37,6 +37,8 @@ something with moon phase (midnight full moon, all mobs look up, you look up, an
 
 something xray-ish? (can check set of blocks in front of you, put glowing magma if certain block there, e.g. xray? or have make a sound originating there?)
 
+Something like: Zieon: Every 5 ticks between daytime 23450 and 15666 two random baby zombies do a raycast to 255. If it makes it without running into a block 
+    not in my allowssunlight tag then the baby zombie is set on fire for 8 seconds (just like adults)
 
 
 
@@ -338,7 +340,7 @@ let connected_mining_functions = [|
 let tc_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
     let pack = new Utilities.DataPackArchive(world,"multi_miner","cut down entire trees or mine entire ore veins")
-    let compiler = new Compiler.Compiler('v','m',"tc",1,100,1,false)
+    let compiler = new Compiler.Compiler('v','m',"tc",false)
     for ns,name,code in [for name,code in connected_mining_functions do yield! compiler.Compile("tc",name,code)] do
         pack.WriteFunction(ns,name,code)
     for ns,name,code in compiler.GetCompilerLoadTick() do

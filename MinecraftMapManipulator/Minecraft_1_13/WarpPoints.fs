@@ -147,7 +147,7 @@ let wp_c_main() =
     let pack = new Utilities.DataPackArchive(world, PACK_NAME, "warp points")
 
 //    Utilities.writeDatapackMeta(world,PACK_NAME,"warp points")
-    let compiler = new Compiler.Compiler('w','p',"wp",1,100,1,false)
+    let compiler = new Compiler.Compiler('w','p',"wp",false)
     let all = [|
         for name,code in [|yield! creation_functions; yield! nearby_behavior_functions; yield! lobby_functions|] do
             yield! compiler.Compile("wp", name, code)

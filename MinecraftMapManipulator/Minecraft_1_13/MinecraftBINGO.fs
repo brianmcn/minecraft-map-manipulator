@@ -151,7 +151,7 @@ let TEAMS = [| "red"; "blue"; "green"; "yellow" |]
 
 let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """testing""")
 let pack = new Utilities.DataPackArchive(FOLDER, PACK_NAME, "MinecraftBINGO base pack")
-let compiler = new Compiler.Compiler('m','b',"test",84,4,4,PROFILE)
+let compiler = new Compiler.Compiler('m','b',"test",PROFILE)
 
 ////////////////////////////
 // hook into events from base pack

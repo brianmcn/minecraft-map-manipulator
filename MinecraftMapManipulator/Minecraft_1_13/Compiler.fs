@@ -4,36 +4,16 @@
 
 // each compiler will generate its own functions like compiler/tick and compiler/cont1xy in a user-specified namespace userNS
 // each compiler will generate its own scoreboard objectives suffixed with e.g. xy, two user-specified characters objChar1/objChar2
-#if USE_ENTITY_FOR_SCORES
-// each compiler will share the same score entity scoreAS located near spawn
-#else
 // each compiler will share the same fake player named FAKE for scores
-#endif
-
-// TODO clean up this code
 
 let FOLDER = "compiler"
 
 // a basic abstraction over a single canonical entity or fake-player for scoreboards ($ENTITY) and for score conditions (if $SCORE/unless $SCORE), as well as execution over time ($NTICKLATER)
-type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
+type Compiler(objChar1,objChar2,userNS,doProfiling) =
     let objectiveSuffix = sprintf "%c%c" objChar1 objChar2
     let NUM_PENDING_CONT = sprintf "numPendingCont%s" objectiveSuffix
     let LINES = sprintf "LINES%s" objectiveSuffix 
-#if USE_ENTITY_FOR_SCORES
-    (*
-    summon 1 2 3 puts center-feet at 1.5 2 3.5 (adds .5, e.g. -2 becomes -1.5)
-    distance=0..N   - is target entity feet-center point in a sphere of radius N centerd at command origin?
-    dx/dy/dz        - does this box intersection target's hitbox?
-    *)
-    let summonLoc(x) =
-        let poin(x) = if x < 0 then x+1 else x // plus one if negative
-        match x with
-        | -1 -> "-0.5"
-        | _ -> sprintf "%d.5" (poin x)
-    let ENTITY_TAG = sprintf "tag=scoreAS,x=%s,y=%d,z=%s,distance=..0.1,limit=1" (summonLoc scoreASx) scoreASy (summonLoc scoreASz)   // consider UUIDing it? no, because UUIDs do not accept selectors
-#else
     let FAKE = "FAKE"  // the name of the 'fake' player on the scoreboard    // TODO consider changing to #FAKE, so can't conflict with a player name
-#endif
     let allCallbackShortNames = ResizeArray()
     let continuationNum = ref 1
     let newName() =    // names are like 'cont6xy'... this is used as scoreboard objective name, and then function full name will be compiler/cont6xy
@@ -48,9 +28,6 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
                 let j = s.IndexOf(')',i)
                 let info = s.Substring(i+TEXT.Length,j-i-TEXT.Length)
                 let s = s.Remove(i,j-i+1)
-#if USE_ENTITY_FOR_SCORES
-                let s = s.Insert(i,sprintf "if entity @e[%s,scores={%s}]" ENTITY_TAG info)
-#else
                 // for convenience of syntax and to be able to swap compiler implementations, 'info' is a comma separated list of form OBJ=match
                 let scores = info.Split(',')
                 let replacements = ResizeArray()
@@ -58,7 +35,6 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
                     let [|o;m|] = omp.Split('=')   // o is objective, m is 'matches' spec (e.g. "5..7")
                     replacements.Add(sprintf "if score %s %s matches %s" FAKE o m) |> ignore
                 let s = s.Insert(i,String.concat " " replacements)
-#endif
                 replaceIfScores(s)
             else
                 s
@@ -69,9 +45,6 @@ type Compiler(objChar1,objChar2,userNS,scoreASx,scoreASy,scoreASz,doProfiling) =
                 let j = s.IndexOf(')',i)
                 let info = s.Substring(i+TEXT.Length,j-i-TEXT.Length)
                 let s = s.Remove(i,j-i+1)
-#if USE_ENTITY_FOR_SCORES
-                let s = s.Insert(i,sprintf "if entity @e[%s,scores={%s}]" ENTITY_TAG info)
-#else
 (*
 I found the one thing that entity scores can handle easily that fake player scores cannot handle as easily:
     unless entity @e[tag=FAKE,scores={X=0..,Y=0..}]             succeeds if at least one of X or Y is negative
@@ -84,7 +57,6 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
                     failwith "compiler cannot handle 'unless $SCORE(...,...)' where multiple items in SCORE"
                 let [|o;m|] = info.Split('=')   // o is objective, m is 'matches' spec (e.g. "5..7")
                 let s = s.Insert(i,sprintf "unless score %s %s matches %s" FAKE o m)
-#endif
                 replaceIfScores(s)
             else
                 s
@@ -107,18 +79,12 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
                 let nn = newName()
                 allCallbackShortNames.Add(nn)
                 [|
-#if USE_ENTITY_FOR_SCORES
-                    sprintf """execute if entity @e[%s,scores={%s=2..}] run tellraw @a ["error, re-entrant callback %s"]""" ENTITY_TAG nn nn
-                    sprintf "scoreboard players set @e[%s] %s %d" ENTITY_TAG nn (int info + 1) // +1 because we decr at start of gameloop
-                    sprintf "scoreboard players add @e[%s] %s 1" ENTITY_TAG NUM_PENDING_CONT
-#else
-                    sprintf """execute if score %s %s matches 2.. run tellraw @a ["error, re-entrant callback %s"]""" FAKE nn nn  
+                    sprintf """execute if score %s %s matches 2.. run tellraw @a ["error, re-entrant callback %s is being dropped on the floor"]""" FAKE nn nn  
                     // Note: after error above, compiler would busy-wait with no continuations queued, unless we guard with 'unless' as below
                     // This means a subsequent re-entrant callback gets dropped on the floor (only the first outstanding one is kept)
                     // TODO look for all $NTICKSLATER calls and see if that's ok behavior, or if it would break invariants
                     sprintf "execute unless score %s %s matches 2.. run scoreboard players add %s %s 1" FAKE nn FAKE NUM_PENDING_CONT
                     sprintf "execute unless score %s %s matches 2.. run scoreboard players set %s %s %d" FAKE nn FAKE nn (int info + 1) // +1 because we decr at start of gameloop
-#endif
                 |], nn
             else
                 [|s|], null
@@ -127,11 +93,7 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
         let a = a |> Array.map replaceIfScores
         let a = a |> Array.map replaceUnlessScores
         // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]") or fake player ("FAKE")
-#if USE_ENTITY_FOR_SCORES
-        let a = a |> Array.map (fun s -> s.Replace("$ENTITY",sprintf"@e[%s]"ENTITY_TAG))
-#else
         let a = a |> Array.map (fun s -> s.Replace("$ENTITY",FAKE))
-#endif
         let r = [|
             let cur = ResizeArray()
             let curNS = ref ns
@@ -143,11 +105,7 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
                 if nn<>null then
                     yield !curNS, !curName, cur.ToArray()
                     cur.Clear()
-#if USE_ENTITY_FOR_SCORES
-                    cur.Add(sprintf "scoreboard players remove @e[%s] %s 1" ENTITY_TAG NUM_PENDING_CONT) 
-#else
                     cur.Add(sprintf "scoreboard players remove %s %s 1" FAKE NUM_PENDING_CONT) 
-#endif
                     curNS := userNS
                     curName := FOLDER+"/"+nn
                 incr i
@@ -171,11 +129,7 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
         let r = 
             if doProfiling then
                 [|  for ns,name,code in r do
-#if USE_ENTITY_FOR_SCORES
-                        yield ns, name, Array.append code [|sprintf "scoreboard players add @e[%s] %s %d" ENTITY_TAG LINES code.Length|] // todo note that tick/tick_body are un-profiled; should add that manually
-#else
                         yield ns, name, Array.append code [|sprintf "scoreboard players add %s %s %d" FAKE LINES code.Length|] // todo note that tick/tick_body are un-profiled; should add that manually
-#endif
                     |]
             else
                 r
@@ -193,79 +147,24 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
             yield sprintf "scoreboard objectives add %s dummy" NUM_PENDING_CONT
             for cbn in allCallbackShortNames do
                 yield sprintf "scoreboard objectives add %s dummy" cbn
-            yield sprintf "execute as @p run function %s:%s/load_entity_init" userNS FOLDER
-#if USE_ENTITY_FOR_SCORES
-            yield sprintf "scoreboard players set @e[tag=scoreAS] %s 0" NUM_PENDING_CONT  // TODO setting this at /reload time means in-flight continuations are lost at save&exit, this should be a one-time init
-#else
-#endif
             |]
         // Note: I think #load-initializations must be commutative and idempotent, and must handle both first-time and already-existing world state.
-        userNS, FOLDER+"/load_entity_init", [|
-#if USE_ENTITY_FOR_SCORES
-            // use NUM_PENDING_CONT as local temp variable, since only objective we know exists  // TODO no, this stomps world state at save&exit
-            
-            // look up location of world spawn, assuming this func called from #load at spawn, and then ensure scoreAS x y z is close enough (dx and dz each <160), else warn/fail
-            yield sprintf "summon area_effect_cloud ~ ~ ~ {Duration:1,Tags:[loadaec]}"
-            yield sprintf "execute store result score @s %s run data get entity @e[tag=loadaec,limit=1] Pos[0] 1.0" NUM_PENDING_CONT
-            if scoreASx >= 0 then
-                yield sprintf "scoreboard players add @s %s %d" NUM_PENDING_CONT scoreASx 
-            else
-                yield sprintf "scoreboard players remove @s %s %d" NUM_PENDING_CONT -scoreASx
-            yield sprintf """execute unless entity @s[scores={%s=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS x coordinate too far from world spawn, dx:",{"score":{"name":"@s","objective":"%s"}}]""" NUM_PENDING_CONT NUM_PENDING_CONT
-            yield sprintf "execute store result score @s %s run data get entity @e[tag=loadaec,limit=1] Pos[2] 1.0" NUM_PENDING_CONT
-            if scoreASz >= 0 then
-                yield sprintf "scoreboard players add @s %s %d" NUM_PENDING_CONT scoreASz 
-            else
-                yield sprintf "scoreboard players remove @s %s %d" NUM_PENDING_CONT -scoreASz
-            yield sprintf """execute unless entity @s[scores={%s=-160..160}] run tellraw @a ["Load failure - Compiler scoreAS z coordinate too far from world spawn, dz:",{"score":{"name":"@s","objective":"%s"}}]""" NUM_PENDING_CONT NUM_PENDING_CONT
-
-            // count the number of scoreAS in the world
-            yield sprintf "execute store result score @s %s if entity @e[%s]" NUM_PENDING_CONT ENTITY_TAG
-            // if was zero, summon one
-            yield sprintf """execute if entity @s[scores={%s=0}] run say summoning scoreAS for first time""" NUM_PENDING_CONT
-            yield sprintf """execute if entity @s[scores={%s=0}] run summon armor_stand %d %d %d {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" NUM_PENDING_CONT scoreASx scoreASy scoreASz
-            // if was two or more, kill them all and summon one
-            yield sprintf """execute if entity @s[scores={%s=2..}] run say found multiple scoreAS, killing them and resummoning one""" NUM_PENDING_CONT
-            yield sprintf """execute if entity @s[scores={%s=2..}] run kill @e[%s]""" NUM_PENDING_CONT ENTITY_TAG
-            yield sprintf """execute if entity @s[scores={%s=2..}] run summon armor_stand %d %d %d {CustomName:"\"scoreAS\"",Tags:["scoreAS"],NoGravity:1,Marker:1,Invulnerable:1,Invisible:1}""" NUM_PENDING_CONT scoreASx scoreASy scoreASz
-#endif
-            |]
         userNS, FOLDER+"/tick", [|
-#if USE_ENTITY_FOR_SCORES
-            sprintf "execute as @e[%s] run function %s:%s/tick_prelude" ENTITY_TAG userNS FOLDER
-#else
             sprintf "function %s:%s/tick_prelude" userNS FOLDER
-#endif
             |]
         userNS, FOLDER+"/tick_prelude", [|  // Note: Must be called as $ENTITY
             if doProfiling then
-#if USE_ENTITY_FOR_SCORES
-                yield sprintf "scoreboard players set @s %s 0" LINES
-#else
                 yield sprintf "scoreboard players set %s %s 0" FAKE LINES
-#endif
             //yield "say ---calling compiler:tick---"
-#if USE_ENTITY_FOR_SCORES
-            yield sprintf "execute if entity @s[scores={%s=1..}] run function %s:%s/tick_body" NUM_PENDING_CONT userNS FOLDER
-#else
             yield sprintf "execute if score %s %s matches 1.. run function %s:%s/tick_body" FAKE NUM_PENDING_CONT userNS FOLDER
-#endif
             |]
         userNS, FOLDER+"/tick_body", [|  // Note: Must be called as $ENTITY
             // first decr all cont counts (after, 0=unscheduled, 1=now, 2...=future)
             for f in allCallbackShortNames do
-#if USE_ENTITY_FOR_SCORES
-                yield sprintf "scoreboard players remove @s[scores={%s=1..}] %s 1" f f
-#else
                 yield sprintf "execute if score %s %s matches 1.. run scoreboard players remove %s %s 1" FAKE f FAKE f
-#endif
             // then call all that need to go now
             for f in allCallbackShortNames do
-#if USE_ENTITY_FOR_SCORES
-                yield sprintf "execute if entity @s[scores={%s=1}] run function %s:%s/%s" f userNS FOLDER f
-#else
                 yield sprintf "execute if score %s %s matches 1 run function %s:%s/%s" FAKE f userNS FOLDER f
-#endif
             |]
         |]
 
@@ -277,11 +176,7 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
     //            if PROFILE then
     //                yield sprintf """tellraw @a [{"score":{"name":"@e[%s]","objective":"%s"}}]""" ENTITY_TAG LINES
     // at end of tick
-#if USE_ENTITY_FOR_SCORES
-    member this.EntityTag = ENTITY_TAG
-#else
     member this.FakePlayerName = FAKE   // e.g. for folks who want to tellraw a score
-#endif
 //    member this.Lines = LINES
     member this.LoadFullName = sprintf "%s:%s/load" userNS FOLDER
     member this.TickFullName = sprintf "%s:%s/tick" userNS FOLDER

@@ -225,8 +225,8 @@ let shoulder_cam() =
     pack.SaveToDisk()
 
 let test2compilers() =
-    let c1 = Compiler.Compiler('z','x',"zx",1,100,1,false)
-    let c2 = Compiler.Compiler('z','y',"zy",1,100,1,false)
+    let c1 = Compiler.Compiler('z','x',"zx",false)
+    let c2 = Compiler.Compiler('z','y',"zy",false)
     let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestCompiler""")
     let pack1 = new Utilities.DataPackArchive(FOLDER, "pack1", "zx blah")
     let pack2 = new Utilities.DataPackArchive(FOLDER, "pack2", "zy blah")
@@ -537,7 +537,7 @@ let main argv =
     //shoulder_cam()
     //test_selection_execution_order()
     //Mandelbrot.main()
-    //test2compilers()
+    test2compilers()
     //temple_locator()
     //local_v_relative()
     //dump_context()
