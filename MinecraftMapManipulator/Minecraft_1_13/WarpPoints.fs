@@ -116,7 +116,7 @@ let creation_functions = [|
         for i = 1 to WP_MAX do
             yield sprintf """execute unless $SCORE(found=1) if $SCORE(wp%dy=-1) run summon armor_stand ~ ~ ~ {Invisible:1b,NoGravity:1b,Invulnerable:1b,Small:1b,CustomName:"\"Warp %d\"",Tags:["wp","wp%d"]}""" i i i
             yield sprintf """execute unless $SCORE(found=1) if $SCORE(wp%dy=-1) as @e[tag=wp%d] run function wp:create_new_warp_point_coda%d""" i i i
-        yield "tp @s ~ 250 ~"
+        yield "tp @s ~ -250 ~"
         yield "$NTICKSLATER(2)"
         yield "kill @e[tag=cwpBat]" // note: bat is no longer @s!
         |]
@@ -138,12 +138,6 @@ let wp_c_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
     let PACK_NAME = "wp_pack"
 
-    let dummy = [|
-        "say hello..."
-        "$NTICKSLATER(40)"
-        "say ...there"
-        |]
-
     let pack = new Utilities.DataPackArchive(world, PACK_NAME, "warp points")
 
 //    Utilities.writeDatapackMeta(world,PACK_NAME,"warp points")
@@ -151,7 +145,6 @@ let wp_c_main() =
     let all = [|
         for name,code in [|yield! creation_functions; yield! nearby_behavior_functions; yield! lobby_functions|] do
             yield! compiler.Compile("wp", name, code)
-        yield! compiler.Compile("wp","dummy",dummy)
         yield! compiler.GetCompilerLoadTick()
         |]
     for ns, name, code in all do

@@ -101,7 +101,6 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
                     sprintf """execute if score %s %s matches 2.. run tellraw @a ["error, re-entrant callback %s is being dropped on the floor"]""" FAKE nn nn  
                     // Note: after error above, compiler would busy-wait with no continuations queued, unless we guard with 'unless' as below.
                     // This means a subsequent re-entrant callback gets dropped on the floor (only the first outstanding one is kept)
-                    // TODO look for all $NTICKSLATER calls and see if that's ok behavior, or if it would break invariants
                     sprintf "execute unless score %s %s matches 2.. run scoreboard players add %s %s 1" FAKE nn FAKE NUM_PENDING_CONT
                     sprintf "execute unless score %s %s matches 2.. run scoreboard players set %s %s %d" FAKE nn FAKE nn (int info + 1) // +1 because we decr at start of gameloop
                 |], nn
