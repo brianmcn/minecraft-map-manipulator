@@ -240,7 +240,7 @@ potion of echolocation? gives 'glowing' to all nearby mobs, or maybe 5 nearest m
 
 // impossible to implement treecapitator 'right' (can't know what block player just mined), so find a way that's efficient approximation and not exploitable:
 let LOGS = [| "acacia_log"; "oak_log"; "spruce_log"; "jungle_log"; "dark_oak_log"; "birch_log" |] |> Array.map (fun x -> x,x)
-let ORES = [| "coal_ore"; "iron_ore"; "gold_ore"; "lapis_ore"; "redstone_ore"; "diamond_ore" |] |> Array.map (fun x -> x,x) 
+let ORES = [| "coal_ore"; "iron_ore"; "gold_ore"; "lapis_ore"; "redstone_ore"; "diamond_ore"; "obsidian" |] |> Array.map (fun x -> x,x)   // Note: obsidian means diamond pick can quick-mine that too
             |> Array.append [| "coal_ore", "coal"; "lapis_ore", "lapis_lazuli"; "redstone_ore", "redstone"; "diamond_ore", "diamond"|]
 let TREE_DIRS = [|
     // 8 dirs on this level

@@ -42,6 +42,18 @@ let placeWallSignCmds x y z facing txt1 txt2 txt3 txt4 cmd isBold color executeP
 let tellrawScoreSelectorENTITY(objective) = sprintf """{"score":{"name":"FAKE","objective":"%s"}}""" objective           // TODO factor FAKE constant from compiler
 let tellrawScoreSelector(name,objective) = sprintf """{"score":{"name":"%s","objective":"%s"}}""" name objective
 
+let CARDINALS = [|
+    "@s[y_rotation=-157..-112]","ne"
+    "@s[y_rotation=-112..-67]","e"
+    "@s[y_rotation=-67..-22]","se"
+    "@s[y_rotation=-22..22]","s"
+    "@s[y_rotation=22..67]","sw"
+    "@s[y_rotation=67..112]","w"
+    "@s[y_rotation=112..157]","nw"
+    "@s[y_rotation=157..179]","n"
+    "@s[y_rotation=-180..-157]","n"
+    |]
+
 //////////////////////////////
 // disk utils
 

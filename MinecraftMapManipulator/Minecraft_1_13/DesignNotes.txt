@@ -53,15 +53,16 @@ small program ideas:
  general topic-area list
   - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
   - a sense of the bounds; some things are possible, and some things are not (e.g. coords of block last mined)... the bounds are kinda arbitrary and must be learned through experience
-  - setup (see prev series; stuff like f3, keyboard shortcuts, gamemodes, F3+N, how to make rr world, ...)
+  - setup (see prev series; how to make rr world, t to chat/type, gamemodes, F3+N, f3 read coords, tp to 0,0, spawnpoint, setworldspawn, mark off positive X and positive Z, ...)
   - sender (who) and location (where) and facing/anchoring (?how?which-way?) and function/command (what)... 
        the same command can have different outcomes based on the 'context' (who: entity      where: x, y, z, Dimension    how: yrot, xrot, anchor)
 	   execute as pig say hi; execute at cow setblock stone 
        - is there a good something other than 'say' that differs by 'who'? yes, facing ^ ^ ^1, maybe also 'read my health' or something
 	   - I should make some helper functions like 'say my health' which I can call without showing/explaining code, if it helps explain concept-at-hand
-	   - actually, dump_context is a great function: Program.fs:dump_context()
-       yeah, imagining in first episode typing commands to summon a NoAI pig, a NoAI horse with a different rotation, and then running commands like function say_health as them or setblock at them
+	   - actually, dump_context is a great function: Program.fs:dump_context(), also shows my x,y,z,xr,yr,NESW on the actionbar constantly
+       yeah, imagining in first episode typing commands to summon a NoAI chicken, a NoAI horse with a different rotation, and then running commands like function say_health as them or setblock at them
 	   talk abut the concepts, while showing un-as-yet-explained commands on the screen
+	   YES, concepts focused; type the commands, but just describe what's possible, e.g. set a block 2 blocks east of different entities, set a block 2 blocks in front of different entities, have diff entities say their health, ...
   - coordinates (F3 debug screen, xyz, facing rotations, absolute 1 2 3, relative ~~~, local ^^^, /setblock, /teleport)
        i have a nice screenshot and Program.fs:local_v_relative() has nice code   ('anchored eyes' may be too advanced for first pass?)
 	   make thingy to fly in direction looking with tp ^ ^ ^0.05 or whatever; maybe cycle difficulty and put block in sky at y=100 above slimes (slow) or zombies (faster) or minecart chests or something, as simple examples? 
@@ -139,6 +140,7 @@ fun: two wall signs back to back can support one another - place one on wall, th
 
 how to falling_block nowadays: /summon minecraft:falling_block ~ ~8 ~ {BlockState:{Name:"minecraft:oak_stairs",Properties:{half:"bottom"}},Time:201s}
 
+get highest player score and store in entity score: scoreboard players operation <entity> <var> > @a <var>
 
 ah, ok, so the defining characteristic of a property is that it is the 'state lost when converted to item form'
 NBT state can be preserved (e.g. command block + NBT).  and of course block identity can be preserved.  but 'blockstate properties' refer to some 

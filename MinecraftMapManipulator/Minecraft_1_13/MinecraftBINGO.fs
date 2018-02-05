@@ -621,17 +621,6 @@ let game_functions = [|
         |]
     let COLOR = """"color":"yellow","""
     let YCOLOR = """"color":"aqua","""
-    let CARDINALS = [|
-        "@s[y_rotation=-157..-112]","ne"
-        "@s[y_rotation=-112..-67]","e"
-        "@s[y_rotation=-67..-22]","se"
-        "@s[y_rotation=-22..22]","s"
-        "@s[y_rotation=22..67]","sw"
-        "@s[y_rotation=67..112]","w"
-        "@s[y_rotation=112..157]","nw"
-        "@s[y_rotation=157..179]","n"
-        "@s[y_rotation=-180..-157]","n"
-        |]
     yield "at25mins",[|
         """execute at @s run playsound block.note.harp ambient @s ~ ~ ~ 1 0.6"""
         sprintf """tellraw @a [%s,{"selector":"@s"}," got ",{"score":{"name":"@s","objective":"Score"}}," in 25 mins"]""" LEADING_WHITESPACE 
@@ -669,7 +658,7 @@ let game_functions = [|
         |]
     yield "update_time_per_player_sans_arrow",[|
         yield sprintf "execute if $SCORE(optcdval=0) run function %s:update_time_per_player_sans_arrow_none" NS
-        for sel,card in CARDINALS do
+        for sel,card in Utilities.CARDINALS do
             yield sprintf "execute if $SCORE(optcdval=1) if entity %s run function %s:update_time_per_player_sans_arrow_%s" sel NS card
         |]
     for cardinal in ["none";"n";"ne";"e";"se";"s";"sw";"w";"nw"] do
@@ -680,7 +669,7 @@ let game_functions = [|
     yield "update_time_per_player_with_arrow",[|  // TODO "name"="*" selects 'person being displayed to' maybe? test perf of * versus execute as @a run ... @s
         yield sprintf "function %s:find_dir_to_spawn" NS
         yield sprintf "execute if $SCORE(optcdval=0) run function %s:update_time_per_player_with_arrow_none" NS
-        for sel,card in CARDINALS do
+        for sel,card in Utilities.CARDINALS do
             yield sprintf "execute if $SCORE(optcdval=1) if entity %s run function %s:update_time_per_player_with_arrow_%s" sel NS card
         |]
     for cardinal in ["none";"n";"ne";"e";"se";"s";"sw";"w";"nw"] do

@@ -332,6 +332,7 @@ let dump_context() =
             "scoreboard objectives add Dim dummy"
             "scoreboard objectives add XRot dummy"
             "scoreboard objectives add YRot dummy"
+            "scoreboard objectives add ActionBarDump dummy"
             |]
         "dump", [|
             sprintf """execute if entity @e[tag=DEBUG] run function %s:dump_body""" NS
@@ -353,10 +354,26 @@ let dump_context() =
             sprintf """execute if entity @e[tag=TEMPAEC,distance=..0.0001] run tellraw @a ["HOW: (yrot,xrot,anchor) is (",%s,", ",%s,", feet)"]""" (Utilities.tellrawScoreSelector("FAKE","YRot")) (Utilities.tellrawScoreSelector("FAKE","XRot")) 
             sprintf """execute unless entity @e[tag=TEMPAEC,distance=..0.0001] run tellraw @a ["HOW: (yrot,xrot,anchor) is (",%s,", ",%s,", not feet)"]""" (Utilities.tellrawScoreSelector("FAKE","YRot")) (Utilities.tellrawScoreSelector("FAKE","XRot")) 
             |]
+        "tick", [|
+            sprintf "execute as @a[scores={ActionBarDump=1..}] at @s run function %s:display_actionbar" NS
+            |]
+        "display_actionbar", [|
+            yield sprintf "execute store result score @s X run data get entity @s Pos[0]"
+            yield sprintf "execute store result score @s Y run data get entity @s Pos[1]"
+            yield sprintf "execute store result score @s Z run data get entity @s Pos[2]"
+            yield sprintf "execute store result score @s Dim run data get entity @s Dimension"
+            yield sprintf "execute store result score @s YRot run data get entity @s Rotation[0]"
+            yield sprintf "execute store result score @s XRot run data get entity @s Rotation[1]"
+            let TRS(obj) = Utilities.tellrawScoreSelector("@s",obj)
+            for sel, dir in Utilities.CARDINALS do
+                yield sprintf """execute if entity %s run title @s actionbar {"text":"","color":"red","extra":["XYZD: ",%s,", ",%s,", ",%s,", ",%s,"  %s  Rot(",%s,", ",%s,")"]}""" 
+                                                        sel (TRS"X") (TRS"Y") (TRS"Z") (TRS"Dim") (dir.ToUpper()) (TRS"YRot") (TRS"XRot")
+            |]
         |]
     for name, code in functions do
         pack.WriteFunction(NS, name, code)
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[sprintf"%s:init"NS])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[sprintf"%s:tick"NS])
     pack.SaveToDisk()
 
 let fun_whip() =
@@ -509,7 +526,7 @@ let main argv =
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
-    //QFE.main()
+    QFE.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()
@@ -528,7 +545,7 @@ let main argv =
     //mob_replacement()
     //show_biomes()
     //test_json()
-    see_if_loot_tables_changed()
+    //see_if_loot_tables_changed()
     ignore argv
     0
 

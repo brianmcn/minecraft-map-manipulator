@@ -251,6 +251,10 @@ let main() =
     pack.SaveToDisk()
         // TODO come up with a decent way to test it (spot-checking shows it works, but how try every single item?)
 
+    //for i in SURVIVAL_OBTAINABLE_ITEM_IDS do
+    //    printfn "%s" i
+
+
 // invulnerable item frame can hold name item, survival player cannot break or retrieve (unless break block behind)
 
 
