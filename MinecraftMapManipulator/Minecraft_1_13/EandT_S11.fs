@@ -277,6 +277,17 @@ let ORE_DIRS = [|
     |]
 let MAX = 150
 let connected_mining_functions = [|
+    yield "set_random_tick_speed", [|
+        "execute if score randomTickSpeed TEMP matches -1 store result score randomTickSpeed TEMP run gamerule randomTickSpeed"
+        "gamerule randomTickSpeed 100"
+        "$NTICKSLATER(80)"
+        "function tc:restore_random_tick_speed"
+        "scoreboard players set randomTickSpeed TEMP -1"
+        |]
+    yield "restore_random_tick_speed", [|
+        for i = 0 to 100 do
+            yield sprintf "execute if score randomTickSpeed TEMP matches %d run gamerule randomTickSpeed %d" i i
+        |]
     for suffixF,suffixS,tag,blocks,dirs in ["tc","TC","TC",LOGS,TREE_DIRS;
                                             "vm","VM","VM",ORES,ORE_DIRS] do
         yield sprintf"init_%s"suffixF,[|
@@ -312,11 +323,7 @@ let connected_mining_functions = [|
                 yield sprintf "function tc:give_%s_%s" suffixF bi
                 yield sprintf "function tc:reset_stats_%s" suffixF
                 if suffixF = "tc" then
-                    yield "execute if score randomTickSpeed TEMP matches -1 store result score randomTickSpeed TEMP run gamerule randomTickSpeed"
-                    yield "gamerule randomTickSpeed 100"
-                    yield "$NTICKSLATER(80)"
-                    yield "function tc:restore_random_tick_speed"
-                    yield "scoreboard players set randomTickSpeed TEMP -1"
+                    yield "$CALL_ONLY_IF_NOT_REENTRANT(tc:set_random_tick_speed)"
                 |]
             yield sprintf "chop_check_%s_%s" suffixF bi,[|
                 sprintf "execute if entity @s[scores={remain%s=1..}] run function tc:chop_body_%s_%s" suffixS suffixF bi
@@ -332,10 +339,6 @@ let connected_mining_functions = [|
                 sprintf "scoreboard players add @s remain%s 1" suffixS 
                 sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:give_%s_%s" suffixS (MAX-1) suffixF bi
                 |]
-    yield "restore_random_tick_speed", [|
-        for i = 0 to 100 do
-            yield sprintf "execute if score randomTickSpeed TEMP matches %d run gamerule randomTickSpeed %d" i i
-        |]
     |]
 let tc_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")

@@ -245,6 +245,30 @@ let test2compilers() =
     pack1.SaveToDisk()
     pack2.SaveToDisk()
 
+let test_conditional_reentrancy_in_compiled_code() =
+    let c1 = Compiler.Compiler('z','w',"zw",false)
+    let NS = "zw"
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestCompiler""")
+    let pack1 = new Utilities.DataPackArchive(FOLDER, "packzw", "zw blah")
+    let functions = [|
+        "bar", [|
+            "say calling before"
+            "$NTICKSLATER(100)"
+            "say called back after"
+            |]
+        "foo", [|
+            "say will maybe call"
+            sprintf "$CALL_ONLY_IF_NOT_REENTRANT(%s:bar)" NS
+            |]
+        |]
+    for ns,name,code in [for n,c in functions do yield! c1.Compile(NS,n,c) ] do
+        pack1.WriteFunction(ns,name,code)
+    for ns,name,code in c1.GetCompilerLoadTick() do
+        pack1.WriteFunction(ns,name,code)
+    pack1.WriteFunctionTagsFileWithValues("minecraft","load",[c1.LoadFullName])
+    pack1.WriteFunctionTagsFileWithValues("minecraft","tick",[c1.TickFullName])
+    pack1.SaveToDisk()
+
 let temple_locator() =
     let code = [|
         yield "scoreboard objectives add Dir dummy"
@@ -521,14 +545,14 @@ let see_if_loot_tables_changed() =
 
 [<EntryPoint>]
 let main argv = 
-    MinecraftBINGO.cardgen_compile()
+    //MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()   // TODO was crashing the game on reload (something with its sign, or looking at items frames, or who knows) maybe https://bugs.mojang.com/browse/MC-123363
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
     //QFE.main()
     //WarpPoints.wp_c_main()
-    //EandT_S11.tc_main()
+    EandT_S11.tc_main()
     //QuickStack.main()
     //area_highlight()
     //find_slime_chunks()
@@ -537,7 +561,8 @@ let main argv =
     //shoulder_cam()
     //test_selection_execution_order()
     //Mandelbrot.main()
-    test2compilers()
+    //test2compilers()
+    //test_conditional_reentrancy_in_compiled_code()
     //temple_locator()
     //local_v_relative()
     //dump_context()

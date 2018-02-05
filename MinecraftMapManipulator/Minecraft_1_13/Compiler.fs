@@ -20,7 +20,9 @@ type Compiler(objChar1,objChar2,userNS,doProfiling) =
         let r = sprintf "cont%d%s" !continuationNum objectiveSuffix
         incr continuationNum
         r
+    let functionNameToFirstContinuationName = new System.Collections.Generic.Dictionary<_,_>()
     let compile(f,ns,name) =
+        let fullName = sprintf "%s:%s" ns name
         let rec replaceIfScores(s:string) = 
             let TEXT = "if $SCORE("
             let i = s.IndexOf(TEXT)
@@ -60,6 +62,21 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
                 replaceIfScores(s)
             else
                 s
+        let replaceConditionalCall(s:string) = 
+            let NAME = "$CALL_ONLY_IF_NOT_REENTRANT("
+            let i = s.IndexOf(NAME)
+            if i <> -1 then
+                if i <> 0 then failwithf "%s) must be only thing on the line" NAME
+                let j = s.IndexOf(')',i)
+                if j <> s.Length-1 then failwithf "%s) must be only thing on the line" NAME
+                let info = s.Substring(i+NAME.Length,j-i-NAME.Length)
+                let nn = 
+                    if functionNameToFirstContinuationName.ContainsKey(info) then
+                        functionNameToFirstContinuationName.[info]
+                    else
+                        failwithf "%s%s) encountered in %s, but function %s not yet compiled - rearrange compilation order?" NAME info fullName info
+                sprintf """execute unless score %s %s matches 2.. run function %s""" FAKE nn info
+            else s
         let replaceContinue(s:string) = 
             let i = s.IndexOf("$NTICKSLATER(")
             if i <> -1 then
@@ -78,9 +95,11 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
                 //     - else subtract 1 from the score (get 1 tick closer to calling it)
                 let nn = newName()
                 allCallbackShortNames.Add(nn)
+                if not(functionNameToFirstContinuationName.ContainsKey(fullName)) then
+                    functionNameToFirstContinuationName.Add(fullName, nn)
                 [|
                     sprintf """execute if score %s %s matches 2.. run tellraw @a ["error, re-entrant callback %s is being dropped on the floor"]""" FAKE nn nn  
-                    // Note: after error above, compiler would busy-wait with no continuations queued, unless we guard with 'unless' as below
+                    // Note: after error above, compiler would busy-wait with no continuations queued, unless we guard with 'unless' as below.
                     // This means a subsequent re-entrant callback gets dropped on the floor (only the first outstanding one is kept)
                     // TODO look for all $NTICKSLATER calls and see if that's ok behavior, or if it would break invariants
                     sprintf "execute unless score %s %s matches 2.. run scoreboard players add %s %s 1" FAKE nn FAKE NUM_PENDING_CONT
@@ -92,6 +111,7 @@ because that succeeds only if both X and Y are negative.  You can 'and' entity s
         // $SCORE(...) is maybe e.g. "entity @e[tag=scoreAS,scores={...}]" or "score FAKE OBJ matches ..."
         let a = a |> Array.map replaceIfScores
         let a = a |> Array.map replaceUnlessScores
+        let a = a |> Array.map replaceConditionalCall
         // $ENTITY is main scorekeeper entity (maybe e.g. "@e[tag=scoreAS]") or fake player ("FAKE")
         let a = a |> Array.map (fun s -> s.Replace("$ENTITY",FAKE))
         let r = [|
