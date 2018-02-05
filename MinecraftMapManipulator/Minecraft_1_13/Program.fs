@@ -521,12 +521,12 @@ let see_if_loot_tables_changed() =
 
 [<EntryPoint>]
 let main argv = 
-    //MinecraftBINGO.cardgen_compile()
+    MinecraftBINGO.cardgen_compile()
     //MinecraftBINGOExtensions.Blind.main()   // TODO was crashing the game on reload (something with its sign, or looking at items frames, or who knows) maybe https://bugs.mojang.com/browse/MC-123363
     //Raycast.main()
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
-    QFE.main()
+    //QFE.main()
     //WarpPoints.wp_c_main()
     //EandT_S11.tc_main()
     //QuickStack.main()

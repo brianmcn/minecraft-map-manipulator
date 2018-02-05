@@ -46,6 +46,7 @@ small program ideas:
  - my picture to show absolute/local coords
  - (some toy ideas along lines of fun_whip() in Program.fs)
  - bow that shoots explosive arrows a la https://www.youtube.com/watch?v=jXiTge-Z6bk
+ - bossbar countdown timer a la https://www.reddit.com/r/Minecraft/comments/7vb620/countdown_timer_using_bossbar_command_in_18w05a/
 
 
 

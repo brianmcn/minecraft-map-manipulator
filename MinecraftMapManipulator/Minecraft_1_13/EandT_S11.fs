@@ -281,8 +281,10 @@ let connected_mining_functions = [|
             yield sprintf "scoreboard objectives add isHolding%s dummy" suffixS
             yield sprintf "scoreboard objectives add wasHolding%s dummy" suffixS
             yield sprintf "scoreboard objectives add remain%s dummy" suffixS
+            yield sprintf "scoreboard objectives add TEMP dummy"
             for b,_ in blocks do
                 yield sprintf "scoreboard objectives add %s%s minecraft.mined:minecraft.%s" b suffixS b
+            yield sprintf "scoreboard players set randomTickSpeed TEMP -1"
             |]
         yield sprintf"tick_%s"suffixF,[|
             sprintf "scoreboard players set @a isHolding%s 0" suffixS
@@ -302,14 +304,17 @@ let connected_mining_functions = [|
             |]
         for b,bi in blocks do
             yield sprintf "chop_start_%s_%s" suffixF bi,[|
-                sprintf "scoreboard players set @s remain%s %d" suffixS (MAX+1)  // MAX+1 because we decrement 'remain' at start when found item entity (which will get tp'd to player), even though not breaking a block
-                sprintf "execute at @s run tp %s ~ ~ ~" (ITEMSEL bi)
-                sprintf "function tc:chop_check_%s_%s" suffixF bi
-                sprintf "function tc:give_%s_%s" suffixF bi
-                sprintf "function tc:reset_stats_%s" suffixF
-                "gamerule randomTickSpeed 100"
-                "$NTICKSLATER(80)"
-                "gamerule randomTickSpeed 3"
+                yield sprintf "scoreboard players set @s remain%s %d" suffixS (MAX+1)  // MAX+1 because we decrement 'remain' at start when found item entity (which will get tp'd to player), even though not breaking a block
+                yield sprintf "execute at @s run tp %s ~ ~ ~" (ITEMSEL bi)
+                yield sprintf "function tc:chop_check_%s_%s" suffixF bi
+                yield sprintf "function tc:give_%s_%s" suffixF bi
+                yield sprintf "function tc:reset_stats_%s" suffixF
+                if suffixF = "tc" then
+                    yield "execute if score randomTickSpeed TEMP matches -1 store result score randomTickSpeed TEMP run gamerule randomTickSpeed"
+                    yield "gamerule randomTickSpeed 100"
+                    yield "$NTICKSLATER(80)"
+                    yield "function tc:restore_random_tick_speed"
+                    yield "scoreboard players set randomTickSpeed TEMP -1"
                 |]
             yield sprintf "chop_check_%s_%s" suffixF bi,[|
                 sprintf "execute if entity @s[scores={remain%s=1..}] run function tc:chop_body_%s_%s" suffixS suffixF bi
@@ -325,6 +330,10 @@ let connected_mining_functions = [|
                 sprintf "scoreboard players add @s remain%s 1" suffixS 
                 sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:give_%s_%s" suffixS (MAX-1) suffixF bi
                 |]
+    yield "restore_random_tick_speed", [|
+        for i = 0 to 100 do
+            yield sprintf "execute if score randomTickSpeed TEMP matches %d run gamerule randomTickSpeed %d" i i
+        |]
     |]
 let tc_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")

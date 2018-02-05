@@ -737,6 +737,7 @@ let ALL_GIVEABLE_ITEM_IDS = [|
     "music_disc_wait"
     |]
 
+// TODO re-curate this list neat 1.13 release
 let SURVIVAL_UNOBTAINABLE_ITEM_IDS = [|
     "bedrock"
     "petrified_oak_slab"
@@ -752,6 +753,7 @@ let SURVIVAL_UNOBTAINABLE_ITEM_IDS = [|
     "end_portal_frame"
     "command_block"
     "barrier"
+    "grass_path"
     "repeating_command_block"
     "chain_command_block"
     "structure_void"

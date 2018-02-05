@@ -250,6 +250,7 @@ let main() =
 
     pack.SaveToDisk()
         // TODO come up with a decent way to test it (spot-checking shows it works, but how try every single item?)
+        // TODO update again so all items 'fit', after SURVIVAL_OBTAINABLE_ITEM_IDS changes again
 
     //for i in SURVIVAL_OBTAINABLE_ITEM_IDS do
     //    printfn "%s" i
