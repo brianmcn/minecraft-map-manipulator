@@ -60,6 +60,7 @@
   <ItemGroup>
     <Compile Include="Compiler.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="UtilityPacks.fs" />
     <Compile Include="MC_Constants.fs" />
     <Compile Include="Recipes.fs" />
     <Compile Include="QuickStack.fs" />

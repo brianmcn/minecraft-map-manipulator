@@ -55,6 +55,7 @@ small program ideas:
   - possibly some notes/philosophy for those coming from previous versions (e.g. about command blocks, fake-player scores, ...) as well as need to streamline (may be many ways to do something, pick one most useful one)
   - a sense of the bounds; some things are possible, and some things are not (e.g. coords of block last mined)... the bounds are kinda arbitrary and must be learned through experience
   - setup (see prev series; how to make rr world, t to chat/type, gamemodes, F3+N, f3 read coords, tp to 0,0, spawnpoint, setworldspawn, mark off positive X and positive Z, ...)
+  - (aside: what is 'the canonical entity?' I will probably use AS for visibility/debugging, but also should recommend AEC for lagless, need to know ideal canonical AEC summoning)
   - sender (who) and location (where) and facing/anchoring (?how?which-way?) and function/command (what)... 
        the same command can have different outcomes based on the 'context' (who: entity      where: x, y, z, Dimension    how: yrot, xrot, anchor)
 	   execute as pig say hi; execute at cow setblock stone 

@@ -214,34 +214,6 @@ let XH_TEXT = sprintf """{"selector":"@e[%s,scores={inXH=1}]"}""" XH_TAG
 
 ///////////////////////////////////////////////////////
 
-let prng_init() = [|
-    yield "scoreboard objectives add PRNG_MOD dummy"
-    yield "scoreboard objectives add PRNG_OUT dummy"
-    yield "scoreboard objectives add Calc dummy"
-    yield "scoreboard players set A Calc 1103515245"
-    yield "scoreboard players set C Calc 12345"
-    yield "scoreboard players set Two Calc 2"
-    yield "scoreboard players set TwoToSixteen Calc 65536"
-    |]
-let prng = [|
-        // compute next Z value with PRNG
-        "scoreboard players operation Z Calc *= A Calc"
-        "scoreboard players operation Z Calc += C Calc"
-        "scoreboard players operation Z Calc *= Two Calc"  // mod 2^31
-        "scoreboard players operation Z Calc /= Two Calc"
-        "scoreboard players operation K Calc = Z Calc"
-        "scoreboard players operation K Calc *= Two Calc"
-        "scoreboard players operation K Calc /= Two Calc"
-        "scoreboard players operation K Calc /= TwoToSixteen Calc"   // upper 16 bits most random
-        // get a number in the desired range
-        "scoreboard players operation $ENTITY PRNG_OUT = K Calc"
-        "scoreboard players operation $ENTITY PRNG_OUT %= $ENTITY PRNG_MOD"
-        "scoreboard players operation $ENTITY PRNG_OUT += $ENTITY PRNG_MOD" // ensure non-negative
-        "scoreboard players operation $ENTITY PRNG_OUT %= $ENTITY PRNG_MOD"
-    |]
-
-///////////////////////////////////////////////////////
-
 let game_objectives = [|
     // GLOBALS
     yield "CALL"  // for 'else' flow control - exclusive branch; always 0, except 1 just before a switch and 0 moment branch is taken
@@ -590,11 +562,11 @@ let game_functions = [|
         yield "scoreboard players operation Z Calc += @e[tag=aec,sort=random,limit=1] TEMP"
         // compute a seed number between 100,000 and 999,999
         yield "scoreboard players set $ENTITY PRNG_MOD 899"
-        yield sprintf "function %s:prng" NS
+        yield "function prng:next"
         yield "scoreboard players operation Seed Score = $ENTITY PRNG_OUT"
         yield "scoreboard players operation Seed Score *= $ENTITY ONE_THOUSAND"
         yield "scoreboard players set $ENTITY PRNG_MOD 999"
-        yield sprintf "function %s:prng" NS
+        yield "function prng:next"
         yield "scoreboard players operation Seed Score += $ENTITY PRNG_OUT"
         // re-seed the PRNG with that seed number
         yield "scoreboard players operation Z Calc = Seed Score"
@@ -693,10 +665,10 @@ let game_functions = [|
         |]
     for t in TEAMS do
         yield sprintf "do_%s_spawn" t, [|
-            yield sprintf "function %s:prng" NS
+            yield sprintf "function prng:next"
             yield sprintf "scoreboard players operation $ENTITY %sSpawnX = $ENTITY PRNG_OUT" t
             yield sprintf "scoreboard players add $ENTITY %sSpawnX 1" t
-            yield sprintf "function %s:prng" NS
+            yield sprintf "function prng:next"
             yield sprintf "scoreboard players operation $ENTITY %sSpawnZ = $ENTITY PRNG_OUT" t
             yield sprintf "scoreboard players add $ENTITY %sSpawnZ 1" t
             yield sprintf """summon armor_stand 1 1 1 {Invulnerable:1b,Invisible:1b,NoGravity:1b,Tags:["%sSpawn","CurrentSpawn","SpawnLoc"]}""" t  // these entities killed at end of start4
@@ -1408,7 +1380,7 @@ let cardgen_functions = [|
         //yield sprintf """tellraw @a ["in choose1, numRemainingBins=",%s]""" (Utilities.tellrawScoreSelectorENTITY("numRemainingBins"))
         // pick a number [0..numRemainingBins-1]
         yield sprintf "scoreboard players operation $ENTITY PRNG_MOD = $ENTITY numRemainingBins"
-        yield sprintf "function %s:prng" NS
+        yield sprintf "function prng:next"
         yield sprintf "scoreboard players operation $ENTITY CARDGENTEMP = $ENTITY PRNG_OUT"
         // find that entity to execute as, run body
         yield sprintf "execute as @e[%s,tag=cgAEC] if score @s arrayIndex = $ENTITY CARDGENTEMP run function %s:cg/cardgen_choose1_body" TEMPLOCSEL NS
@@ -1429,7 +1401,7 @@ let cardgen_functions = [|
         yield sprintf "cg/cardgen_bin%02d" i, [|
             // pick a number [0..numItemsInBin-1]
             yield sprintf "scoreboard players operation $ENTITY PRNG_MOD = @s numItemsInBin"
-            yield sprintf "function %s:prng" NS
+            yield sprintf "function prng:next"
             yield sprintf "scoreboard players operation $ENTITY CARDGENTEMP = $ENTITY PRNG_OUT"
             //yield sprintf """tellraw @a ["in cg...bin, choosing ",%s," of ",%s]""" (Utilities.tellrawScoreSelectorENTITY("CARDGENTEMP")) (Utilities.tellrawScoreSelector("@s","numItemsInBin"))
             // walk down the items in this bin... for each
@@ -1595,8 +1567,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
 //            if PROFILE then
 //                yield sprintf """tellraw @a [{"score":{"name":"@e[%s]","objective":"LINES"}}]""" ENTITY_TAG 
             |]
-        yield "prng", prng
-        yield "prng_init", prng_init()
         yield makeItemChests()
         yield "preinit",[|
             yield sprintf "execute in overworld run teleport @a %s" LOBBY
@@ -1616,7 +1586,6 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
             yield "clear @a"
             yield "effect clear @a"
             yield! entity_init()
-            yield sprintf"function %s:prng_init"NS
             yield sprintf"function %s:checker_init"NS
             yield sprintf"function %s:cardgen_init"NS
             yield sprintf"function %s:game_init"NS
@@ -1645,6 +1614,7 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
     for ns,name,code in compiler.GetCompilerLoadTick() do
         pack.WriteFunction(ns, name, code)
     pack.SaveToDisk()
+    UtilityPacks.writePRNGto(FOLDER)
 
 //////////////////////////////////////////////////
 // Possible future/OOB features
@@ -1663,4 +1633,5 @@ let cardgen_compile() = // TODO this is really full game, naming/factoring...
 // what about lockout with steals? like, if other team has X, and you get it, you steal it (you get square, they lose it and lose point), they can steal back?
 
 // non-default option to enable another 'arrow' that points to your prior death location
+
 

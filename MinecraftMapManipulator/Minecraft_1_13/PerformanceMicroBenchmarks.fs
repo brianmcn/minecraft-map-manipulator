@@ -172,18 +172,23 @@ let main() =
     profileThis("erunseed3",OUTER,INNER,1,[],[sprintf "execute run execute run execute run %s" SEED],[])
     profileThis("erunseed4",OUTER,INNER,1,[],[sprintf "execute run execute run execute run execute run %s" SEED],[])
 
+    // as versus if
+    profileThis("avi-n-as",OUTER,INNER,1,[],[sprintf "execute as @s[tag=doesnotexist] run function test:fail"],[])
+    profileThis("avi-n-if",OUTER,INNER,1,[],[sprintf "execute if entity @s[tag=doesnotexist] run function test:fail"],[])
+    profileThis("avi-p-as",OUTER,INNER,1,[],[sprintf "execute as @s[type=player] run %s" SEED],[])
+    profileThis("avi-p-if",OUTER,INNER,1,[],[sprintf "execute if entity @s[type=player] run %s" SEED],[])
+
     // NBT serialization versus alternatives
-    // TODO this test is unreliable, because player 'gains NBT' through various actions like getting items in inventory and gaining recipes, etc.
-    // choose an entity with more 'stable' NBT to profile
-    profileThis("readtagtag",OUTER,INNER,1,["tag @p add SomeTag"],["execute unless entity @p[tag=SomeTag] run function test:fail"],["tag @p remove SomeTag"])
-    profileThis("readtagnbt",OUTER,INNER,1,["tag @p add SomeTag"],["""execute unless entity @p[nbt={Tags:["SomeTag"]}] run function test:fail"""],["tag @p remove SomeTag"])
+    profileThis("readtagtag",OUTER,INNER,1,["summon armor_stand ~ ~ ~ {NoGravity:1b,Tags:[SomeTag]}"],["execute unless entity @e[distance=..1,tag=SomeTag] run function test:fail"],["kill @e[tag=SomeTag]"])
+    profileThis("readtagnbt",OUTER,INNER,1,["summon armor_stand ~ ~ ~ {NoGravity:1b,Tags:[SomeTag]}"],["""execute unless entity @e[distance=..1,nbt={Tags:["SomeTag"]}] run function test:fail"""],["kill @e[tag=SomeTag]"])
     let MAX = 10
-    profileThis("readtagstag",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["execute unless entity @p[tag=SomeTag1] run function test:fail"],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagsnbt",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],["""execute unless entity @p[nbt={Tags:["SomeTag1"]}] run function test:fail"""],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagstagmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d] run function test:fail"MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagsnbtmax",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d"]}] run function test:fail"""MAX],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagstagtwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"execute unless entity @p[tag=SomeTag%d,tag=SomeTag%d] run function test:fail"2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
-    profileThis("readtagsnbttwo",OUTER,INNER,1,[for i=1 to MAX do yield sprintf "tag @p add SomeTag%d" i],[sprintf"""execute unless entity @p[nbt={Tags:["SomeTag%d","SomeTag%d"]}] run function test:fail"""2 (MAX-1)],[for i=1 to MAX do yield sprintf "tag @p remove SomeTag%d" i])
+    let SUMMON = sprintf "summon armor_stand ~ ~ ~ {NoGravity:1b,Tags:[%s]}" (String.concat "," [|for i=1 to MAX do yield sprintf "SomeTag%d" i|])
+    profileThis("readtagstag",OUTER,INNER,1,[SUMMON],["execute unless entity @e[distance=..1,tag=SomeTag1] run function test:fail"],["kill @e[tag=SomeTag1]"])
+    profileThis("readtagsnbt",OUTER,INNER,1,[SUMMON],["""execute unless entity @e[distance=..1,nbt={Tags:["SomeTag1"]}] run function test:fail"""],["kill @e[tag=SomeTag1]"])
+    profileThis("readtagstagmax",OUTER,INNER,1,[SUMMON],[sprintf"execute unless entity @e[distance=..1,tag=SomeTag%d] run function test:fail"MAX],["kill @e[tag=SomeTag1]"])
+    profileThis("readtagsnbtmax",OUTER,INNER,1,[SUMMON],[sprintf"""execute unless entity @e[distance=..1,nbt={Tags:["SomeTag%d"]}] run function test:fail"""MAX],["kill @e[tag=SomeTag1]"])
+    profileThis("readtagstagtwo",OUTER,INNER,1,[SUMMON],[sprintf"execute unless entity @e[distance=..1,tag=SomeTag%d,tag=SomeTag%d] run function test:fail"2 (MAX-1)],["kill @e[tag=SomeTag1]"])
+    profileThis("readtagsnbttwo",OUTER,INNER,1,[SUMMON],[sprintf"""execute unless entity @e[distance=..1,nbt={Tags:["SomeTag%d","SomeTag%d"]}] run function test:fail"""2 (MAX-1)],["kill @e[tag=SomeTag1]"])
 
     // various selectors
     for name,sel in SELECTORS_WITH_UUID do
@@ -710,6 +715,109 @@ took 51 milliseconds to run 200000 iterations of
 took 139 milliseconds to run 200000 iterations of
     scoreboard players add x TEMP_OBJ 1
 took 60 milliseconds to run 200000 iterations of
+    execute unless entity @e[type=player] run function test:fail
+took 40 milliseconds to run 200000 iterations of
+    execute unless entity @a run function test:fail
+
+18w05a:
+
+took 73 milliseconds to run 200000 iterations of
+    seed
+took 112 milliseconds to run 200000 iterations of
+    function test:call_seed
+took 207 milliseconds to run 200000 iterations of
+    scoreboard players add @s A 1
+took 252 milliseconds to run 200000 iterations of
+    function test:call_add
+took 21 milliseconds to run 200000 iterations of
+    execute if entity @s
+took 79 milliseconds to run 200000 iterations of
+    execute at @s if entity @s
+took 89 milliseconds to run 200000 iterations of
+    execute at @s if entity @s
+    seed
+took 105 milliseconds to run 200000 iterations of
+    execute at @s if entity @s run seed
+took 266 milliseconds to run 200000 iterations of
+    execute at @s if entity @s
+    scoreboard players add @s A 1
+took 291 milliseconds to run 200000 iterations of
+    execute at @s if entity @s run scoreboard players add @s A 1
+took 216 milliseconds to run 200000 iterations of
+    execute run scoreboard players add @s A 1
+took 40 milliseconds to run 200000 iterations of
+    execute run seed
+took 74 milliseconds to run 200000 iterations of
+    execute run execute run execute run seed
+took 74 milliseconds to run 200000 iterations of
+    execute run execute run execute run execute run seed
+took 184 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,tag=SomeTag] run function test:fail
+took 1995 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,nbt={Tags:["SomeTag"]}] run function test:fail
+took 188 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,tag=SomeTag1] run function test:fail
+took 1846 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,nbt={Tags:["SomeTag1"]}] run function test:fail
+took 183 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,tag=SomeTag10] run function test:fail
+took 1806 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,nbt={Tags:["SomeTag10"]}] run function test:fail
+took 211 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,tag=SomeTag2,tag=SomeTag9] run function test:fail
+took 1853 milliseconds to run 200000 iterations of
+    execute unless entity @e[distance=..1,nbt={Tags:["SomeTag2","SomeTag9"]}] run function test:fail
+took 38 milliseconds to run 200000 iterations of
+    execute unless entity @p run function test:fail
+took 32 milliseconds to run 200000 iterations of
+    execute unless entity @s run function test:fail
+took 2729 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS] run function test:fail
+took 20909 milliseconds to run 200000 iterations of
+    execute unless entity @e[name=scoreAS] run function test:fail
+took 2916 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,type=armor_stand] run function test:fail
+took 173 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,distance=..1] run function test:fail
+took 168 milliseconds to run 200000 iterations of
+    execute unless entity @e[name=scoreAS,distance=..1] run function test:fail
+took 49 milliseconds to run 200000 iterations of
+    execute unless entity 1-1-1-0-1 run function test:fail
+took 3837 milliseconds to run 200000 iterations of
+    tp @p ^ ^ ^1
+    tp @p ^ ^ ^-1
+took 3491 milliseconds to run 200000 iterations of
+    tp @p ~ ~ ~1
+    tp @p ~ ~ ~-1
+took 104 milliseconds to run 200000 iterations of
+    execute unless entity @s[scores={TEMP_OBJ=1}] run function test:fail
+took 64 milliseconds to run 200000 iterations of
+    execute unless score @s TEMP_OBJ matches 1 run function test:fail
+took 61 milliseconds to run 200000 iterations of
+    execute unless entity @s[scores={TEMP_OBJ=1,TMP2_OBJ=2}] run function test:fail
+took 51 milliseconds to run 200000 iterations of
+    execute unless entity @s[scores={TEMP_OBJ=1}] run function test:fail
+took 57 milliseconds to run 200000 iterations of
+    execute unless entity @s[scores={TEMP_OBJ=1..}] run function test:fail
+took 155 milliseconds to run 200000 iterations of
+    scoreboard players add @s TEMP_OBJ 1
+took 225 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,distance=..1,scores={TEMP_OBJ=1,TMP2_OBJ=2}] run function test:fail
+took 220 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,distance=..1,scores={TEMP_OBJ=1}] run function test:fail
+took 212 milliseconds to run 200000 iterations of
+    execute unless entity @e[tag=scoreAS,distance=..1,scores={TEMP_OBJ=1..}] run function test:fail
+took 401 milliseconds to run 200000 iterations of
+    scoreboard players add @e[tag=scoreAS,distance=..1] TEMP_OBJ 1
+took 66 milliseconds to run 200000 iterations of
+    execute unless score x TEMP_OBJ matches 1 unless score x TMP2_OBJ matches 2 run function test:fail
+took 49 milliseconds to run 200000 iterations of
+    execute unless score x TEMP_OBJ matches 1 run function test:fail
+took 49 milliseconds to run 200000 iterations of
+    execute unless score x TEMP_OBJ matches 1.. run function test:fail
+took 173 milliseconds to run 200000 iterations of
+    scoreboard players add x TEMP_OBJ 1
+took 47 milliseconds to run 200000 iterations of
     execute unless entity @e[type=player] run function test:fail
 took 40 milliseconds to run 200000 iterations of
     execute unless entity @a run function test:fail

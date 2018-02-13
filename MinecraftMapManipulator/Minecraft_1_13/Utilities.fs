@@ -68,7 +68,7 @@ let private writeFunctionToDisk(worldSaveFolder, packName, packNS, name, code) =
         System.IO.Directory.CreateDirectory(dir) |> ignore
     System.IO.File.WriteAllLines(FIL, code)
 
-let private writeDatapackMeta(worldSaveFolder, packName,description) =
+let private writeDatapackMeta(worldSaveFolder, packName, description) =
     let FOLDER = packName
     let meta = sprintf """{
                "pack": {

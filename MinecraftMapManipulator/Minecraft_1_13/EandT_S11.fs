@@ -40,6 +40,9 @@ something xray-ish? (can check set of blocks in front of you, put glowing magma 
 Something like: Zieon: Every 5 ticks between daytime 23450 and 15666 two random baby zombies do a raycast to 255. If it makes it without running into a block 
     not in my allowssunlight tag then the baby zombie is set on fire for 8 seconds (just like adults)
 
+mobs spawning spawners/structures, a la https://www.reddit.com/r/Minecraft/comments/7vs8cz/im_creating_a_more_challenging_minecraft_variant/
+
+render's KB2 mending F&S?
 
 
 food: without hoe/farmland, only renewables are mushroom stew, apples, zombie flesh, fish; hoe/farmland leads to bread, breeding animals for raw meat, carrot, raw potato/beetrot; then cooking recipes lead to better
@@ -68,6 +71,10 @@ maybe, in addition to having structures gen rare loot recipes, also maybe husks/
 todo recipe for throwable light, like torch + snowball + slimeball?
 
 could e.g. start with 'heavy shield' (slowness) and need to upgrade to learn to build light shield recipe?
+
+could possibly make wood/stone tools buildable without workbench, and make crafting table an unlockable? ...
+
+could make shovels a separate unlockable? flint/glass/tnt become harder...
 
 from old swirl notes:
 	tech tree: no early pickaxe? f&s rather than sword/axe? no torch recipe? villagers sell 3 choice of recipe? late bow/shield? early tnt? what foods? armor logic?
@@ -241,9 +248,9 @@ potion of echolocation? gives 'glowing' to all nearby mobs, or maybe 5 nearest m
 // TODO vaguely similar, 'reap' where a hoe can re-plant seeds while harvesting
 
 // impossible to implement treecapitator 'right' (can't know what block player just mined), so find a way that's efficient approximation and not exploitable:
-let LOGS = [| "acacia_log"; "oak_log"; "spruce_log"; "jungle_log"; "dark_oak_log"; "birch_log" |] |> Array.map (fun x -> x,x)
-let ORES = [| "coal_ore"; "iron_ore"; "gold_ore"; "lapis_ore"; "redstone_ore"; "diamond_ore"; "obsidian" |] |> Array.map (fun x -> x,x)   // Note: obsidian means diamond pick can quick-mine that too
-            |> Array.append [| "coal_ore", "coal"; "lapis_ore", "lapis_lazuli"; "redstone_ore", "redstone"; "diamond_ore", "diamond"|]
+let LOGS = [| "acacia_log"; "oak_log"; "spruce_log"; "jungle_log"; "dark_oak_log"; "birch_log" |] |> Array.map (fun x -> x,x,(1,1))
+let ORES = [| "coal_ore"; "iron_ore"; "gold_ore"; "lapis_ore"; "redstone_ore"; "diamond_ore"; "obsidian" |] |> Array.map (fun x -> x,x,(1,1))   // Note: obsidian means diamond pick can quick-mine that too
+            |> Array.append [| "coal_ore", "coal", (1,1); "lapis_ore", "lapis_lazuli", (4,8); "redstone_ore", "redstone", (4,5); "diamond_ore", "diamond", (1,1)|]
 let TREE_DIRS = [|
     // 8 dirs on this level
     "~00 ~00 ~01"
@@ -295,7 +302,7 @@ let connected_mining_functions = [|
             yield sprintf "scoreboard objectives add wasHolding%s dummy" suffixS
             yield sprintf "scoreboard objectives add remain%s dummy" suffixS
             yield sprintf "scoreboard objectives add TEMP dummy"
-            for b,_ in blocks do
+            for b,_,_ in blocks do
                 yield sprintf "scoreboard objectives add %s%s minecraft.mined:minecraft.%s" b suffixS b
             yield sprintf "scoreboard players set randomTickSpeed TEMP -1"
             |]
@@ -307,15 +314,15 @@ let connected_mining_functions = [|
             sprintf "execute as @a[scores={isHolding%s=1}] run function tc:check_mined_%s" suffixS suffixF
             |]
         yield sprintf"reset_stats_%s"suffixF,[|
-            for b,_ in blocks do
+            for b,_,_ in blocks do
                 yield sprintf "scoreboard players set @s %s%s 0" b suffixS
             |]
         let ITEMSEL(bi) = sprintf """@e[type=item,distance=..7,sort=nearest,limit=1,nbt={Item:{id:"minecraft:%s"},PickupDelay:10s}]""" bi  // todo could also look for Age:0s in addition to PickupDelay
         yield sprintf"check_mined_%s"suffixF,[|
-            for b,bi in blocks do
+            for b,bi,_ in blocks do
                 yield sprintf "execute if entity @s[scores={%s%s=1..}] at @s at %s run function tc:chop_start_%s_%s" b suffixS (ITEMSEL bi) suffixF bi
             |]
-        for b,bi in blocks do
+        for b,bi,(minDrops,maxDrops) in blocks do
             yield sprintf "chop_start_%s_%s" suffixF bi,[|
                 yield sprintf "scoreboard players set @s remain%s %d" suffixS (MAX+1)  // MAX+1 because we decrement 'remain' at start when found item entity (which will get tp'd to player), even though not breaking a block
                 yield sprintf "execute at @s run tp %s ~ ~ ~" (ITEMSEL bi)
@@ -335,10 +342,29 @@ let connected_mining_functions = [|
                     yield sprintf "execute positioned %s if block ~ ~ ~ %s run function tc:chop_check_%s_%s" dir b suffixF bi
                 |]
             yield sprintf "give_%s_%s" suffixF bi,[|
-                sprintf "execute if entity @s[scores={remain%s=..%d}] run give @s %s 1" suffixS (MAX-1) bi // MAX-1 because we want to test <MAX
-                sprintf "scoreboard players add @s remain%s 1" suffixS 
-                sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:give_%s_%s" suffixS (MAX-1) suffixF bi
+                // TODO deal with fortune enchant
+                if minDrops=1 && maxDrops=1 then
+                    yield sprintf "execute if entity @s[scores={remain%s=..%d}] run give @s %s 1" suffixS (MAX-1) bi // MAX-1 because we want to test <MAX
+                else
+                    yield sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:compute_drops_%d_%d" suffixS (MAX-1) minDrops maxDrops // MAX-1 because we want to test <MAX
+                    yield sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:give_computed_%s_%s" suffixS (MAX-1) suffixF bi // MAX-1 because we want to test <MAX
+                yield sprintf "scoreboard players add @s remain%s 1" suffixS 
+                yield sprintf "execute if entity @s[scores={remain%s=..%d}] run function tc:give_%s_%s" suffixS (MAX-1) suffixF bi
                 |]
+            yield sprintf "give_computed_%s_%s" suffixF bi,[|
+                sprintf """tellraw @a ["score is now ",%s]""" (Utilities.tellrawScoreSelectorENTITY("PRNG_OUT"))
+                sprintf "execute if score $ENTITY PRNG_OUT matches 1.. run give @s %s 1" bi
+                sprintf "execute if score $ENTITY PRNG_OUT matches 1.. run scoreboard players remove $ENTITY PRNG_OUT 1"
+                sprintf "execute if score $ENTITY PRNG_OUT matches 1.. run function tc:give_computed_%s_%s" suffixF bi 
+                |]
+            if minDrops=1 && maxDrops=1 then () else
+                yield sprintf "compute_drops_%d_%d" minDrops maxDrops,[|
+                    sprintf "scoreboard players set $ENTITY PRNG_MOD %d" maxDrops
+                    sprintf "scoreboard players remove $ENTITY PRNG_MOD %d" minDrops
+                    sprintf "scoreboard players add $ENTITY PRNG_MOD 1"
+                    sprintf "function prng:next"
+                    sprintf "scoreboard players add $ENTITY PRNG_OUT %d" minDrops
+                    |]
     |]
 let tc_main() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "TestWarpPoints")
@@ -351,5 +377,6 @@ let tc_main() =
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"tc:init_tc";"tc:init_vm"])
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"tc:tick_tc";"tc:tick_vm"])
     pack.SaveToDisk()
+    UtilityPacks.writePRNGto(world)
 
 

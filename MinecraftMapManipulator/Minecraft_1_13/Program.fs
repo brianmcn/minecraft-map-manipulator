@@ -284,6 +284,7 @@ let temple_locator() =
                         "^20 ^ ^",7
                         "^14 ^ ^14",8
                        ] do
+        // TODO new /locate targets
             yield sprintf "execute as @p at @s rotated ~ 0 positioned %s store result score @s TEMP run locate Temple" rel
             yield sprintf "execute if score @p TEMP < @p Best run scoreboard players set @p Dir %d" dir
             yield sprintf "execute if score @p TEMP < @p Best run scoreboard players operation @p Best = @p TEMP"
@@ -551,8 +552,8 @@ let main argv =
     //throwable_light()
     //PerformanceMicroBenchmarks.main()
     //QFE.main()
-    WarpPoints.wp_c_main()
-    //EandT_S11.tc_main()
+    //WarpPoints.wp_c_main()
+    EandT_S11.tc_main()
     //QuickStack.main()
     //area_highlight()
     //find_slime_chunks()
