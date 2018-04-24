@@ -544,6 +544,176 @@ let see_if_loot_tables_changed() =
                     printfn "%s" (newJson.ToPrettyString(2,210))
                     newJson.FailOnDiff(oldJson)
 
+
+let hover() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
+    let pack = new Utilities.DataPackArchive(world,"hover_boots","hover boots")
+    let compiler = new Compiler.Compiler('h','b',"hb",false)
+    
+    let hover_funcs = [|
+        yield "init", [|
+            "scoreboard objectives add jump minecraft.custom:minecraft.jump"
+            "scoreboard objectives add inair dummy"
+            "scoreboard objectives add cooldown dummy"
+            "scoreboard objectives add temp dummy"
+            "scoreboard players set TWO temp 2"
+            "scoreboard objectives add state dummy"
+            |]
+        yield "tick", [|
+            "scoreboard players set @a[nbt={OnGround:1b},scores={state=..-1}] state 0"
+            "scoreboard players set @a[nbt={OnGround:1b},scores={state=1}] state -1"
+            "scoreboard players set @a[nbt={OnGround:1b},scores={state=2}] state -2"
+            "scoreboard players set @a[nbt={OnGround:0b},scores={state=0,jump=1}] state 1"
+            "scoreboard players set @a[nbt={OnGround:0b},scores={state=-1}] state 1"
+            "scoreboard players set @a[nbt={OnGround:0b},scores={state=-2}] state 2"
+            "execute as @a[nbt={OnGround:0b},scores={state=0,jump=0}] run function hb:begin"
+            "scoreboard players set @a jump 0"
+
+(*
+            """execute as @p run tellraw @a [{"score":{"name":"@s","objective":"jump"}},{"score":{"name":"@s","objective":"inair"}}]"""
+            "execute as @a[scores={inair=0,jump=0,cooldown=..0},nbt={OnGround:0b}] run function hb:begin"
+            "execute as @a[nbt={ActiveEffects:[{Id:25s,Amplifier:-1b}]}] at @s run particle cloud ~ ~-0.5 ~ 0.5 0 0.5 0.01 2 force"
+            "scoreboard players set @a[nbt={OnGround:0b}] inair 1"
+            "scoreboard players set @a[nbt={OnGround:1b}] inair 0"
+            "scoreboard players set @a jump 0"
+            "scoreboard players remove @a[nbt={OnGround:1b}] cooldown 1"
+            "scoreboard players operation @p temp = @p cooldown"
+            "scoreboard players operation @p temp %= TWO temp"
+            "execute as @p[scores={cooldown=1..,temp=0}] run function hb:levitate"
+            "execute as @p[scores={cooldown=1..,temp=1}] run function hb:slowfall"
+*)
+            |]
+        yield "begin", [|
+            "scoreboard players set @s state 2"
+            "say effect give @s levitation 2 255"
+            "scoreboard players set @s cooldown 140"
+            //"$NTICKSLATER(1)"
+            //"execute as @a[nbt={ActiveEffects:[{Id:25s,Amplifier:-1b}]}] at @s positioned ~ ~0.92 ~ align y run teleport @s ~ ~ ~"
+            |]
+(*
+        yield "slowfall", [|
+            "effect clear @s levitation"
+            "effect give @s slow_falling 1 1"
+            "scoreboard players remove @s cooldown 1"
+            |]
+        yield "levitate", [|
+            "effect clear @s slow_falling"
+            "effect give @s levitation 1 5"
+            "scoreboard players remove @s cooldown 1"
+            |]
+*)
+        |]
+    
+    for ns,name,code in [for name,code in hover_funcs do yield! compiler.Compile("hb",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"hb:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"hb:tick"])
+    pack.SaveToDisk()
+
+let heroBow() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
+    let pack = new Utilities.DataPackArchive(world,"hero_bow","hero bow")
+    let compiler = new Compiler.Compiler('h','a',"ha",false)
+    
+    let hero_bow_funcs = [|
+        yield "init", [|
+            "scoreboard objectives add temp dummy"
+            """give @p bow{ench:[{lvl:8s,id:48s}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"}"}}"""
+            "scoreboard objectives add shoot minecraft.used:minecraft.bow"
+            |]
+        yield "tick", [|
+            """execute as @a[scores={shoot=1},nbt={SelectedItem:{id:"minecraft:bow",tag:{display:{Name:"{\"text\":\"Hero\\u0027s Bow\"}"}}}}] at @s as @e[type=arrow,sort=nearest,limit=1] run tag @s add HeroArrow"""
+            """execute as @e[type=arrow,tag=HeroArrow,nbt={inBlockState:{Name:"minecraft:chiseled_stone_bricks"}}] at @s run function ha:proc_arrow"""
+            "scoreboard players add @e[type=armor_stand,tag=HeroArrowAS] temp 1"
+            "execute as @e[type=armor_stand,tag=HeroArrowAS,scores={temp=1}] at @s run function ha:find_wool"
+            "execute as @e[type=armor_stand,tag=HeroArrowAS,scores={temp=201}] at @s run function ha:finish_wool"
+            "scoreboard players set @a shoot 0"
+            |]
+        yield "proc_arrow", [|
+            "tag @s remove HeroArrow"
+            "summon armor_stand ~ ~ ~ {Invisible:1b,Invulnerable:1b,Marker:1b,Tags:[HeroArrowAS]}"
+            |]
+        yield "find_wool", [|
+            yield "say expensive wool find"
+            for x = -5 to 5 do
+                for y = -5 to 5 do
+                    for z = -5 to 5 do
+                        yield sprintf "execute positioned ~%d ~%d ~%d if block ~ ~ ~ minecraft:red_wool run summon armor_stand ~ ~ ~ {Invisible:1b,Invulnerable:1b,Marker:1b,Tags:[RedWoolAS]}" x y z
+            yield "execute at @e[type=armor_stand,tag=RedWoolAS,distance=..9] run setblock ~ ~ ~ redstone_block"
+            |]
+        yield "finish_wool", [|
+            "say finish wool"
+            "execute at @e[type=armor_stand,tag=RedWoolAS,distance=..9] run setblock ~ ~ ~ red_wool"
+            "kill @e[type=armor_stand,tag=RedWoolAS,distance=..9]"  // TODO problems if multiple chiseled nearby that both modify?
+            "kill @s"
+            |]
+        |]
+    
+    for ns,name,code in [for name,code in hero_bow_funcs do yield! compiler.Compile("ha",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"ha:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"ha:tick"])
+    pack.SaveToDisk()
+
+let tnt_bomb() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
+    let pack = new Utilities.DataPackArchive(world,"tnt_bomb","tnt bomb")
+    let compiler = new Compiler.Compiler('t','b',"tb",false)
+    
+    let hero_bow_funcs = [|
+        yield "init", [|
+            "scoreboard objectives add temp dummy"
+            "give @p tnt{IsBomb:1b} 64"
+            |]
+        yield "tick", [|
+            """execute at @a as @e[distance=..3,tag=!TNTBombItem,type=item,nbt={Item:{id:"minecraft:tnt",tag:{IsBomb:1b}}}] run tag @s add TNTBombItem"""
+            "execute as @e[tag=TNTBombItem,nbt={OnGround:1b}] at @s run function tb:ignite"
+            "execute as @e[type=tnt,tag=TNTBomb,nbt={Fuse:1s}] at @s run function tb:detonate"
+            |]
+        yield "ignite", [|
+            "summon tnt ~ ~ ~ {Fuse:61s,Tags:[TNTBomb]}"
+            "playsound minecraft:entity.tnt.primed block @a ~ ~ ~ 1 1"
+            "kill @s"
+            |]
+        yield "detonate", [|
+            // sound/visual
+            "particle explosion ~ ~ ~ 0.3 0.3 0.3 0.2 2500 force"
+            "playsound minecraft:entity.generic.explode block @a ~ ~ ~ 1 1"
+            // damage mobs and players
+            "execute as @e[distance=..5,type=!zombie,type=!skeleton,type=!zombie_pigman,type=!wither_skeleton,type=!stray,type=!zombie_villager,type=!husk,type=!drowned] run effect give @s instant_damage 1 0 true"
+            "execute as @e[distance=..5,type=zombie] run effect give @s instant_health 1 0 true"
+            "execute as @e[distance=..5,type=skeleton] run effect give @s instant_health 1 0 true"
+            "execute as @e[distance=..5,type=zombie_pigman] run effect give @s instant_health 1 0 true"
+            "execute as @e[distance=..5,type=wither_skeleton] run effect give @s instant_health 1 0 true"
+            "execute as @e[distance=..5,type=stray] run effect give @s instant_health 1 0 true"
+            "execute as @e[distance=..5,type=zombie_villager] run effect give @s instant_health 1 0 true"
+            "execute as @e[distance=..5,type=husk] run effect give @s instant_health 1 0 true"
+            "execute as @e[distance=..5,type=drowned] run effect give @s instant_health 1 0 true"
+            // kill infested blocks
+            "fill ~-3 ~-3 ~-3 ~3 ~3 ~3 air replace minecraft:infested_chiseled_stone_bricks"
+            "fill ~-3 ~-3 ~-3 ~3 ~3 ~3 air replace minecraft:infested_cobblestone"
+            "fill ~-3 ~-3 ~-3 ~3 ~3 ~3 air replace minecraft:infested_cracked_stone_bricks"
+            "fill ~-3 ~-3 ~-3 ~3 ~3 ~3 air replace minecraft:infested_mossy_stone_bricks"
+            "fill ~-3 ~-3 ~-3 ~3 ~3 ~3 air replace minecraft:infested_stone"
+            "fill ~-3 ~-3 ~-3 ~3 ~3 ~3 air replace minecraft:infested_stone_bricks"
+            // remove tnt           
+            "kill @s"
+            |]
+        |]
+    
+    for ns,name,code in [for name,code in hero_bow_funcs do yield! compiler.Compile("tb",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"tb:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"tb:tick"])
+    pack.SaveToDisk()
+
+
 [<EntryPoint>]
 let main argv = 
     //MinecraftBINGO.cardgen_compile()
@@ -553,7 +723,7 @@ let main argv =
     //PerformanceMicroBenchmarks.main()
     //QFE.main()
     //WarpPoints.wp_c_main()
-    EandT_S11.tc_main()
+    //EandT_S11.tc_main()
     //QuickStack.main()
     //area_highlight()
     //find_slime_chunks()
@@ -572,6 +742,9 @@ let main argv =
     //show_biomes()
     //test_json()
     //see_if_loot_tables_changed()
+    //hover()
+    //heroBow()
+    tnt_bomb()
     ignore argv
     0
 
