@@ -346,7 +346,7 @@ let local_v_relative() =
     
 
 let dump_context() =
-    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """TestLocate""")
+    let FOLDER = System.IO.Path.Combine(Utilities.MC_ROOT, """work""")
     let pack = Utilities.DataPackArchive(FOLDER,"dump","dump context info to chat")
     let NS = "context"
     let functions =[|
@@ -612,7 +612,7 @@ let hover() =
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"hb:tick"])
     pack.SaveToDisk()
 
-let heroBow() =
+let hero_bow() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
     let pack = new Utilities.DataPackArchive(world,"hero_bow","hero bow")
     let compiler = new Compiler.Compiler('h','a',"ha",false)
@@ -667,7 +667,7 @@ let tnt_bomb() =
     let hero_bow_funcs = [|
         yield "init", [|
             "scoreboard objectives add temp dummy"
-            "give @p tnt{IsBomb:1b} 64"
+            """give @p tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"}"}} 64"""
             |]
         yield "tick", [|
             """execute at @a as @e[distance=..3,tag=!TNTBombItem,type=item,nbt={Item:{id:"minecraft:tnt",tag:{IsBomb:1b}}}] run tag @s add TNTBombItem"""
@@ -713,6 +713,90 @@ let tnt_bomb() =
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"tb:tick"])
     pack.SaveToDisk()
 
+let magic_fire_and_compass() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
+    let pack = new Utilities.DataPackArchive(world,"magic_fire","magic fire")
+    let compiler = new Compiler.Compiler('m','f',"mf",false)
+    
+    let magic_fire_funcs = [|
+        yield "init", [|
+            "scoreboard objectives add coas minecraft.used:minecraft.carrot_on_a_stick"
+            "scoreboard objectives add temp dummy"
+            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"}"}} 1"""
+            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"}"}} 1"""
+            |]
+        yield "tick", [|
+            "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{MagicFire:1b}}}] at @s run function mf:fire"
+            "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{CompassLost:1b}}}] at @s run teleport @s 100 100 100"
+            "scoreboard players set @a coas 0"
+            |]
+        yield "fire", [|
+            "scoreboard players set @s temp 200"
+            "execute anchored eyes positioned ^ ^ ^0.2 run function mf:step"
+            "execute if entity @s[scores={temp=-1}] run say hit non-air"
+            "execute if entity @s[scores={temp=0}] run say missed"
+            |]
+        yield "step", [|
+            //"""tellraw @a [{"score":{"name":"@s","objective":"temp"}}]"""
+            //"function context:dump"
+            //"particle minecraft:flame ~ ~ ~ 0.01 0.01 0.01 0.001 1 force"
+            // TODO saying if my hitbox intersects his, i think?
+            "execute positioned ^-0.5 ^ ^ if entity @e[type=!area_effect_cloud,type=!player,dx=0.01,dy=0.01,dz=0.01] run function mf:hit"
+            "execute unless block ~ ~ ~ air run scoreboard players set @s temp -1"  // TODO collisionless #tag
+            "scoreboard players remove @s[scores={temp=1..}] temp 1"
+            "execute if entity @s[scores={temp=-1..0}] run particle minecraft:cloud ~ ~ ~ 0.1 0.1 0.1 0.001 5 force"
+            "execute if entity @s[scores={temp=1..}] anchored feet positioned ^ ^ ^0.1 run function mf:step"
+            // TODO just show visual feedback where hit/miss, rather than whole path
+            |]
+        yield "hit", [|
+            "scoreboard players set @s temp -2"
+            "execute as @e[type=!area_effect_cloud,type=!player,dx=0.01,dy=0.01,dz=0.01,sort=nearest,limit=1] run function mf:hit_coda"
+            |]
+        yield "hit_coda", [|
+            "say hit @s"
+            "data merge entity @s {Fire:160s}"
+            |]
+        |]
+    
+    for ns,name,code in [for name,code in magic_fire_funcs do yield! compiler.Compile("mf",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"mf:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"mf:tick"])
+    pack.SaveToDisk()
+
+let various_items() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
+    let pack = new Utilities.DataPackArchive(world,"hero_items","various items")
+    let compiler = new Compiler.Compiler('h','i',"hi",false)
+    let funcs = [|
+        yield "init", [|
+            """give @p minecraft:diamond_sword{ench:[{id:16s,lvl:10s},{id:21s,lvl:4s},{id:22s,lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"}"}} 1"""
+            """give @p minecraft:leather_helmet{ench:[{id:0s,lvl:8s}],display:{color:6192150,Name:"{\"text\":\"Hero's Cap\"}"},HeroCap:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:10s}],display:{color:6192150,Name:"{\"text\":\"Hero's Tunic\"}"},HeroTunic:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:5s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"}"},FireTunic:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:5s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"}"},ZoraTunic:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_leggings{ench:[{id:0s,lvl:7s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1"""
+            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:6s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"}"},HeroBoots:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"}"},Flippers:1b,Unbreakable:1b} 1"""
+            |]
+        yield "tick", [|
+            "execute as @a[nbt={Inventory:[{Slot:103b,tag:{HeroCap:1b}}]}] run effect give @s minecraft:strength 1 0"
+            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{HeroTunic:1b}}]}] run effect give @s minecraft:resistance 1 0"
+            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{FireTunic:1b}}]}] run effect give @s minecraft:fire_resistance 1 0"
+            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{ZoraTunic:1b}}]}] run effect give @s minecraft:water_breathing 1 0"
+            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{HeroBoots:1b}}]}] run effect give @s minecraft:speed 1 1"
+            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{Flippers:1b}}]}] run effect give @s minecraft:night_vision 1 0"
+            |]
+        |]
+    for ns,name,code in [for name,code in funcs do yield! compiler.Compile("hi",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"hi:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"hi:tick"])
+    pack.SaveToDisk()
 
 [<EntryPoint>]
 let main argv = 
@@ -743,8 +827,11 @@ let main argv =
     //test_json()
     //see_if_loot_tables_changed()
     //hover()
-    //heroBow()
-    tnt_bomb()
+    //hero_bow()
+    //tnt_bomb()
+    //magic_fire_and_compass()
+    various_items()
+    //dump_context()
     ignore argv
     0
 
