@@ -112,6 +112,14 @@ type DataPackArchive(worldSaveFolder, packName, description) =
         use w = new System.IO.StreamWriter(entry.Open())
         for s in code do
             w.WriteLine(s)
+    member this.WriteBlocksTagsFileWithValues(ns,name,values:seq<string>) =
+        validate(ns,name)
+        let path = sprintf "data/%s/tags/blocks/%s.json" ns name
+        if not(paths.Add(path)) then failwithf "already added entry to ZipArchive: %s" path
+        let entry = zipArchive.CreateEntry(path, System.IO.Compression.CompressionLevel.NoCompression)
+        use w = new System.IO.StreamWriter(entry.Open())
+        let quotedVals = values |> Seq.map (fun s -> sprintf "\"%s\"" s)
+        w.WriteLine(sprintf"""{"values": [%s]}""" (String.concat ", " quotedVals))
     member this.WriteFunctionTagsFileWithValues(ns,name,values:seq<string>) =
         validate(ns,name)
         let path = sprintf "data/%s/tags/functions/%s.json" ns name

@@ -1178,3 +1178,43 @@ let BIOME_COLLECTIONS =
             let i = r.FindIndex(fun a -> a.[0] = core)
             r.[i].Add(biome)
     r
+
+
+let collisionless_blocks = [|
+    "air" // todo cave?
+    // liquids
+    // flowers
+    "dandelion"
+    "poppy"
+    "blue_orchid"
+    "allium"
+    "azure_bluet"
+    "red_tulip"
+    "orange_tulip"
+    "pink_tulip"
+    "oxeye_daisy"
+    "sunflower"
+    "lilac"
+    "rose_bush"
+    "peony"
+    // grasses
+    "tall_grass"
+    "large_fern"
+    "#minecraft:saplings"
+    "dead_bush"
+    "grass"
+    "fern"
+    "brown_mushroom"
+    "red_mushroom"
+    // stems
+    "pumpkin_stem"
+    "melon_stem"
+    "attached_pumpkin_stem"
+    "attached_melon_stem"
+    // other
+    "fire"
+    "redstone_torch"
+    "torch"
+    "redstone_wall_torch"
+    "wall_torch"
+    |]

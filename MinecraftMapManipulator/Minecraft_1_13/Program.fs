@@ -737,16 +737,13 @@ let magic_fire_and_compass() =
             "execute if entity @s[scores={temp=0}] run say missed"
             |]
         yield "step", [|
-            //"""tellraw @a [{"score":{"name":"@s","objective":"temp"}}]"""
-            //"function context:dump"
             //"particle minecraft:flame ~ ~ ~ 0.01 0.01 0.01 0.001 1 force"
             // TODO saying if my hitbox intersects his, i think?
             "execute positioned ^-0.5 ^ ^ if entity @e[type=!area_effect_cloud,type=!player,dx=0.01,dy=0.01,dz=0.01] run function mf:hit"
-            "execute unless block ~ ~ ~ air run scoreboard players set @s temp -1"  // TODO collisionless #tag
+            "execute unless block ~ ~ ~ #mf:collisionless run scoreboard players set @s temp -1"
             "scoreboard players remove @s[scores={temp=1..}] temp 1"
             "execute if entity @s[scores={temp=-1..0}] run particle minecraft:cloud ~ ~ ~ 0.1 0.1 0.1 0.001 5 force"
             "execute if entity @s[scores={temp=1..}] anchored feet positioned ^ ^ ^0.1 run function mf:step"
-            // TODO just show visual feedback where hit/miss, rather than whole path
             |]
         yield "hit", [|
             "scoreboard players set @s temp -2"
@@ -764,6 +761,13 @@ let magic_fire_and_compass() =
         pack.WriteFunction(ns,name,code)
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"mf:init"])
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"mf:tick"])
+    pack.WriteBlocksTagsFileWithValues("mf","collisionless",[
+        for s in MC_Constants.collisionless_blocks do
+            if s.Contains(":") then 
+                yield s
+            else
+                yield "minecraft:"+s
+        ])
     pack.SaveToDisk()
 
 let various_items() =
@@ -798,6 +802,56 @@ let various_items() =
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"hi:tick"])
     pack.SaveToDisk()
 
+let crystal_wand() =
+    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
+    let pack = new Utilities.DataPackArchive(world,"crystal_wand","crystal wand")
+    let compiler = new Compiler.Compiler('c','w',"cw",false)
+    let funcs = [|
+        yield "init", [|
+            "scoreboard objectives add temp dummy"  // used for 'found'
+            "scoreboard objectives add pe minecraft.used:minecraft.emerald_block"
+            // TODO fix
+            """give @p minecraft:golden_pickaxe{Unbreakable:1b,CanDestroy:[emerald_block],display:{Name:"{\"text\":\"Crystal Wand\"}"}}"""
+            """give @p minecraft:emerald_block{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"}"}}"""
+            |]
+        yield "tick", [|
+            // check for pickup
+            "scoreboard players set PICKUP temp 0"  // ensure summon at most one in multiplayer
+            "execute at @a as @e[type=armor_stand,tag=CrystalKey,distance=..7] at @s if block ~ ~ ~ air run function cw:pickup"
+            // check for placement
+            "execute as @a[scores={pe=1}] at @s positioned ^ ^ ^1 align xyz positioned ~0.5 ~ ~0.5 run function cw:find"
+            "scoreboard players set @a pe 0"
+            |]
+        yield "pickup", [|
+            """execute if score PICKUP temp matches 0 run summon item ~ ~ ~ {Item:{id:"minecraft:emerald_block",Count:1b,tag:{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"}"}}}}"""
+            "scoreboard players set PICKUP temp 1"
+            "kill @s"
+            |]
+        yield "find", [|
+            yield "scoreboard players set @s temp 0"  // found
+            for diff = 0 to 9 do  // look nearby first, increase radius until found
+                for x = -3 to 3 do
+                    for y = -3 to 3 do
+                        for z = -3 to 3 do
+                            if (abs x + abs y + abs z) = diff then
+                                yield sprintf "execute if score @s temp matches 0 if block ~%d ~%d ~%d emerald_block if block ~%d ~%d ~%d iron_block positioned ~%d ~%d ~%d run function cw:found" x y z x (y-1) z x y z
+            yield "execute if score @s temp matches 0 run say error did not find placed emerald"
+            |]
+        yield "found", [|
+            "scoreboard players set @s temp 1"
+            "execute if block ~ ~-2 ~ air run scoreboard players set @s temp 2"
+            "execute if score @s temp matches 2 run setblock ~ ~-2 ~ redstone_block"
+            """execute if score @s temp matches 1 run summon armor_stand ~ ~ ~ {NoGravity:1b,Marker:1b,Invisible:0b,Tags:[CrystalKey],CustomName:"{\"text\":\"Crystal Key\"}",CustomNameVisible:1b}"""
+            |]
+        |]
+    for ns,name,code in [for name,code in funcs do yield! compiler.Compile("cw",name,code)] do
+        pack.WriteFunction(ns,name,code)
+    for ns,name,code in compiler.GetCompilerLoadTick() do
+        pack.WriteFunction(ns,name,code)
+    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"cw:init"])
+    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"cw:tick"])
+    pack.SaveToDisk()
+
 [<EntryPoint>]
 let main argv = 
     //MinecraftBINGO.cardgen_compile()
@@ -830,7 +884,8 @@ let main argv =
     //hero_bow()
     //tnt_bomb()
     //magic_fire_and_compass()
-    various_items()
+    //various_items()
+    crystal_wand()
     //dump_context()
     ignore argv
     0
