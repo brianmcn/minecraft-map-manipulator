@@ -784,6 +784,10 @@ let various_items() =
             """give @p minecraft:leather_leggings{ench:[{id:0s,lvl:7s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1"""
             """give @p minecraft:leather_boots{ench:[{id:0s,lvl:6s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"}"},HeroBoots:1b,Unbreakable:1b} 1"""
             """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"}"},Flippers:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"}"},JumpBoots:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"}"}} 1"""
+            "scoreboard objectives add levcooldown dummy"
+            "scoreboard objectives add replacepot dummy"  // replacing same tick gets client out of sync
             |]
         yield "tick", [|
             "execute as @a[nbt={Inventory:[{Slot:103b,tag:{HeroCap:1b}}]}] run effect give @s minecraft:strength 1 0"
@@ -792,6 +796,19 @@ let various_items() =
             "execute as @a[nbt={Inventory:[{Slot:102b,tag:{ZoraTunic:1b}}]}] run effect give @s minecraft:water_breathing 1 0"
             "execute as @a[nbt={Inventory:[{Slot:100b,tag:{HeroBoots:1b}}]}] run effect give @s minecraft:speed 1 1"
             "execute as @a[nbt={Inventory:[{Slot:100b,tag:{Flippers:1b}}]}] run effect give @s minecraft:night_vision 1 0"
+            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{JumpBoots:1b}}]}] run effect give @s minecraft:jump_boost 1 1"
+            "execute as @a[nbt={ActiveEffects:[{Id:25b,Amplifier:1b}]}] run function hi:levitate"
+            "scoreboard players remove @a levcooldown 1"
+            |]
+        yield "levitate", [|
+            "effect clear @s minecraft:levitation"
+            "execute unless entity @s[scores={levcooldown=1..}] run effect give @s minecraft:levitation 2 0"
+            "execute unless entity @s[scores={levcooldown=1..}] run scoreboard players set @s levcooldown 81"
+            "scoreboard players set @s replacepot 1"
+            "$NTICKSLATER(1)"
+            "execute as @a[scores={replacepot=1}] run clear @s minecraft:glass_bottle 1"
+            """execute as @a[scores={replacepot=1}] run give @s minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"}"}} 1"""
+            "scoreboard players set @a replacepot 0"
             |]
         |]
     for ns,name,code in [for name,code in funcs do yield! compiler.Compile("hi",name,code)] do
@@ -884,8 +901,8 @@ let main argv =
     //hero_bow()
     //tnt_bomb()
     //magic_fire_and_compass()
-    //various_items()
-    crystal_wand()
+    various_items()
+    //crystal_wand()
     //dump_context()
     ignore argv
     0
