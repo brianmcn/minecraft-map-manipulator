@@ -1181,8 +1181,10 @@ let BIOME_COLLECTIONS =
 
 
 let collisionless_blocks = [|
-    "air" // todo cave?
-    // liquids
+    "air"
+    "cave_air"
+    "void_air"  // TODO this may change
+    // liquids? maybe not the way I'm using it
     // flowers
     "dandelion"
     "poppy"
@@ -1217,4 +1219,12 @@ let collisionless_blocks = [|
     "torch"
     "redstone_wall_torch"
     "wall_torch"
+    |]
+
+let transparent_blocks = [|
+    yield "glass"
+    yield "glass_pane"
+    for c in COLORS do
+        yield c+"_stained_glass"
+        yield c+"_stained_glass_pane"
     |]

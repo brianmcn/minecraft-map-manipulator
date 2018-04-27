@@ -585,7 +585,7 @@ let hover() =
             |]
         yield "begin", [|
             "scoreboard players set @s state 2"
-            "say effect give @s levitation 2 255"
+            "say effect give @s levitation 2 255 true"
             "scoreboard players set @s cooldown 140"
             //"$NTICKSLATER(1)"
             //"execute as @a[nbt={ActiveEffects:[{Id:25s,Amplifier:-1b}]}] at @s positioned ~ ~0.92 ~ align y run teleport @s ~ ~ ~"
@@ -593,12 +593,12 @@ let hover() =
 (*
         yield "slowfall", [|
             "effect clear @s levitation"
-            "effect give @s slow_falling 1 1"
+            "effect give @s slow_falling 1 1 true"
             "scoreboard players remove @s cooldown 1"
             |]
         yield "levitate", [|
             "effect clear @s slow_falling"
-            "effect give @s levitation 1 5"
+            "effect give @s levitation 1 5 true"
             "scoreboard players remove @s cooldown 1"
             |]
 *)
@@ -616,11 +616,10 @@ let hero_bow() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
     let pack = new Utilities.DataPackArchive(world,"hero_bow","hero bow")
     let compiler = new Compiler.Compiler('h','a',"ha",false)
-    
     let hero_bow_funcs = [|
         yield "init", [|
             "scoreboard objectives add temp dummy"
-            """give @p bow{ench:[{lvl:8s,id:48s}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"}"}}"""
+            """give @p bow{ench:[{lvl:8s,id:48s}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"}",Lore:["hates chiseled stone"]}}"""
             "scoreboard objectives add shoot minecraft.used:minecraft.bow"
             |]
         yield "tick", [|
@@ -636,7 +635,6 @@ let hero_bow() =
             "summon armor_stand ~ ~ ~ {Invisible:1b,Invulnerable:1b,Marker:1b,Tags:[HeroArrowAS]}"
             |]
         yield "find_wool", [|
-            yield "say expensive wool find"
             for x = -5 to 5 do
                 for y = -5 to 5 do
                     for z = -5 to 5 do
@@ -644,13 +642,11 @@ let hero_bow() =
             yield "execute at @e[type=armor_stand,tag=RedWoolAS,distance=..9] run setblock ~ ~ ~ redstone_block"
             |]
         yield "finish_wool", [|
-            "say finish wool"
             "execute at @e[type=armor_stand,tag=RedWoolAS,distance=..9] run setblock ~ ~ ~ red_wool"
             "kill @e[type=armor_stand,tag=RedWoolAS,distance=..9]"  // TODO problems if multiple chiseled nearby that both modify?
             "kill @s"
             |]
         |]
-    
     for ns,name,code in [for name,code in hero_bow_funcs do yield! compiler.Compile("ha",name,code)] do
         pack.WriteFunction(ns,name,code)
     for ns,name,code in compiler.GetCompilerLoadTick() do
@@ -663,11 +659,10 @@ let tnt_bomb() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
     let pack = new Utilities.DataPackArchive(world,"tnt_bomb","tnt bomb")
     let compiler = new Compiler.Compiler('t','b',"tb",false)
-    
-    let hero_bow_funcs = [|
+    let bomb_funcs = [|
         yield "init", [|
             "scoreboard objectives add temp dummy"
-            """give @p tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"}"}} 64"""
+            """give @p tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"}",Lore:["drop one of me"]}} 64"""
             |]
         yield "tick", [|
             """execute at @a as @e[distance=..3,tag=!TNTBombItem,type=item,nbt={Item:{id:"minecraft:tnt",tag:{IsBomb:1b}}}] run tag @s add TNTBombItem"""
@@ -704,8 +699,7 @@ let tnt_bomb() =
             "kill @s"
             |]
         |]
-    
-    for ns,name,code in [for name,code in hero_bow_funcs do yield! compiler.Compile("tb",name,code)] do
+    for ns,name,code in [for name,code in bomb_funcs do yield! compiler.Compile("tb",name,code)] do
         pack.WriteFunction(ns,name,code)
     for ns,name,code in compiler.GetCompilerLoadTick() do
         pack.WriteFunction(ns,name,code)
@@ -717,24 +711,48 @@ let magic_fire_and_compass() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
     let pack = new Utilities.DataPackArchive(world,"magic_fire","magic fire")
     let compiler = new Compiler.Compiler('m','f',"mf",false)
-    
     let magic_fire_funcs = [|
         yield "init", [|
             "scoreboard objectives add coas minecraft.used:minecraft.carrot_on_a_stick"
             "scoreboard objectives add temp dummy"
-            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"}"}} 1"""
-            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"}"}} 1"""
+            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"}",Lore:["right click to","burn a mob"]}} 1"""
+            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"}",Lore:["take me home"]}} 1"""
+            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"}",Lore:["zap that water"]}} 1"""
+            "scoreboard objectives add pe minecraft.used:minecraft.end_portal_frame"
+            """give @p minecraft:end_portal_frame{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"}"}}"""
             |]
         yield "tick", [|
             "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{MagicFire:1b}}}] at @s run function mf:fire"
             "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{CompassLost:1b}}}] at @s run teleport @s 100 100 100"
+            "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{IceWand:1b}}}] at @s run function mf:ice"
             "scoreboard players set @a coas 0"
+            // check for placement
+            "execute as @a[scores={pe=1}] at @s positioned ^ ^ ^1 align xyz positioned ~0.5 ~ ~0.5 run function mf:find"
+            "scoreboard players set @a pe 0"
+            // freezing
+            "execute as @e[type=armor_stand,tag=Freezer] at @s run function mf:freeze_tick"
+            |]
+        yield "find", [|
+            yield "scoreboard players set @s temp 0"  // found
+            for diff = 0 to 9 do  // look nearby first, increase radius until found
+                for x = -3 to 3 do
+                    for y = -3 to 3 do
+                        for z = -3 to 3 do
+                            if (abs x + abs y + abs z) = diff then
+                                yield sprintf "execute if score @s temp matches 0 if block ~%d ~%d ~%d end_portal_frame if block ~%d ~%d ~%d iron_block positioned ~%d ~%d ~%d run function mf:found" x y z x (y-1) z x y z
+            yield "execute if score @s temp matches 0 run say error did not find placed end_portal_frame"
+            |]
+        yield "found", [|
+            "scoreboard players set @s temp 1"
+            "execute if block ~ ~-2 ~ air run scoreboard players set @s temp 2"
+            "execute if score @s temp matches 2 run setblock ~ ~-2 ~ redstone_block"
+            "execute if score @s temp matches 1 run say error was no air to replace redstone with under iron_block"
             |]
         yield "fire", [|
             "scoreboard players set @s temp 200"
             "execute anchored eyes positioned ^ ^ ^0.2 run function mf:step"
-            "execute if entity @s[scores={temp=-1}] run say hit non-air"
-            "execute if entity @s[scores={temp=0}] run say missed"
+            //"execute if entity @s[scores={temp=-1}] run say hit non-air"
+            //"execute if entity @s[scores={temp=0}] run say missed"
             |]
         yield "step", [|
             //"particle minecraft:flame ~ ~ ~ 0.01 0.01 0.01 0.001 1 force"
@@ -750,11 +768,33 @@ let magic_fire_and_compass() =
             "execute as @e[type=!area_effect_cloud,type=!player,dx=0.01,dy=0.01,dz=0.01,sort=nearest,limit=1] run function mf:hit_coda"
             |]
         yield "hit_coda", [|
-            "say hit @s"
+            //"say hit @s"
             "data merge entity @s {Fire:160s}"
             |]
+        yield "ice", [|
+            "scoreboard players set @s temp 200"
+            "execute anchored eyes positioned ^ ^ ^0.2 run function mf:ice_step"
+            |]
+        yield "ice_step", [|
+            "execute unless block ~ ~ ~ #mf:collisionless run scoreboard players set @s temp -1"
+            "scoreboard players remove @s[scores={temp=1..}] temp 1"
+            "execute if entity @s[scores={temp=-1..0}] run particle minecraft:cloud ~ ~ ~ 0.1 0.1 0.1 0.001 5 force"
+            "execute if entity @s[scores={temp=1..}] anchored feet positioned ^ ^ ^0.1 run function mf:ice_step"
+            "execute if entity @s[scores={temp=-1}] if block ~ ~ ~ water run function mf:freeze"
+            |]
+        yield "freeze", [|
+            "summon armor_stand ~ ~ ~ {Invisible:1b,Marker:1b,NoGravity:1b,Tags:[Freezer]}"
+            "fill ~-2 ~ ~-2 ~2 ~ ~2 frosted_ice[age=0] replace water"
+            |]
+        yield "freeze_tick", [|
+            "scoreboard players add @s temp 1"
+            "execute if score @s temp matches 21 run fill ~-2 ~ ~-2 ~2 ~ ~2 frosted_ice[age=1] replace frosted_ice"
+            "execute if score @s temp matches 41 run fill ~-2 ~ ~-2 ~2 ~ ~2 frosted_ice[age=2] replace frosted_ice"
+            "execute if score @s temp matches 61 run fill ~-2 ~ ~-2 ~2 ~ ~2 frosted_ice[age=3] replace frosted_ice"
+            "execute if score @s temp matches 81 run fill ~-2 ~ ~-2 ~2 ~ ~2 water replace frosted_ice"
+            "execute if score @s temp matches 81 run kill @s"
+            |]
         |]
-    
     for ns,name,code in [for name,code in magic_fire_funcs do yield! compiler.Compile("mf",name,code)] do
         pack.WriteFunction(ns,name,code)
     for ns,name,code in compiler.GetCompilerLoadTick() do
@@ -762,7 +802,7 @@ let magic_fire_and_compass() =
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"mf:init"])
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"mf:tick"])
     pack.WriteBlocksTagsFileWithValues("mf","collisionless",[
-        for s in MC_Constants.collisionless_blocks do
+        for s in [yield! MC_Constants.collisionless_blocks; yield! MC_Constants.transparent_blocks] do
             if s.Contains(":") then 
                 yield s
             else
@@ -777,35 +817,38 @@ let various_items() =
     let funcs = [|
         yield "init", [|
             """give @p minecraft:diamond_sword{ench:[{id:16s,lvl:10s},{id:21s,lvl:4s},{id:22s,lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"}"}} 1"""
-            """give @p minecraft:leather_helmet{ench:[{id:0s,lvl:8s}],display:{color:6192150,Name:"{\"text\":\"Hero's Cap\"}"},HeroCap:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:10s}],display:{color:6192150,Name:"{\"text\":\"Hero's Tunic\"}"},HeroTunic:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:5s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"}"},FireTunic:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:5s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"}"},ZoraTunic:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_leggings{ench:[{id:0s,lvl:7s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1"""
-            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:6s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"}"},HeroBoots:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_helmet{ench:[{id:0s,lvl:5s}],display:{color:6192150,Name:"{\"text\":\"Hero's Cap\"}"},HeroCap:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:7s}],display:{color:6192150,Name:"{\"text\":\"Hero's Tunic\"}"},HeroTunic:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"}"},FireTunic:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"}"},ZoraTunic:1b,Unbreakable:1b} 1"""
+            """give @p minecraft:leather_leggings{ench:[{id:0s,lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1"""
+            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"}"},HeroBoots:1b,Unbreakable:1b} 1"""
             """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"}"},Flippers:1b,Unbreakable:1b} 1"""
             """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"}"},JumpBoots:1b,Unbreakable:1b} 1"""
             """give @p minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"}"}} 1"""
+            """give @p minecraft:shield{display:{Name:"{\"text\":\"Magic Shield\"}"},MagicShield:1b,Unbreakable:1b} 1"""
             "scoreboard objectives add levcooldown dummy"
-            "scoreboard objectives add replacepot dummy"  // replacing same tick gets client out of sync
+            "scoreboard objectives add replacepot dummy"  // replacing same tick gets client out of sync (even with waiting a tick, it fails in SMP, hm)
             |]
         yield "tick", [|
-            "execute as @a[nbt={Inventory:[{Slot:103b,tag:{HeroCap:1b}}]}] run effect give @s minecraft:strength 1 0"
-            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{HeroTunic:1b}}]}] run effect give @s minecraft:resistance 1 0"
-            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{FireTunic:1b}}]}] run effect give @s minecraft:fire_resistance 1 0"
-            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{ZoraTunic:1b}}]}] run effect give @s minecraft:water_breathing 1 0"
-            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{HeroBoots:1b}}]}] run effect give @s minecraft:speed 1 1"
-            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{Flippers:1b}}]}] run effect give @s minecraft:night_vision 1 0"
-            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{JumpBoots:1b}}]}] run effect give @s minecraft:jump_boost 1 1"
+            "execute as @a[nbt={Inventory:[{Slot:103b,tag:{HeroCap:1b}}]}] run effect give @s minecraft:strength 1 0 true"
+            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{HeroTunic:1b}}]}] run effect give @s minecraft:resistance 1 0 true"
+            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{FireTunic:1b}}]}] run effect give @s minecraft:fire_resistance 1 0 true"
+            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{ZoraTunic:1b}}]}] run effect give @s minecraft:water_breathing 1 0 true"
+            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{HeroBoots:1b}}]}] run effect give @s minecraft:speed 1 1 true"
+            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{Flippers:1b}}]}] run effect give @s minecraft:night_vision 1 0 true"
+            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{JumpBoots:1b}}]}] run effect give @s minecraft:jump_boost 1 1 true"
+            "execute as @a[nbt={Inventory:[{Slot:-106b,tag:{MagicShield:1b}}]}] run effect give @s minecraft:resistance 1 0 true"  // TODO stack with chestplate
             "execute as @a[nbt={ActiveEffects:[{Id:25b,Amplifier:1b}]}] run function hi:levitate"
+            "execute as @a[nbt={Inventory:[{Slot:102b,tag:{HeroTunic:1b}},{Slot:-106b,tag:{MagicShield:1b}}]}] run effect give @s minecraft:resistance 1 1 true"
             "scoreboard players remove @a levcooldown 1"
             |]
         yield "levitate", [|
             "effect clear @s minecraft:levitation"
-            "execute unless entity @s[scores={levcooldown=1..}] run effect give @s minecraft:levitation 2 0"
-            "execute unless entity @s[scores={levcooldown=1..}] run scoreboard players set @s levcooldown 81"
+            "execute unless entity @s[scores={levcooldown=1..}] run effect give @s minecraft:levitation 4 0 true"
+            "execute unless entity @s[scores={levcooldown=1..}] run scoreboard players set @s levcooldown 121"
             "scoreboard players set @s replacepot 1"
-            "$NTICKSLATER(1)"
+            "$NTICKSLATER(1)"  // TODO not helping in SMP
             "execute as @a[scores={replacepot=1}] run clear @s minecraft:glass_bottle 1"
             """execute as @a[scores={replacepot=1}] run give @s minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"}"}} 1"""
             "scoreboard players set @a replacepot 0"
@@ -817,56 +860,6 @@ let various_items() =
         pack.WriteFunction(ns,name,code)
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"hi:init"])
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"hi:tick"])
-    pack.SaveToDisk()
-
-let crystal_wand() =
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
-    let pack = new Utilities.DataPackArchive(world,"crystal_wand","crystal wand")
-    let compiler = new Compiler.Compiler('c','w',"cw",false)
-    let funcs = [|
-        yield "init", [|
-            "scoreboard objectives add temp dummy"  // used for 'found'
-            "scoreboard objectives add pe minecraft.used:minecraft.emerald_block"
-            // TODO fix
-            """give @p minecraft:golden_pickaxe{Unbreakable:1b,CanDestroy:[emerald_block],display:{Name:"{\"text\":\"Crystal Wand\"}"}}"""
-            """give @p minecraft:emerald_block{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"}"}}"""
-            |]
-        yield "tick", [|
-            // check for pickup
-            "scoreboard players set PICKUP temp 0"  // ensure summon at most one in multiplayer
-            "execute at @a as @e[type=armor_stand,tag=CrystalKey,distance=..7] at @s if block ~ ~ ~ air run function cw:pickup"
-            // check for placement
-            "execute as @a[scores={pe=1}] at @s positioned ^ ^ ^1 align xyz positioned ~0.5 ~ ~0.5 run function cw:find"
-            "scoreboard players set @a pe 0"
-            |]
-        yield "pickup", [|
-            """execute if score PICKUP temp matches 0 run summon item ~ ~ ~ {Item:{id:"minecraft:emerald_block",Count:1b,tag:{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"}"}}}}"""
-            "scoreboard players set PICKUP temp 1"
-            "kill @s"
-            |]
-        yield "find", [|
-            yield "scoreboard players set @s temp 0"  // found
-            for diff = 0 to 9 do  // look nearby first, increase radius until found
-                for x = -3 to 3 do
-                    for y = -3 to 3 do
-                        for z = -3 to 3 do
-                            if (abs x + abs y + abs z) = diff then
-                                yield sprintf "execute if score @s temp matches 0 if block ~%d ~%d ~%d emerald_block if block ~%d ~%d ~%d iron_block positioned ~%d ~%d ~%d run function cw:found" x y z x (y-1) z x y z
-            yield "execute if score @s temp matches 0 run say error did not find placed emerald"
-            |]
-        yield "found", [|
-            "scoreboard players set @s temp 1"
-            "execute if block ~ ~-2 ~ air run scoreboard players set @s temp 2"
-            "execute if score @s temp matches 2 run setblock ~ ~-2 ~ redstone_block"
-            """execute if score @s temp matches 1 run summon armor_stand ~ ~ ~ {NoGravity:1b,Marker:1b,Invisible:0b,Tags:[CrystalKey],CustomName:"{\"text\":\"Crystal Key\"}",CustomNameVisible:1b}"""
-            |]
-        |]
-    for ns,name,code in [for name,code in funcs do yield! compiler.Compile("cw",name,code)] do
-        pack.WriteFunction(ns,name,code)
-    for ns,name,code in compiler.GetCompilerLoadTick() do
-        pack.WriteFunction(ns,name,code)
-    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"cw:init"])
-    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"cw:tick"])
     pack.SaveToDisk()
 
 [<EntryPoint>]
@@ -898,13 +891,39 @@ let main argv =
     //test_json()
     //see_if_loot_tables_changed()
     //hover()
-    //hero_bow()
-    //tnt_bomb()
-    //magic_fire_and_compass()
+    hero_bow()
+    tnt_bomb()
+    magic_fire_and_compass()
     various_items()
-    //crystal_wand()
     //dump_context()
     ignore argv
     0
 
+(*
+
+done
+
+disable potion particles on armor
+levitation for 4s
+add glass/stained to transparent to fire charge
+remove debug output on fire charge, bow redstone changer (good behavior)
+fire charge - add lore: "right click to burn mob"
+compass lore: take me home
+bow lore: hates chiseled stone
+tnt: drop one of me
+magic shield, unbreaking, give resistance 1, adding banner
+keys don't need to be pickupabble, use end portal block, they'll get item
+ice wand that freezes on right click (gold hoe texture, 'zap that water')
+can we take the protection lvl on all the armor down? Pro 7 for Hero Armor, 4's for the other two chestplates, 5 for the helm and pants, and 4 for the boots. 
+stack resistance from shield and chestplate to resist 2
+
+todo
+
+(lev bottle still show empty)
+fire charge, animate and be like dispanesed fire charge?
+fire charge, way to set off redstone/tripwire?
+how to give items - cmd to give all  -  function hi:get_all_items
+
+
+*)
 
