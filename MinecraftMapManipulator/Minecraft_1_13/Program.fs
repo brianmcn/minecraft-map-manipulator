@@ -544,73 +544,9 @@ let see_if_loot_tables_changed() =
                     printfn "%s" (newJson.ToPrettyString(2,210))
                     newJson.FailOnDiff(oldJson)
 
+////////////////////////////////////////////////////////////
 
-let hover() =
-    let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
-    let pack = new Utilities.DataPackArchive(world,"hover_boots","hover boots")
-    let compiler = new Compiler.Compiler('h','b',"hb",false)
-    
-    let hover_funcs = [|
-        yield "init", [|
-            "scoreboard objectives add jump minecraft.custom:minecraft.jump"
-            "scoreboard objectives add inair dummy"
-            "scoreboard objectives add cooldown dummy"
-            "scoreboard objectives add temp dummy"
-            "scoreboard players set TWO temp 2"
-            "scoreboard objectives add state dummy"
-            |]
-        yield "tick", [|
-            "scoreboard players set @a[nbt={OnGround:1b},scores={state=..-1}] state 0"
-            "scoreboard players set @a[nbt={OnGround:1b},scores={state=1}] state -1"
-            "scoreboard players set @a[nbt={OnGround:1b},scores={state=2}] state -2"
-            "scoreboard players set @a[nbt={OnGround:0b},scores={state=0,jump=1}] state 1"
-            "scoreboard players set @a[nbt={OnGround:0b},scores={state=-1}] state 1"
-            "scoreboard players set @a[nbt={OnGround:0b},scores={state=-2}] state 2"
-            "execute as @a[nbt={OnGround:0b},scores={state=0,jump=0}] run function hb:begin"
-            "scoreboard players set @a jump 0"
-
-(*
-            """execute as @p run tellraw @a [{"score":{"name":"@s","objective":"jump"}},{"score":{"name":"@s","objective":"inair"}}]"""
-            "execute as @a[scores={inair=0,jump=0,cooldown=..0},nbt={OnGround:0b}] run function hb:begin"
-            "execute as @a[nbt={ActiveEffects:[{Id:25s,Amplifier:-1b}]}] at @s run particle cloud ~ ~-0.5 ~ 0.5 0 0.5 0.01 2 force"
-            "scoreboard players set @a[nbt={OnGround:0b}] inair 1"
-            "scoreboard players set @a[nbt={OnGround:1b}] inair 0"
-            "scoreboard players set @a jump 0"
-            "scoreboard players remove @a[nbt={OnGround:1b}] cooldown 1"
-            "scoreboard players operation @p temp = @p cooldown"
-            "scoreboard players operation @p temp %= TWO temp"
-            "execute as @p[scores={cooldown=1..,temp=0}] run function hb:levitate"
-            "execute as @p[scores={cooldown=1..,temp=1}] run function hb:slowfall"
-*)
-            |]
-        yield "begin", [|
-            "scoreboard players set @s state 2"
-            "say effect give @s levitation 2 255 true"
-            "scoreboard players set @s cooldown 140"
-            //"$NTICKSLATER(1)"
-            //"execute as @a[nbt={ActiveEffects:[{Id:25s,Amplifier:-1b}]}] at @s positioned ~ ~0.92 ~ align y run teleport @s ~ ~ ~"
-            |]
-(*
-        yield "slowfall", [|
-            "effect clear @s levitation"
-            "effect give @s slow_falling 1 1 true"
-            "scoreboard players remove @s cooldown 1"
-            |]
-        yield "levitate", [|
-            "effect clear @s slow_falling"
-            "effect give @s levitation 1 5 true"
-            "scoreboard players remove @s cooldown 1"
-            |]
-*)
-        |]
-    
-    for ns,name,code in [for name,code in hover_funcs do yield! compiler.Compile("hb",name,code)] do
-        pack.WriteFunction(ns,name,code)
-    for ns,name,code in compiler.GetCompilerLoadTick() do
-        pack.WriteFunction(ns,name,code)
-    pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"hb:init"])
-    pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"hb:tick"])
-    pack.SaveToDisk()
+let item_text_color = """,\"color\":\"yellow\"""+"\""
 
 let hero_bow() =
     let world = System.IO.Path.Combine(Utilities.MC_ROOT, "work")
@@ -619,7 +555,7 @@ let hero_bow() =
     let hero_bow_funcs = [|
         yield "init", [|
             "scoreboard objectives add temp dummy"
-            """give @p bow{ench:[{lvl:8s,id:48s}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"}",Lore:["hates chiseled stone"]}}"""
+            sprintf """give @p bow{ench:[{lvl:8s,id:48s}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"%s}",Lore:["hates chiseled stone"]}}""" item_text_color
             "scoreboard objectives add shoot minecraft.used:minecraft.bow"
             |]
         yield "tick", [|
@@ -662,7 +598,7 @@ let tnt_bomb() =
     let bomb_funcs = [|
         yield "init", [|
             "scoreboard objectives add temp dummy"
-            """give @p tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"}",Lore:["drop one of me"]}} 64"""
+            sprintf """give @p tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"%s}",Lore:["drop one of me"]}} 64""" item_text_color
             |]
         yield "tick", [|
             """execute at @a as @e[distance=..3,tag=!TNTBombItem,type=item,nbt={Item:{id:"minecraft:tnt",tag:{IsBomb:1b}}}] run tag @s add TNTBombItem"""
@@ -715,11 +651,13 @@ let magic_fire_and_compass() =
         yield "init", [|
             "scoreboard objectives add coas minecraft.used:minecraft.carrot_on_a_stick"
             "scoreboard objectives add temp dummy"
-            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"}",Lore:["right click to","burn a mob"]}} 1"""
-            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"}",Lore:["take me home"]}} 1"""
-            """give @p carrot_on_a_stick{Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"}",Lore:["zap that water"]}} 1"""
+            sprintf """give @p carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"%s}",Lore:["right click to","burn a mob"]}} 1""" item_text_color
+            sprintf """give @p carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"%s}",Lore:["take me home"]}} 1""" item_text_color
+            sprintf """give @p carrot_on_a_stick{Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"%s}",Lore:["zap that water"]}} 1""" item_text_color
             "scoreboard objectives add pe minecraft.used:minecraft.end_portal_frame"
-            """give @p minecraft:end_portal_frame{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"}"}}"""
+            sprintf """give @p minecraft:end_portal_frame{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"%s}"}}""" item_text_color
+            // hover boots
+            sprintf """give @p minecraft:leather_boots{display:{color:16701501,Name:"{\"text\":\"Hover Boots\"%s}"},HoverBoots:1b,Unbreakable:1b} 1""" item_text_color
             |]
         yield "tick", [|
             "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{MagicFire:1b}}}] at @s run function mf:fire"
@@ -731,6 +669,9 @@ let magic_fire_and_compass() =
             "scoreboard players set @a pe 0"
             // freezing
             "execute as @e[type=armor_stand,tag=Freezer] at @s run function mf:freeze_tick"
+            // hover boots
+            "execute as @a[nbt={OnGround:1b,Inventory:[{Slot:100b,tag:{HoverBoots:1b}}]}] at @s if block ~ ~-1 ~ #mf:airlike if block ~ ~-2 ~ #mf:airlike run effect give @s levitation 2 255 true"
+            "execute as @a[nbt={ActiveEffects:[{Id:25b,Amplifier:-1b}]}] at @s run particle cloud ~ ~-0.5 ~ 0.5 0 0.5 0.01 2 force"
             |]
         yield "find", [|
             yield "scoreboard players set @s temp 0"  // found
@@ -758,7 +699,7 @@ let magic_fire_and_compass() =
             //"particle minecraft:flame ~ ~ ~ 0.01 0.01 0.01 0.001 1 force"
             // TODO saying if my hitbox intersects his, i think?
             "execute positioned ^-0.5 ^ ^ if entity @e[type=!area_effect_cloud,type=!player,dx=0.01,dy=0.01,dz=0.01] run function mf:hit"
-            "execute unless block ~ ~ ~ #mf:collisionless run scoreboard players set @s temp -1"
+            "execute unless block ~ ~ ~ #mf:transparent_or_airlike run scoreboard players set @s temp -1"
             "scoreboard players remove @s[scores={temp=1..}] temp 1"
             "execute if entity @s[scores={temp=-1..0}] run particle minecraft:cloud ~ ~ ~ 0.1 0.1 0.1 0.001 5 force"
             "execute if entity @s[scores={temp=1..}] anchored feet positioned ^ ^ ^0.1 run function mf:step"
@@ -776,7 +717,7 @@ let magic_fire_and_compass() =
             "execute anchored eyes positioned ^ ^ ^0.2 run function mf:ice_step"
             |]
         yield "ice_step", [|
-            "execute unless block ~ ~ ~ #mf:collisionless run scoreboard players set @s temp -1"
+            "execute unless block ~ ~ ~ #mf:transparent_or_airlike run scoreboard players set @s temp -1"
             "scoreboard players remove @s[scores={temp=1..}] temp 1"
             "execute if entity @s[scores={temp=-1..0}] run particle minecraft:cloud ~ ~ ~ 0.1 0.1 0.1 0.001 5 force"
             "execute if entity @s[scores={temp=1..}] anchored feet positioned ^ ^ ^0.1 run function mf:ice_step"
@@ -801,8 +742,15 @@ let magic_fire_and_compass() =
         pack.WriteFunction(ns,name,code)
     pack.WriteFunctionTagsFileWithValues("minecraft","load",[compiler.LoadFullName;"mf:init"])
     pack.WriteFunctionTagsFileWithValues("minecraft","tick",[compiler.TickFullName;"mf:tick"])
-    pack.WriteBlocksTagsFileWithValues("mf","collisionless",[
-        for s in [yield! MC_Constants.collisionless_blocks; yield! MC_Constants.transparent_blocks] do
+    pack.WriteBlocksTagsFileWithValues("mf","airlike",[
+        for s in MC_Constants.collisionless_blocks do
+            if s.Contains(":") then 
+                yield s
+            else
+                yield "minecraft:"+s
+        ])
+    pack.WriteBlocksTagsFileWithValues("mf","transparent_or_airlike",[
+        for s in [yield "#mf:airlike"; yield! MC_Constants.transparent_blocks] do
             if s.Contains(":") then 
                 yield s
             else
@@ -816,17 +764,17 @@ let various_items() =
     let compiler = new Compiler.Compiler('h','i',"hi",false)
     let funcs = [|
         yield "init", [|
-            """give @p minecraft:diamond_sword{ench:[{id:16s,lvl:10s},{id:21s,lvl:4s},{id:22s,lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"}"}} 1"""
-            """give @p minecraft:leather_helmet{ench:[{id:0s,lvl:5s}],display:{color:6192150,Name:"{\"text\":\"Hero's Cap\"}"},HeroCap:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:7s}],display:{color:6192150,Name:"{\"text\":\"Hero's Tunic\"}"},HeroTunic:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"}"},FireTunic:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"}"},ZoraTunic:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_leggings{ench:[{id:0s,lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1"""
-            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"}"},HeroBoots:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"}"},Flippers:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"}"},JumpBoots:1b,Unbreakable:1b} 1"""
-            """give @p minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"}"}} 1"""
-            """give @p minecraft:shield{display:{Name:"{\"text\":\"Magic Shield\"}"},MagicShield:1b,Unbreakable:1b} 1"""
+            sprintf """give @p minecraft:diamond_sword{ench:[{id:16s,lvl:10s},{id:21s,lvl:4s},{id:22s,lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"%s}"}} 1""" item_text_color
+            sprintf """give @p minecraft:leather_helmet{ench:[{id:0s,lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Cap\"%s}"},HeroCap:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:7s}],display:{color:8439583,Name:"{\"text\":\"Hero's Tunic\"%s}"},HeroTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"%s}"},FireTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"%s}"},ZoraTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_leggings{ench:[{id:0s,lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"%s}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1""" item_text_color
+            sprintf """give @p minecraft:leather_boots{ench:[{id:0s,lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"%s}"},HeroBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"%s}"},Flippers:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"%s}"},JumpBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"%s}"}} 1""" item_text_color
+            sprintf """give @p minecraft:shield{display:{Name:"{\"text\":\"Magic Shield\"%s}"},MagicShield:1b,Unbreakable:1b} 1""" item_text_color
             "scoreboard objectives add levcooldown dummy"
             "scoreboard objectives add replacepot dummy"  // replacing same tick gets client out of sync (even with waiting a tick, it fails in SMP, hm)
             |]
@@ -890,7 +838,6 @@ let main argv =
     //show_biomes()
     //test_json()
     //see_if_loot_tables_changed()
-    //hover()
     hero_bow()
     tnt_bomb()
     magic_fire_and_compass()
@@ -916,6 +863,9 @@ keys don't need to be pickupabble, use end portal block, they'll get item
 ice wand that freezes on right click (gold hoe texture, 'zap that water')
 can we take the protection lvl on all the armor down? Pro 7 for Hero Armor, 4's for the other two chestplates, 5 for the helm and pants, and 4 for the boots. 
 stack resistance from shield and chestplate to resist 2
+green -> lime
+add hover boots
+item text names now bright yellow
 
 todo
 
