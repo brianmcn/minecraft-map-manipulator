@@ -279,3 +279,34 @@ let writeConfigOptionsFunctions(pack:DataPackArchive,ns,folder,configBook:Config
         |]
     for ns,name,code in funcs do
         pack.WriteFunction(ns,name,code)
+
+// binaryLookup("ma", "findPhi", "look", 7, 3, -180) 
+// looks at @e[tag=look] and binary searches 2^7 in steps of 3 at offset -180, so e.g. [-180..-178] and [-177..-175] are bottom buckets
+// cmf is a func of a value (like 173) that returns a command string to run if score was that value
+let binaryLookup(ns, prefix, objective, exp, k, offset, cmdf) =
+    let mutable n = 1
+    for _i = 1 to exp do
+        n <- n * 2
+    let functions = ResizeArray()
+    let makeName(lo,hi) = sprintf "%s/do%dto%d" prefix lo hi
+    let rec go(lo,hi) =
+        let name = makeName(lo,hi)
+        if hi-lo < k then
+            functions.Add(name,[|
+                for i = lo to hi do
+                    yield cmdf i
+                |])
+        else
+            let mid = (hi-lo)/2 + lo
+            let midn = mid+1
+            functions.Add(name,[|
+                yield sprintf "execute if entity @s[scores={%s=%d..%d}] run function %s:%s" objective lo mid ns (makeName(lo,mid))
+                yield sprintf "execute if entity @s[scores={%s=%d..%d}] run function %s:%s" objective midn hi ns (makeName(midn,hi))
+                |])
+            go(lo,mid)
+            go(midn,hi)
+    go(offset,offset+n*k)
+    functions.Add(prefix,[|
+        sprintf "function %s:%s" ns (makeName(offset,offset+n*k))
+        |])
+    functions
