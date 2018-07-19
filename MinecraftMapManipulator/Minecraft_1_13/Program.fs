@@ -559,19 +559,19 @@ let as_one_big_pack() =
             sprintf """give @p carrot_on_a_stick{Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"%s}",Lore:["zap that water"]}} 1""" item_text_color
             sprintf """give @p minecraft:bedrock{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"%s}"}}""" item_text_color
             sprintf """give @p minecraft:leather_boots{display:{color:16701501,Name:"{\"text\":\"Hover Boots\"%s}"},HoverBoots:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:diamond_sword{ench:[{id:16s,lvl:10s},{id:21s,lvl:4s},{id:22s,lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"%s}"}} 1""" item_text_color
-            sprintf """give @p minecraft:leather_helmet{ench:[{id:0s,lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Cap\"%s}"},HeroCap:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Tunic\"%s}"},HeroTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"%s}"},FireTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_chestplate{ench:[{id:0s,lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"%s}"},ZoraTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_leggings{ench:[{id:0s,lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"%s}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1""" item_text_color
-            sprintf """give @p minecraft:leather_boots{ench:[{id:0s,lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"%s}"},HeroBoots:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"%s}"},Flippers:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_boots{ench:[{id:0s,lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"%s}"},JumpBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:diamond_sword{Enchantments:[{id:"minecraft:sharpness",lvl:10s},{id:"minecraft:looting",lvl:4s},{id:"minecraft:sweeping",lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"%s}"}} 1""" item_text_color
+            sprintf """give @p minecraft:leather_helmet{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Cap\"%s}"},HeroCap:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Tunic\"%s}"},HeroTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"%s}"},FireTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"%s}"},ZoraTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_leggings{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"%s}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1""" item_text_color
+            sprintf """give @p minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"%s}"},HeroBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"%s}"},Flippers:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @p minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"%s}"},JumpBoots:1b,Unbreakable:1b} 1""" item_text_color
             sprintf """give @p minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"%s}"}} 1""" item_text_color
             sprintf """give @p minecraft:shield{display:{Name:"{\"text\":\"Magic Shield\"%s}"},MagicShield:1b,Unbreakable:1b} 1""" item_text_color
             sprintf """give @p tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"%s}",Lore:["drop one of me"]}} 64""" item_text_color
-            sprintf """give @p bow{ench:[{lvl:8s,id:48s}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"%s}",Lore:["hates chiseled stone"]}}""" item_text_color
+            sprintf """give @p bow{Enchantments:[{lvl:8s,id:"minecraft:power"}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"%s}",Lore:["hates chiseled stone"]}}""" item_text_color
             |]
         yield "init", [|
             "scoreboard objectives add coas minecraft.used:minecraft.carrot_on_a_stick"
@@ -694,7 +694,7 @@ let as_one_big_pack() =
             |]
         // crystal key
         yield "find_key", [|
-            yield "say finding"
+            //yield "say finding"
             yield "scoreboard players set @s temp 0"  // found
             for diff = 0 to 9 do  // look nearby first, increase radius until found
                 for x = -3 to 3 do
@@ -702,14 +702,14 @@ let as_one_big_pack() =
                         for z = -3 to 3 do
                             if (abs x + abs y + abs z) = diff then
                                 yield sprintf "execute if score @s temp matches 0 if block ~%d ~%d ~%d bedrock if block ~%d ~%d ~%d iron_block positioned ~%d ~%d ~%d run function zi:found" x y z x (y-1) z x y z
-            yield "execute if score @s temp matches 0 run say error did not find placed bedrock"
+            //yield "execute if score @s temp matches 0 run say error did not find placed bedrock"
             |]
         yield "found", [|
             "say found"
             "scoreboard players set @s temp 1"
             "execute if block ~ ~-2 ~ air run scoreboard players set @s temp 2"  // TODO cave_air?
             "execute if score @s temp matches 2 run setblock ~ ~-2 ~ redstone_block"
-            "execute if score @s temp matches 1 run say error was no air to replace redstone with under iron_block"
+            //"execute if score @s temp matches 1 run say error was no air to replace redstone with under iron_block"
             |]
         // magic fire
         yield "fire", [|

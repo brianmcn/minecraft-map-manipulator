@@ -58,6 +58,7 @@ let PROFILE = false            // turn on to log how many commands (lines) run e
 
 // TODO refactor utility modules into a separate datapack? prng, arrow to X, warp-home/back, ...?
 
+// TODO 30s of depth strider 3 as default, to deal with ocean start?
 
 
 let NS = "test"

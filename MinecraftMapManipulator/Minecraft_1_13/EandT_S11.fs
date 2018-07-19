@@ -1,6 +1,17 @@
 ﻿module EandT_S11
 
 (*
+
+qfe would work, but needs lots of item updates, and the warppoints
+warppoints should work (test), but how to give to player (loottables?)
+TC and VM should work (test), but how to give to player (loottables?)
+quickstack is inefficient, can live without
+recipes are dead
+throwable light is mostly dead
+
+
+
+
 =========
 E&T ideas
 =========
@@ -91,6 +102,10 @@ from old swirl notes:
 *)
 
 open Recipes
+
+// TODO cool blood-moon idea: https://www.reddit.com/r/MinecraftCommands/comments/8nasxo/red_moon_blue_moon_datapack/
+
+// TODO stage them out, so not all is revealed at once (e.g. later dungeons have different color command blocks, and later colors unlock the teleporter, etc)
 
 let PK_Enderchest(outsideItem,insideItem) =
     PatternKey([|"XXX";"XOX";"XXX"|],[|'X',MC(outsideItem); 'O',MC(insideItem)|])
