@@ -554,24 +554,24 @@ let as_one_big_pack() =
     let compiler = new Compiler.Compiler('z','i',"zi",false)
     let all_funcs = [|
         yield "get_all", [|
-            sprintf """give @s carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"%s}",Lore:["right click to","burn a mob"]}} 1""" item_text_color
-            sprintf """give @s carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"%s}",Lore:["take me home"]}} 1""" item_text_color
-            sprintf """give @s carrot_on_a_stick{Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"%s}",Lore:["zap that water"]}} 1""" item_text_color
+            sprintf """give @s carrot_on_a_stick{RepairCost:99999,Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"%s}",Lore:["right click to","burn a mob"]}} 1""" item_text_color
+            sprintf """give @s carrot_on_a_stick{RepairCost:99999,Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"%s}",Lore:["take me home"]}} 1""" item_text_color
+            sprintf """give @s carrot_on_a_stick{RepairCost:99999,Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"%s}",Lore:["zap that water"]}} 1""" item_text_color
             sprintf """give @s minecraft:bedrock{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"%s}"}}""" item_text_color
-            sprintf """give @s minecraft:leather_boots{display:{color:16701501,Name:"{\"text\":\"Hover Boots\"%s}"},HoverBoots:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @s minecraft:diamond_sword{Enchantments:[{id:"minecraft:sharpness",lvl:10s},{id:"minecraft:looting",lvl:4s},{id:"minecraft:sweeping",lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"%s}"}} 1""" item_text_color
-            sprintf """give @s minecraft:leather_helmet{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Cap\"%s}"},HeroCap:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @s minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Tunic\"%s}"},HeroTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @s minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"%s}"},FireTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @s minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"%s}"},ZoraTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @s minecraft:leather_leggings{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"%s}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1""" item_text_color
-            sprintf """give @s minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"%s}"},HeroBoots:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @s minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s},{id:"minecraft:depth_strider",lvl:1s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"%s}"},Flippers:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @s minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"%s}"},JumpBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_boots{RepairCost:99999,display:{color:16701501,Name:"{\"text\":\"Hover Boots\"%s}"},HoverBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:diamond_sword{RepairCost:99999,Enchantments:[{id:"minecraft:sharpness",lvl:10s},{id:"minecraft:looting",lvl:4s},{id:"minecraft:sweeping",lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"%s}"}} 1""" item_text_color
+            sprintf """give @s minecraft:leather_helmet{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Cap\"%s}"},HeroCap:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_chestplate{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Tunic\"%s}"},HeroTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_chestplate{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"%s}"},FireTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_chestplate{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"%s}"},ZoraTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_leggings{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"%s}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1""" item_text_color
+            sprintf """give @s minecraft:leather_boots{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"%s}"},HeroBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_boots{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:3s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"%s}"},Flippers:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_boots{RepairCost:99999,Enchantments:[{id:"minecraft:protection",lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"%s}"},JumpBoots:1b,Unbreakable:1b} 1""" item_text_color
             sprintf """give @s minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"%s}"}} 1""" item_text_color
-            sprintf """give @s minecraft:shield{display:{Name:"{\"text\":\"Magic Shield\"%s}"},MagicShield:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:shield{RepairCost:99999,display:{Name:"{\"text\":\"Magic Shield\"%s}"},MagicShield:1b,Unbreakable:1b} 1""" item_text_color
             sprintf """give @s tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"%s}",Lore:["drop one of me"]}} 64""" item_text_color
-            sprintf """give @s bow{Enchantments:[{lvl:8s,id:"minecraft:power"}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"%s}",Lore:["hates chiseled stone"]}}""" item_text_color
+            sprintf """give @s bow{RepairCost:99999,Enchantments:[{lvl:8s,id:"minecraft:power"}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"%s}",Lore:["hates chiseled stone"]}}""" item_text_color
             |]
         yield "init", [|
             "scoreboard objectives add coas minecraft.used:minecraft.carrot_on_a_stick"
