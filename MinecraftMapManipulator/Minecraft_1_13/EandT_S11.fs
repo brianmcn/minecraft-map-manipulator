@@ -87,6 +87,10 @@ could possibly make wood/stone tools buildable without workbench, and make craft
 
 could make shovels a separate unlockable? flint/glass/tnt become harder...
 
+todo armor tech progression? https://www.reddit.com/r/Minecraft/comments/905sce/banisheds_comprehensive_suggestion_for_a_fair/ 
+
+shortcut recipes: https://imgur.com/a/05ZY08g
+
 from old swirl notes:
 	tech tree: no early pickaxe? f&s rather than sword/axe? no torch recipe? villagers sell 3 choice of recipe? late bow/shield? early tnt? what foods? armor logic?
 	recipes: iron nuggets on tip stone pick -> weak iron pick, can mine gold; iron/gold ore smelt furance -> nuggets; iron/gold nuggets in recipe for chain mail

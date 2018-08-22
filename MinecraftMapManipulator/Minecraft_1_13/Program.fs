@@ -554,24 +554,24 @@ let as_one_big_pack() =
     let compiler = new Compiler.Compiler('z','i',"zi",false)
     let all_funcs = [|
         yield "get_all", [|
-            sprintf """give @p carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"%s}",Lore:["right click to","burn a mob"]}} 1""" item_text_color
-            sprintf """give @p carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"%s}",Lore:["take me home"]}} 1""" item_text_color
-            sprintf """give @p carrot_on_a_stick{Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"%s}",Lore:["zap that water"]}} 1""" item_text_color
-            sprintf """give @p minecraft:bedrock{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"%s}"}}""" item_text_color
-            sprintf """give @p minecraft:leather_boots{display:{color:16701501,Name:"{\"text\":\"Hover Boots\"%s}"},HoverBoots:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:diamond_sword{Enchantments:[{id:"minecraft:sharpness",lvl:10s},{id:"minecraft:looting",lvl:4s},{id:"minecraft:sweeping",lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"%s}"}} 1""" item_text_color
-            sprintf """give @p minecraft:leather_helmet{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Cap\"%s}"},HeroCap:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Tunic\"%s}"},HeroTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"%s}"},FireTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"%s}"},ZoraTunic:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_leggings{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"%s}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1""" item_text_color
-            sprintf """give @p minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"%s}"},HeroBoots:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s},{id:8s,lvl:6s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"%s}"},Flippers:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"%s}"},JumpBoots:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"%s}"}} 1""" item_text_color
-            sprintf """give @p minecraft:shield{display:{Name:"{\"text\":\"Magic Shield\"%s}"},MagicShield:1b,Unbreakable:1b} 1""" item_text_color
-            sprintf """give @p tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"%s}",Lore:["drop one of me"]}} 64""" item_text_color
-            sprintf """give @p bow{Enchantments:[{lvl:8s,id:"minecraft:power"}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"%s}",Lore:["hates chiseled stone"]}}""" item_text_color
+            sprintf """give @s carrot_on_a_stick{Unbreakable:1b,Damage:1,MagicFire:1b,display:{Name:"{\"text\":\"Magic Fire\"%s}",Lore:["right click to","burn a mob"]}} 1""" item_text_color
+            sprintf """give @s carrot_on_a_stick{Unbreakable:1b,Damage:2,CompassLost:1b,display:{Name:"{\"text\":\"Compass of the Lost\"%s}",Lore:["take me home"]}} 1""" item_text_color
+            sprintf """give @s carrot_on_a_stick{Unbreakable:1b,Damage:3,IceWand:1b,display:{Name:"{\"text\":\"Ice Wand\"%s}",Lore:["zap that water"]}} 1""" item_text_color
+            sprintf """give @s minecraft:bedrock{CanPlaceOn:[iron_block],display:{Name:"{\"text\":\"Crystal Key\"%s}"}}""" item_text_color
+            sprintf """give @s minecraft:leather_boots{display:{color:16701501,Name:"{\"text\":\"Hover Boots\"%s}"},HoverBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:diamond_sword{Enchantments:[{id:"minecraft:sharpness",lvl:10s},{id:"minecraft:looting",lvl:4s},{id:"minecraft:sweeping",lvl:6s}],Unbreakable:1b,display:{Name:"{\"text\":\"Master Sword\"%s}"}} 1""" item_text_color
+            sprintf """give @s minecraft:leather_helmet{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Cap\"%s}"},HeroCap:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:8439583,Name:"{\"text\":\"Hero's Tunic\"%s}"},HeroTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:11546150,Name:"{\"text\":\"Fire Tunic\"%s}"},FireTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_chestplate{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:3949738,Name:"{\"text\":\"Zora's Tunic\"%s}"},ZoraTunic:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_leggings{Enchantments:[{id:"minecraft:protection",lvl:5s}],display:{color:16383998,Name:"{\"text\":\"Hero's Leggings\"%s}"},Unbreakable:1b,AttributeModifiers:[{AttributeName:"generic.knockbackResistance",Name:"generic.knockbackResistance",Amount:1,Operation:0,Slot:"legs",UUIDMost:82829,UUIDLeast:167220}]} 1""" item_text_color
+            sprintf """give @s minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:4s}],display:{color:8606770,Name:"{\"text\":\"Hero's Boots\"%s}"},HeroBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s},{id:"minecraft:depth_strider",lvl:1s}],display:{color:3847130,Name:"{\"text\":\"Flippers\"%s}"},Flippers:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:leather_boots{Enchantments:[{id:"minecraft:protection",lvl:3s}],display:{color:16351261,Name:"{\"text\":\"Jumping Boots\"%s}"},JumpBoots:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s minecraft:potion{CustomPotionEffects:[{Id:25b,Amplifier:1b,Duration:2}],display:{Name:"{\"text\":\"Potion of Levitation\"%s}"}} 1""" item_text_color
+            sprintf """give @s minecraft:shield{display:{Name:"{\"text\":\"Magic Shield\"%s}"},MagicShield:1b,Unbreakable:1b} 1""" item_text_color
+            sprintf """give @s tnt{IsBomb:1b,display:{Name:"{\"text\":\"Bomb\"%s}",Lore:["drop one of me"]}} 64""" item_text_color
+            sprintf """give @s bow{Enchantments:[{lvl:8s,id:"minecraft:power"}],Unbreakable:1b,HeroBow:1b,display:{Name:"{\"text\":\"Hero\\u0027s Bow\"%s}",Lore:["hates chiseled stone"]}}""" item_text_color
             |]
         yield "init", [|
             "scoreboard objectives add coas minecraft.used:minecraft.carrot_on_a_stick"
@@ -581,11 +581,12 @@ let as_one_big_pack() =
             "scoreboard objectives add shoot minecraft.used:minecraft.bow"
             "scoreboard objectives add hover dummy"
             "scoreboard objectives add hover_y dummy"
+            "scoreboard objectives add hunger dummy"
             |]
         yield "tick", [|
             // carrot on stick right-clickers
             "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{MagicFire:1b}}}] at @s run function zi:fire"
-            "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{CompassLost:1b}}}] at @s run teleport @s 100 100 100"
+            "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{CompassLost:1b}}}] at @s run function zi:compass_tp"
             "execute as @a[scores={coas=1},nbt={SelectedItem:{tag:{IceWand:1b}}}] at @s run function zi:ice"
             "scoreboard players set @a coas 0"
             // check for placement
@@ -604,6 +605,7 @@ let as_one_big_pack() =
             "execute as @a[nbt={Inventory:[{Slot:102b,tag:{ZoraTunic:1b}}]}] run effect give @s minecraft:water_breathing 1 0 true"
             "execute as @a[nbt={Inventory:[{Slot:100b,tag:{HeroBoots:1b}}]}] run effect give @s minecraft:speed 1 1 true"
             "execute as @a[nbt={Inventory:[{Slot:100b,tag:{Flippers:1b}}]}] run effect give @s minecraft:night_vision 1 0 true"
+            "execute as @a[nbt={Inventory:[{Slot:100b,tag:{Flippers:1b}}]}] run effect give @s minecraft:dolphins_grace 1 0 true"
             "execute as @a[nbt={Inventory:[{Slot:100b,tag:{JumpBoots:1b}}]}] run effect give @s minecraft:jump_boost 1 1 true"
             "execute as @a[nbt={Inventory:[{Slot:-106b,tag:{MagicShield:1b}}]}] run effect give @s minecraft:resistance 1 0 true"
             // stacking resistance
@@ -624,6 +626,12 @@ let as_one_big_pack() =
             "execute as @e[type=armor_stand,tag=HeroArrowAS,scores={temp=201}] at @s run function zi:finish_wool"
             "scoreboard players set @a shoot 0"
             |]
+        // compass
+        yield "compass_tp", [|
+            "execute store result score @s hunger run data get entity @s foodLevel 1.0"
+            "execute if entity @s[scores={hunger=20..}] run teleport @s 100 100 100"
+            """execute if entity @s[scores={hunger=..19}] run tellraw @s ["too hungry to use this magic"]"""
+        |]
         // hover boots
         yield "start_hover", [|
             "scoreboard players set @s hover 40"
@@ -637,13 +645,13 @@ let as_one_big_pack() =
         // hero bow
         yield "proc_arrow", [|
             "tag @s remove HeroArrow"
-            "summon armor_stand ~ ~ ~ {Invisible:1b,Invulnerable:1b,Marker:1b,Tags:[HeroArrowAS]}"
+            "summon armor_stand ~ ~ ~ {Invisible:1b,Invulnerable:1b,NoGravity:1b,Marker:1b,Tags:[HeroArrowAS]}"
             |]
         yield "find_wool", [|
             for x = -5 to 5 do
                 for y = -5 to 5 do
                     for z = -5 to 5 do
-                        yield sprintf "execute positioned ~%d ~%d ~%d if block ~ ~ ~ minecraft:red_wool run summon armor_stand ~ ~ ~ {Invisible:1b,Invulnerable:1b,Marker:1b,Tags:[RedWoolAS]}" x y z
+                        yield sprintf "execute positioned ~%d ~%d ~%d if block ~ ~ ~ minecraft:red_wool run summon armor_stand ~ ~ ~ {Invisible:1b,Invulnerable:1b,NoGravity:1b,Marker:1b,Tags:[RedWoolAS]}" x y z
             yield "execute at @e[type=armor_stand,tag=RedWoolAS,distance=..9] run setblock ~ ~ ~ redstone_block"
             |]
         yield "finish_wool", [|
@@ -705,7 +713,7 @@ let as_one_big_pack() =
             //yield "execute if score @s temp matches 0 run say error did not find placed bedrock"
             |]
         yield "found", [|
-            "say found"
+            //"say found"
             "scoreboard players set @s temp 1"
             "execute if block ~ ~-2 ~ air run scoreboard players set @s temp 2"  // TODO cave_air?
             "execute if score @s temp matches 2 run setblock ~ ~-2 ~ redstone_block"
@@ -713,6 +721,12 @@ let as_one_big_pack() =
             |]
         // magic fire
         yield "fire", [|
+            "execute store result score @s hunger run data get entity @s foodLevel 1.0"
+            "execute if entity @s[scores={hunger=4..}] run function zi:fire_begin"
+            """execute if entity @s[scores={hunger=..3}] run tellraw @s ["too hungry to use this magic"]"""
+            |]
+        yield "fire_begin", [|
+            "effect give @s minecraft:hunger 1 160"
             "scoreboard players set @s temp 200"
             "execute anchored eyes positioned ^ ^ ^0.2 run function zi:step"
             //"execute if entity @s[scores={temp=-1}] run say hit non-air"
@@ -737,6 +751,12 @@ let as_one_big_pack() =
             |]
         // ice wand
         yield "ice", [|
+            "execute store result score @s hunger run data get entity @s foodLevel 1.0"
+            "execute if entity @s[scores={hunger=4..}] run function zi:ice_begin"
+            """execute if entity @s[scores={hunger=..3}] run tellraw @s ["too hungry to use this magic"]"""
+            |]
+        yield "ice_begin", [|
+            "effect give @s minecraft:hunger 1 160"
             "scoreboard players set @s temp 200"
             "execute anchored eyes positioned ^ ^ ^0.2 run function zi:ice_step"
             |]
@@ -783,6 +803,8 @@ let as_one_big_pack() =
     pack.SaveToDisk()
 
 
+
+// todo consider https://twitter.com/Cronikeys/status/1019828161507418112  and remaking pre-generator
 
 [<EntryPoint>]
 let main argv = 
