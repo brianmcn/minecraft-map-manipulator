@@ -11,6 +11,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSServerLogic", "FSServerLo
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Minecraft_1_13", "Minecraft_1_13\Minecraft_1_13.fsproj", "{62D48867-8E1A-45A1-93F8-011928EA7986}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Minecraft_1_16", "Minecraft_1_16\Minecraft_1_16.fsproj", "{BAD6955E-BB83-4A90-B03F-A9A7F34FFC3C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{62D48867-8E1A-45A1-93F8-011928EA7986}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{62D48867-8E1A-45A1-93F8-011928EA7986}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{62D48867-8E1A-45A1-93F8-011928EA7986}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAD6955E-BB83-4A90-B03F-A9A7F34FFC3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAD6955E-BB83-4A90-B03F-A9A7F34FFC3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAD6955E-BB83-4A90-B03F-A9A7F34FFC3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAD6955E-BB83-4A90-B03F-A9A7F34FFC3C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
