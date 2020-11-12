@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IO_Utilities.fs" />
+    <Compile Include="PiggyBag.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <PropertyGroup>
