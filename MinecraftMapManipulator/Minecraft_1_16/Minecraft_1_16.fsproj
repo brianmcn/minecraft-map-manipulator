@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="IO_Utilities.fs" />
     <Compile Include="PiggyBag.fs" />
+    <Compile Include="QuickStack.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <PropertyGroup>

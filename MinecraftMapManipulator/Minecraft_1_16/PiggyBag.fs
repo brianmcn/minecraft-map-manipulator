@@ -4,7 +4,7 @@ open IO_Utilities
 
 let NS = "lorgon111"
 
-let makePiggyBag() =
+let makePiggyBag() =   // Note: multi-player is just too tough/tedious/expensive to implement
 
     let pack = new DataPackArchive("""C:\Users\Admin1\AppData\Roaming\.minecraft\saves\test2""", "piggy_bag", "Piggy Bag by Dr. Brian Lorgon111")
 
@@ -68,9 +68,7 @@ let makePiggyBag() =
         """data modify entity @e[type=chest_minecart,limit=1,sort=nearest,tag=piggybag] Items set from storage lorgon111:inv Inv"""
         |])
 
-    // TODO tags/items/log
-
-    // TODO minecraft/recipes
+    // TODO other stuff from minecraft/recipes and tags/items/log? or in a separate pack?
 
     pack.WriteFunctionTagsFileWithValues("minecraft", "tick", ["""lorgon111:master"""])
 
